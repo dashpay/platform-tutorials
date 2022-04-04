@@ -1,0 +1,26 @@
+{
+  "name": "platform-readme-tutorials",
+  "version": "0.1.0",
+  "description": "Tutorial code for dashplatform.readme.io",
+  "main": "connect.js",
+  "scripts": {
+    "test": "echo \"Error: no test specified\" && exit 1"
+  },
+  "repository": {
+    "type": "git",
+    "url": "git+https://github.com/dashevo/platform-readme-tutorials.git"
+  },
+  "author": "thephez",
+  "license": "MIT",
+  "bugs": {
+    "url": "https://github.com/dashevo/platform-readme-tutorials/issues"
+  },
+  "homepage": "https://github.com/dashevo/platform-readme-tutorials#readme",
+  "dependencies": {
+    "dash": "^3.22.1"
+  },
+  "devDependencies": {
+    "dotenv": "^16.0.0",
+    "eslint": "^8.11.0"
+  }  
+}
