@@ -17,10 +17,10 @@
   },
   "homepage": "https://github.com/dashevo/platform-readme-tutorials#readme",
   "dependencies": {
-    "dash": "^3.22.1"
+    "dash": "^3.22.7"
   },
   "devDependencies": {
     "dotenv": "^16.0.0",
     "eslint": "^8.11.0"
-  }  
+  }
 }
