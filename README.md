@@ -1,5 +1,7 @@
 # platform-readme-tutorials
 
+[![SDK Version](https://img.shields.io/github/package-json/dependency-version/dashevo/platform-readme-tutorials/dash)](https://github.com/dashevo/platform-readme-tutorials/blob/main/package.json)
+
 Code for the tutorials found on the [Platform documentation site](https://dashplatform.readme.io/).
 
 ## Install
