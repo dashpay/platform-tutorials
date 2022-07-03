@@ -1,6 +1,6 @@
 // See https://dashplatform.readme.io/docs/tutorial-register-a-data-contract
-const Dash = require('dash');
-const dotenv = require('dotenv');
+const Dash = require("dash");
+const dotenv = require("dotenv");
 dotenv.config();
 
 const clientOpts = {
@@ -19,10 +19,10 @@ const registerContract = async () => {
 
   const contractDocuments = {
     note: {
-      type: 'object',
+      type: "object",
       properties: {
         message: {
-          type: 'string',
+          type: "string",
         },
       },
       additionalProperties: false,
@@ -37,7 +37,7 @@ const registerContract = async () => {
   const validationResult = await platform.dpp.dataContract.validate(contract);
 
   if (validationResult.isValid()) {
-    console.log('Validation passed, broadcasting contract..');
+    console.log("Validation passed, broadcasting contract..");
     // Sign and submit the data contract
     return platform.contracts.publish(contract, identity);
   }
@@ -46,6 +46,6 @@ const registerContract = async () => {
 };
 
 registerContract()
-  .then((d) => console.log('Contract registered:\n', d.toJSON()))
-  .catch((e) => console.error('Something went wrong:\n', e))
+  .then((d) => console.log("Contract registered:\n", d.toJSON()))
+  .catch((e) => console.error("Something went wrong:\n", e))
   .finally(() => client.disconnect());

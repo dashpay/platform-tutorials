@@ -1,6 +1,6 @@
 // See https://dashplatform.readme.io/docs/tutorial-delete-documents
-const Dash = require('dash');
-const dotenv = require('dotenv');
+const Dash = require("dash");
+const dotenv = require("dotenv");
 dotenv.config();
 
 const clientOpts = {
@@ -25,8 +25,8 @@ const deleteNoteDocument = async () => {
 
   // Retrieve the existing document
   const [document] = await client.platform.documents.get(
-    'tutorialContract.note',
-    { where: [['$id', '==', documentId]] },
+    "tutorialContract.note",
+    { where: [["$id", "==", documentId]] },
   );
 
   // Sign and submit the document delete transition
@@ -34,6 +34,6 @@ const deleteNoteDocument = async () => {
 };
 
 deleteNoteDocument()
-  .then((d) => console.log('Document deleted:\n', d))
-  .catch((e) => console.error('Something went wrong:\n', e))
+  .then((d) => console.log("Document deleted:\n", d))
+  .catch((e) => console.error("Something went wrong:\n", e))
   .finally(() => client.disconnect());

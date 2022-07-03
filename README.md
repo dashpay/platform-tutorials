@@ -2,15 +2,17 @@
 
 [![SDK Version](https://img.shields.io/github/package-json/dependency-version/dashevo/platform-readme-tutorials/dash)](https://github.com/dashevo/platform-readme-tutorials/blob/main/package.json)
 
-Code for the tutorials found on the [Platform documentation site](https://dashplatform.readme.io/).
+Code for the tutorials found on the
+[Platform documentation site](https://dashplatform.readme.io/).
 
 ## Install
 
-Note: [NodeJS](https://nodejs.org/en/download/) (v12+) must be installed to run the tutorial code.
+Note: [NodeJS](https://nodejs.org/en/download/) (v12+) must be installed to run
+the tutorial code.
 
 ### Clone this repository
 
-``` shell
+```shell
 git clone https://github.com/dashevo/platform-readme-tutorials.git
 ```
 
@@ -18,7 +20,7 @@ git clone https://github.com/dashevo/platform-readme-tutorials.git
 
 Do a clean install of project dependencies:
 
-``` shell
+```shell
 npm ci
 ```
 
@@ -26,15 +28,16 @@ npm ci
 
 1. Check connection: `node connect.js`
 1. Create wallet: `node create-wallet.js`
-1. Go to the [Testnet faucet](https://testnet-faucet.dash.org/) and add funds to the address
-   reported in the previous step
-1. Create an `.env` file (See [`.env.example`](./.env.example) for an example `.env` file). Set
-   `MNEMONIC` to the wallet mnemonic from step 2.
+1. Go to the [Testnet faucet](https://testnet-faucet.dash.org/) and add funds to
+   the address reported in the previous step
+1. Create an `.env` file (See [`.env.example`](./.env.example) for an example
+   `.env` file). Set `MNEMONIC` to the wallet mnemonic from step 2.
 
-Proceed with the tutorials [Identities and Names tutorials](./1-Identities-and-Names/) first and the
-[Contracts And Documents tutorials](./2-Contracts-and-Documents/) next. They align with the
-tutorials section found on the [documentation
-site](https://dashplatform.readme.io/docs/tutorials-introduction).
+Proceed with the tutorials
+[Identities and Names tutorials](./1-Identities-and-Names/) first and the
+[Contracts And Documents tutorials](./2-Contracts-and-Documents/) next. They
+align with the tutorials section found on the
+[documentation site](https://dashplatform.readme.io/docs/tutorials-introduction).
 
 ## Contributing
 

@@ -1,10 +1,10 @@
 // See https://dashplatform.readme.io/docs/tutorial-register-an-identity
-const Dash = require('dash');
-const dotenv = require('dotenv');
+const Dash = require("dash");
+const dotenv = require("dotenv");
 dotenv.config();
 
 const clientOpts = {
-  network: 'testnet',
+  network: "testnet",
   wallet: {
     mnemonic: process.env.MNEMONIC, // A Dash wallet mnemonic with testnet funds
     unsafeOptions: {
@@ -19,6 +19,6 @@ const createIdentity = async () => {
 };
 
 createIdentity()
-  .then((d) => console.log('Identity:\n', d.toJSON()))
-  .catch((e) => console.error('Something went wrong:\n', e))
+  .then((d) => console.log("Identity:\n", d.toJSON()))
+  .catch((e) => console.error("Something went wrong:\n", e))
   .finally(() => client.disconnect());

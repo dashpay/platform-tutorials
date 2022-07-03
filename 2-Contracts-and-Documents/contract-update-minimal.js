@@ -1,6 +1,6 @@
 // See https://dashplatform.readme.io/docs/tutorial-update-documents
-const Dash = require('dash');
-const dotenv = require('dotenv');
+const Dash = require("dash");
+const dotenv = require("dotenv");
 dotenv.config();
 
 const clientOpts = {
@@ -17,21 +17,25 @@ const updateContract = async () => {
   const { platform } = client;
   const identity = await platform.identities.get(process.env.IDENTITY_ID); // Your identity ID
 
-  const existingDataContract = await platform.contracts.get(process.env.CONTRACT_ID);
+  const existingDataContract = await platform.contracts.get(
+    process.env.CONTRACT_ID,
+  );
   const documents = existingDataContract.getDocuments();
 
   documents.note.properties.author = {
-    type: 'string',
+    type: "string",
   };
 
   existingDataContract.setDocuments(documents);
-    
+
   // Make sure contract passes validation checks
   await platform.dpp.initialize();
-  const validationResult = await platform.dpp.dataContract.validate(existingDataContract);
+  const validationResult = await platform.dpp.dataContract.validate(
+    existingDataContract,
+  );
 
   if (validationResult.isValid()) {
-    console.log('Validation passed, broadcasting contract..');
+    console.log("Validation passed, broadcasting contract..");
     // Sign and submit the data contract
     return platform.contracts.update(existingDataContract, identity);
   }
@@ -40,6 +44,6 @@ const updateContract = async () => {
 };
 
 updateContract()
-  .then((d) => console.log('Contract updated:\n', d.toJSON()))
-  .catch((e) => console.error('Something went wrong:\n', e))
+  .then((d) => console.log("Contract updated:\n", d.toJSON()))
+  .catch((e) => console.error("Something went wrong:\n", e))
   .finally(() => client.disconnect());
