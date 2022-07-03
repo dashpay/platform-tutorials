@@ -3,7 +3,7 @@ const Dash = require('dash');
 const dotenv = require('dotenv');
 dotenv.config();
 
-const clientOpts = {
+const dapiOpts = {
   wallet: {
     mnemonic: process.env.MNEMONIC, // A Dash wallet mnemonic with testnet funds
     unsafeOptions: {
@@ -11,10 +11,10 @@ const clientOpts = {
     },
   },
 };
-const client = new Dash.Client(clientOpts);
+const dapi = new Dash.Client(dapiOpts);
 
 const updateContract = async () => {
-  const { platform } = client;
+  const { platform } = dapi;
   const identity = await platform.identities.get(process.env.IDENTITY_ID); // Your identity ID
 
   const existingDataContract = await platform.contracts.get(process.env.CONTRACT_ID);
@@ -42,4 +42,4 @@ const updateContract = async () => {
 updateContract()
   .then((d) => console.log('Contract updated:\n', d.toJSON()))
   .catch((e) => console.error('Something went wrong:\n', e))
-  .finally(() => client.disconnect());
+  .finally(() => dapi.disconnect());

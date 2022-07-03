@@ -5,7 +5,7 @@ dotenv.config();
 
 const nameToRegister = ''; // Enter name to register
 
-const clientOpts = {
+const dapiOpts = {
   wallet: {
     mnemonic: process.env.MNEMONIC,  // A Dash wallet mnemonic with testnet funds
     unsafeOptions: {
@@ -13,10 +13,10 @@ const clientOpts = {
     },
   },
 };
-const client = new Dash.Client(clientOpts);
+const dapi = new Dash.Client(dapiOpts);
 
 const registerName = async () => {
-  const { platform } = client;
+  const { platform } = dapi;
 
   const identity = await platform.identities.get(process.env.IDENTITY_ID); // Your identity ID
   const nameRegistration = await platform.names.register(
@@ -31,4 +31,4 @@ const registerName = async () => {
 registerName()
   .then((d) => console.log('Name registered:\n', d.toJSON()))
   .catch((e) => console.error('Something went wrong:\n', e))
-  .finally(() => client.disconnect());
+  .finally(() => dapi.disconnect());

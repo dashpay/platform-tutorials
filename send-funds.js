@@ -3,7 +3,7 @@ const Dash = require('dash');
 const dotenv = require('dotenv');
 dotenv.config();
 
-const clientOpts = {
+const dapiOpts = {
   network: 'testnet',
   wallet: {
     mnemonic: process.env.MNEMONIC, // A Dash wallet mnemonic with testnet funds
@@ -12,10 +12,10 @@ const clientOpts = {
     },
   },
 };
-const client = new Dash.Client(clientOpts);
+const dapi = new Dash.Client(dapiOpts);
 
 const sendFunds = async () => {
-  const account = await client.getWalletAccount();
+  const account = await dapi.getWalletAccount();
 
   const transaction = account.createTransaction({
     recipient: 'yP8A3cbdxRtLRduy5mXDsBnJtMzHWs6ZXr', // Testnet faucet
@@ -27,10 +27,10 @@ const sendFunds = async () => {
 sendFunds()
   .then((d) => console.log('Transaction broadcast!\nTransaction ID:', d))
   .catch((e) => console.error('Something went wrong:\n', e))
-  .finally(() => client.disconnect());
+  .finally(() => dapi.disconnect());
 
 // Handle wallet async errors
-client.on('error', (error, context) => {
+dapi.on('error', (error, context) => {
   console.error(`Client error: ${error.name}`);
   console.error(context);
 });

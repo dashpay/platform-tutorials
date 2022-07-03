@@ -3,7 +3,7 @@ const Dash = require('dash');
 const dotenv = require('dotenv');
 dotenv.config();
 
-const clientOpts = {
+const dapiOpts = {
   network: 'testnet',
   wallet: {
     mnemonic: process.env.MNEMONIC, // A Dash wallet mnemonic with testnet funds
@@ -12,17 +12,17 @@ const clientOpts = {
     },
   },
 };
-const client = new Dash.Client(clientOpts);
+const dapi = new Dash.Client(dapiOpts);
 
 const topupIdentity = async () => {
   const identityId = process.env.IDENTITY_ID; // Your identity ID
   const topUpAmount = 1000; // Number of duffs
 
-  await client.platform.identities.topUp(identityId, topUpAmount);
-  return client.platform.identities.get(identityId);
+  await dapi.platform.identities.topUp(identityId, topUpAmount);
+  return dapi.platform.identities.get(identityId);
 };
 
 topupIdentity()
   .then((d) => console.log('Identity credit balance: ', d.balance))
   .catch((e) => console.error('Something went wrong:\n', e))
-  .finally(() => client.disconnect());
+  .finally(() => dapi.disconnect());
