@@ -17,7 +17,9 @@
   },
   "homepage": "https://github.com/dashevo/platform-readme-tutorials#readme",
   "dependencies": {
-    "dash": "^3.22.7"
+    "dash": "^3.22.7",
+    "dom-storage": "^2.1.0",
+    "json-storage": "^2.1.2"
   },
   "devDependencies": {
     "dotenv": "^16.0.0",
