@@ -5,6 +5,7 @@
   "main": "connect.js",
   "scripts": {
     "fmt": "npx prettier@2 --write '**/*.{md,js}'",
+    "lint": "npx -p typescript@4 tsc",
     "test": "echo \"Error: no test specified\" && exit 1"
   },
   "repository": {
