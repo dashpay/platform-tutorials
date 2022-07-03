@@ -5,7 +5,7 @@ dotenv.config();
 
 const aliasToRegister = ''; // Enter alias to register
 
-const clientOpts = {
+const dapiOpts = {
   wallet: {
     mnemonic: process.env.MNEMONIC,  // A Dash wallet mnemonic with testnet funds
     unsafeOptions: {
@@ -13,10 +13,10 @@ const clientOpts = {
     },
   },
 };
-const client = new Dash.Client(clientOpts);
+const dapi = new Dash.Client(dapiOpts);
 
 const registerAlias = async () => {
-  const platform = client.platform;
+  const platform = dapi.platform;
   const identity = await platform.identities.get(process.env.IDENTITY_ID); // Your identity ID
   const aliasRegistration = await platform.names.register(
     `${aliasToRegister}.dash`,
@@ -30,4 +30,4 @@ const registerAlias = async () => {
 registerAlias()
   .then((d) => console.log('Alias registered:\n', d.toJSON()))
   .catch((e) => console.error('Something went wrong:\n', e))
-  .finally(() => client.disconnect());
+  .finally(() => dapi.disconnect());

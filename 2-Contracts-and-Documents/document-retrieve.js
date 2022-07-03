@@ -3,17 +3,17 @@ const Dash = require('dash');
 const dotenv = require('dotenv');
 dotenv.config();
 
-const clientOpts = {
+const dapiOpts = {
   apps: {
     tutorialContract: {
       contractId: process.env.CONTRACT_ID, // Your contract ID
     },
   },
 };
-const client = new Dash.Client(clientOpts);
+const dapi = new Dash.Client(dapiOpts);
 
 const getDocuments = async () => {
-  return client.platform.documents.get(
+  return dapi.platform.documents.get(
     'tutorialContract.note',
     {
       limit: 2, // Only retrieve 2 document
@@ -28,4 +28,4 @@ getDocuments()
     }
   })
   .catch((e) => console.error('Something went wrong:\n', e))
-  .finally(() => client.disconnect());
+  .finally(() => dapi.disconnect());

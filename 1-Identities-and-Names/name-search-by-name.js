@@ -5,11 +5,11 @@ dotenv.config();
 
 const searchPrefix = 'a'; // Enter prefix character(s) to search for
 
-const client = new Dash.Client();
+const dapi = new Dash.Client();
 
 const retrieveNameBySearch = async () => {
   // Search for names (e.g. `user*`)
-  return client.platform.names.search(searchPrefix, 'dash');
+  return dapi.platform.names.search(searchPrefix, 'dash');
 };
 
 retrieveNameBySearch()
@@ -19,4 +19,4 @@ retrieveNameBySearch()
     }
   })
   .catch((e) => console.error('Something went wrong:\n', e))
-  .finally(() => client.disconnect());
+  .finally(() => dapi.disconnect());
