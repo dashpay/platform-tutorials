@@ -1,9 +1,9 @@
 // See https://dashplatform.readme.io/docs/tutorial-register-a-name-for-an-identity
-const Dash = require("dash");
-const dotenv = require("dotenv");
+const Dash = require('dash');
+const dotenv = require('dotenv');
 dotenv.config();
 
-const aliasToRegister = ""; // Enter alias to register
+const aliasToRegister = ''; // Enter alias to register
 
 const clientOpts = {
   wallet: {
@@ -28,6 +28,6 @@ const registerAlias = async () => {
 };
 
 registerAlias()
-  .then((d) => console.log("Alias registered:\n", d.toJSON()))
-  .catch((e) => console.error("Something went wrong:\n", e))
+  .then((d) => console.log('Alias registered:\n', d.toJSON()))
+  .catch((e) => console.error('Something went wrong:\n', e))
   .finally(() => client.disconnect());

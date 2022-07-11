@@ -1,6 +1,6 @@
 // See https://dashplatform.readme.io/docs/tutorial-update-documents
-const Dash = require("dash");
-const dotenv = require("dotenv");
+const Dash = require('dash');
+const dotenv = require('dotenv');
 dotenv.config();
 
 const clientOpts = {
@@ -25,18 +25,18 @@ const updateNoteDocument = async () => {
 
   // Retrieve the existing document
   const [document] = await client.platform.documents.get(
-    "tutorialContract.note",
-    { where: [["$id", "==", documentId]] },
+    'tutorialContract.note',
+    { where: [['$id', '==', documentId]] },
   );
 
   // Update document
-  document.set("message", `Updated document @ ${new Date().toUTCString()}`);
+  document.set('message', `Updated document @ ${new Date().toUTCString()}`);
 
   // Sign and submit the document replace transition
   return platform.documents.broadcast({ replace: [document] }, identity);
 };
 
 updateNoteDocument()
-  .then((d) => console.log("Document updated:\n", d))
-  .catch((e) => console.error("Something went wrong:\n", e))
+  .then((d) => console.log('Document updated:\n', d))
+  .catch((e) => console.error('Something went wrong:\n', e))
   .finally(() => client.disconnect());

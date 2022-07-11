@@ -1,8 +1,8 @@
 // See https://dashplatform.readme.io/docs/tutorial-create-and-fund-a-wallet
-const Dash = require("dash");
+const Dash = require('dash');
 
 const clientOpts = {
-  network: "testnet",
+  network: 'testnet',
   wallet: {
     mnemonic: null, // this indicates that we want a new wallet to be generated
     // if you want to get a new address for an existing wallet
@@ -19,16 +19,16 @@ const createWallet = async () => {
 
   const mnemonic = client.wallet.exportWallet();
   const address = account.getUnusedAddress();
-  console.log("Mnemonic:", mnemonic);
-  console.log("Unused address:", address.address);
+  console.log('Mnemonic:', mnemonic);
+  console.log('Unused address:', address.address);
 };
 
 createWallet()
-  .catch((e) => console.error("Something went wrong:\n", e))
+  .catch((e) => console.error('Something went wrong:\n', e))
   .finally(() => client.disconnect());
 
 // Handle wallet async errors
-client.on("error", (error, context) => {
+client.on('error', (error, context) => {
   console.error(`Client error: ${error.name}`);
   console.error(context);
 });
