@@ -5,10 +5,10 @@ const clientOpts = {
   network: 'testnet',
   wallet: {
     mnemonic: null, // this indicates that we want a new wallet to be generated
-                    // if you want to get a new address for an existing wallet
-                    // replace 'null' with an existing wallet mnemonic
-    offlineMode: true,  // this indicates we don't want to sync the chain
-                        // it can only be used when the mnemonic is set to 'null'
+    // if you want to get a new address for an existing wallet
+    // replace 'null' with an existing wallet mnemonic
+    offlineMode: true, // this indicates we don't want to sync the chain
+    // it can only be used when the mnemonic is set to 'null'
   },
 };
 

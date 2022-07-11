@@ -7,7 +7,7 @@ const nameToRegister = ''; // Enter name to register
 
 const clientOpts = {
   wallet: {
-    mnemonic: process.env.MNEMONIC,  // A Dash wallet mnemonic with testnet funds
+    mnemonic: process.env.MNEMONIC, // A Dash wallet mnemonic with testnet funds
     unsafeOptions: {
       skipSynchronizationBeforeHeight: 675000, // only sync from early-2022
     },

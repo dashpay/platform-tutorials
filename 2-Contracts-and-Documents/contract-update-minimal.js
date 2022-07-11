@@ -17,7 +17,9 @@ const updateContract = async () => {
   const { platform } = client;
   const identity = await platform.identities.get(process.env.IDENTITY_ID); // Your identity ID
 
-  const existingDataContract = await platform.contracts.get(process.env.CONTRACT_ID);
+  const existingDataContract = await platform.contracts.get(
+    process.env.CONTRACT_ID,
+  );
   const documents = existingDataContract.getDocuments();
 
   documents.note.properties.author = {
@@ -25,10 +27,12 @@ const updateContract = async () => {
   };
 
   existingDataContract.setDocuments(documents);
-    
+
   // Make sure contract passes validation checks
   await platform.dpp.initialize();
-  const validationResult = await platform.dpp.dataContract.validate(existingDataContract);
+  const validationResult = await platform.dpp.dataContract.validate(
+    existingDataContract,
+  );
 
   if (validationResult.isValid()) {
     console.log('Validation passed, broadcasting contract..');
