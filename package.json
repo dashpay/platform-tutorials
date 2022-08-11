@@ -1,6 +1,6 @@
 {
   "name": "platform-readme-tutorials",
-  "version": "0.1.0",
+  "version": "0.23.0",
   "description": "Tutorial code for dashplatform.readme.io",
   "main": "connect.js",
   "scripts": {
@@ -19,7 +19,7 @@
   },
   "homepage": "https://github.com/dashevo/platform-readme-tutorials#readme",
   "dependencies": {
-    "dash": "^3.22.7"
+    "dash": "^3.23.0-dev.5"
   },
   "devDependencies": {
     "dotenv": "^16.0.0",
