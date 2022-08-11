@@ -25,35 +25,28 @@ const updateIdentityAddKey = async () => {
   const identityIndex = await account.getUnusedIdentityIndex();
 
   // Get unused private key and construct new identity public key
-  const { privateKey: identityPrivateKey } = account
-    .identities
-    .getIdentityHDKeyByIndex(identityIndex, 0);
+  const { privateKey: identityPrivateKey } =
+    account.identities.getIdentityHDKeyByIndex(identityIndex, 0);
 
   const identityPublicKey = identityPrivateKey.toPublicKey().toBuffer();
 
-  const newPublicKey = new IdentityPublicKey(
-    {
-      id: newKeyId,
-      type: IdentityPublicKey.TYPES.ECDSA_SECP256K1,
-      purpose: IdentityPublicKey.PURPOSES.AUTHENTICATION,
-      securityLevel: IdentityPublicKey.SECURITY_LEVELS.HIGH,
-      data: identityPublicKey,
-      readOnly: false,
-    },
-  );
+  const newPublicKey = new IdentityPublicKey({
+    id: newKeyId,
+    type: IdentityPublicKey.TYPES.ECDSA_SECP256K1,
+    purpose: IdentityPublicKey.PURPOSES.AUTHENTICATION,
+    securityLevel: IdentityPublicKey.SECURITY_LEVELS.HIGH,
+    data: identityPublicKey,
+    readOnly: false,
+  });
 
   const updateAdd = {
     add: [newPublicKey],
   };
-  
+
   // Submit the update signed with the new key
-  await client.platform.identities.update(
-    existingIdentity, 
-    updateAdd,
-    {
-      [newPublicKey.getId()]: identityPrivateKey,
-    }, 
-  );
+  await client.platform.identities.update(existingIdentity, updateAdd, {
+    [newPublicKey.getId()]: identityPrivateKey,
+  });
 
   return client.platform.identities.get(identityId);
 };

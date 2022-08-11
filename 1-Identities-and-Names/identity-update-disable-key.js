@@ -27,14 +27,12 @@ const updateIdentityDisableKey = async () => {
   const updateDisable = {
     disable: [publicKeyToDisable],
   };
-  
+
   await client.platform.identities.update(existingIdentity, updateDisable);
   return client.platform.identities.get(identityId);
-}
+};
 
 updateIdentityDisableKey()
   .then((d) => console.log('Identity updated:\n', d.toJSON()))
   .catch((e) => console.error('Something went wrong:\n', e))
   .finally(() => client.disconnect());
-
-
