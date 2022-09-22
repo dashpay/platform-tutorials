@@ -4,6 +4,7 @@ const dotenv = require('dotenv');
 dotenv.config();
 
 const clientOpts = {
+  network: process.env.NETWORK,
   apps: {
     tutorialContract: {
       contractId: process.env.CONTRACT_ID, // Your contract ID

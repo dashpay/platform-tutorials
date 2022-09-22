@@ -5,7 +5,7 @@ const dotenv = require('dotenv');
 dotenv.config();
 
 const clientOpts = {
-  network: 'testnet',
+  network: process.env.NETWORK,
   wallet: {
     mnemonic: process.env.MNEMONIC, // A Dash wallet mnemonic with testnet funds
     unsafeOptions: {

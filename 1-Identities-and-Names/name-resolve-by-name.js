@@ -1,7 +1,7 @@
 // See https://dashplatform.readme.io/docs/tutorial-retrieve-a-name
 const Dash = require('dash');
 
-const client = new Dash.Client();
+const client = new Dash.Client({ network: process.env.NETWORK });
 
 const nameToRetrieve = ''; // Enter name to retrieve
 

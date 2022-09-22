@@ -1,8 +1,10 @@
 // See https://dashplatform.readme.io/docs/tutorial-create-and-fund-a-wallet
 const Dash = require('dash');
+const dotenv = require('dotenv');
+dotenv.config();
 
 const clientOpts = {
-  network: 'testnet',
+  network: process.env.NETWORK,
   wallet: {
     mnemonic: null, // this indicates that we want a new wallet to be generated
     // if you want to get a new address for an existing wallet

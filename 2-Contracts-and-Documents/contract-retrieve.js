@@ -3,7 +3,7 @@ const Dash = require('dash');
 const dotenv = require('dotenv');
 dotenv.config();
 
-const client = new Dash.Client();
+const client = new Dash.Client({ network: process.env.NETWORK });
 
 const retrieveContract = async () => {
   const contractId = process.env.CONTRACT_ID; // Your contract ID
