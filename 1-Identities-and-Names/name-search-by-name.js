@@ -5,7 +5,7 @@ dotenv.config();
 
 const searchPrefix = 'a'; // Enter prefix character(s) to search for
 
-const client = new Dash.Client();
+const client = new Dash.Client({ network: process.env.NETWORK });
 
 const retrieveNameBySearch = async () => {
   // Search for names (e.g. `user*`)
