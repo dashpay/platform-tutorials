@@ -31,10 +31,9 @@ const registerContract = async () => {
   };
 
   const contract = await platform.contracts.create(contractDocuments, identity);
-  console.dir({ contract });
+  console.dir({ contract: contract.toJSON() });
 
   // Make sure contract passes validation checks
-  await platform.dpp.initialize();
   const validationResult = await platform.dpp.dataContract.validate(contract);
 
   if (validationResult.isValid()) {
