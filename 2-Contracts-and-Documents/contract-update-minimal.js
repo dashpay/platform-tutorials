@@ -30,7 +30,6 @@ const updateContract = async () => {
   existingDataContract.setDocuments(documents);
 
   // Make sure contract passes validation checks
-  await platform.dpp.initialize();
   const validationResult = await platform.dpp.dataContract.validate(
     existingDataContract,
   );

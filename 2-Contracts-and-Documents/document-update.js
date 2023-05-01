@@ -38,6 +38,6 @@ const updateNoteDocument = async () => {
 };
 
 updateNoteDocument()
-  .then((d) => console.log('Document updated:\n', d))
+  .then((d) => console.log('Document updated:\n', d.toJSON()))
   .catch((e) => console.error('Something went wrong:\n', e))
   .finally(() => client.disconnect());

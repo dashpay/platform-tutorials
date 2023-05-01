@@ -35,6 +35,6 @@ const deleteNoteDocument = async () => {
 };
 
 deleteNoteDocument()
-  .then((d) => console.log('Document deleted:\n', d))
+  .then((d) => console.log('Document deleted:\n', d.toJSON()))
   .catch((e) => console.error('Something went wrong:\n', e))
   .finally(() => client.disconnect());
