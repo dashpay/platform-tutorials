@@ -3,7 +3,7 @@
 {
 	"name": "Test_container",
 	// Or use a Dockerfile or Docker Compose file. More info: https://containers.dev/guide/dockerfile
-	"image": "mcr.microsoft.com/devcontainers/javascript-node:0-20",
+	"image": "mcr.microsoft.com/devcontainers/javascript-node:0-16",
 	"features": {
     "ghcr.io/devcontainers-contrib/features/jshint:2": {}
   },
