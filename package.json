@@ -19,7 +19,7 @@
   },
   "homepage": "https://github.com/dashevo/platform-readme-tutorials#readme",
   "dependencies": {
-    "dash": "^3.23.0"
+    "dash": "^3.24.0-dev.34"
   },
   "devDependencies": {
     "dotenv": "^16.0.0",
