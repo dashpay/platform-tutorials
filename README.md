@@ -1,6 +1,6 @@
 # platform-readme-tutorials
 
-[![SDK Version](https://img.shields.io/github/package-json/dependency-version/dashevo/platform-readme-tutorials/dash)](https://github.com/dashevo/platform-readme-tutorials/blob/main/package.json)
+[![SDK Version](https://img.shields.io/github/package-json/dependency-version/dashpay/platform-readme-tutorials/dash)](https://github.com/dashpay/platform-readme-tutorials/blob/main/package.json)
 
 Code for the tutorials found on the
 [Platform documentation site](https://dashplatform.readme.io/).
@@ -13,7 +13,7 @@ the tutorial code.
 ### Clone this repository
 
 ```shell
-git clone https://github.com/dashevo/platform-readme-tutorials.git
+git clone https://github.com/dashpay/platform-readme-tutorials.git
 ```
 
 ### Install project dependencies
