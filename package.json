@@ -19,6 +19,7 @@
   },
   "homepage": "https://github.com/dashevo/platform-readme-tutorials#readme",
   "dependencies": {
+    "@dashevo/wasm-dpp": "^0.24.3",
     "dash": "^3.24.3"
   },
   "devDependencies": {
