@@ -1,6 +1,6 @@
 // See https://dashplatform.readme.io/docs/tutorial-update-an-identity
 const Dash = require('dash');
-const IdentityPublicKey = require('@dashevo/dpp/lib/identity/IdentityPublicKey');
+const { IdentityPublicKey, IdentityPublicKeyWithWitness } = require('@dashevo/wasm-dpp');
 const dotenv = require('dotenv');
 dotenv.config();
 
@@ -30,13 +30,14 @@ const updateIdentityAddKey = async () => {
 
   const identityPublicKey = identityPrivateKey.toPublicKey().toBuffer();
 
-  const newPublicKey = new IdentityPublicKey({
+  const newPublicKey = new IdentityPublicKeyWithWitness({
     id: newKeyId,
     type: IdentityPublicKey.TYPES.ECDSA_SECP256K1,
+    data: identityPublicKey,
     purpose: IdentityPublicKey.PURPOSES.AUTHENTICATION,
     securityLevel: IdentityPublicKey.SECURITY_LEVELS.HIGH,
-    data: identityPublicKey,
     readOnly: false,
+    signature: Buffer.alloc(0),
   });
 
   const updateAdd = {
