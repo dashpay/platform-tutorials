@@ -29,18 +29,8 @@ const updateContract = async () => {
 
   existingDataContract.setDocuments(documents);
 
-  // Make sure contract passes validation checks
-  const validationResult = await platform.dpp.dataContract.validate(
-    existingDataContract,
-  );
-
-  if (validationResult.isValid()) {
-    console.log('Validation passed, broadcasting contract..');
-    // Sign and submit the data contract
-    return platform.contracts.update(existingDataContract, identity);
-  }
-  console.error(validationResult); // An array of detailed validation errors
-  throw validationResult.errors[0];
+  // Sign and submit the data contract
+  return platform.contracts.update(existingDataContract, identity);
 };
 
 updateContract()
