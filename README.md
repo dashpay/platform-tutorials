@@ -43,9 +43,8 @@ align with the tutorials section found on the
 
 After [creating an identity](./1-Identities-and-Names/identity-register.js), set
 the `IDENTITY_ID` value in your `.env` file to your new identity ID. After
-[registering a data
-contract](./2-Contracts-and-Documents/contract-register-minimal.js), set the
-`CONTRACT_ID` value in your `.env` file to your new contract ID.
+[registering a data contract](./2-Contracts-and-Documents/contract-register-minimal.js),
+set the `CONTRACT_ID` value in your `.env` file to your new contract ID.
 
 ## Contributing
 
