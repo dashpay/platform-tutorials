@@ -27,7 +27,7 @@ const updateContract = async () => {
     type: 'string',
   };
 
-  existingDataContract.setDocumentSchema('note', documentSchema)
+  existingDataContract.setDocumentSchema('note', documentSchema);
 
   // Sign and submit the data contract
   await platform.contracts.update(existingDataContract, identity);
