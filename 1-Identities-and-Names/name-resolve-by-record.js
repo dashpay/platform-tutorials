@@ -14,6 +14,6 @@ const retrieveNameByRecord = async () => {
 };
 
 retrieveNameByRecord()
-  .then((d) => console.log('Name retrieved:\n', d[0].toJSON()))
+  .then((d) => console.log('Name retrieved:\n', d[0].getData()))
   .catch((e) => console.error('Something went wrong:\n', e))
   .finally(() => client.disconnect());

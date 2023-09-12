@@ -15,7 +15,7 @@ const retrieveNameBySearch = async () => {
 retrieveNameBySearch()
   .then((d) => {
     for (const name of d) {
-      console.log('Name retrieved:\n', name.toJSON());
+      console.log('Name retrieved:\n', name.getData());
     }
   })
   .catch((e) => console.error('Something went wrong:\n', e))

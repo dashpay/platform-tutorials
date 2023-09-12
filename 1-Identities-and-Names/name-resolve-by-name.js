@@ -11,6 +11,6 @@ const retrieveName = async () => {
 };
 
 retrieveName()
-  .then((d) => console.log('Name retrieved:\n', d.toJSON()))
+  .then((d) => console.log('Name retrieved:\n', d.getData()))
   .catch((e) => console.error('Something went wrong:\n', e))
   .finally(() => client.disconnect());
