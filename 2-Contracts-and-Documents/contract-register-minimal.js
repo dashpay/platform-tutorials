@@ -34,7 +34,8 @@ const registerContract = async () => {
   console.dir({ contract: contract.toJSON() });
 
   // Sign and submit the data contract
-  return platform.contracts.publish(contract, identity);
+  await platform.contracts.publish(contract, identity);
+  return contract;
 };
 
 registerContract()
