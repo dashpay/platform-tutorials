@@ -21,16 +21,17 @@ const updateContract = async () => {
   const existingDataContract = await platform.contracts.get(
     process.env.CONTRACT_ID,
   );
-  const documents = existingDataContract.getDocuments();
+  const documentSchema = existingDataContract.getDocumentSchema('note');
 
-  documents.note.properties.author = {
+  documentSchema.properties.author = {
     type: 'string',
   };
 
-  existingDataContract.setDocuments(documents);
+  existingDataContract.setDocumentSchema('note', documentSchema)
 
   // Sign and submit the data contract
-  return platform.contracts.update(existingDataContract, identity);
+  await platform.contracts.update(existingDataContract, identity);
+  return existingDataContract;
 };
 
 updateContract()
