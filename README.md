@@ -7,7 +7,7 @@ Code for the tutorials found on the
 
 ## Install
 
-Note: [NodeJS](https://nodejs.org/en/download/) (v16+) must be installed to run
+Note: [NodeJS](https://nodejs.org/en/download/) (v18+) must be installed to run
 the tutorial code.
 
 ### Clone this repository
