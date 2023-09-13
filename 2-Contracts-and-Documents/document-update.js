@@ -34,7 +34,8 @@ const updateNoteDocument = async () => {
   document.set('message', `Updated document @ ${new Date().toUTCString()}`);
 
   // Sign and submit the document replace transition
-  return platform.documents.broadcast({ replace: [document] }, identity);
+  await platform.documents.broadcast({ replace: [document] }, identity);
+  return document;
 };
 
 updateNoteDocument()

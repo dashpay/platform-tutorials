@@ -7,7 +7,7 @@ Code for the tutorials found on the
 
 ## Install
 
-Note: [NodeJS](https://nodejs.org/en/download/) (v12+) must be installed to run
+Note: [NodeJS](https://nodejs.org/en/download/) (v18+) must be installed to run
 the tutorial code.
 
 ### Clone this repository
@@ -40,6 +40,11 @@ Proceed with the tutorials
 [Contracts And Documents tutorials](./2-Contracts-and-Documents/) next. They
 align with the tutorials section found on the
 [documentation site](https://dashplatform.readme.io/docs/tutorials-introduction).
+
+After [creating an identity](./1-Identities-and-Names/identity-register.js), set
+the `IDENTITY_ID` value in your `.env` file to your new identity ID. After
+[registering a data contract](./2-Contracts-and-Documents/contract-register-minimal.js),
+set the `CONTRACT_ID` value in your `.env` file to your new contract ID.
 
 ## Contributing
 

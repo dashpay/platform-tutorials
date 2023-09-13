@@ -33,15 +33,10 @@ const updateIdentityAddKey = async () => {
 
   const identityPublicKey = identityPrivateKey.toPublicKey().toBuffer();
 
-  const newPublicKey = new IdentityPublicKeyWithWitness({
-    id: newKeyId,
-    type: IdentityPublicKey.TYPES.ECDSA_SECP256K1,
-    data: identityPublicKey,
-    purpose: IdentityPublicKey.PURPOSES.AUTHENTICATION,
-    securityLevel: IdentityPublicKey.SECURITY_LEVELS.HIGH,
-    readOnly: false,
-    signature: Buffer.alloc(0),
-  });
+  const newPublicKey = new IdentityPublicKeyWithWitness(1);
+  newPublicKey.setId(newKeyId);
+  newPublicKey.setSecurityLevel(IdentityPublicKey.SECURITY_LEVELS.HIGH);
+  newPublicKey.setData(identityPublicKey);
 
   const updateAdd = {
     add: [newPublicKey],

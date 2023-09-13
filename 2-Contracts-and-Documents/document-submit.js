@@ -40,7 +40,8 @@ const submitNoteDocument = async () => {
     delete: [], // Document(s) to delete
   };
   // Sign and submit the document(s)
-  return platform.documents.broadcast(documentBatch, identity);
+  await platform.documents.broadcast(documentBatch, identity);
+  return noteDocument;
 };
 
 submitNoteDocument()

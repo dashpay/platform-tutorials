@@ -21,26 +21,17 @@ const updateContract = async () => {
   const existingDataContract = await platform.contracts.get(
     process.env.CONTRACT_ID,
   );
-  const documents = existingDataContract.getDocuments();
+  const documentSchema = existingDataContract.getDocumentSchema('note');
 
-  documents.note.properties.author = {
+  documentSchema.properties.author = {
     type: 'string',
   };
 
-  existingDataContract.setDocuments(documents);
+  existingDataContract.setDocumentSchema('note', documentSchema);
 
-  // Make sure contract passes validation checks
-  const validationResult = await platform.dpp.dataContract.validate(
-    existingDataContract,
-  );
-
-  if (validationResult.isValid()) {
-    console.log('Validation passed, broadcasting contract..');
-    // Sign and submit the data contract
-    return platform.contracts.update(existingDataContract, identity);
-  }
-  console.error(validationResult); // An array of detailed validation errors
-  throw validationResult.errors[0];
+  // Sign and submit the data contract
+  await platform.contracts.update(existingDataContract, identity);
+  return existingDataContract;
 };
 
 updateContract()
