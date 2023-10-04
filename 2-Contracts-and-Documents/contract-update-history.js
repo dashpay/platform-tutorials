@@ -29,11 +29,7 @@ const updateContract = async () => {
 
   existingDataContract.setDocumentSchema('note', documentSchema);
   existingDataContract.setConfig({
-    canBeDeleted: false,
-    readonly: false,
     keepsHistory: true, // Enable storing of contract history
-    documentsKeepHistoryContractDefault: false,
-    documentsMutableContractDefault: true,
   })
 
   console.log(existingDataContract.getDocumentSchema('note'));
