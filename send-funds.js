@@ -1,4 +1,4 @@
-// See https://dashplatform.readme.io/docs/tutorial-send-funds
+// See https://docs.dash.org/projects/platform/en/stable/docs/tutorials/send-funds.html
 const Dash = require('dash');
 const dotenv = require('dotenv');
 dotenv.config();

@@ -1,4 +1,4 @@
-// See https://dashplatform.readme.io/docs/tutorial-topup-an-identity-balance
+// See https://docs.dash.org/projects/platform/en/stable/docs/tutorials/identities-and-names/topup-an-identity-balance.html
 const Dash = require('dash');
 const dotenv = require('dotenv');
 dotenv.config();

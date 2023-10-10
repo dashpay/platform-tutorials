@@ -1,4 +1,4 @@
-// See https://dashplatform.readme.io/docs/tutorial-submit-documents
+// See https://docs.dash.org/projects/platform/en/stable/docs/tutorials/contracts-and-documents/submit-documents.html
 const Dash = require('dash');
 const dotenv = require('dotenv');
 dotenv.config();

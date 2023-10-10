@@ -1,3 +1,4 @@
+// See https://docs.dash.org/projects/platform/en/stable/docs/tutorials/contracts-and-documents/retrieve-data-contract-history.html
 const Dash = require('dash');
 const dotenv = require('dotenv');
 dotenv.config();

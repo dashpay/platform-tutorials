@@ -1,4 +1,4 @@
-// See https://dashplatform.readme.io/docs/tutorial-update-an-identity
+// See https://docs.dash.org/projects/platform/en/stable/docs/tutorials/identities-and-names/update-an-identity.html
 const Dash = require('dash');
 const {
   IdentityPublicKey,
