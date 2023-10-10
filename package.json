@@ -1,7 +1,7 @@
 {
   "name": "platform-readme-tutorials",
-  "version": "0.25.0-dev.23",
-  "description": "Tutorial code for dashplatform.readme.io",
+  "version": "0.25.0",
+  "description": "Tutorial code for https://docs.dash.org/platform",
   "main": "connect.js",
   "scripts": {
     "fmt": "npx prettier@2 --write '**/*.{md,js}'",
@@ -19,8 +19,8 @@
   },
   "homepage": "https://github.com/dashevo/platform-readme-tutorials#readme",
   "dependencies": {
-    "@dashevo/wasm-dpp": "^0.25.0-dev.23",
-    "dash": "^3.25.0-dev.23"
+    "@dashevo/wasm-dpp": "^0.25.0",
+    "dash": "^3.25.0"
   },
   "devDependencies": {
     "dotenv": "^16.0.0",

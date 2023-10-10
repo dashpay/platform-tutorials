@@ -3,7 +3,7 @@
 [![SDK Version](https://img.shields.io/github/package-json/dependency-version/dashpay/platform-readme-tutorials/dash)](https://github.com/dashpay/platform-readme-tutorials/blob/main/package.json)
 
 Code for the tutorials found on the
-[Platform documentation site](https://dashplatform.readme.io/).
+[Platform documentation site](https://docs.dash.org/platform).
 
 ## Install
 
