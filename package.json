@@ -1,7 +1,7 @@
 {
   "name": "platform-readme-tutorials",
   "version": "0.25.0",
-  "description": "Tutorial code for dashplatform.readme.io",
+  "description": "Tutorial code for https://docs.dash.org/platform",
   "main": "connect.js",
   "scripts": {
     "fmt": "npx prettier@2 --write '**/*.{md,js}'",
