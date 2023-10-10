@@ -1,4 +1,4 @@
-// See https://dashplatform.readme.io/docs/tutorial-register-an-identity
+// See https://docs.dash.org/projects/platform/en/stable/docs/tutorials/identities-and-names/register-an-identity.html
 const Dash = require('dash');
 const dotenv = require('dotenv');
 dotenv.config();
