@@ -1,4 +1,3 @@
-// See https://dashplatform.readme.io/docs/tutorial-register-a-data-contract
 const Dash = require('dash');
 const dotenv = require('dotenv');
 dotenv.config();
