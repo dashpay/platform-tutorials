@@ -33,11 +33,11 @@ const registerContract = async () => {
   const contract = await platform.contracts.create(contractDocuments, identity);
   contract.setConfig({
     canBeDeleted: false,
-    readonly: false,    // Make contract read-only
+    readonly: false, // Make contract read-only
     keepsHistory: true, // Enable storing of contract history
     documentsKeepHistoryContractDefault: false,
     documentsMutableContractDefault: true,
-  })
+  });
   console.dir({ contract: contract.toJSON() });
 
   // Sign and submit the data contract

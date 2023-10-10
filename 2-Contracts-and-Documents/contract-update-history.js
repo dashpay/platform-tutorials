@@ -30,7 +30,7 @@ const updateContract = async () => {
   existingDataContract.setDocumentSchema('note', documentSchema);
   existingDataContract.setConfig({
     keepsHistory: true, // Enable storing of contract history
-  })
+  });
 
   console.log(existingDataContract.getDocumentSchema('note'));
   console.dir(existingDataContract.toJSON());
