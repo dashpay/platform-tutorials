@@ -10,12 +10,13 @@ const client = new Dash.Client({ network: process.env.NETWORK });
 loadDpp();
 const dpp = new DashPlatformProtocol(null);
 
-const retrieveContract = async () => {
+const retrieveContractHistory = async () => {
   const contractId = process.env.CONTRACT_ID; // Your contract ID
-  return await client.platform.contracts.history(contractId, 0, 10, 0);
+  return await client.platform.contracts.history(
+    contractId, 0, 10, 0);
 };
 
-retrieveContract()
+retrieveContractHistory()
   .then((d) => {
     Object.entries(d).forEach(([key, value]) => {
       dpp.dataContract.createFromObject(value).then((contract) => console.dir(contract.toJSON(), {depth: 5}))
