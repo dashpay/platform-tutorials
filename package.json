@@ -1,6 +1,6 @@
 {
   "name": "platform-readme-tutorials",
-  "version": "0.25.0",
+  "version": "0.25.2",
   "description": "Tutorial code for https://docs.dash.org/platform",
   "main": "connect.js",
   "scripts": {
@@ -19,8 +19,7 @@
   },
   "homepage": "https://github.com/dashevo/platform-readme-tutorials#readme",
   "dependencies": {
-    "@dashevo/wasm-dpp": "^0.25.0",
-    "dash": "^3.25.0"
+    "dash": "^3.25.2"
   },
   "devDependencies": {
     "dotenv": "^16.0.0",
