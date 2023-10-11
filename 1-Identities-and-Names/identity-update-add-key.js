@@ -1,9 +1,8 @@
 // See https://docs.dash.org/projects/platform/en/stable/docs/tutorials/identities-and-names/update-an-identity.html
 const Dash = require('dash');
 const {
-  IdentityPublicKey,
-  IdentityPublicKeyWithWitness,
-} = require('@dashevo/wasm-dpp');
+  PlatformProtocol: { IdentityPublicKey, IdentityPublicKeyWithWitness },
+} = Dash;
 const dotenv = require('dotenv');
 dotenv.config();
 
