@@ -24,6 +24,7 @@ const registerContract = async () => {
       properties: {
         message: {
           type: 'string',
+          position: 0,
         },
       },
       additionalProperties: false,

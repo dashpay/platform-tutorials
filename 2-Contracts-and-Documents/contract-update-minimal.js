@@ -25,6 +25,7 @@ const updateContract = async () => {
 
   documentSchema.properties.author = {
     type: 'string',
+    position: 1,
   };
 
   existingDataContract.setDocumentSchema('note', documentSchema);
