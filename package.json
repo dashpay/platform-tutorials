@@ -10,14 +10,14 @@
   },
   "repository": {
     "type": "git",
-    "url": "git+https://github.com/dashpay/platform-readme-tutorials.git"
+    "url": "git+https://github.com/dashpay/platform-tutorials.git"
   },
   "author": "thephez",
   "license": "MIT",
   "bugs": {
-    "url": "https://github.com/dashpay/platform-readme-tutorials/issues"
+    "url": "https://github.com/dashpay/platform-tutorials/issues"
   },
-  "homepage": "https://github.com/dashpay/platform-readme-tutorials#readme",
+  "homepage": "https://github.com/dashpay/platform-tutorials#readme",
   "dependencies": {
     "dash": "^3.25.18"
   },
