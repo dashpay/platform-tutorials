@@ -1,6 +1,6 @@
 {
   "name": "platform-readme-tutorials",
-  "version": "0.25.16-rc.4",
+  "version": "0.25.18",
   "description": "Tutorial code for https://docs.dash.org/platform",
   "main": "connect.js",
   "scripts": {
@@ -10,16 +10,16 @@
   },
   "repository": {
     "type": "git",
-    "url": "git+https://github.com/dashevo/platform-readme-tutorials.git"
+    "url": "git+https://github.com/dashpay/platform-readme-tutorials.git"
   },
   "author": "thephez",
   "license": "MIT",
   "bugs": {
-    "url": "https://github.com/dashevo/platform-readme-tutorials/issues"
+    "url": "https://github.com/dashpay/platform-readme-tutorials/issues"
   },
-  "homepage": "https://github.com/dashevo/platform-readme-tutorials#readme",
+  "homepage": "https://github.com/dashpay/platform-readme-tutorials#readme",
   "dependencies": {
-    "dash": "^3.25.16-rc.4"
+    "dash": "^3.25.18"
   },
   "devDependencies": {
     "dotenv": "^16.0.0",
