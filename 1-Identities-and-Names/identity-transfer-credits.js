@@ -20,7 +20,10 @@ const transferCredits = async () => {
 
   const recipientId = process.env.RECIPIENT_ID; // Recipient's ID
   const recipientIdentity = await client.platform.identities.get(recipientId);
-  console.log('Recipient identity balance before transfer: ', recipientIdentity.balance);
+  console.log(
+    'Recipient identity balance before transfer: ',
+    recipientIdentity.balance,
+  );
   const transferAmount = 1000; // Number of credits to transfer
 
   await client.platform.identities.creditTransfer(
@@ -32,6 +35,8 @@ const transferCredits = async () => {
 };
 
 transferCredits()
-  .then((d) => console.log('Recipient identity balance after transfer: ', d.balance))
+  .then((d) =>
+    console.log('Recipient identity balance after transfer: ', d.balance),
+  )
   .catch((e) => console.error('Something went wrong:\n', e))
   .finally(() => client.disconnect());
