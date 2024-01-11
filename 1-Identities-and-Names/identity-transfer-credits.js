@@ -8,7 +8,7 @@ const clientOpts = {
   wallet: {
     mnemonic: process.env.MNEMONIC, // A Dash wallet mnemonic with testnet funds
     unsafeOptions: {
-      skipSynchronizationBeforeHeight: process.env.SYNC_START_HEIGHT, // only sync from early-2022
+      skipSynchronizationBeforeHeight: process.env.SYNC_START_HEIGHT, // only sync from mid-2023
     },
   },
 };
