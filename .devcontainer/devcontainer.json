@@ -2,8 +2,7 @@
 // README at: https://github.com/devcontainers/templates/tree/main/src/javascript-node
 {
 	"name": "Tutorials",
-	// Or use a Dockerfile or Docker Compose file. More info: https://containers.dev/guide/dockerfile
-	"image": "mcr.microsoft.com/devcontainers/javascript-node:0-16",
+	"image": "mcr.microsoft.com/devcontainers/javascript-node:20",
 	"features": {
     "ghcr.io/devcontainers-contrib/features/jshint:2": {}
   },
@@ -24,7 +23,4 @@
       ]
     }
   }
-
-  // Uncomment to connect as root instead. More info: https://aka.ms/dev-containers-non-root.
-  // "remoteUser": "root"
 }
