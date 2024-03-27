@@ -34,6 +34,10 @@ npm ci
    the address reported in the previous step
 1. Open the `.env` file (See [`.env.example`](./.env.example) for an example
    `.env` file) and set `MNEMONIC` to the wallet mnemonic from step 3.
+1. (Optional) To minimize wallet sync time, open your `.env` file and set
+   `SYNC_START_HEIGHT` to a Core chain block height just below the height of
+   your wallet's first transaction. Otherwise you can skip this step and use the
+   default value from [`.env.example`](./.env.example).
 
 Proceed with the tutorials
 [Identities and Names tutorials](./1-Identities-and-Names/) first and the
