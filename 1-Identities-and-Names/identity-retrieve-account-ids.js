@@ -8,7 +8,7 @@ const client = new Dash.Client({
   wallet: {
     mnemonic: process.env.MNEMONIC, // A Dash wallet mnemonic with testnet funds
     unsafeOptions: {
-      skipSynchronizationBeforeHeight: 875000, // only sync from mid-2023
+      skipSynchronizationBeforeHeight: process.env.SYNC_START_HEIGHT, // sync starting at this Core block height
     },
   },
 });
