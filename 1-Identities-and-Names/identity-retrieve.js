@@ -1,7 +1,7 @@
 // See https://docs.dash.org/projects/platform/en/stable/docs/tutorials/identities-and-names/retrieve-an-identity.html
 const getClient = require('../getClient');
 
-const client = getClient('readOnly');
+const client = getClient();
 
 const retrieveIdentity = async () => {
   return client.platform.identities.get(process.env.IDENTITY_ID); // Your identity ID

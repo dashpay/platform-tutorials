@@ -1,7 +1,7 @@
 // See https://docs.dash.org/projects/platform/en/stable/docs/tutorials/identities-and-names/register-an-identity.html
 const getClient = require('../getClient');
 
-const client = getClient('readWrite');
+const client = getClient();
 
 const createIdentity = async () => {
   return client.platform.identities.register();
