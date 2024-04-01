@@ -15,7 +15,10 @@ const clientOptions = {
     // Unsafe wallet options (use with caution)
     unsafeOptions: {
       // Starting synchronization from a specific block height can speed up the initial wallet sync process.
-      skipSynchronizationBeforeHeight: parseInt(process.env.SYNC_START_HEIGHT, 10),
+      skipSynchronizationBeforeHeight: parseInt(
+        process.env.SYNC_START_HEIGHT,
+        10,
+      ),
     },
 
     // The default account index to use for transactions and queries. Default is 0.
@@ -55,7 +58,11 @@ const clientOptions = {
 const getClient = () => {
   // Ensure that numeric values from environment variables are properly converted to numbers
   if (clientOptions.wallet?.unsafeOptions?.skipSynchronizationBeforeHeight) {
-    clientOptions.wallet.unsafeOptions.skipSynchronizationBeforeHeight = parseInt(clientOptions.wallet.unsafeOptions.skipSynchronizationBeforeHeight, 10);
+    clientOptions.wallet.unsafeOptions.skipSynchronizationBeforeHeight =
+      parseInt(
+        clientOptions.wallet.unsafeOptions.skipSynchronizationBeforeHeight,
+        10,
+      );
   }
 
   return new Dash.Client(clientOptions);
