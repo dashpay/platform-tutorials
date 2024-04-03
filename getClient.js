@@ -26,10 +26,12 @@ const clientOptions = {
   },
 
   // Configuration for Dash Platform applications
-  // apps: {
-  //   dpns: { contractId: 'yourDpnsContractId' },
-  //   yourApp: { contractId: 'yourCustomAppContractId' },
-  // },
+  apps: {
+    // yourApp: { contractId: 'yourCustomAppContractId' },
+    tutorialContract: {
+      contractId: process.env.CONTRACT_ID, // Your contract ID
+    },
+},
 
   // Custom list of DAPI seed nodes to connect to. Overrides the default seed list.
   // Format: { service: 'ip|domain:port' }
