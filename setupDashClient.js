@@ -66,6 +66,7 @@ const setupDashClient = () => {
         10,
       );
   }
+  // console.dir(clientOptions);
   return new Dash.Client(clientOptions);
 };
 

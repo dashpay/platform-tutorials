@@ -1,9 +1,8 @@
 // See https://dashplatform.readme.io/docs/tutorial-use-dapi-client-methods
-const Dash = require('dash');
-const dotenv = require('dotenv');
-dotenv.config();
 
-const client = new Dash.Client({ network: process.env.NETWORK });
+const setupDashClient = require('./setupDashClient');
+
+const client = setupDashClient();
 
 async function dapiClientMethods() {
   console.log(await client.getDAPIClient().core.getBlockHash(1));
