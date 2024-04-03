@@ -57,7 +57,7 @@ const clientOptions = {
  * Creates and returns a Dash client instance
  * @returns {Dash.Client} The Dash client instance.
  */
-const getClient = () => {
+const setupDashClient = () => {
   // Ensure that numeric values from environment variables are properly converted to numbers
   if (clientOptions.wallet?.unsafeOptions?.skipSynchronizationBeforeHeight) {
     clientOptions.wallet.unsafeOptions.skipSynchronizationBeforeHeight =
@@ -66,8 +66,7 @@ const getClient = () => {
         10,
       );
   }
-
   return new Dash.Client(clientOptions);
 };
 
-module.exports = getClient;
+module.exports = setupDashClient;

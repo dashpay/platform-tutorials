@@ -1,7 +1,7 @@
 // See https://docs.dash.org/projects/platform/en/stable/docs/tutorials/identities-and-names/update-an-identity.html
-const getClient = require('../getClient');
+const setupDashClient = require('../setupDashClient');
 
-const client = getClient();
+const client = setupDashClient();
 
 const updateIdentityDisableKey = async () => {
   const identityId = process.env.IDENTITY_ID;

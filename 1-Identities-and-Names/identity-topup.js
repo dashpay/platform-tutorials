@@ -1,7 +1,7 @@
 // See https://docs.dash.org/projects/platform/en/stable/docs/tutorials/identities-and-names/topup-an-identity-balance.html
-const getClient = require('../getClient');
+const setupDashClient = require('../setupDashClient');
 
-const client = getClient();
+const client = setupDashClient();
 
 const topupIdentity = async () => {
   const identityId = process.env.IDENTITY_ID; // Your identity ID

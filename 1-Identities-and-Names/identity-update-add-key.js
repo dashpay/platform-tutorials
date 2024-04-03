@@ -3,9 +3,9 @@ const Dash = require('dash');
 const {
   PlatformProtocol: { IdentityPublicKey, IdentityPublicKeyWithWitness },
 } = Dash;
-const getClient = require('../getClient');
+const setupDashClient = require('../setupDashClient');
 
-const client = getClient();
+const client = setupDashClient();
 
 const updateIdentityAddKey = async () => {
   const identityId = process.env.IDENTITY_ID;

@@ -1,9 +1,9 @@
 // See https://docs.dash.org/projects/platform/en/stable/docs/tutorials/identities-and-names/retrieve-a-name.html
-const getClient = require('../getClient');
+const setupDashClient = require('../setupDashClient');
 
 const searchPrefix = 'a'; // Enter prefix character(s) to search for
 
-const client = getClient();
+const client = setupDashClient();
 
 const retrieveNameBySearch = async () => {
   // Search for names (e.g. `user*`)
