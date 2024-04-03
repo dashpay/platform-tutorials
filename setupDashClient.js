@@ -31,7 +31,7 @@ const clientOptions = {
     tutorialContract: {
       contractId: process.env.CONTRACT_ID, // Your contract ID
     },
-},
+  },
 
   // Custom list of DAPI seed nodes to connect to. Overrides the default seed list.
   // Format: { service: 'ip|domain:port' }
