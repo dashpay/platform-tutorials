@@ -1,9 +1,7 @@
 // See https://docs.dash.org/projects/platform/en/stable/docs/tutorials/contracts-and-documents/retrieve-data-contract-history.html
-const Dash = require('dash');
-const dotenv = require('dotenv');
-dotenv.config();
+const setupDashClient = require('../setupDashClient');
 
-const client = new Dash.Client({ network: process.env.NETWORK });
+const client = setupDashClient();
 
 const retrieveContractHistory = async () => {
   const contractId = process.env.CONTRACT_ID; // Your contract ID

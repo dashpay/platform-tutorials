@@ -1,20 +1,7 @@
 // See https://docs.dash.org/projects/platform/en/stable/docs/tutorials/identities-and-names/register-a-name-for-an-identity.html
-const Dash = require('dash');
-const dotenv = require('dotenv');
-dotenv.config();
+const setupDashClient = require('../setupDashClient');
 
-const nameToRegister = ''; // Enter name to register
-
-const clientOpts = {
-  network: process.env.NETWORK,
-  wallet: {
-    mnemonic: process.env.MNEMONIC, // A Dash wallet mnemonic with testnet funds
-    unsafeOptions: {
-      skipSynchronizationBeforeHeight: process.env.SYNC_START_HEIGHT, // sync starting at this Core block height
-    },
-  },
-};
-const client = new Dash.Client(clientOpts);
+const client = setupDashClient();
 
 const registerName = async () => {
   const { platform } = client;

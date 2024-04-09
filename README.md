@@ -44,6 +44,9 @@ Proceed with the tutorials
 [Contracts And Documents tutorials](./2-Contracts-and-Documents/) next. They
 align with the tutorials section found on the
 [documentation site](https://dashplatform.readme.io/docs/tutorials-introduction).
+Many client configuration options are included as comments in
+[`setupDashClient.js`](./setupDashClient.js) if more advanced configuration is
+required.
 
 After [creating an identity](./1-Identities-and-Names/identity-register.js), set
 the `IDENTITY_ID` value in your `.env` file to your new identity ID. After

@@ -1,9 +1,7 @@
 // See https://docs.dash.org/projects/platform/en/stable/docs/tutorials/identities-and-names/retrieve-a-name.html
-const Dash = require('dash');
-const dotenv = require('dotenv');
-dotenv.config();
+const setupDashClient = require('../setupDashClient');
 
-const client = new Dash.Client({ network: process.env.NETWORK });
+const client = setupDashClient();
 
 const retrieveNameByRecord = async () => {
   // Retrieve by a name's identity ID

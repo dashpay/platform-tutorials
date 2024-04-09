@@ -1,23 +1,7 @@
 // See https://docs.dash.org/projects/platform/en/stable/docs/tutorials/contracts-and-documents/update-documents.html
-const Dash = require('dash');
-const dotenv = require('dotenv');
-dotenv.config();
+const setupDashClient = require('../setupDashClient');
 
-const clientOpts = {
-  network: process.env.NETWORK,
-  wallet: {
-    mnemonic: process.env.MNEMONIC, // A Dash wallet mnemonic with testnet funds
-    unsafeOptions: {
-      skipSynchronizationBeforeHeight: 875000, // only sync from mid-2023
-    },
-  },
-  apps: {
-    tutorialContract: {
-      contractId: process.env.CONTRACT_ID, // Your contract ID
-    },
-  },
-};
-const client = new Dash.Client(clientOpts);
+const client = setupDashClient();
 
 const updateNoteDocument = async () => {
   const { platform } = client;

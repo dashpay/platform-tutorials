@@ -3,19 +3,9 @@ const Dash = require('dash');
 const {
   PlatformProtocol: { IdentityPublicKey, IdentityPublicKeyWithWitness },
 } = Dash;
-const dotenv = require('dotenv');
-dotenv.config();
+const setupDashClient = require('../setupDashClient');
 
-const clientOpts = {
-  network: process.env.NETWORK,
-  wallet: {
-    mnemonic: process.env.MNEMONIC, // A Dash wallet mnemonic with testnet funds
-    unsafeOptions: {
-      skipSynchronizationBeforeHeight: process.env.SYNC_START_HEIGHT, // sync starting at this Core block height
-    },
-  },
-};
-const client = new Dash.Client(clientOpts);
+const client = setupDashClient();
 
 const updateIdentityAddKey = async () => {
   const identityId = process.env.IDENTITY_ID;
