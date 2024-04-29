@@ -8,8 +8,9 @@ async function dapiClientMethods() {
   console.log(await client.getDAPIClient().core.getBlockHash(1));
   console.log(await client.getDAPIClient().core.getBestBlockHash());
   console.log(await client.getDAPIClient().core.getBlockByHeight(1));
+  await client.getDAPIClient().core.getMasternodeStatus();
 
-  return client.getDAPIClient().core.getStatus();
+  return client.getDAPIClient().core.getBlockchainStatus();
 }
 
 dapiClientMethods()
