@@ -6,7 +6,7 @@ const client = setupDashClient();
 const retrieveNameByRecord = async () => {
   // Retrieve by a name's identity ID
   return client.platform.names.resolveByRecord(
-    'dashUniqueIdentityId',
+    'identity',
     process.env.IDENTITY_ID, // Your identity ID
   );
 };

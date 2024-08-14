@@ -5,7 +5,7 @@ const client = setupDashClient();
 
 const updateIdentityDisableKey = async () => {
   const identityId = process.env.IDENTITY_ID;
-  const keyId = 3; // One of the identity's public key IDs
+  const keyId = 4; // One of the identity's public key IDs
 
   // Retrieve the identity to be updated and the public key to disable
   const existingIdentity = await client.platform.identities.get(identityId);

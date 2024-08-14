@@ -5,7 +5,7 @@ const client = setupDashClient();
 
 const topupIdentity = async () => {
   const identityId = process.env.IDENTITY_ID; // Your identity ID
-  const topUpAmount = 100000; // Number of duffs
+  const topUpAmount = 300000; // Number of duffs
 
   await client.platform.identities.topUp(identityId, topUpAmount);
   return client.platform.identities.get(identityId);
