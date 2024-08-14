@@ -9,7 +9,7 @@ const registerName = async () => {
   const identity = await platform.identities.get(process.env.IDENTITY_ID); // Your identity ID
   const nameRegistration = await platform.names.register(
     `${nameToRegister}.dash`,
-    { dashUniqueIdentityId: identity.getId() },
+    { identity: identity.getId() },
     identity,
   );
 
