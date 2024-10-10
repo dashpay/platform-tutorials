@@ -1,3 +1,4 @@
+// See https://docs.dash.org/projects/platform/en/stable/docs/tutorials/identities-and-names/withdraw-credits-from-an-identity.html
 const setupDashClient = require('../setupDashClient');
 
 const client = setupDashClient();
@@ -9,9 +10,10 @@ const withdrawCredits = async () => {
   console.log('Identity balance before transfer: ', identity.balance);
 
   const toAddress = process.env.WITHDRAWAL_ADDRESS; // Destination Dash address
-  const withdrawalAmount = 190000; // Number of credits to withdraw
+  const amount = 1000000; // Number of credits to withdraw
+  const amountDash = amount / (1000 * 100000000);
 
-  console.log('Starting credit withdrawal...');
+  console.log(`Withdrawing ${amount} credits (${amountDash} DASH)`);
 
   // Temporarily force minRelay to have a value so withdrawal succeeds
   // https://github.com/dashpay/platform/issues/2233
@@ -20,7 +22,7 @@ const withdrawCredits = async () => {
 
   const response = await client.platform.identities.withdrawCredits(
     identity,
-    withdrawalAmount,
+    amount,
     {
       toAddress,
     },
