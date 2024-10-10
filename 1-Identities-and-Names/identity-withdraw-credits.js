@@ -1,4 +1,4 @@
-// See https://docs.dash.org/projects/platform/en/stable/docs/tutorials/identities-and-names/withdraw-credits-from-an-identity.html
+// See https://docs.dash.org/projects/platform/en/stable/docs/tutorials/identities-and-names/withdraw-an-identity-balance.html
 const setupDashClient = require('../setupDashClient');
 
 const client = setupDashClient();
