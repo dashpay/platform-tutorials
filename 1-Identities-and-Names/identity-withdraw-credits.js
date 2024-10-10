@@ -18,14 +18,14 @@ const withdrawCredits = async () => {
   client.wallet.storage.getDefaultChainStore().state.fees.minRelay = 1000;
   // console.log(client.wallet.storage.getDefaultChainStore().state.fees.minRelay)
 
-  const metadata = await client.platform.identities.withdrawCredits(
+  const response = await client.platform.identities.withdrawCredits(
     identity,
     withdrawalAmount,
     {
       toAddress,
     },
   );
-  console.log(metadata);
+  console.log(response);
   return client.platform.identities.get(identityId);
 };
 
