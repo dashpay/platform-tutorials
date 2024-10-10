@@ -9,7 +9,7 @@ const registerContract = async () => {
 
   const contractDocuments = {
     card: {
-      type: "object",
+      type: 'object',
       documentsMutable: false, // true = documents can be modified (replaced)
       canBeDeleted: true, // true = documents can be deleted (current bug prevents deletion when true if mutable is false)
       transferable: 1, // 0 = transfers disabled; 1 = transfers enabled
@@ -17,64 +17,60 @@ const registerContract = async () => {
       creationRestrictionMode: 1, // 0 = anyone can mint; 1 = only contract owner can mint
       properties: {
         name: {
-          type: "string",
-          description: "Name of the card",
+          type: 'string',
+          description: 'Name of the card',
           minLength: 0,
           maxLength: 63,
-          position: 0
+          position: 0,
         },
         description: {
-          type: "string",
-          description: "Description of the card",
+          type: 'string',
+          description: 'Description of the card',
           minLength: 0,
           maxLength: 256,
-          position: 1
+          position: 1,
         },
         attack: {
-          type: "integer",
-          description: "Attack power of the card",
-          position: 2
+          type: 'integer',
+          description: 'Attack power of the card',
+          position: 2,
         },
         defense: {
-          type: "integer",
-          description: "Defense level of the card",
-          position: 3
-        }
+          type: 'integer',
+          description: 'Defense level of the card',
+          position: 3,
+        },
       },
       indices: [
         {
-          name: "owner",
+          name: 'owner',
           properties: [
             {
-              $ownerId: "asc"
-            }
-          ]
+              $ownerId: 'asc',
+            },
+          ],
         },
         {
-          name: "attack",
+          name: 'attack',
           properties: [
             {
-              attack: "asc"
-            }
-          ]
+              attack: 'asc',
+            },
+          ],
         },
         {
-          name: "defense",
+          name: 'defense',
           properties: [
             {
-              defense: "asc"
-            }
-          ]
-        }
+              defense: 'asc',
+            },
+          ],
+        },
       ],
-      required: [
-        "name",
-        "attack",
-        "defense"
-      ],
-      additionalProperties: false
-    }
-  }
+      required: ['name', 'attack', 'defense'],
+      additionalProperties: false,
+    },
+  };
 
   const contract = await platform.contracts.create(contractDocuments, identity);
   console.dir({ contract: contract.toJSON() });
