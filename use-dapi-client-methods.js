@@ -6,7 +6,7 @@ const client = setupDashClient();
 
 async function dapiClientMethods() {
   console.log(await client.getDAPIClient().core.getBlockHash(1));
-  console.log(await client.getDAPIClient().core.getBestBlockHash())
+  console.log(await client.getDAPIClient().core.getBestBlockHash());
   // console.log(await client.getDAPIClient().core.getBlockByHeight(1)); // Disabled in Platform v1.0
   console.log(await client.getDAPIClient().core.getBestBlockHeight());
   // await client.getDAPIClient().core.getMasternodeStatus(); // Disabled in Platform v1.0

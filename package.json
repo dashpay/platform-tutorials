@@ -1,6 +1,6 @@
 {
   "name": "platform-tutorials",
-  "version": "1.4.1",
+  "version": "1.5.1",
   "description": "Tutorial code for https://docs.dash.org/platform",
   "main": "connect.js",
   "scripts": {
@@ -19,7 +19,7 @@
   },
   "homepage": "https://github.com/dashpay/platform-tutorials#readme",
   "dependencies": {
-    "dash": "~4.4.1"
+    "dash": "~4.5.1"
   },
   "devDependencies": {
     "dotenv": "^16.0.0",
