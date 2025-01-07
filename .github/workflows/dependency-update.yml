@@ -7,7 +7,7 @@ on:
   pull_request:
 
 jobs:
-  update-dash:
+  update-dash-package:
     runs-on: ubuntu-latest
 
     steps:
