@@ -4,6 +4,7 @@ on:
   schedule:
     - cron: '0 2 * * *' # Run daily at 2 AM UTC
   workflow_dispatch: # Allow manual trigger
+  pull_request:
 
 jobs:
   update-dash:
