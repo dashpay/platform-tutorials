@@ -2,7 +2,7 @@ name: Update Dash Dependency and Package Version
 
 on:
   schedule:
-    - cron: '0 2 * * *' # Run daily at 2 AM UTC
+    - cron: '0 12 * * *' # Run daily at 1200 UTC
   workflow_dispatch: # Allow manual trigger
 
 permissions:
