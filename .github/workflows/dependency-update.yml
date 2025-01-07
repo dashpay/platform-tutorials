@@ -1,0 +1,90 @@
+name: Update Dash Dependency and Package Version
+
+on:
+  schedule:
+    - cron: '0 12 * * *' # Run daily at 1200 UTC
+  workflow_dispatch: # Allow manual trigger
+
+permissions:
+  contents: write
+  pull-requests: write
+
+jobs:
+  update-dash-package:
+    runs-on: ubuntu-latest
+
+    steps:
+      # Step 1: Checkout the repository
+      - name: Checkout Repository
+        uses: actions/checkout@v4
+
+      # Step 2: Set up Node.js
+      - name: Set up Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version: '20'
+
+      # Step 3: Install dependencies
+      - name: Install Dependencies
+        run: npm install
+
+      # Step 4: Check and Update Dash Dependency and Version
+      - name: Check and Update Dash Dependency
+        id: update_dash
+        run: |
+          # Get the current version of Dash in package.json
+          CURRENT_DASH_VERSION=$(jq -r '.dependencies.dash // .devDependencies.dash' package.json)
+          
+          # Extract the version prefix (e.g., ^, ~, or empty)
+          DASH_PREFIX=$(echo "$CURRENT_DASH_VERSION" | grep -o '^[^0-9]*')
+          DASH_VERSION_NUMBER=$(echo "$CURRENT_DASH_VERSION" | grep -o '[0-9].*')
+
+          # Get the latest version of Dash
+          LATEST_DASH_VERSION=$(npm show dash version)
+          LATEST_MINOR_PATCH=$(echo "$LATEST_DASH_VERSION" | cut -d. -f2,3)
+
+          echo "Current Dash version: $CURRENT_DASH_VERSION"
+          echo "Latest Dash version: $LATEST_DASH_VERSION"
+
+          # Update dash dependency if needed
+          if [ "$DASH_VERSION_NUMBER" != "$LATEST_DASH_VERSION" ]; then
+            jq '.dependencies.dash = "'"$DASH_PREFIX$LATEST_DASH_VERSION"'"' package.json > package.json.tmp && mv package.json.tmp package.json
+
+            # Update package version in package.json (keep major version, sync minor and patch)
+            CURRENT_PACKAGE_VERSION=$(jq -r '.version' package.json)
+            CURRENT_MAJOR_VERSION=$(echo "$CURRENT_PACKAGE_VERSION" | cut -d. -f1)
+            NEW_PACKAGE_VERSION="$CURRENT_MAJOR_VERSION.$LATEST_MINOR_PATCH"
+
+            jq '.version = "'"$NEW_PACKAGE_VERSION"'"' package.json > package.json.tmp && mv package.json.tmp package.json
+            echo "Updated package.json version to $NEW_PACKAGE_VERSION"
+
+            npm install dash
+
+            echo "needs_update=true" >> $GITHUB_ENV
+          else
+            echo "Dash dependency is up-to-date"
+            echo "needs_update=false" >> $GITHUB_ENV
+          fi
+
+      # Step 5: Commit and Push Changes if Needed
+      - name: Commit and Push Changes
+        if: env.needs_update == 'true'
+        run: |
+          git config user.name "github-actions[bot]"
+          git config user.email "github-actions[bot]@users.noreply.github.com"
+          
+          git checkout -b update-dash-and-version
+          git add package.json package-lock.json
+          git commit -m "chore: update dash dependency and sync version to $NEW_PACKAGE_VERSION"
+          git push origin update-dash-and-version
+
+      # Step 6: Create Pull Request
+      - name: Create Pull Request
+        if: env.needs_update == 'true'
+        uses: peter-evans/create-pull-request@v5
+        with:
+          token: ${{ secrets.GITHUB_TOKEN }}
+          branch: update-dash-and-version
+          title: "Update Dash Dependency and Sync Version"
+          body: |
+            This pull request updates the `dash` dependency to the latest version and syncs the package version to `$NEW_PACKAGE_VERSION`, aligning the minor and patch versions with `dash`.
