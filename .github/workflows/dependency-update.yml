@@ -66,19 +66,7 @@ jobs:
             echo "needs_update=false" >> $GITHUB_ENV
           fi
 
-      # # Step 5: Commit and Push Changes if Needed
-      # - name: Commit and Push Changes
-      #   if: env.needs_update == 'true'
-      #   run: |
-      #     git config user.name "github-actions[bot]"
-      #     git config user.email "github-actions[bot]@users.noreply.github.com"
-          
-      #     git checkout -b update-dash-and-version
-      #     git add package.json package-lock.json
-      #     git commit -m "chore: update dash dependency and sync version to $NEW_PACKAGE_VERSION"
-      #     git push origin update-dash-and-version
-
-      # Step 6: Create Pull Request
+      # Step 5: Create Pull Request
       - name: Create Pull Request
         if: env.needs_update == 'true'
         uses: peter-evans/create-pull-request@v5
