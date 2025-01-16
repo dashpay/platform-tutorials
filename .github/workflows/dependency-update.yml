@@ -85,6 +85,7 @@ jobs:
         with:
           token: ${{ secrets.GITHUB_TOKEN }}
           branch: update-dash-and-version
+          base: main
           title: "Update Dash Dependency and Sync Version"
           body: |
             This pull request updates the `dash` dependency to the latest version and syncs the package version to `$NEW_PACKAGE_VERSION`, aligning the minor and patch versions with `dash`.
