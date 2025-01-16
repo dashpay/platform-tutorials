@@ -79,3 +79,5 @@ jobs:
           title: "chore: update Dash dependency and sync version"
           body: |
             This pull request updates the `dash` dependency to the latest version and syncs the package version, aligning the minor and patch versions with `dash`.
+          commit-message: "chore: update Dash dependency and sync version"
+          reviewers: "thephez"
