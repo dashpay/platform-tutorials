@@ -32,6 +32,8 @@ jobs:
       - name: Check and Update Dash Dependency
         id: update_dash
         run: |
+          set -e  # Stop execution on any error
+
           # Get the current version of Dash in package.json
           CURRENT_DASH_VERSION=$(jq -r '.dependencies.dash // .devDependencies.dash' package.json)
           
