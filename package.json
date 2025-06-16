@@ -19,7 +19,7 @@
   },
   "homepage": "https://github.com/dashpay/platform-tutorials#readme",
   "dependencies": {
-    "dash": "~5.0.0-rc.4"
+    "dash": "~5.0.0-rc.16"
   },
   "devDependencies": {
     "dotenv": "^16.0.0",
