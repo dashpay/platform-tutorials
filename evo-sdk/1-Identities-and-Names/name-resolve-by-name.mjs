@@ -2,18 +2,16 @@
 // See https://docs.dash.org/projects/platform/en/stable/docs/tutorials/identities-and-names/retrieve-a-name.html
 import setupEvoClient from '../setupEvoClient.mjs';
 
+const sdk = setupEvoClient();
+await sdk.connect();
+
 const nameToRetrieve = 'Tutorial-Test-000000'; // Enter name to retrieve identity for
 
 const retrieveName = async () => {
-  const sdk = setupEvoClient();
-  await sdk.connect();
-
   // Resolve by full name (e.g., myname.dash)
-  const nameInfo = await sdk.dpns.resolveName(`${nameToRetrieve}.dash`);
-  console.log('Name resolved:', nameInfo);
-  return nameInfo;
+  return sdk.dpns.resolveName(`${nameToRetrieve}.dash`);
 };
 
 retrieveName()
-  .then((d) => console.log('\nSuccess!'))
-  .catch((e) => console.error('Failed:', e.message));
+  .then((d) => console.log(`Identity for ${nameToRetrieve}:\n${d}`))
+  .catch((e) => console.error('Something went wrong:\n', e.message));

@@ -4,19 +4,14 @@ import setupEvoClient from '../setupEvoClient.mjs';
 import dotenv from 'dotenv';
 dotenv.config();
 
+const sdk = setupEvoClient();
+await sdk.connect();
+
 const retrieveIdentity = async () => {
-  const sdk = setupEvoClient();
-  await sdk.connect();
-
-  // Use IDENTITY_ID from .env or a well-known testnet identity as fallback
   const identityId = process.env.IDENTITY_ID || '7XcruVSsGQVSgTcmPewaE4tXLutnW1F6PXxwMbo8GYQC';
-  console.log(`Retrieving identity: ${identityId}\n`);
-
-  const identity = await sdk.identities.fetch(identityId);
-  console.log('Identity retrieved:\n', identity.toJSON());
-  return identity;
+  return sdk.identities.fetch(identityId);
 };
 
 retrieveIdentity()
-  .then((d) => console.log('\nSuccess!'))
+  .then((d) => console.log('Identity retrieved:\n', d.toJSON()))
   .catch((e) => console.error('Something went wrong:\n', e.message));
