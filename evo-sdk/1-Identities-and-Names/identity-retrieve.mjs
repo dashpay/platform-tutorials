@@ -8,7 +8,8 @@ const sdk = setupEvoClient();
 await sdk.connect();
 
 const retrieveIdentity = async () => {
-  const identityId = process.env.IDENTITY_ID || '7XcruVSsGQVSgTcmPewaE4tXLutnW1F6PXxwMbo8GYQC';
+  const identityId =
+    process.env.IDENTITY_ID || '7XcruVSsGQVSgTcmPewaE4tXLutnW1F6PXxwMbo8GYQC';
   return sdk.identities.fetch(identityId);
 };
 

@@ -63,14 +63,15 @@ function setupEvoClient(options = clientOptions) {
   }
 
   if (options.settings) {
-    ['connectTimeoutMs', 'timeoutMs', 'retries'].forEach(key => {
+    ['connectTimeoutMs', 'timeoutMs', 'retries'].forEach((key) => {
       if (options.settings[key] && typeof options.settings[key] === 'string') {
         options.settings[key] = parseInt(options.settings[key], 10);
       }
     });
 
     if (typeof options.settings.banFailedAddress === 'string') {
-      options.settings.banFailedAddress = options.settings.banFailedAddress === 'true';
+      options.settings.banFailedAddress =
+        options.settings.banFailedAddress === 'true';
     }
   }
 

@@ -7,7 +7,6 @@ await sdk.connect();
 const searchPrefix = 'test'; // Enter prefix character(s) to search for
 
 const retrieveNameBySearch = async () => {
-
   // DPNS contract ID
   const dpnsContractId = 'GWRSAVFMjXx8HpQFaNJMqBV7MBgMK4br5UESsB4S31Ec';
 
@@ -27,7 +26,7 @@ const retrieveNameBySearch = async () => {
 retrieveNameBySearch()
   .then((d) => {
     for (const name of d) {
-      console.log('Name retrieved:\n', name.data)
+      console.log('Name retrieved:\n', name.data);
     }
   })
   .catch((e) => console.error('Something went wrong:\n', e.message));

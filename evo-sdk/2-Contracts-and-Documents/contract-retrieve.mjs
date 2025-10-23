@@ -9,7 +9,8 @@ await sdk.connect();
 
 const retrieveContract = async () => {
   // Use CONTRACT_ID from .env or the hardcoded default
-  const contractId = process.env.CONTRACT_ID || 'GWRSAVFMjXx8HpQFaNJMqBV7MBgMK4br5UESsB4S31Ec';
+  const contractId =
+    process.env.CONTRACT_ID || 'GWRSAVFMjXx8HpQFaNJMqBV7MBgMK4br5UESsB4S31Ec';
   return sdk.contracts.fetch(contractId);
 };
 

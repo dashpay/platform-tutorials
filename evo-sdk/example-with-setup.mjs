@@ -13,11 +13,15 @@ import setupEvoClient from './setupEvoClient.mjs';
 
   // Get identity data only
   console.log('\nFetching identity (data only)...');
-  let result = await sdk.identities.fetch('7XcruVSsGQVSgTcmPewaE4tXLutnW1F6PXxwMbo8GYQC');
+  let result = await sdk.identities.fetch(
+    '7XcruVSsGQVSgTcmPewaE4tXLutnW1F6PXxwMbo8GYQC',
+  );
   console.log(result.toJSON());
 
   // Get identity with proof
   console.log('\nFetching identity (with proof)...');
-  result = await sdk.identities.fetchWithProof('7XcruVSsGQVSgTcmPewaE4tXLutnW1F6PXxwMbo8GYQC');
+  result = await sdk.identities.fetchWithProof(
+    '7XcruVSsGQVSgTcmPewaE4tXLutnW1F6PXxwMbo8GYQC',
+  );
   console.log(result);
 })();
