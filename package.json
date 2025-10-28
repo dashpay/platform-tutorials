@@ -20,7 +20,7 @@
   "homepage": "https://github.com/dashpay/platform-tutorials#readme",
   "dependencies": {
     "dash": "~5.0.1",
-    "@dashevo/evo-sdk": "2.1-rc"
+    "@dashevo/evo-sdk": "2.1.2"
   },
   "devDependencies": {
     "dotenv": "^16.0.0",
