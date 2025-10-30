@@ -16,7 +16,7 @@ const updateContract = async () => {
   // Define the complete updated contract definition
   // This adds a new 'author' property to the existing 'note' document type
   const updates = {
-    $format_version: "0",
+    $format_version: '0',
     ownerId: identityId,
     id: contractId,
     version: existingContract.toJSON().version + 1, // Increment version

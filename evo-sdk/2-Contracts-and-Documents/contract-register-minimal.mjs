@@ -11,8 +11,8 @@ const registerContract = async () => {
 
   // Define the contract definition with all required fields
   const contractDefinition = {
-    $format_version: "0",  // Required: Contract format version
-    ownerId: identityId,   // Required: Owner's identity ID
+    $format_version: '0', // Required: Contract format version
+    ownerId: identityId, // Required: Owner's identity ID
     id: '11111111111111111111111111111111', // Placeholder
     version: 1,
     documentSchemas: {
