@@ -4,7 +4,7 @@
   "description": "Tutorial code for https://docs.dash.org/platform",
   "main": "connect.js",
   "scripts": {
-    "fmt": "npx prettier@2 --write '**/*.{md,js}'",
+    "fmt": "npx prettier@2 --write '**/*.{md,js,mjs}'",
     "lint": "npx -p typescript@4 tsc",
     "test": "echo \"Error: no test specified\" && exit 1"
   },
@@ -20,7 +20,7 @@
   "homepage": "https://github.com/dashpay/platform-tutorials#readme",
   "dependencies": {
     "dash": "~5.0.1",
-    "@dashevo/evo-sdk": "2.1.2"
+    "@dashevo/evo-sdk": "2.1.3"
   },
   "devDependencies": {
     "dotenv": "^16.0.0",
