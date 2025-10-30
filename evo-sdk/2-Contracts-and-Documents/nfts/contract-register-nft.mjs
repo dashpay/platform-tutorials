@@ -1,6 +1,6 @@
 /* eslint-disable no-console */
 // See https://docs.dash.org/projects/platform/en/stable/docs/tutorials/contracts-and-documents/register-a-data-contract.html
-import setupEvoClient from '../setupEvoClient.mjs';
+import setupEvoClient from '../../setupEvoClient.mjs';
 
 const sdk = setupEvoClient();
 await sdk.connect();
