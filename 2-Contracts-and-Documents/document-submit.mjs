@@ -1,3 +1,4 @@
+// See https://docs.dash.org/projects/platform/en/stable/docs/tutorials/contracts-and-documents/submit-documents.html
 import { Document } from '@dashevo/evo-sdk';
 import { setupDashClient } from '../setupDashClient.mjs';
 
