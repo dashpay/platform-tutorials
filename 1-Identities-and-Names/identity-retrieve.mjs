@@ -1,3 +1,4 @@
+// See https://docs.dash.org/projects/platform/en/stable/docs/tutorials/identities-and-names/retrieve-an-identity.html
 import { setupDashClient } from '../setupDashClient.mjs';
 
 const { sdk, keyManager } = await setupDashClient();

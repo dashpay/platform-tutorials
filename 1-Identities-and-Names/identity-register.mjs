@@ -1,3 +1,4 @@
+// See https://docs.dash.org/projects/platform/en/stable/docs/tutorials/identities-and-names/register-an-identity.html
 import { randomBytes } from 'node:crypto';
 import { Identity, Identifier } from '@dashevo/evo-sdk';
 import { setupDashClient } from '../setupDashClient.mjs';
