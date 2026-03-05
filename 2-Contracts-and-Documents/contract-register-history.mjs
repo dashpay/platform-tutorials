@@ -1,0 +1,49 @@
+// See https://docs.dash.org/projects/platform/en/stable/docs/tutorials/contracts-and-documents/register-a-data-contract.html
+import { DataContract } from '@dashevo/evo-sdk';
+import { setupDashClient } from '../setupDashClient.mjs';
+
+const { sdk, keyManager } = await setupDashClient();
+const { identity, identityKey, signer } = await keyManager.getAuth();
+
+const documentSchemas = {
+  note: {
+    type: 'object',
+    properties: {
+      message: {
+        type: 'string',
+        position: 0,
+      },
+    },
+    additionalProperties: false,
+  },
+};
+
+try {
+  const identityNonce = await sdk.identities.nonce(identity.id.toString());
+
+  const dataContract = new DataContract({
+    ownerId: identity.id,
+    identityNonce: (identityNonce || 0n) + 1n,
+    schemas: documentSchemas,
+    fullValidation: true,
+  });
+
+  // Enable storing of contract history
+  dataContract.setConfig({
+    canBeDeleted: false,
+    readonly: false,
+    keepsHistory: true,
+    documentsKeepHistoryContractDefault: false,
+    documentsMutableContractDefault: true,
+  });
+
+  const publishedContract = await sdk.contracts.publish({
+    dataContract,
+    identityKey,
+    signer,
+  });
+
+  console.log('Contract registered:\n', publishedContract.toJSON());
+} catch (e) {
+  console.error('Something went wrong:\n', e.message);
+}
