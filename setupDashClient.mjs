@@ -45,7 +45,7 @@ const clientConfig = {
  * Returns the full 7-level hardened path:
  *   m/9'/{coin}'/5'/0'/0'/{identityIndex}'/{keyIndex}'
  */
-async function dip13KeyPath(network, identityIndex, keyIndex) {
+export async function dip13KeyPath(network, identityIndex, keyIndex) {
   const base =
     network === 'testnet'
       ? await wallet.derivationPathDip13Testnet(5)
