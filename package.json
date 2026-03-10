@@ -19,7 +19,6 @@
   },
   "homepage": "https://github.com/dashpay/platform-tutorials#readme",
   "dependencies": {
-    "dash": "~5.0.1",
     "@dashevo/evo-sdk": "3.1.0-dev.1"
   },
   "devDependencies": {
