@@ -19,7 +19,9 @@ try {
   console.log('Name registered:\n', result.toJSON());
 } catch (e) {
   if (e.message?.includes('duplicate unique properties')) {
-    console.error(`Name "${NAME_LABEL}.dash" is already registered. Try a different name.`);
+    console.error(
+      `Name "${NAME_LABEL}.dash" is already registered. Try a different name.`,
+    );
   } else {
     console.error('Something went wrong:\n', e.message);
   }

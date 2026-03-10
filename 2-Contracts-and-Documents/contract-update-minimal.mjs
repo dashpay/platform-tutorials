@@ -7,12 +7,13 @@ const { identityKey, signer } = await keyManager.getAuth();
 // Edit these values for your environment
 // Your contract ID from the Register a Data Contract tutorial
 const DATA_CONTRACT_ID =
-  process.env.DATA_CONTRACT_ID ??
-  'YOUR_DATA_CONTRACT_ID';
+  process.env.DATA_CONTRACT_ID ?? 'YOUR_DATA_CONTRACT_ID';
 const DOCUMENT_TYPE = 'note';
 
 if (!DATA_CONTRACT_ID || DATA_CONTRACT_ID === 'YOUR_DATA_CONTRACT_ID') {
-  throw new Error('Set DATA_CONTRACT_ID (env var or in code) to your contract ID from the Register a Data Contract tutorial');
+  throw new Error(
+    'Set DATA_CONTRACT_ID (env var or in code) to your contract ID from the Register a Data Contract tutorial',
+  );
 }
 
 try {

@@ -11,10 +11,12 @@ try {
 
   const result = await sdk.addresses.topUpIdentity({
     identity,
-    inputs: [{
-      address: addressKeyManager.primaryAddress.bech32m,
-      amount: 200000n, // Credits to transfer
-    }],
+    inputs: [
+      {
+        address: addressKeyManager.primaryAddress.bech32m,
+        amount: 200000n, // Credits to transfer
+      },
+    ],
     signer,
   });
 

@@ -6,7 +6,11 @@ import {
   SecurityLevel,
   wallet,
 } from '@dashevo/evo-sdk';
-import { setupDashClient, clientConfig, dip13KeyPath } from '../setupDashClient.mjs';
+import {
+  setupDashClient,
+  clientConfig,
+  dip13KeyPath,
+} from '../setupDashClient.mjs';
 
 const { sdk, keyManager } = await setupDashClient();
 

@@ -8,11 +8,13 @@ const { identity, identityKey, signer } = await keyManager.getAuth();
 const documentSchemas = {
   note: {
     type: 'object',
-    indices: [{
-      name: 'ownerId',
-      properties: [{ $ownerId: 'asc' }],
-      unique: false,
-    }],
+    indices: [
+      {
+        name: 'ownerId',
+        properties: [{ $ownerId: 'asc' }],
+        unique: false,
+      },
+    ],
     properties: {
       message: {
         type: 'string',
