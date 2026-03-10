@@ -1,6 +1,6 @@
 {
   "name": "platform-tutorials",
-  "version": "2.0.1",
+  "version": "3.0.1",
   "description": "Tutorial code for https://docs.dash.org/platform",
   "main": "connect.js",
   "scripts": {
@@ -19,7 +19,8 @@
   },
   "homepage": "https://github.com/dashpay/platform-tutorials#readme",
   "dependencies": {
-    "dash": "~5.0.1"
+    "@dashevo/evo-sdk": "3.1.0-dev.1",
+    "dash": "~6.0.1"
   },
   "devDependencies": {
     "dotenv": "^16.0.0",
