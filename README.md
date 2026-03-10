@@ -3,8 +3,9 @@
 [![SDK
 Version](https://img.shields.io/github/package-json/dependency-version/dashpay/platform-readme-tutorials/%40dashevo%2Fevo-sdk)](https://github.com/dashpay/platform-readme-tutorials/blob/main/package.json)
 
-Code for the tutorials found on the [Platform documentation site](https://docs.dash.org/platform).
-This repo uses `@dashevo/evo-sdk`. For the legacy `js-dash-sdk` tutorials, see
+Code for the tutorials found on the [Platform documentation
+site](http://docs.dash.org/projects/platform/en/stable/docs/tutorials/introduction.html). This repo
+uses `@dashevo/evo-sdk`. For the legacy `js-dash-sdk` tutorials, see
 [v2.0.1](https://github.com/dashpay/platform-tutorials/releases/tag/v2.0.1).
 
 ## Install
