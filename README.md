@@ -1,14 +1,13 @@
 # platform-readme-tutorials
 
-[![SDK Version](https://img.shields.io/github/package-json/dependency-version/dashpay/platform-readme-tutorials/dash)](https://github.com/dashpay/platform-readme-tutorials/blob/main/package.json)
+[![SDK
+Version](https://img.shields.io/github/package-json/dependency-version/dashpay/platform-readme-tutorials/%40dashevo%2Fevo-sdk)](https://github.com/dashpay/platform-readme-tutorials/blob/main/package.json)
 
-Code for the tutorials found on the
-[Platform documentation site](https://docs.dash.org/platform).
+Code for the tutorials found on the [Platform documentation site](https://docs.dash.org/platform).
 
 ## Install
 
-Note: [NodeJS](https://nodejs.org/en/download/) (v20+) must be installed to run
-the tutorial code.
+Note: [NodeJS](https://nodejs.org/en/download/) (v20+) must be installed to run the tutorial code.
 
 ### Clone this repository
 
@@ -26,37 +25,24 @@ npm ci
 
 ## Usage
 
-1. Create an `.env` file (See [`.env.example`](./.env.example) for an example
-   `.env` file). Set `NETWORK` to the desired network type (normally 'testnet').
-1. Check connection: `node connect.js`
-1. Create wallet: `node create-wallet.js`
-1. Go to the [Testnet faucet](https://testnet-faucet.dash.org/) and add funds to
-   the address reported in the previous step
-1. Open the `.env` file (See [`.env.example`](./.env.example) for an example
-   `.env` file) and set `MNEMONIC` to the wallet mnemonic from step 3.
-1. If doing withdrawals, open your `.env` file and set `WITHDRAWAL_ADDRESS` to
-   the Core chain address where you would like to receive funds withdrawn from
-   Platform.
-1. (Optional) To minimize wallet sync time, open your `.env` file and set
-   `SYNC_START_HEIGHT` to a Core chain block height just below the height of
-   your wallet's first transaction. Otherwise you can skip this step and use the
-   default value from [`.env.example`](./.env.example).
+1. Check connection: `node connect.mjs`
+1. Create a wallet: `node create-wallet.mjs`
+1. Fund the platform address using the bridge URL printed in the previous step
+1. Create a `.env` file (see [`.env.example`](./.env.example)) and set `PLATFORM_MNEMONIC` to the
+   mnemonic from step 2. Set `NETWORK` if needed (defaults to `testnet`).
 
-Proceed with the tutorials
-[Identities and Names tutorials](./1-Identities-and-Names/) first and the
-[Contracts And Documents tutorials](./2-Contracts-and-Documents/) next. They
-align with the tutorials section found on the
-[documentation site](https://dashplatform.readme.io/docs/tutorials-introduction).
-Many client configuration options are included as comments in
-[`setupDashClient.js`](./setupDashClient.js) if more advanced configuration is
-required.
+Proceed with the [Identities and Names tutorials](./1-Identities-and-Names/) first and the
+[Contracts and Documents tutorials](./2-Contracts-and-Documents/) next. They align with the
+tutorials section on the [documentation
+site](https://docs.dash.org/projects/platform/en/stable/docs/tutorials/introduction.html).
 
-After [creating an identity](./1-Identities-and-Names/identity-register.js), set
-the `IDENTITY_ID` value in your `.env` file to your new identity ID. After
-[registering a data contract](./2-Contracts-and-Documents/contract-register-minimal.js),
-set the `CONTRACT_ID` value in your `.env` file to your new contract ID. To do
-credit transfers between identities, create a second identity and set the
-`RECIPIENT_ID` value in your `.env` file to its ID.
+The identity ID is automatically resolved from your mnemonic, so there is no need to set it
+manually. After [registering a data
+contract](./2-Contracts-and-Documents/contract-register-minimal.mjs), set `DATA_CONTRACT_ID` in your
+`.env` file to the new contract ID for use in subsequent document tutorials.
+
+Some client configuration options are included as comments in
+[`setupDashClient.mjs`](./setupDashClient.mjs) if more advanced configuration is required.
 
 ## Contributing
 
