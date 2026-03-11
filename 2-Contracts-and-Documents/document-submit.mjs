@@ -5,7 +5,7 @@ import { setupDashClient } from '../setupDashClient.mjs';
 const { sdk, keyManager } = await setupDashClient();
 const { identity, identityKey, signer } = await keyManager.getAuth();
 
-// Default tutorial contract (public). Replace or override via DATA_CONTRACT_ID.
+// Default tutorial contract (testnet). Replace or override via DATA_CONTRACT_ID.
 const DATA_CONTRACT_ID =
   process.env.DATA_CONTRACT_ID ??
   'FW3DHrQiG24VqzPY4ARenMgjEPpBNuEQTZckV8hbVCG4';

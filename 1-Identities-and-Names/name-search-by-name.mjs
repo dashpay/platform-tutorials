@@ -22,7 +22,6 @@ try {
   });
 
   for (const [id, doc] of results) {
-    console.log(doc.toJSON());
     const { label, parentDomainName } = doc.toJSON();
     console.log(`${label}.${parentDomainName} (ID: ${id.toString()})`);
   }

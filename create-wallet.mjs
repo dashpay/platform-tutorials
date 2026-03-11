@@ -1,3 +1,4 @@
+// See https://docs.dash.org/projects/platform/en/stable/docs/tutorials/create-and-fund-a-wallet.html
 import { wallet, PlatformAddressSigner, PrivateKey } from '@dashevo/evo-sdk';
 
 const network = 'testnet';
