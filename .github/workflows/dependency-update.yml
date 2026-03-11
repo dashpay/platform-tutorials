@@ -48,8 +48,11 @@ jobs:
           echo "Current @dashevo/evo-sdk version: $CURRENT_DASH_VERSION"
           echo "Latest @dashevo/evo-sdk version: $LATEST_DASH_VERSION"
 
-          # Update dash dependency if needed
-          if [ "$DASH_VERSION_NUMBER" != "$LATEST_DASH_VERSION" ]; then
+          # Only update if the latest stable version is strictly higher than current
+          # npx semver returns the version if it satisfies the range, empty otherwise
+          IS_HIGHER=$(npx -y semver "$LATEST_DASH_VERSION" -r ">$DASH_VERSION_NUMBER" || true)
+
+          if [ -n "$IS_HIGHER" ]; then
             jq '.dependencies["@dashevo/evo-sdk"] = "'"$DASH_PREFIX$LATEST_DASH_VERSION"'"' package.json > package.json.tmp && mv package.json.tmp package.json
 
             # Update package version in package.json (keep major version, sync minor and patch)
