@@ -6,7 +6,10 @@
   "scripts": {
     "fmt": "npx prettier@2 --write '**/*.{md,js,mjs}'",
     "lint": "npx -p typescript@4 tsc",
-    "test": "echo \"Error: no test specified\" && exit 1"
+    "test": "node --test --test-timeout=120000 test/read-only.test.mjs",
+    "test:read-only": "node --test --test-timeout=120000 test/read-only.test.mjs",
+    "test:read-write": "node --test --test-timeout=300000 --test-concurrency=1 test/read-write.test.mjs",
+    "test:all": "node --test --test-timeout=300000 --test-concurrency=1 test/read-only.test.mjs test/read-write.test.mjs"
   },
   "repository": {
     "type": "git",

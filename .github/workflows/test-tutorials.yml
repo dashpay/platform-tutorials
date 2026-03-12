@@ -1,0 +1,65 @@
+name: Tutorial Tests
+
+on:
+  push:
+    branches: [main]
+  pull_request:
+    branches: [main]
+  workflow_dispatch:
+    inputs:
+      test_suite:
+        description: 'Which tests to run'
+        type: choice
+        options:
+          - read-only
+          - read-write
+          - all
+        default: read-only
+
+permissions:
+  contents: read
+
+concurrency:
+  group: tutorial-tests-${{ github.workflow }}-${{ github.ref }}
+  cancel-in-progress: true
+
+jobs:
+  test-read-only:
+    runs-on: ubuntu-latest
+    timeout-minutes: 10
+    if: >
+      github.event_name != 'workflow_dispatch' ||
+      inputs.test_suite == 'read-only' ||
+      inputs.test_suite == 'all'
+    steps:
+      - uses: actions/checkout@de0fac2e4500dabe0009e67214ff5f5447ce83dd # v6.0.2
+      - uses: actions/setup-node@53b83947a5a98c8d113130e565377fae1a50d02f # v6.3.0
+        with:
+          node-version: '20'
+      - run: npm ci
+      - name: Run read-only tutorial tests
+        env:
+          NETWORK: testnet
+          PLATFORM_MNEMONIC: ${{ secrets.PLATFORM_MNEMONIC }}
+        run: npm run test:read-only
+
+  test-read-write:
+    runs-on: ubuntu-latest
+    timeout-minutes: 30
+    if: >
+      github.event_name == 'workflow_dispatch' &&
+      (inputs.test_suite == 'read-write' || inputs.test_suite == 'all')
+    concurrency:
+      group: tutorial-read-write
+      cancel-in-progress: false
+    steps:
+      - uses: actions/checkout@de0fac2e4500dabe0009e67214ff5f5447ce83dd # v6.0.2
+      - uses: actions/setup-node@53b83947a5a98c8d113130e565377fae1a50d02f # v6.3.0
+        with:
+          node-version: '20'
+      - run: npm ci
+      - name: Run read-write tutorial tests
+        env:
+          NETWORK: testnet
+          PLATFORM_MNEMONIC: ${{ secrets.PLATFORM_MNEMONIC }}
+        run: npm run test:read-write

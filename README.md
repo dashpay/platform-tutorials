@@ -47,6 +47,24 @@ contract](./2-Contracts-and-Documents/contract-register-minimal.mjs), set `DATA_
 Some client configuration options are included as comments in
 [`setupDashClient.mjs`](./setupDashClient.mjs) if more advanced configuration is required.
 
+## Testing
+
+Tests run each tutorial as a subprocess and validate its output. No test framework
+dependencies are required — tests use the Node.js built-in test runner.
+
+Ensure your `.env` file is configured (see [`.env.example`](./.env.example)) before running tests.
+
+```shell
+# Read-only tests (default) — safe to run, no credits consumed
+npm test
+
+# Write tests — registers identities/contracts/documents (consumes testnet credits)
+npm run test:read-write
+
+# All tests
+npm run test:all
+```
+
 ## Contributing
 
 PRs accepted.
