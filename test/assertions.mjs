@@ -55,11 +55,15 @@ export function extractFromOutput(stdout, regex) {
 }
 
 /**
- * Extract an `id` field from util.inspect or JSON output.
- * Handles both `id: 'VALUE'` (inspect) and `"id": "VALUE"` (JSON).
+ * Extract an `id` or `$id` field from util.inspect or JSON output.
+ * Handles `'$id': 'VALUE'` (inspect), `"$id": "VALUE"` (JSON),
+ * `id: 'VALUE'` (inspect), and `"id": "VALUE"` (JSON).
+ * Tries `$id` first since it's more specific.
  */
 export function extractId(stdout) {
   return (
+    extractFromOutput(stdout, /'\$id':\s*'([^']+)'/) ??
+    extractFromOutput(stdout, /"\$id"\s*:\s*"([^"]+)"/) ??
     extractFromOutput(stdout, /"id"\s*:\s*"([^"]+)"/) ??
     extractFromOutput(stdout, /id:\s*'([^']+)'/)
   );

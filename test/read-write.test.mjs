@@ -105,7 +105,8 @@ describe('Write tutorials (sequential)', { concurrency: 1 }, () => {
       errorPatterns: ['Something went wrong'],
     });
     const id = extractId(result.stdout);
-    if (id) state.dataContractId = id;
+    assert.ok(id, `Failed to extract contract ID from stdout:\n${result.stdout}`);
+    state.dataContractId = id;
   });
 
   it('contract-register-indexed', { timeout: 180_000 }, async () => {
@@ -210,7 +211,8 @@ describe('Write tutorials (sequential)', { concurrency: 1 }, () => {
     });
 
     const docId = extractId(result.stdout);
-    if (docId) state.documentId = docId;
+    assert.ok(docId, `Failed to extract document ID from stdout:\n${result.stdout}`);
+    state.documentId = docId;
   });
 
   // TODO: document-update.mjs and document-delete.mjs need a
