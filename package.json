@@ -9,7 +9,8 @@
     "test": "node --test --test-timeout=120000 test/read-only.test.mjs",
     "test:read-only": "node --test --test-timeout=120000 test/read-only.test.mjs",
     "test:read-write": "node --test --test-timeout=300000 --test-concurrency=1 test/read-write.test.mjs",
-    "test:all": "node --test --test-timeout=300000 --test-concurrency=1 test/read-only.test.mjs test/read-write.test.mjs"
+    "test:all": "node --test --test-timeout=300000 --test-concurrency=1 test/read-only.test.mjs test/read-write.test.mjs && npm run test:setup",
+    "test:setup": "mocha --slow 500 test/setupDashClient.test.mjs --exit"
   },
   "repository": {
     "type": "git",
@@ -25,7 +26,9 @@
     "@dashevo/evo-sdk": "3.1.0-dev.1"
   },
   "devDependencies": {
-    "dotenv": "^16.0.0",
-    "eslint": "^8.45.0"
+    "chai": "6.2.2",
+    "dotenv": "17.3.1",
+    "eslint": "^8.45.0",
+    "mocha": "^11.1.0"
   }
 }
