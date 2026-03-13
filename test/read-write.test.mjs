@@ -1,7 +1,11 @@
 import { describe, it } from 'node:test';
 import assert from 'node:assert/strict';
 import { runTutorial } from './run-tutorial.mjs';
-import { assertTutorialSuccess, extractId } from './assertions.mjs';
+import {
+  assertTutorialSuccess,
+  extractId,
+  extractKeyId,
+} from './assertions.mjs';
 
 // Accumulated state passed forward as env vars to dependent tutorials.
 const state = {};
@@ -24,7 +28,7 @@ describe('Write tutorials (sequential)', { concurrency: 1 }, () => {
       /Identity registered!/,
       `Expected identity registration output.\nSTDOUT: ${result.stdout}\nSTDERR: ${result.stderr}`,
     );
-    console.log(result.stdout)
+    console.log(result.stdout);
   });
 
   it('identity-retrieve', { timeout: 120_000 }, async () => {
@@ -85,10 +89,48 @@ describe('Write tutorials (sequential)', { concurrency: 1 }, () => {
       expectedPatterns: ['Identity updated:'],
       errorPatterns: ['Something went wrong'],
     });
+
+    const keyId = extractKeyId(result.stdout);
+    assert.ok(keyId, `Failed to extract key ID from stdout:\n${result.stdout}`);
+    state.addedKeyId = keyId;
   });
 
-  // Skipped: identity-update-disable-key.mjs — KEY_ID = 99 hardcoded
-  // Skipped: name-register.mjs — NAME_LABEL = 'alice' hardcoded
+  it('identity-update-disable-key', { timeout: 120_000 }, async (ctx) => {
+    if (!state.addedKeyId) {
+      ctx.skip('No KEY_ID (identity-update-add-key must pass first)');
+      return;
+    }
+    const result = await runTutorial(
+      '1-Identities-and-Names/identity-update-disable-key.mjs',
+      {
+        env: { DISABLE_KEY_ID: state.addedKeyId },
+        timeoutMs: 120_000,
+      },
+    );
+    assertTutorialSuccess(result, {
+      name: 'identity-update-disable-key',
+      expectedPatterns: ['Identity updated:'],
+      errorPatterns: ['Something went wrong'],
+    });
+  });
+
+  it('name-register', { timeout: 120_000 }, async () => {
+    const label = `test-${Date.now()}-${Math.random()
+      .toString(36)
+      .slice(2, 6)}`;
+    const result = await runTutorial(
+      '1-Identities-and-Names/name-register.mjs',
+      {
+        env: { NAME_LABEL: label },
+        timeoutMs: 120_000,
+      },
+    );
+    assertTutorialSuccess(result, {
+      name: 'name-register',
+      expectedPatterns: ['Name registered:'],
+      errorPatterns: ['Something went wrong', 'already registered'],
+    });
+  });
 
   // -----------------------------------------------------------------------
   // Phase 2: Contracts
@@ -105,7 +147,10 @@ describe('Write tutorials (sequential)', { concurrency: 1 }, () => {
       errorPatterns: ['Something went wrong'],
     });
     const id = extractId(result.stdout);
-    assert.ok(id, `Failed to extract contract ID from stdout:\n${result.stdout}`);
+    assert.ok(
+      id,
+      `Failed to extract contract ID from stdout:\n${result.stdout}`,
+    );
     state.dataContractId = id;
   });
 
@@ -155,6 +200,13 @@ describe('Write tutorials (sequential)', { concurrency: 1 }, () => {
       expectedPatterns: ['Contract registered:'],
       errorPatterns: ['Something went wrong'],
     });
+
+    const id = extractId(result.stdout);
+    assert.ok(
+      id,
+      `Failed to extract history contract ID from stdout:\n${result.stdout}`,
+    );
+    state.historyContractId = id;
   });
 
   it('contract-register-nft', { timeout: 180_000 }, async () => {
@@ -171,7 +223,9 @@ describe('Write tutorials (sequential)', { concurrency: 1 }, () => {
 
   it('contract-update-minimal', { timeout: 120_000 }, async (ctx) => {
     if (!state.dataContractId) {
-      ctx.skip('No DATA_CONTRACT_ID (contract-register-minimal must pass first)');
+      ctx.skip(
+        'No DATA_CONTRACT_ID (contract-register-minimal must pass first)',
+      );
       return;
     }
     const result = await runTutorial(
@@ -188,13 +242,36 @@ describe('Write tutorials (sequential)', { concurrency: 1 }, () => {
     });
   });
 
+  it('contract-update-history', { timeout: 120_000 }, async (ctx) => {
+    if (!state.historyContractId) {
+      ctx.skip(
+        'No DATA_CONTRACT_ID (contract-register-history must pass first)',
+      );
+      return;
+    }
+    const result = await runTutorial(
+      '2-Contracts-and-Documents/contract-update-history.mjs',
+      {
+        env: { DATA_CONTRACT_ID: state.historyContractId },
+        timeoutMs: 120_000,
+      },
+    );
+    assertTutorialSuccess(result, {
+      name: 'contract-update-history',
+      expectedPatterns: ['Contract updated:'],
+      errorPatterns: ['Something went wrong'],
+    });
+  });
+
   // -----------------------------------------------------------------------
   // Phase 3: Documents (depend on contract from Phase 2)
   // -----------------------------------------------------------------------
 
   it('document-submit', { timeout: 120_000 }, async (ctx) => {
     if (!state.dataContractId) {
-      ctx.skip('No DATA_CONTRACT_ID (contract-register-minimal must pass first)');
+      ctx.skip(
+        'No DATA_CONTRACT_ID (contract-register-minimal must pass first)',
+      );
       return;
     }
     const result = await runTutorial(
@@ -211,11 +288,58 @@ describe('Write tutorials (sequential)', { concurrency: 1 }, () => {
     });
 
     const docId = extractId(result.stdout);
-    assert.ok(docId, `Failed to extract document ID from stdout:\n${result.stdout}`);
+    assert.ok(
+      docId,
+      `Failed to extract document ID from stdout:\n${result.stdout}`,
+    );
     state.documentId = docId;
   });
 
-  // TODO: document-update.mjs and document-delete.mjs need a
-  // `process.env.DOCUMENT_ID ??` prefix before they can be tested here.
-  // Once added, use state.documentId (extracted above) via env var.
+  it('document-update', { timeout: 120_000 }, async (ctx) => {
+    if (!state.dataContractId || !state.documentId) {
+      ctx.skip(
+        'No DATA_CONTRACT_ID or DOCUMENT_ID (earlier tests must pass first)',
+      );
+      return;
+    }
+    const result = await runTutorial(
+      '2-Contracts-and-Documents/document-update.mjs',
+      {
+        env: {
+          DATA_CONTRACT_ID: state.dataContractId,
+          DOCUMENT_ID: state.documentId,
+        },
+        timeoutMs: 120_000,
+      },
+    );
+    assertTutorialSuccess(result, {
+      name: 'document-update',
+      expectedPatterns: ['Document updated:'],
+      errorPatterns: ['Something went wrong'],
+    });
+  });
+
+  it('document-delete', { timeout: 120_000 }, async (ctx) => {
+    if (!state.dataContractId || !state.documentId) {
+      ctx.skip(
+        'No DATA_CONTRACT_ID or DOCUMENT_ID (earlier tests must pass first)',
+      );
+      return;
+    }
+    const result = await runTutorial(
+      '2-Contracts-and-Documents/document-delete.mjs',
+      {
+        env: {
+          DATA_CONTRACT_ID: state.dataContractId,
+          DOCUMENT_ID: state.documentId,
+        },
+        timeoutMs: 120_000,
+      },
+    );
+    assertTutorialSuccess(result, {
+      name: 'document-delete',
+      expectedPatterns: ['Document deleted successfully'],
+      errorPatterns: ['Something went wrong'],
+    });
+  });
 });

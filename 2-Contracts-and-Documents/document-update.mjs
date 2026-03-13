@@ -10,7 +10,7 @@ const DATA_CONTRACT_ID =
   'FW3DHrQiG24VqzPY4ARenMgjEPpBNuEQTZckV8hbVCG4';
 
 // Replace with your existing document ID from the Submit Documents tutorial
-const DOCUMENT_ID = 'YOUR_DOCUMENT_ID';
+const DOCUMENT_ID = process.env.DOCUMENT_ID ?? 'YOUR_DOCUMENT_ID';
 
 try {
   // Fetch the existing document to get current revision

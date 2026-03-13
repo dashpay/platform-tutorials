@@ -5,7 +5,7 @@ const { sdk, keyManager } = await setupDashClient();
 const { identity, identityKey, signer } = await keyManager.getAuth();
 
 // ⚠️ Change this to a unique name to register
-const NAME_LABEL = 'alice';
+const NAME_LABEL = process.env.NAME_LABEL ?? 'alice';
 
 try {
   // Register a DPNS name for the identity

@@ -68,3 +68,11 @@ export function extractId(stdout) {
     extractFromOutput(stdout, /id:\s*'([^']+)'/)
   );
 }
+
+/**
+ * Extract the key ID from `identity-update-add-key` output.
+ * Matches "Adding key {N} to identity ...".
+ */
+export function extractKeyId(stdout) {
+  return extractFromOutput(stdout, /Adding key (\d+)/);
+}
