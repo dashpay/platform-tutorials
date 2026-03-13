@@ -1,26 +1,27 @@
-// For format details, see https://aka.ms/devcontainer.json. For config options, see the
-// README at: https://github.com/devcontainers/templates/tree/main/src/javascript-node
 {
-	"name": "Tutorials",
-	"image": "mcr.microsoft.com/devcontainers/javascript-node:20",
-	"features": {
-    "ghcr.io/devcontainers-contrib/features/jshint:2": {}
-  },
+  "name": "Dash Platform Tutorials",
+  "image": "mcr.microsoft.com/devcontainers/javascript-node:20",
+  "remoteUser": "node",
 
-  // Use 'forwardPorts' to make a list of ports inside the container available locally.
-  // "forwardPorts": [],
+  "onCreateCommand": "cp -n .env.example .env",
+  "postCreateCommand": "npm ci",
+  "postStartCommand": "echo '\\n=== Dash Platform Tutorials ===\\nNext steps:\\n  1. Verify connection: node connect.mjs\\n  2. Create a wallet:   node create-wallet.mjs\\n  3. Edit .env with your mnemonic (PLATFORM_MNEMONIC)\\n  4. Start tutorials in 1-Identities-and-Names/\\n\\nSee README.md for details.\\n'",
 
-  // Use 'postCreateCommand' to run commands after the container is created.
-  "postCreateCommand": "npm install",
-
-  // Configure tool-specific properties.
   "customizations": {
-    // Configure properties specific to VS Code.
     "vscode": {
-      // Add the IDs of extensions you want installed when the container is created.
       "extensions": [
+        "dbaeumer.vscode-eslint",
+        "esbenp.prettier-vscode",
+        "mikestead.dotenv",
         "streetsidesoftware.code-spell-checker"
-      ]
+      ],
+      "settings": {
+        "editor.defaultFormatter": "esbenp.prettier-vscode",
+        "editor.tabSize": 2,
+        "files.eol": "\n",
+        "files.trimTrailingWhitespace": true,
+        "files.insertFinalNewline": true
+      }
     }
   }
 }
