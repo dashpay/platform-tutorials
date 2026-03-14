@@ -519,6 +519,14 @@ export async function setupDashClient({
   identityIndex,
 } = {}) {
   const { network, mnemonic } = clientConfig;
+
+  if (mnemonic && !(await wallet.validateMnemonic(mnemonic))) {
+    throw new Error(
+      'PLATFORM_MNEMONIC is not a valid BIP39 mnemonic. ' +
+        'Run `node create-wallet.mjs` to generate one.',
+    );
+  }
+
   const sdk = await createClient(network);
 
   let keyManager;
