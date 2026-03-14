@@ -9,7 +9,8 @@
     "test": "node --test --test-timeout=120000 test/read-only.test.mjs",
     "test:read-only": "node --test --test-timeout=120000 test/read-only.test.mjs",
     "test:read-write": "node --test --test-timeout=300000 --test-concurrency=1 test/read-write.test.mjs",
-    "test:all": "node --test --test-timeout=300000 --test-concurrency=1 test/read-only.test.mjs test/read-write.test.mjs"
+    "test:all": "node --test --test-timeout=300000 --test-concurrency=1 test/read-only.test.mjs test/read-write.test.mjs",
+    "test:setup": "mocha --slow 500 test/setupDashClient.test.mjs --exit"
   },
   "repository": {
     "type": "git",
@@ -22,10 +23,12 @@
   },
   "homepage": "https://github.com/dashpay/platform-tutorials#readme",
   "dependencies": {
-    "@dashevo/evo-sdk": "3.1.0-dev.1"
+    "@dashevo/evo-sdk": "3.1.0-dev.1",
+    "dotenv": "17.3.1"
   },
   "devDependencies": {
-    "dotenv": "^16.0.0",
-    "eslint": "^8.45.0"
+    "chai": "6.2.2",
+    "eslint": "8.45.0",
+    "mocha": "11.7.5"
   }
 }

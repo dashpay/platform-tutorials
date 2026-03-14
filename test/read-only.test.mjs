@@ -1,6 +1,9 @@
 import { describe, it } from 'node:test';
+import dotenv from 'dotenv';
 import { runTutorial } from './run-tutorial.mjs';
 import { assertTutorialSuccess } from './assertions.mjs';
+
+dotenv.config();
 
 const tutorials = [
   {
@@ -22,6 +25,7 @@ const tutorials = [
     name: 'identity-retrieve',
     expectedPatterns: ['Identity retrieved:'],
     errorPatterns: ['Something went wrong'],
+    requiresMnemonic: true,
   },
   {
     path: '1-Identities-and-Names/name-resolve-by-name.mjs',
@@ -61,9 +65,12 @@ const tutorials = [
   },
 ];
 
+const hasMnemonic = !!process.env.PLATFORM_MNEMONIC;
+
 describe('Read-only tutorials', () => {
   for (const entry of tutorials) {
-    it(entry.name, { timeout: entry.timeoutMs ?? 120_000 }, async () => {
+    const testFn = entry.requiresMnemonic && !hasMnemonic ? it.skip : it;
+    testFn(entry.name, { timeout: entry.timeoutMs ?? 120_000 }, async () => {
       const result = await runTutorial(entry.path, {
         env: entry.env,
         timeoutMs: entry.timeoutMs,
