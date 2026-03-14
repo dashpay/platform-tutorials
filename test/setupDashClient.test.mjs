@@ -802,3 +802,27 @@ describe('IdentityKeyManager.createForNewIdentity() auto-index', function () {
     });
   });
 });
+
+describe('dip13KeyPath()', function () {
+  it('should build a valid DIP-13 testnet path', async function () {
+    const path = await dip13KeyPath('testnet', 0, 0);
+    // m/9'/{coin}'/5'/0'/0'/{identityIndex}'/{keyIndex}'
+    expect(path).to.equal("m/9'/1'/5'/0'/0'/0'/0'");
+  });
+
+  it('should vary by identityIndex and keyIndex', async function () {
+    const p00 = await dip13KeyPath('testnet', 0, 0);
+    const p01 = await dip13KeyPath('testnet', 0, 1);
+    const p10 = await dip13KeyPath('testnet', 1, 0);
+    expect(p00).to.not.equal(p01);
+    expect(p00).to.not.equal(p10);
+    expect(p01).to.equal("m/9'/1'/5'/0'/0'/0'/1'");
+    expect(p10).to.equal("m/9'/1'/5'/0'/0'/1'/0'");
+  });
+
+  it('should use coin type 5 for mainnet', async function () {
+    const path = await dip13KeyPath('mainnet', 0, 0);
+    expect(path).to.equal("m/9'/5'/5'/0'/0'/0'/0'");
+  });
+});
+
