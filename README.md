@@ -8,6 +8,20 @@ site](http://docs.dash.org/projects/platform/en/stable/docs/tutorials/introducti
 uses `@dashevo/evo-sdk`. For the legacy `js-dash-sdk` tutorials, see
 [v2.0.1](https://github.com/dashpay/platform-tutorials/releases/tag/v2.0.1).
 
+## Quick Start with Dev Containers
+
+[![Open in GitHub
+Codespaces](https://github.com/codespaces/badge.svg)](https://codespaces.new/dashpay/platform-tutorials)
+
+The included dev container provides a ready-to-use environment with Node.js, dependencies, and
+editor tooling pre-configured. Open the repo in [GitHub
+Codespaces](https://codespaces.new/dashpay/platform-tutorials) or locally with the [VS Code Dev
+Containers extension](https://marketplace.visualstudio.com/items?itemName=ms-vscode-remote.remote-containers).
+
+On first launch the container installs dependencies and creates a starter `.env` file from
+`.env.example`. Run `node create-wallet.mjs` to generate a mnemonic, then set `PLATFORM_MNEMONIC`
+in your `.env` file to begin the tutorials.
+
 ## Install
 
 Note: [NodeJS](https://nodejs.org/en/download/) (v20+) must be installed to run the tutorial code.
