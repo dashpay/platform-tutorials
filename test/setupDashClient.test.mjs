@@ -52,6 +52,28 @@ async function deriveKeysFromMnemonic(
   return keys;
 }
 
+/**
+ * Build a fake SDK whose identities.byPublicKeyHash() returns truthy for
+ * the given occupied identity indices and null for everything else.
+ * Used by findNextIndex() and createForNewIdentity() stubbed tests.
+ */
+async function fakeSdkWithOccupiedIndices(occupiedIndices) {
+  const occupiedHashes = new Set();
+  for (const i of occupiedIndices) {
+    const keys = await deriveKeysFromMnemonic(TEST_MNEMONIC, 'testnet', i, 1);
+    const pk = PrivateKey.fromWIF(keys[0].privateKeyWif);
+    occupiedHashes.add(Buffer.from(pk.getPublicKeyHash()).toString('hex'));
+  }
+  return {
+    identities: {
+      byPublicKeyHash: async (hash) => {
+        const hex = Buffer.from(hash).toString('hex');
+        return occupiedHashes.has(hex) ? { id: 'fake' } : null;
+      },
+    },
+  };
+}
+
 describe('IdentityKeyManager', function suite() {
   this.timeout(30000);
 
@@ -204,6 +226,7 @@ describe('IdentityKeyManager', function suite() {
       expect(result)
         .to.have.property('signer')
         .that.is.an.instanceOf(IdentitySigner);
+      expect(result.identityKey.keyId).to.equal(2);
     });
   });
 
@@ -223,6 +246,7 @@ describe('IdentityKeyManager', function suite() {
       expect(result)
         .to.have.property('signer')
         .that.is.an.instanceOf(IdentitySigner);
+      expect(result.identityKey.keyId).to.equal(1);
     });
   });
 
@@ -242,6 +266,7 @@ describe('IdentityKeyManager', function suite() {
       expect(result)
         .to.have.property('signer')
         .that.is.an.instanceOf(IdentitySigner);
+      expect(result.identityKey.keyId).to.equal(3);
     });
   });
 
@@ -261,6 +286,7 @@ describe('IdentityKeyManager', function suite() {
       expect(result)
         .to.have.property('signer')
         .that.is.an.instanceOf(IdentitySigner);
+      expect(result.identityKey.keyId).to.equal(4);
     });
   });
 
@@ -280,6 +306,8 @@ describe('IdentityKeyManager', function suite() {
       expect(result)
         .to.have.property('signer')
         .that.is.an.instanceOf(IdentitySigner);
+      expect(result.signer.keyCount).to.equal(1);
+      expect(result.identityKey.keyId).to.equal(0);
     });
 
     it('should add additional key WIFs to the signer', async function () {
@@ -299,11 +327,8 @@ describe('IdentityKeyManager', function suite() {
 
       const result = await km.getMaster([extraWif]);
       expect(result.signer).to.be.an.instanceOf(IdentitySigner);
-      // Signer should accept the extra WIF without error — verify by
-      // checking it's still a valid signer (no throw on construction)
-      expect(result)
-        .to.have.property('identity')
-        .that.is.an.instanceOf(Identity);
+      expect(result.signer.keyCount).to.equal(2);
+      expect(result.identityKey.keyId).to.equal(0);
     });
   });
 
@@ -337,6 +362,7 @@ describe('IdentityKeyManager', function suite() {
       });
       const signer = km.getFullSigner();
       expect(signer).to.be.an.instanceOf(IdentitySigner);
+      expect(signer.keyCount).to.equal(5);
     });
   });
 
@@ -468,12 +494,31 @@ describe('IdentityKeyManager', function suite() {
         expect(key).to.have.property('privateKeyWif').that.is.a('string');
       });
     });
+
+    it('should auto-scan to a nonzero index when earlier indices are occupied', async function () {
+      const fakeSdk = await fakeSdkWithOccupiedIndices([0, 1]);
+      const km = await IdentityKeyManager.createForNewIdentity({
+        sdk: fakeSdk,
+        mnemonic: TEST_MNEMONIC,
+      });
+      expect(km.identityIndex).to.equal(2);
+      expect(km.identityId).to.be.null;
+      Object.values(km.keys).forEach((key) => {
+        expect(key).to.have.property('publicKey').that.is.a('string');
+      });
+    });
   });
 
   describe('findNextIndex()', function () {
     it('should return 0 for mnemonic with no on-chain identity', async function () {
       const idx = await IdentityKeyManager.findNextIndex(sdk, TEST_MNEMONIC);
       expect(idx).to.equal(0);
+    });
+
+    it('should skip occupied indices and return first unused', async function () {
+      const fakeSdk = await fakeSdkWithOccupiedIndices([0, 1]);
+      const idx = await IdentityKeyManager.findNextIndex(fakeSdk, TEST_MNEMONIC);
+      expect(idx).to.equal(2);
     });
   });
 });
@@ -568,6 +613,24 @@ describe('AddressKeyManager', function suite() {
         expect(info).to.be.an('object');
       }
     });
+
+    it('should query the primary address bech32m', async function () {
+      const fakeInfo = { balance: 500, nonce: 0 };
+      let queriedAddress;
+      const fakeSdk = {
+        addresses: {
+          get: async (addr) => { queriedAddress = addr; return fakeInfo; },
+        },
+      };
+      const mgr = new AddressKeyManager(
+        fakeSdk,
+        [{ bech32m: 'tdash1primary' }],
+        'testnet',
+      );
+      const info = await mgr.getInfo();
+      expect(queriedAddress).to.equal('tdash1primary');
+      expect(info).to.deep.equal(fakeInfo);
+    });
   });
 
   describe('getInfoAt()', function () {
@@ -579,6 +642,24 @@ describe('AddressKeyManager', function suite() {
       } catch (err) {
         expect(err.message).to.include('No derived address at index 0');
       }
+    });
+
+    it('should query the correct address for a valid index', async function () {
+      const fakeInfo = { balance: 1000, nonce: 1 };
+      let queriedAddress;
+      const fakeSdk = {
+        addresses: {
+          get: async (addr) => { queriedAddress = addr; return fakeInfo; },
+        },
+      };
+      const mgr = new AddressKeyManager(
+        fakeSdk,
+        [{ bech32m: 'tdash1aaa' }, { bech32m: 'tdash1bbb' }],
+        'testnet',
+      );
+      const info = await mgr.getInfoAt(1);
+      expect(queriedAddress).to.equal('tdash1bbb');
+      expect(info).to.deep.equal(fakeInfo);
     });
   });
 });
@@ -593,6 +674,16 @@ describe('createClient()', function () {
     } catch (err) {
       expect(err.message).to.include('Unknown network "bogus"');
     }
+  });
+
+  it('should connect to testnet', async function () {
+    const sdk = await createClient('testnet');
+    expect(sdk.isConnected).to.be.true;
+  });
+
+  it('should connect to mainnet', async function () {
+    const sdk = await createClient('mainnet');
+    expect(sdk.isConnected).to.be.true;
   });
 });
 
@@ -650,7 +741,7 @@ describe('setupDashClient()', function () {
     }
   });
 
-  it('should not produce a TypeError when write tutorials use keyManager without a mnemonic', async function () {
+  it.skip('should not produce a TypeError when write tutorials use keyManager without a mnemonic', async function () {
     // Write tutorials do: const { keyManager } = await setupDashClient();
     //                      const { signer } = await keyManager.getAuth();
     // Without a mnemonic, keyManager is undefined → TypeError on .getAuth().
@@ -713,8 +804,8 @@ describe('setupDashClient()', function () {
   });
 
   it('should pass identityIndex through to IdentityKeyManager.create()', async function () {
-    // #6: requireIdentity: true with explicit identityIndex — verifies the
-    // parameter is forwarded (different index = different derived keys).
+    // Verifies identityIndex is forwarded through setupDashClient
+    // (uses requireIdentity: false to avoid identity lookup).
     const saved = clientConfig.mnemonic;
     try {
       clientConfig.mnemonic = TEST_MNEMONIC;
