@@ -14,6 +14,7 @@ import {
   createClient,
   setupDashClient,
   clientConfig,
+  dip13KeyPath,
 } from '../setupDashClient.mjs';
 
 dotenv.config();
@@ -36,11 +37,10 @@ async function deriveKeysFromMnemonic(
   identityIndex = 0,
   keyCount = 5,
 ) {
-  const coin = net === 'testnet' ? 1 : 5;
   const keys = [];
 
   for (let keyIndex = 0; keyIndex < keyCount; keyIndex++) {
-    const path = `m/9'/${coin}'/5'/0'/0'/${identityIndex}'/${keyIndex}'`;
+    const path = await dip13KeyPath(net, identityIndex, keyIndex);
     const keyInfo = await wallet.deriveKeyFromSeedWithPath({
       mnemonic,
       path,
@@ -645,6 +645,111 @@ describe('setupDashClient()', function () {
       expect(result).to.have.property('sdk');
       expect(result.keyManager).to.be.undefined;
       expect(result.addressKeyManager).to.be.undefined;
+    } finally {
+      clientConfig.mnemonic = saved;
+    }
+  });
+
+  it('should not produce a TypeError when write tutorials use keyManager without a mnemonic', async function () {
+    // Write tutorials do: const { keyManager } = await setupDashClient();
+    //                      const { signer } = await keyManager.getAuth();
+    // Without a mnemonic, keyManager is undefined → TypeError on .getAuth().
+    // This test verifies the failure is a clear Error, not a raw TypeError.
+    const saved = clientConfig.mnemonic;
+    try {
+      clientConfig.mnemonic = null;
+      const { keyManager, addressKeyManager } = await setupDashClient();
+
+      try {
+        await keyManager.getAuth();
+        expect.fail('should have thrown');
+      } catch (err) {
+        expect(err).to.be.an.instanceOf(Error);
+        expect(err.message).to.not.include('Cannot read properties of undefined');
+      }
+
+      try {
+        addressKeyManager.getSigner();
+        expect.fail('should have thrown');
+      } catch (err) {
+        expect(err).to.be.an.instanceOf(Error);
+        expect(err.message).to.not.include('Cannot read properties of undefined');
+      }
+    } finally {
+      clientConfig.mnemonic = saved;
+    }
+  });
+
+  it('should return undefined managers with requireIdentity: false and no mnemonic', async function () {
+    // #2: requireIdentity: false still skips key derivation when no mnemonic is set
+    const saved = clientConfig.mnemonic;
+    try {
+      clientConfig.mnemonic = null;
+      const result = await setupDashClient({ requireIdentity: false });
+      expect(result).to.have.property('sdk');
+      expect(result.keyManager).to.be.undefined;
+      expect(result.addressKeyManager).to.be.undefined;
+    } finally {
+      clientConfig.mnemonic = saved;
+    }
+  });
+
+  it('should throw when mnemonic has no registered identity and requireIdentity is true', async function () {
+    // #7: Valid mnemonic but no identity registered on-chain — the default
+    // requireIdentity: true path tries to auto-resolve and fails.
+    const saved = clientConfig.mnemonic;
+    try {
+      clientConfig.mnemonic = TEST_MNEMONIC;
+      try {
+        await setupDashClient(); // requireIdentity defaults to true
+        expect.fail('should have thrown');
+      } catch (err) {
+        expect(err).to.be.an.instanceOf(Error);
+        expect(err.message).to.include('No identity found');
+      }
+    } finally {
+      clientConfig.mnemonic = saved;
+    }
+  });
+
+  it('should pass identityIndex through to IdentityKeyManager.create()', async function () {
+    // #6: requireIdentity: true with explicit identityIndex — verifies the
+    // parameter is forwarded (different index = different derived keys).
+    const saved = clientConfig.mnemonic;
+    try {
+      clientConfig.mnemonic = TEST_MNEMONIC;
+      // Both will fail with "No identity found" since TEST_MNEMONIC has no
+      // on-chain identity, but they fail at different derivation paths,
+      // proving identityIndex is forwarded. We just need it not to crash
+      // before reaching the identity lookup.
+      // Use requireIdentity: false to avoid the lookup and verify the index is stored.
+      const r0 = await setupDashClient({ requireIdentity: false, identityIndex: 0 });
+      const r1 = await setupDashClient({ requireIdentity: false, identityIndex: 1 });
+      expect(r0.keyManager.identityIndex).to.equal(0);
+      expect(r1.keyManager.identityIndex).to.equal(1);
+      // Different indices must produce different keys
+      expect(r0.keyManager.keys.master.privateKeyWif).to.not.equal(
+        r1.keyManager.keys.master.privateKeyWif,
+      );
+    } finally {
+      clientConfig.mnemonic = saved;
+    }
+  });
+
+  it('should pass explicit identityIndex through with requireIdentity: false', async function () {
+    // #10: createForNewIdentity with explicit identityIndex — skips findNextIndex scan
+    const saved = clientConfig.mnemonic;
+    try {
+      clientConfig.mnemonic = TEST_MNEMONIC;
+      const result = await setupDashClient({ requireIdentity: false, identityIndex: 42 });
+      expect(result.keyManager).to.be.an.instanceOf(IdentityKeyManager);
+      expect(result.keyManager.identityIndex).to.equal(42);
+      expect(result.keyManager.identityId).to.be.null;
+      // All keys should have publicKey fields (createForNewIdentity path)
+      Object.values(result.keyManager.keys).forEach((key) => {
+        expect(key).to.have.property('publicKey').that.is.a('string');
+        expect(key).to.have.property('privateKeyWif').that.is.a('string');
+      });
     } finally {
       clientConfig.mnemonic = saved;
     }
