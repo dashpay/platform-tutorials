@@ -517,7 +517,10 @@ describe('IdentityKeyManager', function suite() {
 
     it('should skip occupied indices and return first unused', async function () {
       const fakeSdk = await fakeSdkWithOccupiedIndices([0, 1]);
-      const idx = await IdentityKeyManager.findNextIndex(fakeSdk, TEST_MNEMONIC);
+      const idx = await IdentityKeyManager.findNextIndex(
+        fakeSdk,
+        TEST_MNEMONIC,
+      );
       expect(idx).to.equal(2);
     });
   });
@@ -619,7 +622,10 @@ describe('AddressKeyManager', function suite() {
       let queriedAddress;
       const fakeSdk = {
         addresses: {
-          get: async (addr) => { queriedAddress = addr; return fakeInfo; },
+          get: async (addr) => {
+            queriedAddress = addr;
+            return fakeInfo;
+          },
         },
       };
       const mgr = new AddressKeyManager(
@@ -649,7 +655,10 @@ describe('AddressKeyManager', function suite() {
       let queriedAddress;
       const fakeSdk = {
         addresses: {
-          get: async (addr) => { queriedAddress = addr; return fakeInfo; },
+          get: async (addr) => {
+            queriedAddress = addr;
+            return fakeInfo;
+          },
         },
       };
       const mgr = new AddressKeyManager(
@@ -756,7 +765,9 @@ describe('setupDashClient()', function () {
         expect.fail('should have thrown');
       } catch (err) {
         expect(err).to.be.an.instanceOf(Error);
-        expect(err.message).to.not.include('Cannot read properties of undefined');
+        expect(err.message).to.not.include(
+          'Cannot read properties of undefined',
+        );
       }
 
       try {
@@ -764,7 +775,9 @@ describe('setupDashClient()', function () {
         expect.fail('should have thrown');
       } catch (err) {
         expect(err).to.be.an.instanceOf(Error);
-        expect(err.message).to.not.include('Cannot read properties of undefined');
+        expect(err.message).to.not.include(
+          'Cannot read properties of undefined',
+        );
       }
     } finally {
       clientConfig.mnemonic = saved;
@@ -814,8 +827,14 @@ describe('setupDashClient()', function () {
       // proving identityIndex is forwarded. We just need it not to crash
       // before reaching the identity lookup.
       // Use requireIdentity: false to avoid the lookup and verify the index is stored.
-      const r0 = await setupDashClient({ requireIdentity: false, identityIndex: 0 });
-      const r1 = await setupDashClient({ requireIdentity: false, identityIndex: 1 });
+      const r0 = await setupDashClient({
+        requireIdentity: false,
+        identityIndex: 0,
+      });
+      const r1 = await setupDashClient({
+        requireIdentity: false,
+        identityIndex: 1,
+      });
       expect(r0.keyManager.identityIndex).to.equal(0);
       expect(r1.keyManager.identityIndex).to.equal(1);
       // Different indices must produce different keys
@@ -832,7 +851,10 @@ describe('setupDashClient()', function () {
     const saved = clientConfig.mnemonic;
     try {
       clientConfig.mnemonic = TEST_MNEMONIC;
-      const result = await setupDashClient({ requireIdentity: false, identityIndex: 42 });
+      const result = await setupDashClient({
+        requireIdentity: false,
+        identityIndex: 42,
+      });
       expect(result.keyManager).to.be.an.instanceOf(IdentityKeyManager);
       expect(result.keyManager.identityIndex).to.equal(42);
       expect(result.keyManager.identityId).to.be.null;
@@ -916,4 +938,3 @@ describe('dip13KeyPath()', function () {
     expect(path).to.equal("m/9'/5'/5'/0'/0'/0'/0'");
   });
 });
-

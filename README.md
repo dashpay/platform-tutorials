@@ -16,11 +16,12 @@ Codespaces](https://github.com/codespaces/badge.svg)](https://codespaces.new/das
 The included dev container provides a ready-to-use environment with Node.js, dependencies, and
 editor tooling pre-configured. Open the repo in [GitHub
 Codespaces](https://codespaces.new/dashpay/platform-tutorials) or locally with the [VS Code Dev
-Containers extension](https://marketplace.visualstudio.com/items?itemName=ms-vscode-remote.remote-containers).
+Containers
+extension](https://marketplace.visualstudio.com/items?itemName=ms-vscode-remote.remote-containers).
 
 On first launch the container installs dependencies and creates a starter `.env` file from
-`.env.example`. Run `node create-wallet.mjs` to generate a mnemonic, then set `PLATFORM_MNEMONIC`
-in your `.env` file to begin the tutorials.
+`.env.example`. Run `node create-wallet.mjs` to generate a mnemonic, then set `PLATFORM_MNEMONIC` in
+your `.env` file to begin the tutorials.
 
 ## Install
 
@@ -63,8 +64,8 @@ Some client configuration options are included as comments in
 
 ## Testing
 
-Tests run each tutorial as a subprocess and validate its output. No test framework
-dependencies are required — tests use the Node.js built-in test runner.
+Tests run each tutorial as a subprocess and validate its output. No test framework dependencies are
+required — tests use the Node.js built-in test runner.
 
 Ensure your `.env` file is configured (see [`.env.example`](./.env.example)) before running tests.
 
