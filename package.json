@@ -2,7 +2,7 @@
   "name": "platform-tutorials",
   "version": "3.1-dev",
   "description": "Tutorial code for https://docs.dash.org/platform",
-  "main": "connect.js",
+  "main": "connect.mjs",
   "scripts": {
     "fmt": "npx prettier@2 --write '**/*.{md,js,mjs}'",
     "lint": "npx -p typescript@4 tsc",
