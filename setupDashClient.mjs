@@ -44,6 +44,9 @@ const clientConfig = {
  * Build a DIP-13 identity key derivation path.
  * Returns the full 7-level hardened path:
  *   m/9'/{coin}'/5'/0'/0'/{identityIndex}'/{keyIndex}'
+ * @param {string} network
+ * @param {number} identityIndex
+ * @param {number} keyIndex
  */
 export async function dip13KeyPath(network, identityIndex, keyIndex) {
   const base =
@@ -58,11 +61,11 @@ export async function dip13KeyPath(network, identityIndex, keyIndex) {
 // ---------------------------------------------------------------------------
 
 export async function createClient(network = 'testnet') {
-  const factories = {
+  const factories = /** @type {Record<string, () => EvoSDK>} */ ({
     testnet: () => EvoSDK.testnetTrusted(),
     mainnet: () => EvoSDK.mainnetTrusted(),
     local: () => EvoSDK.localTrusted(),
-  };
+  });
 
   const factory = factories[network];
   if (!factory) {
@@ -71,7 +74,7 @@ export async function createClient(network = 'testnet') {
     );
   }
 
-  const sdk = factory();
+  const sdk = /** @type {EvoSDK} */ (factory());
   await sdk.connect();
   return sdk;
 }
@@ -125,6 +128,12 @@ const KEY_SPECS = [
  *   Key 4 = ENCRYPTION MEDIUM (encrypted messaging/data)
  */
 class IdentityKeyManager {
+  /**
+   * @param {any} sdk
+   * @param {string|null|undefined} identityId
+   * @param {Record<string, any>} keys
+   * @param {number} identityIndex
+   */
   constructor(sdk, identityId, keys, identityIndex) {
     this.sdk = sdk;
     this.id = identityId;
@@ -141,7 +150,7 @@ class IdentityKeyManager {
    * Derives all standard identity keys using DIP-9 paths.
    *
    * @param {object} opts
-   * @param {object} opts.sdk - Connected EvoSDK instance
+   * @param {any} opts.sdk - Connected EvoSDK instance
    * @param {string} [opts.identityId] - Identity ID. If omitted, auto-resolved
    *   from the mnemonic by looking up the master key's public key hash on-chain.
    * @param {string} opts.mnemonic - BIP39 mnemonic
@@ -155,7 +164,7 @@ class IdentityKeyManager {
     network = 'testnet',
     identityIndex = 0,
   }) {
-    const derive = async (keyIndex) =>
+    const derive = async (/** @type {number} */ keyIndex) =>
       wallet.deriveKeyFromSeedWithPath({
         mnemonic,
         path: await dip13KeyPath(network, identityIndex, keyIndex),
@@ -211,7 +220,7 @@ class IdentityKeyManager {
    * Find the first unused DIP-9 identity index for a mnemonic.
    * Scans indices starting at 0 until no on-chain identity is found.
    *
-   * @param {object} sdk - Connected EvoSDK instance
+   * @param {any} sdk - Connected EvoSDK instance
    * @param {string} mnemonic - BIP39 mnemonic
    * @param {string} [network='testnet'] - 'testnet' or 'mainnet'
    * @returns {Promise<number>} The first unused identity index
@@ -240,7 +249,7 @@ class IdentityKeyManager {
    * If identityIndex is omitted, auto-selects the next unused index.
    *
    * @param {object} opts
-   * @param {object} opts.sdk - Connected EvoSDK instance
+   * @param {any} opts.sdk - Connected EvoSDK instance
    * @param {string} opts.mnemonic - BIP39 mnemonic
    * @param {string} [opts.network='testnet'] - 'testnet' or 'mainnet'
    * @param {number} [opts.identityIndex] - Identity index (auto-scanned if omitted)
@@ -255,7 +264,7 @@ class IdentityKeyManager {
     const idx =
       identityIndex ??
       (await IdentityKeyManager.findNextIndex(sdk, mnemonic, network));
-    const derive = async (keyIndex) =>
+    const derive = async (/** @type {number} */ keyIndex) =>
       wallet.deriveKeyFromSeedWithPath({
         mnemonic,
         path: await dip13KeyPath(network, idx, keyIndex),
@@ -339,7 +348,7 @@ class IdentityKeyManager {
   /**
    * Fetch identity and build { identity, identityKey, signer } for a given key.
    * @param {string} keyName - One of: master, auth, authHigh, transfer, encryption
-   * @returns {{ identity, identityKey, signer }}
+   * @returns {Promise<{ identity: any, identityKey: any, signer: IdentitySigner }>}
    */
   async getSigner(keyName) {
     if (!this.id) {
@@ -348,7 +357,7 @@ class IdentityKeyManager {
           'or create/register the identity first and then set the ID.',
       );
     }
-    const key = this.keys[keyName];
+    const key = /** @type {Record<string, any>} */ (this.keys)[keyName];
     if (!key) {
       throw new Error(
         `Unknown key "${keyName}". Use: ${Object.keys(this.keys).join(', ')}`,
@@ -409,6 +418,11 @@ class IdentityKeyManager {
  * that hold credits directly, independent of identities.
  */
 class AddressKeyManager {
+  /**
+   * @param {any} sdk
+   * @param {Array<{address: any, bech32m: string, privateKeyWif: string, path: string}>} addresses
+   * @param {string} network
+   */
   constructor(sdk, addresses, network) {
     this.sdk = sdk;
     this.addresses = addresses; // [{ address, bech32m, privateKeyWif, path }]
@@ -425,7 +439,7 @@ class AddressKeyManager {
    * Derives platform address keys using BIP44 paths.
    *
    * @param {object} opts
-   * @param {object} opts.sdk - Connected EvoSDK instance
+   * @param {any} opts.sdk - Connected EvoSDK instance
    * @param {string} opts.mnemonic - BIP39 mnemonic
    * @param {string} [opts.network='testnet'] - 'testnet' or 'mainnet'
    * @param {number} [opts.count=1] - Number of addresses to derive
@@ -452,7 +466,7 @@ class AddressKeyManager {
 
       addresses.push({
         address: platformAddress,
-        bech32m: platformAddress.toBech32m(network),
+        bech32m: platformAddress.toBech32m(/** @type {any} */ (network)),
         privateKeyWif: obj.privateKeyWif,
         path,
       });
@@ -479,7 +493,7 @@ class AddressKeyManager {
    */
   getFullSigner() {
     const signer = new PlatformAddressSigner();
-    this.addresses.forEach((addr) => {
+    this.addresses.forEach((/** @type {any} */ addr) => {
       const privateKey = PrivateKey.fromWIF(addr.privateKeyWif);
       signer.addKey(privateKey);
     });
@@ -488,7 +502,7 @@ class AddressKeyManager {
 
   /**
    * Fetch current balance and nonce for the primary address.
-   * @returns {Promise<PlatformAddressInfo|undefined>}
+   * @returns {Promise<any>}
    */
   async getInfo() {
     return this.sdk.addresses.get(this.primaryAddress.bech32m);
@@ -497,7 +511,7 @@ class AddressKeyManager {
   /**
    * Fetch current balance and nonce for an address by index.
    * @param {number} index - Address index
-   * @returns {Promise<PlatformAddressInfo|undefined>}
+   * @returns {Promise<any>}
    */
   async getInfoAt(index) {
     const entry = this.addresses[index];
@@ -514,9 +528,12 @@ class AddressKeyManager {
 // setupDashClient — convenience wrapper
 // ---------------------------------------------------------------------------
 
+/**
+ * @returns {Promise<{ sdk: EvoSDK, keyManager: IdentityKeyManager, addressKeyManager: AddressKeyManager }>}
+ */
 export async function setupDashClient({
   requireIdentity = true,
-  identityIndex,
+  identityIndex = undefined,
 } = {}) {
   const { network, mnemonic } = clientConfig;
 
@@ -556,7 +573,11 @@ export async function setupDashClient({
     }
   }
 
-  return { sdk, keyManager, addressKeyManager };
+  return /** @type {{ sdk: EvoSDK, keyManager: IdentityKeyManager, addressKeyManager: AddressKeyManager }} */ ({
+    sdk,
+    keyManager,
+    addressKeyManager,
+  });
 }
 
 export { IdentityKeyManager, AddressKeyManager, clientConfig };
