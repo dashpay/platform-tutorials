@@ -6,11 +6,11 @@ const { identity, identityKey, signer } = await keyManager.getAuth();
 
 // Default tutorial contract (testnet). Replace or override via DATA_CONTRACT_ID.
 const DATA_CONTRACT_ID =
-  process.env.DATA_CONTRACT_ID ??
+  process.env.DATA_CONTRACT_ID ||
   'FW3DHrQiG24VqzPY4ARenMgjEPpBNuEQTZckV8hbVCG4';
 
 // Replace with your existing document ID
-const DOCUMENT_ID = process.env.DOCUMENT_ID ?? 'YOUR_DOCUMENT_ID';
+const DOCUMENT_ID = process.env.DOCUMENT_ID || 'YOUR_DOCUMENT_ID';
 
 try {
   // Delete the document from the platform
