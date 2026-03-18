@@ -444,6 +444,26 @@ describe('IdentityKeyManager', function suite() {
         expect(err.message).to.include('Unknown key "bogus"');
       }
     });
+
+    it('should throw when identity is not found on-chain', async function () {
+      const fakeSdk = {
+        identities: {
+          fetch: async () => undefined,
+          byPublicKeyHash: async () => ({ id: 'fake-id' }),
+        },
+      };
+      const km = await IdentityKeyManager.create({
+        sdk: fakeSdk,
+        identityId: 'nonexistent-id',
+        mnemonic: TEST_MNEMONIC,
+      });
+      try {
+        await km.getAuth();
+        expect.fail('should have thrown');
+      } catch (err) {
+        expect(err.message).to.include('not found on-chain');
+      }
+    });
   });
 
   describe('create() error paths', function () {
