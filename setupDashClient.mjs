@@ -21,6 +21,27 @@ try {
   /* dotenv not installed */
 }
 
+/** @typedef {import('@dashevo/evo-sdk').Identity} Identity */
+/** @typedef {import('@dashevo/evo-sdk').IdentityPublicKey} IdentityPublicKey */
+/** @typedef {import('@dashevo/evo-sdk').PlatformAddress} PlatformAddress */
+/** @typedef {import('@dashevo/evo-sdk').PlatformAddressInfo} PlatformAddressInfo */
+/** @typedef {import('@dashevo/evo-sdk').NetworkLike} NetworkLike */
+
+/**
+ * @typedef {Object} DerivedKeyEntry
+ * @property {number} keyId
+ * @property {string} privateKeyWif
+ * @property {string} [publicKey] - Only present via createForNewIdentity()
+ */
+
+/**
+ * @typedef {Object} AddressEntry
+ * @property {PlatformAddress} address
+ * @property {string} bech32m
+ * @property {string} privateKeyWif
+ * @property {string} path
+ */
+
 // ⚠️ Tutorial helper — holds WIFs in memory for convenience.
 // Do not use this pattern as-is for production key management.
 
@@ -44,6 +65,10 @@ const clientConfig = {
  * Build a DIP-13 identity key derivation path.
  * Returns the full 7-level hardened path:
  *   m/9'/{coin}'/5'/0'/0'/{identityIndex}'/{keyIndex}'
+ * @param {string} network
+ * @param {number} identityIndex
+ * @param {number} keyIndex
+ * @returns {Promise<string>}
  */
 export async function dip13KeyPath(network, identityIndex, keyIndex) {
   const base =
@@ -57,12 +82,18 @@ export async function dip13KeyPath(network, identityIndex, keyIndex) {
 // SDK client helpers
 // ---------------------------------------------------------------------------
 
+/**
+ * Create and connect an EvoSDK client for the selected network.
+ *
+ * @param {string} [network='testnet']
+ * @returns {Promise<EvoSDK>}
+ */
 export async function createClient(network = 'testnet') {
-  const factories = {
+  const factories = /** @type {Record<string, () => EvoSDK>} */ ({
     testnet: () => EvoSDK.testnetTrusted(),
     mainnet: () => EvoSDK.mainnetTrusted(),
     local: () => EvoSDK.localTrusted(),
-  };
+  });
 
   const factory = factories[network];
   if (!factory) {
@@ -71,7 +102,7 @@ export async function createClient(network = 'testnet') {
     );
   }
 
-  const sdk = factory();
+  const sdk = /** @type {EvoSDK} */ (factory());
   await sdk.connect();
   return sdk;
 }
@@ -125,6 +156,12 @@ const KEY_SPECS = [
  *   Key 4 = ENCRYPTION MEDIUM (encrypted messaging/data)
  */
 class IdentityKeyManager {
+  /**
+   * @param {EvoSDK} sdk
+   * @param {string|null|undefined} identityId
+   * @param {Record<string, DerivedKeyEntry>} keys
+   * @param {number} identityIndex
+   */
   constructor(sdk, identityId, keys, identityIndex) {
     this.sdk = sdk;
     this.id = identityId;
@@ -141,12 +178,13 @@ class IdentityKeyManager {
    * Derives all standard identity keys using DIP-9 paths.
    *
    * @param {object} opts
-   * @param {object} opts.sdk - Connected EvoSDK instance
+   * @param {EvoSDK} opts.sdk - Connected EvoSDK instance
    * @param {string} [opts.identityId] - Identity ID. If omitted, auto-resolved
    *   from the mnemonic by looking up the master key's public key hash on-chain.
    * @param {string} opts.mnemonic - BIP39 mnemonic
    * @param {string} [opts.network='testnet'] - 'testnet' or 'mainnet'
    * @param {number} [opts.identityIndex=0] - Which identity derived from this mnemonic
+   * @returns {Promise<IdentityKeyManager>}
    */
   static async create({
     sdk,
@@ -155,7 +193,7 @@ class IdentityKeyManager {
     network = 'testnet',
     identityIndex = 0,
   }) {
-    const derive = async (keyIndex) =>
+    const derive = async (/** @type {number} */ keyIndex) =>
       wallet.deriveKeyFromSeedWithPath({
         mnemonic,
         path: await dip13KeyPath(network, identityIndex, keyIndex),
@@ -211,7 +249,7 @@ class IdentityKeyManager {
    * Find the first unused DIP-9 identity index for a mnemonic.
    * Scans indices starting at 0 until no on-chain identity is found.
    *
-   * @param {object} sdk - Connected EvoSDK instance
+   * @param {EvoSDK} sdk - Connected EvoSDK instance
    * @param {string} mnemonic - BIP39 mnemonic
    * @param {string} [network='testnet'] - 'testnet' or 'mainnet'
    * @returns {Promise<number>} The first unused identity index
@@ -240,7 +278,7 @@ class IdentityKeyManager {
    * If identityIndex is omitted, auto-selects the next unused index.
    *
    * @param {object} opts
-   * @param {object} opts.sdk - Connected EvoSDK instance
+   * @param {EvoSDK} opts.sdk - Connected EvoSDK instance
    * @param {string} opts.mnemonic - BIP39 mnemonic
    * @param {string} [opts.network='testnet'] - 'testnet' or 'mainnet'
    * @param {number} [opts.identityIndex] - Identity index (auto-scanned if omitted)
@@ -255,7 +293,7 @@ class IdentityKeyManager {
     const idx =
       identityIndex ??
       (await IdentityKeyManager.findNextIndex(sdk, mnemonic, network));
-    const derive = async (keyIndex) =>
+    const derive = async (/** @type {number} */ keyIndex) =>
       wallet.deriveKeyFromSeedWithPath({
         mnemonic,
         path: await dip13KeyPath(network, idx, keyIndex),
@@ -339,7 +377,7 @@ class IdentityKeyManager {
   /**
    * Fetch identity and build { identity, identityKey, signer } for a given key.
    * @param {string} keyName - One of: master, auth, authHigh, transfer, encryption
-   * @returns {{ identity, identityKey, signer }}
+   * @returns {Promise<{ identity: Identity, identityKey: IdentityPublicKey | undefined, signer: IdentitySigner }>}
    */
   async getSigner(keyName) {
     if (!this.id) {
@@ -348,35 +386,52 @@ class IdentityKeyManager {
           'or create/register the identity first and then set the ID.',
       );
     }
-    const key = this.keys[keyName];
+    const key = /** @type {Record<string, DerivedKeyEntry>} */ (this.keys)[
+      keyName
+    ];
     if (!key) {
       throw new Error(
         `Unknown key "${keyName}". Use: ${Object.keys(this.keys).join(', ')}`,
       );
     }
     const identity = await this.sdk.identities.fetch(this.id);
+    if (!identity) {
+      throw new Error(`Identity "${this.id}" not found on-chain.`);
+    }
     const identityKey = identity.getPublicKeyById(key.keyId);
     const signer = new IdentitySigner();
     signer.addKeyFromWif(key.privateKeyWif);
     return { identity, identityKey, signer };
   }
 
-  /** CRITICAL auth (key 2) — contracts, documents, names. */
+  /**
+   * CRITICAL auth (key 2) — contracts, documents, names.
+   * @returns {Promise<{ identity: Identity, identityKey: IdentityPublicKey | undefined, signer: IdentitySigner }>}
+   */
   async getAuth() {
     return this.getSigner('auth');
   }
 
-  /** HIGH auth (key 1) — documents, names. */
+  /**
+   * HIGH auth (key 1) — documents, names.
+   * @returns {Promise<{ identity: Identity, identityKey: IdentityPublicKey | undefined, signer: IdentitySigner }>}
+   */
   async getAuthHigh() {
     return this.getSigner('authHigh');
   }
 
-  /** TRANSFER — credit transfers, withdrawals. */
+  /**
+   * TRANSFER — credit transfers, withdrawals.
+   * @returns {Promise<{ identity: Identity, identityKey: IdentityPublicKey | undefined, signer: IdentitySigner }>}
+   */
   async getTransfer() {
     return this.getSigner('transfer');
   }
 
-  /** ENCRYPTION MEDIUM — encrypted messaging/data. */
+  /**
+   * ENCRYPTION MEDIUM — encrypted messaging/data.
+   * @returns {Promise<{ identity: Identity, identityKey: IdentityPublicKey | undefined, signer: IdentitySigner }>}
+   */
   async getEncryption() {
     return this.getSigner('encryption');
   }
@@ -384,6 +439,7 @@ class IdentityKeyManager {
   /**
    * MASTER — identity updates (add/disable keys).
    * @param {string[]} [additionalKeyWifs] - WIFs for new keys being added
+   * @returns {Promise<{ identity: Identity, identityKey: IdentityPublicKey | undefined, signer: IdentitySigner }>}
    */
   async getMaster(additionalKeyWifs) {
     const result = await this.getSigner('master');
@@ -409,6 +465,11 @@ class IdentityKeyManager {
  * that hold credits directly, independent of identities.
  */
 class AddressKeyManager {
+  /**
+   * @param {EvoSDK} sdk
+   * @param {AddressEntry[]} addresses
+   * @param {string} network
+   */
   constructor(sdk, addresses, network) {
     this.sdk = sdk;
     this.addresses = addresses; // [{ address, bech32m, privateKeyWif, path }]
@@ -425,10 +486,11 @@ class AddressKeyManager {
    * Derives platform address keys using BIP44 paths.
    *
    * @param {object} opts
-   * @param {object} opts.sdk - Connected EvoSDK instance
+   * @param {EvoSDK} opts.sdk - Connected EvoSDK instance
    * @param {string} opts.mnemonic - BIP39 mnemonic
    * @param {string} [opts.network='testnet'] - 'testnet' or 'mainnet'
    * @param {number} [opts.count=1] - Number of addresses to derive
+   * @returns {Promise<AddressKeyManager>}
    */
   static async create({ sdk, mnemonic, network = 'testnet', count = 1 }) {
     const addresses = [];
@@ -452,7 +514,9 @@ class AddressKeyManager {
 
       addresses.push({
         address: platformAddress,
-        bech32m: platformAddress.toBech32m(network),
+        bech32m: platformAddress.toBech32m(
+          /** @type {NetworkLike} */ (network),
+        ),
         privateKeyWif: obj.privateKeyWif,
         path,
       });
@@ -488,7 +552,7 @@ class AddressKeyManager {
 
   /**
    * Fetch current balance and nonce for the primary address.
-   * @returns {Promise<PlatformAddressInfo|undefined>}
+   * @returns {Promise<PlatformAddressInfo | undefined>}
    */
   async getInfo() {
     return this.sdk.addresses.get(this.primaryAddress.bech32m);
@@ -497,7 +561,7 @@ class AddressKeyManager {
   /**
    * Fetch current balance and nonce for an address by index.
    * @param {number} index - Address index
-   * @returns {Promise<PlatformAddressInfo|undefined>}
+   * @returns {Promise<PlatformAddressInfo | undefined>}
    */
   async getInfoAt(index) {
     const entry = this.addresses[index];
@@ -514,9 +578,13 @@ class AddressKeyManager {
 // setupDashClient — convenience wrapper
 // ---------------------------------------------------------------------------
 
+/**
+ * @param {{requireIdentity?: boolean, identityIndex?: number}} opts
+ * @returns {Promise<{ sdk: EvoSDK, keyManager: IdentityKeyManager | undefined, addressKeyManager: AddressKeyManager | undefined }>}
+ */
 export async function setupDashClient({
   requireIdentity = true,
-  identityIndex,
+  identityIndex = undefined,
 } = {}) {
   const { network, mnemonic } = clientConfig;
 

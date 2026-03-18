@@ -8,7 +8,7 @@ console.log('Identity balance before withdrawal:', identity.balance);
 
 // Default: testnet faucet address. Replace or override via WITHDRAWAL_ADDRESS.
 const toAddress =
-  process.env.WITHDRAWAL_ADDRESS ?? 'yXWJGWuD4VBRMp9n2MtXQbGpgSeWyTRHme';
+  process.env.WITHDRAWAL_ADDRESS || 'yXWJGWuD4VBRMp9n2MtXQbGpgSeWyTRHme';
 const amount = 190000n; // Credits to withdraw
 const amountDash = Number(amount) / (1000 * 100000000);
 

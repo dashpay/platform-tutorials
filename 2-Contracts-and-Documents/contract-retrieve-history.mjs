@@ -4,7 +4,7 @@ const { sdk } = await setupDashClient();
 
 // Default tutorial contract with history (testnet). Replace or override via DATA_CONTRACT_ID.
 const DATA_CONTRACT_ID =
-  process.env.DATA_CONTRACT_ID ??
+  process.env.DATA_CONTRACT_ID ||
   '5J4VPym1Bnc2Ap9bbo9wNw6fZLGsCzDM7ZScdzcggN1r';
 
 try {

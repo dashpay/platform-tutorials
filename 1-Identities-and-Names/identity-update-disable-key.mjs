@@ -5,7 +5,7 @@ const { sdk, keyManager } = await setupDashClient();
 const { identity, signer } = await keyManager.getMaster();
 
 // Replace with one of the identity's existing public key IDs
-const DISABLE_KEY_ID = Number(process.env.DISABLE_KEY_ID ?? 99);
+const DISABLE_KEY_ID = Number(process.env.DISABLE_KEY_ID || 99);
 
 console.log(
   `Disabling key ${DISABLE_KEY_ID} on identity ${keyManager.identityId}...`,

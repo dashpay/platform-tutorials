@@ -6,7 +6,7 @@ const { identity, signer } = await keyManager.getTransfer();
 
 // Default recipient (testnet). Replace or override via RECIPIENT_ID.
 const recipientId =
-  process.env.RECIPIENT_ID ?? '7XcruVSsGQVSgTcmPewaE4tXLutnW1F6PXxwMbo8GYQC';
+  process.env.RECIPIENT_ID || '7XcruVSsGQVSgTcmPewaE4tXLutnW1F6PXxwMbo8GYQC';
 const transferAmount = 100000n; // Credits to transfer
 
 try {
