@@ -12,6 +12,19 @@ const state = {};
 
 describe('Write tutorials (sequential)', { concurrency: 1 }, () => {
   // -----------------------------------------------------------------------
+  // Phase 0: Address transfers (no identity needed)
+  // -----------------------------------------------------------------------
+
+  it('send-funds', { timeout: 120_000 }, async () => {
+    const result = await runTutorial('send-funds.mjs', { timeoutMs: 120_000 });
+    assertTutorialSuccess(result, {
+      name: 'send-funds',
+      expectedPatterns: ['Transaction broadcast!'],
+      errorPatterns: ['Something went wrong'],
+    });
+  });
+
+  // -----------------------------------------------------------------------
   // Phase 1: Identity
   // -----------------------------------------------------------------------
 
