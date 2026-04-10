@@ -1,4 +1,4 @@
-// See https://dashplatform.readme.io/docs/tutorial-use-dapi-client-methods
+// See https://dashplatform.readme.io/docs/tutorial-use-dapi-client-methods 
 
 const setupDashClient = require('./setupDashClient');
 
