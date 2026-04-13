@@ -44,11 +44,11 @@ npm ci
 ## Usage
 
 1. Check connection: `node connect.mjs`
-1. Create a wallet: `node create-wallet.mjs` (or inspect a previously created one: `node
-   view-wallet.mjs`)
+1. Create a wallet: `node create-wallet.mjs`
 1. Fund the platform address using the bridge URL printed in the previous step
 1. Create a `.env` file (see [`.env.example`](./.env.example)) and set `PLATFORM_MNEMONIC` to the
    mnemonic from step 2. Set `NETWORK` if needed (defaults to `testnet`).
+1. To inspect an existing wallet after configuring `PLATFORM_MNEMONIC`, run `node view-wallet.mjs`
 
 Proceed with the [Identities and Names tutorials](./1-Identities-and-Names/) first and the
 [Contracts and Documents tutorials](./2-Contracts-and-Documents/) next. They align with the
