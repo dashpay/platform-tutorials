@@ -44,7 +44,8 @@ npm ci
 ## Usage
 
 1. Check connection: `node connect.mjs`
-1. Create a wallet: `node create-wallet.mjs`
+1. Create a wallet: `node create-wallet.mjs` (or inspect a previously created one: `node
+   view-wallet.mjs`)
 1. Fund the platform address using the bridge URL printed in the previous step
 1. Create a `.env` file (see [`.env.example`](./.env.example)) and set `PLATFORM_MNEMONIC` to the
    mnemonic from step 2. Set `NETWORK` if needed (defaults to `testnet`).
@@ -79,6 +80,21 @@ npm run test:read-write
 # All tests
 npm run test:all
 ```
+
+### Importing an existing wallet
+
+If you already have a Dash identity created with another tool (e.g. [Dash
+Bridge](https://bridge.thepasta.org/)), you can use it directly by setting `PLATFORM_MNEMONIC` to
+your existing mnemonic. Run `node view-wallet.mjs` to confirm the derived address and identity ID.
+
+For compatibility, the external tool must use the same derivation paths (no BIP39 passphrase):
+
+| Key type | Testnet | Mainnet |
+| - | - | - |
+| Platform address (BIP44) | `m/44'/1'/0'/0/i` | `m/44'/5'/0'/0/i` |
+| Identity keys (DIP-13) | `m/9'/1'/5'/0'/0'/0'/k'` | `m/9'/5'/5'/0'/0'/0'/k'` |
+
+The first platform address (`i=0`) must be funded for top-up and send-funds operations.
 
 ## Contributing
 
