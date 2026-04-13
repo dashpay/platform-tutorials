@@ -6,6 +6,15 @@ This file provides guidance to Claude Code (claude.ai/code) when working with co
 
 Tutorial code for [Dash Platform](https://docs.dash.org/platform) demonstrating how to interact with the Dash network using `@dashevo/evo-sdk`. Covers identities, DPNS names, data contracts, and documents.
 
+### Getting started
+
+Users need a funded identity before running write tutorials. Two paths:
+
+1. **Standard** — `node create-wallet.mjs` (generates mnemonic + faucet URL) → fund via the printed URL → `node 1-Identities-and-Names/identity-register.mjs`
+2. **Fast** — Use [Dash Bridge](https://bridge.thepasta.org/) to create a wallet and register an identity in one step, then set `PLATFORM_MNEMONIC` in `.env`
+
+Run `node view-wallet.mjs` to confirm the identity is found before proceeding.
+
 ## Commands
 
 ```bash

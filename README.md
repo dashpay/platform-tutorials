@@ -41,14 +41,40 @@ Do a clean install of project dependencies:
 npm ci
 ```
 
+### Configure environment
+
+Copy [`.env.example`](./.env.example) to `.env`. Set `NETWORK` if needed (defaults to `testnet`).
+You will set `PLATFORM_MNEMONIC` when configuring a wallet in the Usage section.
+
+```shell
+cp .env.example .env
+```
+
 ## Usage
+
+### Standard setup (recommended)
+
+Follow these steps to go through the full Platform flow (wallet → funding → identity):
 
 1. Check connection: `node connect.mjs`
 1. Create a wallet: `node create-wallet.mjs`
 1. Fund the platform address using the bridge URL printed in the previous step
-1. Create a `.env` file (see [`.env.example`](./.env.example)) and set `PLATFORM_MNEMONIC` to the
-   mnemonic from step 2. Set `NETWORK` if needed (defaults to `testnet`).
-1. To inspect an existing wallet after configuring `PLATFORM_MNEMONIC`, run `node view-wallet.mjs`
+1. Set `PLATFORM_MNEMONIC` in `.env` to the mnemonic from step 2
+1. To inspect the wallet after configuring `PLATFORM_MNEMONIC`, run `node view-wallet.mjs`
+1. Proceed with [Next Steps](#next-steps)
+
+### Fast setup (optional)
+
+If you want to start interacting with Platform as quickly as possible, you can use [Dash
+Bridge](https://bridge.thepasta.org/) to create a wallet and register an identity in one step.
+
+Then, just set `PLATFORM_MNEMONIC` in `.env`, run `node view-wallet.mjs` to confirm the wallet
+and identity are found, and proceed with [Next Steps](#next-steps).
+
+> This is useful for quick experimentation, but the standard setup above is recommended to
+> understand the full flow.
+
+### Next steps
 
 Proceed with the [Identities and Names tutorials](./1-Identities-and-Names/) first and the
 [Contracts and Documents tutorials](./2-Contracts-and-Documents/) next. They align with the
@@ -86,6 +112,9 @@ npm run test:all
 If you already have a Dash identity created with another tool (e.g. [Dash
 Bridge](https://bridge.thepasta.org/)), you can use it directly by setting `PLATFORM_MNEMONIC` to
 your existing mnemonic. Run `node view-wallet.mjs` to confirm the derived address and identity ID.
+
+> **Note:** [Dash Bridge](https://bridge.thepasta.org/) can handle wallet creation and identity
+> registration in one step.
 
 For compatibility, the external tool must use the same derivation paths (no BIP39 passphrase):
 
