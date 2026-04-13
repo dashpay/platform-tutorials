@@ -21,8 +21,8 @@ try {
   try {
     const keyManager = await IdentityKeyManager.create({ sdk, mnemonic, network });
     identityId = keyManager.identityId;
-  } catch {
-    /* no identity registered yet */
+  } catch (e) {
+    if (!e.message?.includes('No identity found for the given mnemonic')) throw e;
   }
 
   // ⚠️ Never log mnemonics in real applications
