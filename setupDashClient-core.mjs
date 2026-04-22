@@ -67,11 +67,12 @@ function hexToBytes(hex) {
   }
   const out = new Uint8Array(hex.length / 2);
   for (let i = 0; i < out.length; i += 1) {
-    const byte = parseInt(hex.substr(i * 2, 2), 16);
-    if (Number.isNaN(byte)) {
-      throw new Error(`hexToBytes: invalid hex at offset ${i * 2}`);
+    const offset = i * 2;
+    const chunk = hex.slice(offset, offset + 2);
+    if (!/^[0-9A-Fa-f]{2}$/.test(chunk)) {
+      throw new Error(`hexToBytes: invalid hex at offset ${offset}`);
     }
-    out[i] = byte;
+    out[i] = parseInt(chunk, 16);
   }
   return out;
 }

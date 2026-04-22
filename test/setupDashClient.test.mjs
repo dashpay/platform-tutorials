@@ -411,6 +411,67 @@ describe('IdentityKeyManager', function suite() {
         expect(k).to.be.an.instanceOf(IdentityPublicKeyInCreation);
       });
     });
+
+    it('should reject non-hex characters in publicKey (hexToBytes validation)', async function () {
+      // Regression: parseInt(chunk, 16) silently accepts chunks like '1z' as 1,
+      // so the previous Number.isNaN guard let invalid hex through. hexToBytes
+      // must strictly validate each 2-char chunk against /^[0-9A-Fa-f]{2}$/.
+      const base = await IdentityKeyManager.create({
+        sdk,
+        identityId: IDENTITY_ID,
+        mnemonic: TEST_MNEMONIC,
+      });
+      const pk = PrivateKey.fromWIF(base.keys.master.privateKeyWif);
+      const validHex = Buffer.from(pk.getPublicKey().toBytes()).toString('hex');
+      // Replace bytes 2-3 with '1z' — even length, wrong alphabet.
+      const poisonedHex = `${validHex.slice(0, 2)}1z${validHex.slice(4)}`;
+
+      const km = new IdentityKeyManager(
+        sdk,
+        null,
+        {
+          master: { ...base.keys.master, publicKey: poisonedHex },
+          authHigh: {
+            ...base.keys.authHigh,
+            publicKey: Buffer.from(
+              PrivateKey.fromWIF(base.keys.authHigh.privateKeyWif)
+                .getPublicKey()
+                .toBytes(),
+            ).toString('hex'),
+          },
+          auth: {
+            ...base.keys.auth,
+            publicKey: Buffer.from(
+              PrivateKey.fromWIF(base.keys.auth.privateKeyWif)
+                .getPublicKey()
+                .toBytes(),
+            ).toString('hex'),
+          },
+          transfer: {
+            ...base.keys.transfer,
+            publicKey: Buffer.from(
+              PrivateKey.fromWIF(base.keys.transfer.privateKeyWif)
+                .getPublicKey()
+                .toBytes(),
+            ).toString('hex'),
+          },
+          encryption: {
+            ...base.keys.encryption,
+            publicKey: Buffer.from(
+              PrivateKey.fromWIF(base.keys.encryption.privateKeyWif)
+                .getPublicKey()
+                .toBytes(),
+            ).toString('hex'),
+          },
+        },
+        0,
+      );
+
+      expect(() => km.getKeysInCreation())
+        .to.throw(Error)
+        .with.property('message')
+        .that.matches(/hexToBytes.*offset 2/);
+    });
   });
 
   describe('getSigner() guard', function () {
