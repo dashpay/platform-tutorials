@@ -10,7 +10,7 @@
  * during login() and goes out of scope as soon as login() returns. logout()
  * drops the keyManager reference so the keys are garbage-collected.
  *
- * What IS persisted: the contract ID, under localStorage['nft-modern.contractId'].
+ * What IS persisted: the contract ID, under localStorage['dashmint-lab.contractId'].
  * Contract IDs are public (anyone querying the network sees them), so storing
  * them is a UX win with no security cost.
  */

@@ -13,4 +13,4 @@
  * SDK methods used internally: wallet.deriveKeyFromSeedWithPath,
  * sdk.identities.byPublicKeyHash, sdk.identities.fetch.
  */
-export { IdentityKeyManager } from './vendor/setupDashClient-core.mjs';
+export { IdentityKeyManager } from '../../../../setupDashClient-core.mjs';

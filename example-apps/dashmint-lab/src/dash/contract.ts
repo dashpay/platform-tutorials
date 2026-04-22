@@ -82,7 +82,7 @@ export async function fetchContractOwnerId({
   return ownerId ? String(ownerId) : null;
 }
 
-const STORAGE_KEY = 'nft-modern.contractId';
+const STORAGE_KEY = 'dashmint-lab.contractId';
 
 /**
  * Default contract ID baked into the tutorial so browse-only mode works

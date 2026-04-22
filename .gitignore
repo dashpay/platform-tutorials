@@ -2,3 +2,9 @@
 node_modules/
 .env
 .DS_Store
+
+# Example apps (Vite artifacts)
+example-apps/*/node_modules/
+example-apps/*/dist/
+example-apps/*/dist-ssr/
+example-apps/*/*.local

@@ -1,4 +1,4 @@
-# DashMint Lab — NFT Collectibles (Modern React)
+# DashMint Lab — Dash Platform NFTs (Modern React)
 
 A React + TypeScript + Vite app demonstrating every Dash Platform NFT operation: mint, transfer, price, purchase, burn, and query.
 

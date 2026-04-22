@@ -1,4 +1,4 @@
-# DashMint Lab — NFT Collectibles (Modern React)
+# DashMint Lab — Dash Platform NFTs (Modern React)
 
 React + TypeScript + Vite app for minting, viewing, transferring, and trading NFT-style collectible cards on Dash Platform testnet.
 
@@ -12,7 +12,7 @@ React + TypeScript + Vite app for minting, viewing, transferring, and trading NF
 ## Architecture
 
 - **`src/dash/`** — one file per Platform SDK operation. Each exports a single async function with a leading JSDoc block. No hooks, no wrappers — the SDK call is the function.
-- **`src/dash/vendor/`** — browser-safe `setupDashClient-core.mjs` shared with the Node tutorials. Do not edit here without backporting to `~/code/platform-tutorials/`.
+- **Shared SDK core** — [src/dash/client.ts](src/dash/client.ts) and [src/dash/keyManager.ts](src/dash/keyManager.ts) re-export directly from `../../../../setupDashClient-core.mjs` (the canonical browser-safe core at the host repo root). No vendoring, no backport step.
 - **`src/session/SessionContext.tsx`** — single React context: SDK instance, keyManager, identityId, contractId, auth status, activity log. Mnemonic lives only in the keyManager closure — never in state, never in localStorage.
 - **`src/components/`** — standard React. Modals call `src/dash/` functions directly.
 - **`src/lib/`** — pure utilities (rarity tiers, ID formatting).
@@ -35,7 +35,7 @@ All mutations except mint flow through `withAuthedCard.ts` which fetches the doc
 - Transfer/trade operations use AUTHENTICATION keys, not TRANSFER purpose keys — the SDK rejects TRANSFER purpose for these state transitions
 - Attack/defense are randomly generated (1–10) on mint; rarity is derived client-side from their sum (common <11, rare 11–14, legendary >=15) and is not persisted
 - Browse-only mode sets `keyManager` to null — `withAuthedCard` guards this; check session status before any write operation
-- Contract ID stored in `localStorage` key `nft-modern.contractId` (public, safe to persist)
+- Contract ID stored in `localStorage` key `dashmint-lab.contractId` (public, safe to persist)
 - The mint tab is gated to the contract owner — non-owners see an informative overlay
 - The Evo SDK WASM bundle is ~8MB; this is expected and not a build error
-- `allowJs: true` in tsconfig so TypeScript can import the JSDoc-typed `.mjs` vendor files
+- `allowJs: true` in tsconfig so TypeScript can import the JSDoc-typed `.mjs` core at the host repo root
