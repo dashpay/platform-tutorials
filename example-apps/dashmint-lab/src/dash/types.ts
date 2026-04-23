@@ -85,6 +85,7 @@ export interface DashSdk {
   };
   identities: {
     nonce(identityId: string): Promise<bigint | null | undefined>;
+    balance(identityId: string): Promise<bigint>;
   };
   dpns: {
     username(identityId: string): Promise<string | null | undefined>;

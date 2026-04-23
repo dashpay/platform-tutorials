@@ -218,6 +218,8 @@ function makeSession(overrides: Partial<ReturnType<typeof makeSession>> = {}) {
     identityId: null as string | null,
     contractId: "contract-1",
     contractOwnerId: null as string | null,
+    balance: null as bigint | null,
+    refreshBalance: vi.fn(),
     log: vi.fn(),
     browseOnly: vi.fn().mockResolvedValue(undefined),
     ...overrides,
@@ -269,6 +271,34 @@ describe("App", () => {
     });
   });
 
+  it("renders the balance chip in the heading when authenticated with a loaded balance", async () => {
+    const session = makeSession({
+      status: "authenticated" as const,
+      identityId: "identity-1",
+      balance: 1_234_567n,
+    });
+    mockUseSession.mockReturnValue(session);
+    mockListMyCards.mockResolvedValue([]);
+
+    render(<App />);
+
+    expect(screen.getByText("Balance")).toBeTruthy();
+    expect(screen.getByText("1,234,567")).toBeTruthy();
+  });
+
+  it("hides the balance chip when balance is null", async () => {
+    const session = makeSession({
+      status: "browsing" as const,
+      balance: null,
+    });
+    mockUseSession.mockReturnValue(session);
+    mockListAllCards.mockResolvedValue([]);
+
+    render(<App />);
+
+    expect(screen.queryByText("Balance")).toBeNull();
+  });
+
   it("loads all cards in browse mode and switches to marketplace queries", async () => {
     const session = makeSession();
     mockUseSession.mockReturnValue(session);
@@ -284,9 +314,11 @@ describe("App", () => {
         log: session.log,
       });
     });
-    expect(screen.getByTestId("cards").textContent).toBe(
-      "Fire Dragon|Stone Golem|Aqua Spirit",
-    );
+    await waitFor(() => {
+      expect(screen.getByTestId("cards").textContent).toBe(
+        "Fire Dragon|Stone Golem|Aqua Spirit",
+      );
+    });
 
     fireEvent.click(screen.getByRole("button", { name: "Marketplace" }));
 
@@ -318,7 +350,9 @@ describe("App", () => {
       });
     });
 
-    expect(screen.getByTestId("cards").textContent).toBe("Fire Dragon");
+    await waitFor(() => {
+      expect(screen.getByTestId("cards").textContent).toBe("Fire Dragon");
+    });
   });
 
   it("logs query failures and clears the grid", async () => {
@@ -335,7 +369,9 @@ describe("App", () => {
       );
     });
 
-    expect(screen.getByTestId("empty").textContent).toBe("No cards found.");
+    await waitFor(() => {
+      expect(screen.getByTestId("empty").textContent).toBe("No cards found.");
+    });
   });
 
   it("cycles sort order across rarity, name, owner, and price", async () => {

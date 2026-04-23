@@ -61,6 +61,12 @@ export interface SessionValue {
   /** Owner identity ID of the active contract (fetched from Platform). */
   contractOwnerId: string | null;
 
+  /** Signed-in identity's credit balance. Null while loading or logged out. */
+  balance: bigint | null;
+
+  /** Refetch the balance. Called by App's `refresh` after mutations. */
+  refreshBalance: () => void;
+
   /** Replaces the active contract ID and persists it. */
   setContractId: (id: string | null) => void;
 
@@ -90,6 +96,11 @@ export function SessionProvider({ children }: { children: ReactNode }) {
     loadStoredContractId(),
   );
   const [contractOwnerId, setContractOwnerId] = useState<string | null>(null);
+  const [balance, setBalance] = useState<bigint | null>(null);
+  const [balanceNonce, setBalanceNonce] = useState(0);
+  const refreshBalance = useCallback(() => {
+    setBalanceNonce((n) => n + 1);
+  }, []);
   const log = useCallback<Logger>((message, level = "info") => {
     const method =
       level === "error" ? "error" : level === "success" ? "info" : "log";
@@ -113,6 +124,27 @@ export function SessionProvider({ children }: { children: ReactNode }) {
       cancelled = true;
     };
   }, [sdk, contractId]);
+
+  // Fetch the signed-in identity's credit balance on login and whenever
+  // `refreshBalance()` is called. Clears on logout.
+  useEffect(() => {
+    if (!sdk || !identityId) return;
+    let cancelled = false;
+    sdk.identities
+      .balance(identityId)
+      .then((credits) => {
+        if (!cancelled) setBalance(credits);
+      })
+      .catch((e: unknown) => {
+        if (!cancelled) {
+          setBalance(null);
+          log(`Balance fetch failed: ${errorMessage(e)}`, "error");
+        }
+      });
+    return () => {
+      cancelled = true;
+    };
+  }, [sdk, identityId, balanceNonce, log]);
 
   const setContractId = useCallback((id: string | null) => {
     if (id) {
@@ -171,6 +203,7 @@ export function SessionProvider({ children }: { children: ReactNode }) {
       if (!sdk) await connect();
       setKeyManager(null);
       setIdentityId(null);
+      setBalance(null);
       setStatus("browsing");
       log("Browse-only mode (not logged in).", "info");
     } catch (e) {
@@ -184,6 +217,7 @@ export function SessionProvider({ children }: { children: ReactNode }) {
   const logout = useCallback(() => {
     setKeyManager(null);
     setIdentityId(null);
+    setBalance(null);
     setStatus(sdk ? "browsing" : "idle");
     log("Logged out.", "info");
   }, [sdk, log]);
@@ -197,6 +231,8 @@ export function SessionProvider({ children }: { children: ReactNode }) {
       identityId,
       contractId,
       contractOwnerId,
+      balance,
+      refreshBalance,
       setContractId,
       log,
       login,
@@ -211,6 +247,8 @@ export function SessionProvider({ children }: { children: ReactNode }) {
       identityId,
       contractId,
       contractOwnerId,
+      balance,
+      refreshBalance,
       setContractId,
       log,
       login,

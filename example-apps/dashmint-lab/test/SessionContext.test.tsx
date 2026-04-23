@@ -16,6 +16,7 @@ const {
   mockCreateClient,
   mockIdentityKeyManagerCreate,
   mockFetchContractOwnerId,
+  mockFetchBalance,
   mockLoadStoredContractId,
   mockSaveContractId,
   mockClearStoredContractId,
@@ -25,6 +26,7 @@ const {
   mockCreateClient: vi.fn(),
   mockIdentityKeyManagerCreate: vi.fn(),
   mockFetchContractOwnerId: vi.fn(),
+  mockFetchBalance: vi.fn(),
   mockLoadStoredContractId: vi.fn(),
   mockSaveContractId: vi.fn(),
   mockClearStoredContractId: vi.fn(),
@@ -50,6 +52,17 @@ vi.mock("../src/dash/contract", () => ({
   clearStoredContractId: mockClearStoredContractId,
 }));
 
+/**
+ * Fake connected SDK returned by mockCreateClient.
+ * Carries the `sdk: "connected"` sentinel (asserted by fetchContractOwnerId
+ * cases) AND a mocked `identities.balance` so the post-login balance effect
+ * has a callable method.
+ */
+const fakeSdk = {
+  sdk: "connected" as const,
+  identities: { balance: mockFetchBalance, nonce: vi.fn() },
+};
+
 vi.mock("sonner", () => ({
   toast: {
     success: mockToastSuccess,
@@ -67,6 +80,12 @@ function SessionProbe() {
       <div data-testid="identity">{session.identityId ?? ""}</div>
       <div data-testid="contract">{session.contractId ?? ""}</div>
       <div data-testid="owner">{session.contractOwnerId ?? ""}</div>
+      <div data-testid="balance">
+        {session.balance === null ? "" : session.balance.toString()}
+      </div>
+      <button type="button" onClick={() => session.refreshBalance()}>
+        Refresh Balance
+      </button>
       <button
         type="button"
         onClick={() => {
@@ -117,6 +136,8 @@ beforeEach(() => {
   mockCreateClient.mockReset();
   mockIdentityKeyManagerCreate.mockReset();
   mockFetchContractOwnerId.mockReset();
+  mockFetchBalance.mockReset();
+  mockFetchBalance.mockResolvedValue(0n);
   mockSaveContractId.mockReset();
   mockClearStoredContractId.mockReset();
   mockToastSuccess.mockReset();
@@ -130,7 +151,7 @@ afterEach(() => {
 
 describe("SessionProvider", () => {
   it("connects in browse-only mode and resolves the contract owner", async () => {
-    mockCreateClient.mockResolvedValue({ sdk: "connected" });
+    mockCreateClient.mockResolvedValue(fakeSdk);
     mockFetchContractOwnerId.mockResolvedValue("owner-123");
 
     renderSession();
@@ -143,7 +164,7 @@ describe("SessionProvider", () => {
     expect(mockCreateClient).toHaveBeenCalledWith("testnet");
     await waitFor(() => {
       expect(mockFetchContractOwnerId).toHaveBeenCalledWith({
-        sdk: { sdk: "connected" },
+        sdk: fakeSdk,
         contractId: "stored-contract-id",
       });
     });
@@ -153,7 +174,7 @@ describe("SessionProvider", () => {
   });
 
   it("logs in successfully, trimming the mnemonic and storing identity state", async () => {
-    mockCreateClient.mockResolvedValue({ sdk: "connected" });
+    mockCreateClient.mockResolvedValue(fakeSdk);
     mockFetchContractOwnerId.mockResolvedValue("owner-123");
     mockIdentityKeyManagerCreate.mockResolvedValue({
       identityId: "identity-456",
@@ -167,7 +188,7 @@ describe("SessionProvider", () => {
     });
 
     expect(mockIdentityKeyManagerCreate).toHaveBeenCalledWith({
-      sdk: { sdk: "connected" },
+      sdk: fakeSdk,
       mnemonic: "test mnemonic",
       network: "testnet",
       identityIndex: 2,
@@ -192,7 +213,7 @@ describe("SessionProvider", () => {
   });
 
   it("captures login failures and exposes the error", async () => {
-    mockCreateClient.mockResolvedValue({ sdk: "connected" });
+    mockCreateClient.mockResolvedValue(fakeSdk);
     mockFetchContractOwnerId.mockResolvedValue(null);
     mockIdentityKeyManagerCreate.mockRejectedValue(new Error("bad mnemonic"));
 
@@ -243,7 +264,7 @@ describe("SessionProvider", () => {
   });
 
   it("logs out back to browsing when an sdk connection exists", async () => {
-    mockCreateClient.mockResolvedValue({ sdk: "connected" });
+    mockCreateClient.mockResolvedValue(fakeSdk);
     mockFetchContractOwnerId.mockResolvedValue("owner-123");
     mockIdentityKeyManagerCreate.mockResolvedValue({
       identityId: "identity-456",
@@ -260,5 +281,87 @@ describe("SessionProvider", () => {
 
     expect(screen.getByTestId("status").textContent).toBe("browsing");
     expect(screen.getByTestId("identity").textContent).toBe("");
+  });
+
+  it("fetches the balance once identityId resolves after login", async () => {
+    mockCreateClient.mockResolvedValue(fakeSdk);
+    mockFetchContractOwnerId.mockResolvedValue("owner-123");
+    mockIdentityKeyManagerCreate.mockResolvedValue({
+      identityId: "identity-456",
+    });
+    mockFetchBalance.mockResolvedValue(12_345n);
+
+    renderSession();
+    fireEvent.click(screen.getByRole("button", { name: "Login" }));
+
+    await waitFor(() => {
+      expect(screen.getByTestId("balance").textContent).toBe("12345");
+    });
+    expect(mockFetchBalance).toHaveBeenCalledWith("identity-456");
+  });
+
+  it("clears the balance on logout", async () => {
+    mockCreateClient.mockResolvedValue(fakeSdk);
+    mockFetchContractOwnerId.mockResolvedValue(null);
+    mockIdentityKeyManagerCreate.mockResolvedValue({
+      identityId: "identity-456",
+    });
+    mockFetchBalance.mockResolvedValue(99n);
+
+    renderSession();
+    fireEvent.click(screen.getByRole("button", { name: "Login" }));
+
+    await waitFor(() => {
+      expect(screen.getByTestId("balance").textContent).toBe("99");
+    });
+
+    fireEvent.click(screen.getByRole("button", { name: "Logout" }));
+    await waitFor(() => {
+      expect(screen.getByTestId("balance").textContent).toBe("");
+    });
+  });
+
+  it("clears the balance when transitioning from authenticated to browse-only", async () => {
+    mockCreateClient.mockResolvedValue(fakeSdk);
+    mockFetchContractOwnerId.mockResolvedValue(null);
+    mockIdentityKeyManagerCreate.mockResolvedValue({
+      identityId: "identity-456",
+    });
+    mockFetchBalance.mockResolvedValue(500n);
+
+    renderSession();
+    fireEvent.click(screen.getByRole("button", { name: "Login" }));
+
+    await waitFor(() => {
+      expect(screen.getByTestId("balance").textContent).toBe("500");
+    });
+
+    fireEvent.click(screen.getByRole("button", { name: "Browse" }));
+    await waitFor(() => {
+      expect(screen.getByTestId("status").textContent).toBe("browsing");
+    });
+    expect(screen.getByTestId("balance").textContent).toBe("");
+  });
+
+  it("refreshBalance() re-runs the fetch", async () => {
+    mockCreateClient.mockResolvedValue(fakeSdk);
+    mockFetchContractOwnerId.mockResolvedValue(null);
+    mockIdentityKeyManagerCreate.mockResolvedValue({
+      identityId: "identity-456",
+    });
+    mockFetchBalance.mockResolvedValueOnce(10n).mockResolvedValueOnce(7n);
+
+    renderSession();
+    fireEvent.click(screen.getByRole("button", { name: "Login" }));
+
+    await waitFor(() => {
+      expect(screen.getByTestId("balance").textContent).toBe("10");
+    });
+
+    fireEvent.click(screen.getByRole("button", { name: "Refresh Balance" }));
+    await waitFor(() => {
+      expect(screen.getByTestId("balance").textContent).toBe("7");
+    });
+    expect(mockFetchBalance).toHaveBeenCalledTimes(2);
   });
 });

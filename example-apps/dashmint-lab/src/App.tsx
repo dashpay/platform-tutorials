@@ -22,6 +22,7 @@ import { SubTabs, type CollectionSubTab, type TopTab } from "./components/Tabs";
 import { TransferModal } from "./components/TransferModal";
 import { HowItWorks } from "./components/HowItWorks";
 import { errorMessage } from "./dash/logger";
+import { formatCredits } from "./lib/format";
 
 type ModalCard = Card | null;
 type SortKey = "rarity" | "name" | "owner" | "price";
@@ -41,6 +42,8 @@ function App() {
     identityId,
     contractId,
     contractOwnerId,
+    balance,
+    refreshBalance,
     log,
     browseOnly,
   } = session;
@@ -58,10 +61,10 @@ function App() {
   const [cards, setCards] = useState<Card[]>([]);
   const [loadingCards, setLoadingCards] = useState(false);
   const [refreshNonce, setRefreshNonce] = useState(0);
-  const refresh = useCallback(
-    () => setRefreshNonce((n) => n + 1),
-    [setRefreshNonce],
-  );
+  const refresh = useCallback(() => {
+    setRefreshNonce((n) => n + 1);
+    refreshBalance();
+  }, [refreshBalance]);
 
   // Auto-connect in browse-only mode so read tabs work without login.
   useEffect(() => {
@@ -172,13 +175,24 @@ function App() {
         onLoginOpen={() => setLoginOpen(true)}
       >
         {/* Screen header */}
-        <div className="mb-5 flex items-start justify-between">
+        <div className="mb-5 flex items-start justify-between gap-4">
           <div>
             <h1 className="text-[22px] font-semibold leading-[1.15] tracking-tight text-ink">
               {title}
             </h1>
             <p className="mt-1 text-[12.5px] text-ink-3">{subtitle}</p>
           </div>
+          {balance !== null && (
+            <div className="shrink-0 text-right">
+              <div className="text-[10px] font-semibold uppercase tracking-[0.05em] text-ink-4">
+                Balance
+              </div>
+              <div className="mt-0.5 font-mono text-[14px] font-medium tracking-tight text-ink-3">
+                {formatCredits(balance)}
+                <span className="ml-1 text-[11px] text-ink-4">credits</span>
+              </div>
+            </div>
+          )}
         </div>
 
         {/* ── Collection ────────────────────────────────────────────── */}
