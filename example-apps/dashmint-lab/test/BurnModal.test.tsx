@@ -9,21 +9,21 @@ import {
 } from "@testing-library/react";
 import { afterEach, describe, expect, it, vi } from "vitest";
 
+import { BurnModal } from "../src/components/BurnModal";
 import type { Card } from "../src/dash/queries";
 import type { DashKeyManager, DashSdk } from "../src/dash/types";
-import { PurchaseModal } from "../src/components/PurchaseModal";
 
-const { mockUseSession, mockPurchaseCard } = vi.hoisted(() => ({
+const { mockUseSession, mockBurnCard } = vi.hoisted(() => ({
   mockUseSession: vi.fn(),
-  mockPurchaseCard: vi.fn(),
+  mockBurnCard: vi.fn(),
 }));
 
 vi.mock("../src/session/useSession", () => ({
   useSession: mockUseSession,
 }));
 
-vi.mock("../src/dash/purchaseCard", () => ({
-  purchaseCard: mockPurchaseCard,
+vi.mock("../src/dash/burnCard", () => ({
+  burnCard: mockBurnCard,
 }));
 
 const card: Card = {
@@ -34,7 +34,6 @@ const card: Card = {
     attack: 9,
     defense: 8,
   },
-  $price: 25n,
 };
 
 const sessionValue = {
@@ -61,52 +60,66 @@ async function settle() {
   });
 }
 
-describe("PurchaseModal", () => {
-  it("shows an inline error and stays open when purchase fails", async () => {
+describe("BurnModal", () => {
+  it("requires a confirmation click before burning", () => {
+    mockUseSession.mockReturnValue(sessionValue);
+
+    render(<BurnModal card={card} onClose={vi.fn()} />);
+
+    fireEvent.click(screen.getByRole("button", { name: "Burn Card" }));
+
+    expect(mockBurnCard).not.toHaveBeenCalled();
+    expect(screen.getByText("Are you sure? This action is permanent.")).toBeTruthy();
+    expect(screen.getByRole("button", { name: "Confirm Burn" })).toBeTruthy();
+  });
+
+  it("shows an inline error and stays open when burn fails", async () => {
     const onClose = vi.fn();
     mockUseSession.mockReturnValue(sessionValue);
-    mockPurchaseCard.mockRejectedValueOnce(new Error("Purchase failed"));
+    mockBurnCard.mockRejectedValueOnce(new Error("Burn failed"));
 
-    render(<PurchaseModal card={card} onClose={onClose} />);
+    render(<BurnModal card={card} onClose={onClose} />);
 
+    fireEvent.click(screen.getByRole("button", { name: "Burn Card" }));
     await act(async () => {
-      fireEvent.click(screen.getByRole("button", { name: "Buy" }));
+      fireEvent.click(screen.getByRole("button", { name: "Confirm Burn" }));
     });
 
     const alert = await screen.findByRole("alert");
-    expect(alert.textContent).toContain("Purchase failed");
+    expect(alert.textContent).toContain("Burn failed");
     expect(onClose).not.toHaveBeenCalled();
   });
 
   it("shows inline success before closing", async () => {
     const onClose = vi.fn();
-    const onPurchased = vi.fn();
+    const onBurned = vi.fn();
     vi.useFakeTimers();
     mockUseSession.mockReturnValue(sessionValue);
-    mockPurchaseCard.mockResolvedValueOnce(undefined);
+    mockBurnCard.mockResolvedValueOnce(undefined);
 
-    render(
-      <PurchaseModal card={card} onClose={onClose} onPurchased={onPurchased} />,
-    );
+    render(<BurnModal card={card} onClose={onClose} onBurned={onBurned} />);
 
-    fireEvent.click(screen.getByRole("button", { name: "Buy" }));
+    fireEvent.click(screen.getByRole("button", { name: "Burn Card" }));
+    fireEvent.click(screen.getByRole("button", { name: "Confirm Burn" }));
 
-    expect(mockPurchaseCard).toHaveBeenCalledWith({
+    expect(mockBurnCard).toHaveBeenCalledWith({
       sdk: sessionValue.sdk,
       keyManager: sessionValue.keyManager,
       contractId: "contract-1",
       cardId: "card-1",
-      price: 25n,
       log: sessionValue.log,
     });
+
     await settle();
-    expect(screen.getByText("Card purchased successfully.")).toBeTruthy();
-    expect(onClose).not.toHaveBeenCalled();
+    expect(screen.getByRole("status").textContent).toContain(
+      "Card burned successfully.",
+    );
+
     await act(async () => {
       await vi.advanceTimersByTimeAsync(700);
     });
 
-    expect(onPurchased).toHaveBeenCalledTimes(1);
+    expect(onBurned).toHaveBeenCalledTimes(1);
     expect(onClose).toHaveBeenCalledTimes(1);
   });
 });

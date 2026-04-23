@@ -74,7 +74,7 @@ export async function withAuthedCard<T>(
         "card",
         cardId,
       )) as DashCardDocument;
-      doc.revision = BigInt(doc.revision) + 1n;
+      doc.revision = BigInt(doc.revision ?? 0) + 1n;
       ctx.doc = doc;
     }
 

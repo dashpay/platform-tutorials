@@ -115,6 +115,74 @@ describe("dashmint helpers", () => {
     expect(result).toBe("ok");
   });
 
+  it("withAuthedCard initializes an undefined revision before invoking the mutation", async () => {
+    const doc = { revision: undefined as bigint | undefined };
+    const keyManager = {
+      async getAuth() {
+        return {
+          identity: { id: "owner-1" },
+          identityKey: { id: "key-1" },
+          signer: { id: "signer-1" },
+        };
+      },
+    };
+    const sdk = {
+      documents: {
+        async get() {
+          return doc;
+        },
+      },
+    };
+
+    await withAuthedCard(
+      {
+        sdk,
+        keyManager,
+        contractId: "contract-1",
+        cardId: "card-1",
+      },
+      async ({ doc: fetched }) => {
+        expect(fetched).toBe(doc);
+        expect(fetched?.revision).toBe(1n);
+        return "ok";
+      },
+    );
+  });
+
+  it("withAuthedCard increments a zero revision before invoking the mutation", async () => {
+    const doc = { revision: 0n };
+    const keyManager = {
+      async getAuth() {
+        return {
+          identity: { id: "owner-1" },
+          identityKey: { id: "key-1" },
+          signer: { id: "signer-1" },
+        };
+      },
+    };
+    const sdk = {
+      documents: {
+        async get() {
+          return doc;
+        },
+      },
+    };
+
+    await withAuthedCard(
+      {
+        sdk,
+        keyManager,
+        contractId: "contract-1",
+        cardId: "card-1",
+      },
+      async ({ doc: fetched }) => {
+        expect(fetched).toBe(doc);
+        expect(fetched?.revision).toBe(1n);
+        return "ok";
+      },
+    );
+  });
+
   it("withAuthedCard rethrows errors after logging them", async () => {
     const messages: string[] = [];
     const keyManager = {
