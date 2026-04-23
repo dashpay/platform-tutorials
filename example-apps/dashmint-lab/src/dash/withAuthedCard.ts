@@ -18,33 +18,23 @@
  * SDK methods inside: keyManager.getAuth(), sdk.documents.get(...)
  */
 import { errorMessage, type Logger } from "./logger.js";
+import type {
+  DashAuth,
+  DashCardDocument,
+  DashKeyManager,
+  DashSdk,
+} from "./types";
 
-// eslint-disable-next-line @typescript-eslint/no-explicit-any
-type Sdk = any;
-// eslint-disable-next-line @typescript-eslint/no-explicit-any
-type KeyManager = any;
-// eslint-disable-next-line @typescript-eslint/no-explicit-any
-type DocumentLike = any;
-// eslint-disable-next-line @typescript-eslint/no-explicit-any
-type IdentityLike = any;
-// eslint-disable-next-line @typescript-eslint/no-explicit-any
-type IdentityKeyLike = any;
-// eslint-disable-next-line @typescript-eslint/no-explicit-any
-type SignerLike = any;
-
-export interface AuthedCardContext {
-  sdk: Sdk;
-  identity: IdentityLike;
-  identityKey: IdentityKeyLike;
-  signer: SignerLike;
+export interface AuthedCardContext extends DashAuth {
+  sdk: DashSdk;
   contractId: string;
   /** Present when preFetch !== false. Already has its revision incremented. */
-  doc?: DocumentLike;
+  doc?: DashCardDocument;
 }
 
 export interface WithAuthedCardOptions {
-  sdk: Sdk;
-  keyManager: KeyManager;
+  sdk: DashSdk;
+  keyManager: DashKeyManager;
   contractId: string;
   cardId: string;
   /** Default true. Set to false for burn, which only needs identity + signer. */
@@ -79,7 +69,11 @@ export async function withAuthedCard<T>(
     };
 
     if (preFetch) {
-      const doc = await sdk.documents.get(contractId, "card", cardId);
+      const doc = (await sdk.documents.get(
+        contractId,
+        "card",
+        cardId,
+      )) as DashCardDocument;
       doc.revision = BigInt(doc.revision) + 1n;
       ctx.doc = doc;
     }

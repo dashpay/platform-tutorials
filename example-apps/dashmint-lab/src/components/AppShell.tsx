@@ -5,6 +5,7 @@
 import { useState, type ReactNode } from "react";
 import type { TopTab } from "./Tabs";
 import type { SessionStatus } from "../session/SessionContext";
+import type { DashSdk } from "../dash/types";
 import { NavButton } from "./NavButton";
 import { IdentityCard } from "./IdentityCard";
 
@@ -13,8 +14,7 @@ interface AppShellProps {
   onTabChange: (t: TopTab) => void;
   status: SessionStatus;
   identityId: string | null;
-  // eslint-disable-next-line @typescript-eslint/no-explicit-any
-  sdk: any | null;
+  sdk: DashSdk | null;
   onLoginOpen: () => void;
   children: ReactNode;
 }

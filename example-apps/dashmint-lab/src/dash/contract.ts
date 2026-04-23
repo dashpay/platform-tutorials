@@ -16,6 +16,7 @@
 import { DataContract } from "@dashevo/evo-sdk";
 
 import type { Logger } from "./logger";
+import type { DashKeyManager, DashSdk } from "./types";
 
 export const CARD_SCHEMAS = {
   card: {
@@ -70,8 +71,7 @@ export async function fetchContractOwnerId({
   sdk,
   contractId,
 }: {
-  // eslint-disable-next-line @typescript-eslint/no-explicit-any
-  sdk: any;
+  sdk: DashSdk;
   contractId: string;
 }): Promise<string | null> {
   const contract = await sdk.contracts.fetch(contractId);
@@ -115,10 +115,8 @@ export async function registerContract({
   keyManager,
   log,
 }: {
-  // eslint-disable-next-line @typescript-eslint/no-explicit-any
-  sdk: any;
-  // eslint-disable-next-line @typescript-eslint/no-explicit-any
-  keyManager: any;
+  sdk: DashSdk;
+  keyManager: DashKeyManager;
   log?: Logger;
 }): Promise<string> {
   log?.("Registering NFT card contract…");
@@ -157,10 +155,8 @@ export async function ensureContract({
   existingId,
   log,
 }: {
-  // eslint-disable-next-line @typescript-eslint/no-explicit-any
-  sdk: any;
-  // eslint-disable-next-line @typescript-eslint/no-explicit-any
-  keyManager: any;
+  sdk: DashSdk;
+  keyManager: DashKeyManager;
   existingId?: string | null;
   log?: Logger;
 }): Promise<string> {

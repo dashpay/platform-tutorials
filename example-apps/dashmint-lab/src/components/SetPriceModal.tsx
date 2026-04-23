@@ -1,10 +1,15 @@
 import { useEffect, useState, type FormEvent } from "react";
 import { setPrice } from "../dash/setPrice";
+import { errorMessage } from "../dash/logger";
 import type { Card } from "../dash/queries";
 import { useSession } from "../session/useSession";
 import { formatCredits } from "../lib/format";
 import { Modal } from "./Modal";
 import { CardSummary } from "./CardSummary";
+import {
+  OperationResultNotice,
+  type OperationResult,
+} from "./OperationResultNotice";
 
 export interface SetPriceModalProps {
   card: Card | null;
@@ -12,19 +17,26 @@ export interface SetPriceModalProps {
   onPriced?: () => void;
 }
 
+const SUCCESS_CLOSE_DELAY_MS = 700;
+
 export function SetPriceModal({ card, onClose, onPriced }: SetPriceModalProps) {
   const session = useSession();
   const [amount, setAmount] = useState("");
   const [submitting, setSubmitting] = useState(false);
+  const [result, setResult] = useState<OperationResult | null>(null);
 
   useEffect(() => {
-    if (card) setAmount("");
+    if (card) {
+      setAmount("");
+      setResult(null);
+    }
   }, [card]);
 
   async function submitPrice(price: number | bigint) {
     if (!card || !session.sdk || !session.keyManager || !session.contractId)
       return;
     setSubmitting(true);
+    setResult(null);
     try {
       await setPrice({
         sdk: session.sdk,
@@ -34,8 +46,19 @@ export function SetPriceModal({ card, onClose, onPriced }: SetPriceModalProps) {
         price,
         log: session.log,
       });
-      onPriced?.();
-      onClose();
+      setResult({
+        kind: "success",
+        message:
+          price === 0 || price === 0n
+            ? "Card removed from sale."
+            : "Price updated successfully.",
+      });
+      window.setTimeout(() => {
+        onPriced?.();
+        onClose();
+      }, SUCCESS_CLOSE_DELAY_MS);
+    } catch (err) {
+      setResult({ kind: "error", message: errorMessage(err) });
     } finally {
       setSubmitting(false);
     }
@@ -74,16 +97,23 @@ export function SetPriceModal({ card, onClose, onPriced }: SetPriceModalProps) {
                 type="number"
                 min={1}
                 value={amount}
-                onChange={(e) => setAmount(e.target.value)}
+                onChange={(e) => {
+                  setAmount(e.target.value);
+                  if (result) setResult(null);
+                }}
                 placeholder="Enter price (credits)"
                 className="w-full rounded-md border border-line bg-bg px-3 py-2 text-[13px] text-ink outline-none transition focus:border-accent-dim"
               />
             </label>
 
+            {result && <OperationResultNotice result={result} />}
+
             <div className="mt-3 flex flex-wrap gap-2">
               <button
                 type="submit"
-                disabled={submitting || !amount.trim()}
+                disabled={
+                  submitting || result?.kind === "success" || !amount.trim()
+                }
                 className="flex-1 rounded-md bg-accent px-4 py-2 text-[13px] font-semibold text-bg transition hover:bg-accent-dim disabled:cursor-not-allowed disabled:bg-surface-2 disabled:text-ink-4"
               >
                 {submitting
@@ -96,7 +126,7 @@ export function SetPriceModal({ card, onClose, onPriced }: SetPriceModalProps) {
                 <button
                   type="button"
                   onClick={() => submitPrice(0)}
-                  disabled={submitting}
+                  disabled={submitting || result?.kind === "success"}
                   className="flex-1 rounded-md border border-line-2 px-4 py-2 text-[13px] font-medium text-ink-2 transition hover:border-accent-dim hover:text-ink disabled:cursor-not-allowed disabled:bg-surface-2 disabled:text-ink-4"
                 >
                   Remove from sale
@@ -105,6 +135,7 @@ export function SetPriceModal({ card, onClose, onPriced }: SetPriceModalProps) {
               <button
                 type="button"
                 onClick={onClose}
+                disabled={submitting || result?.kind === "success"}
                 className="flex-1 rounded-md border border-line bg-transparent px-4 py-2 text-[13px] font-medium text-ink-3 transition hover:border-line-2 hover:text-ink-2"
               >
                 Cancel

@@ -1,16 +1,23 @@
 import { useState } from "react";
 import { purchaseCard } from "../dash/purchaseCard";
+import { errorMessage } from "../dash/logger";
 import type { Card } from "../dash/queries";
 import { useSession } from "../session/useSession";
 import { formatCredits } from "../lib/format";
 import { Modal } from "./Modal";
 import { CardSummary } from "./CardSummary";
+import {
+  OperationResultNotice,
+  type OperationResult,
+} from "./OperationResultNotice";
 
 export interface PurchaseModalProps {
   card: Card | null;
   onClose: () => void;
   onPurchased?: () => void;
 }
+
+const SUCCESS_CLOSE_DELAY_MS = 700;
 
 export function PurchaseModal({
   card,
@@ -19,6 +26,7 @@ export function PurchaseModal({
 }: PurchaseModalProps) {
   const session = useSession();
   const [submitting, setSubmitting] = useState(false);
+  const [result, setResult] = useState<OperationResult | null>(null);
 
   async function handleBuy() {
     if (
@@ -31,6 +39,7 @@ export function PurchaseModal({
     )
       return;
     setSubmitting(true);
+    setResult(null);
     try {
       await purchaseCard({
         sdk: session.sdk,
@@ -40,8 +49,13 @@ export function PurchaseModal({
         price: card.$price,
         log: session.log,
       });
-      onPurchased?.();
-      onClose();
+      setResult({ kind: "success", message: "Card purchased successfully." });
+      window.setTimeout(() => {
+        onPurchased?.();
+        onClose();
+      }, SUCCESS_CLOSE_DELAY_MS);
+    } catch (err) {
+      setResult({ kind: "error", message: errorMessage(err) });
     } finally {
       setSubmitting(false);
     }
@@ -61,11 +75,13 @@ export function PurchaseModal({
               </span>
             </div>
 
+            {result && <OperationResultNotice result={result} />}
+
             <div className="mt-3 flex gap-2">
               <button
                 type="button"
                 onClick={handleBuy}
-                disabled={submitting}
+                disabled={submitting || result?.kind === "success"}
                 className="flex-1 rounded-md bg-accent px-4 py-2 text-[13px] font-semibold text-bg transition hover:bg-accent-dim disabled:cursor-not-allowed disabled:bg-surface-2 disabled:text-ink-4"
               >
                 {submitting ? "Purchasing…" : "Buy"}
@@ -73,6 +89,7 @@ export function PurchaseModal({
               <button
                 type="button"
                 onClick={onClose}
+                disabled={submitting || result?.kind === "success"}
                 className="flex-1 rounded-md border border-line bg-transparent px-4 py-2 text-[13px] font-medium text-ink-3 transition hover:border-line-2 hover:text-ink-2"
               >
                 Cancel

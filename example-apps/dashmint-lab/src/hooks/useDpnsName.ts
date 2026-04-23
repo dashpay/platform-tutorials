@@ -5,14 +5,14 @@
  * same owner) only trigger one network call per identity.
  */
 import { useEffect, useState } from "react";
+import type { DashSdk } from "../dash/types";
 
 // Module-level cache shared across all hook instances.
 // Values: resolved username string, null (no name), or a pending Promise.
 const cache = new Map<string, string | null | Promise<string | null>>();
 
 async function resolve(
-  // eslint-disable-next-line @typescript-eslint/no-explicit-any
-  sdk: any,
+  sdk: DashSdk,
   identityId: string,
 ): Promise<string | null> {
   try {
@@ -30,8 +30,7 @@ async function resolve(
  * Does not delay initial render — the name appears once the async lookup completes.
  */
 export function useDpnsName(
-  // eslint-disable-next-line @typescript-eslint/no-explicit-any
-  sdk: any | null,
+  sdk: DashSdk | null | undefined,
   identityId: string | undefined | null,
 ): string | null {
   const [, forceRender] = useState(0);

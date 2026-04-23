@@ -18,6 +18,14 @@ npm run dev
 
 Production build: `npm run build && npm run preview`
 
+## Known constraints
+
+- The app is built for Dash Platform testnet, not mainnet.
+- Write operations require a funded Platform identity; browse-only mode works without login.
+- Trading flows are easiest to test with a second funded identity.
+- The active contract ID can be swapped or a new one can be registered from Settings.
+- The browser bundle is intentionally heavy because it includes the full `@dashevo/evo-sdk`.
+
 ## Platform operations at a glance
 
 Every SDK call lives in its own file under [`src/dash/`](src/dash/). Open the file to see the full implementation with a JSDoc header explaining what it does and why.

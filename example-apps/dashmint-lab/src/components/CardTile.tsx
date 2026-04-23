@@ -7,6 +7,7 @@
  */
 import { useState, useRef, useEffect } from "react";
 import type { Card } from "../dash/queries";
+import type { DashSdk } from "../dash/types";
 import { rarityOf } from "../lib/rarity";
 import { formatCredits, truncateId, truncateName } from "../lib/format";
 import { useDpnsName } from "../hooks/useDpnsName";
@@ -19,8 +20,7 @@ export interface CardTileProps {
   /** Current user's identity ID, or null in browse-only mode. */
   currentIdentityId: string | null;
   /** Connected SDK instance — used for lazy DPNS name resolution. */
-  // eslint-disable-next-line @typescript-eslint/no-explicit-any
-  sdk?: any | null;
+  sdk?: DashSdk | null;
   onTransfer?: (card: Card) => void;
   onSetPrice?: (card: Card) => void;
   onPurchase?: (card: Card) => void;

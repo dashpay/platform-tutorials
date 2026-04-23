@@ -13,6 +13,11 @@
  * SDK method: sdk.documents.query({ dataContractId, documentTypeName, where?, limit })
  */
 import type { Logger } from "./logger.js";
+import type {
+  DashCardQueryDocument,
+  DashCardQueryResults,
+  DashSdk,
+} from "./types";
 
 export interface Card {
   id: string;
@@ -26,10 +31,7 @@ export interface Card {
   $price?: number | bigint;
 }
 
-// eslint-disable-next-line @typescript-eslint/no-explicit-any
-type RawDoc = any;
-
-function toCard(id: string | null, raw: RawDoc): Card {
+function toCard(id: string | null, raw: DashCardQueryDocument): Card {
   const j: Record<string, unknown> =
     typeof raw?.toJSON === "function" ? raw.toJSON() : raw;
   return {
@@ -45,18 +47,15 @@ function toCard(id: string | null, raw: RawDoc): Card {
   };
 }
 
-export function normalizeCards(results: unknown): Card[] {
+export function normalizeCards(results: DashCardQueryResults): Card[] {
   if (Array.isArray(results)) return results.map((d) => toCard(null, d));
   const entries =
-    results instanceof Map
-      ? Object.fromEntries(results)
-      : (results as Record<string, RawDoc>);
+    results instanceof Map ? Object.fromEntries(results) : results;
   return Object.entries(entries).map(([id, d]) => toCard(id, d));
 }
 
 interface BaseParams {
-  // eslint-disable-next-line @typescript-eslint/no-explicit-any
-  sdk: any;
+  sdk: DashSdk;
   contractId: string;
   limit?: number;
   log?: Logger;

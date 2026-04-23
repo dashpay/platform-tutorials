@@ -7,13 +7,12 @@
  * SDK method: sdk.documents.purchase({ document, buyerId, price, identityKey, signer })
  */
 import type { Logger } from "./logger";
+import type { DashKeyManager, DashSdk } from "./types";
 import { withAuthedCard } from "./withAuthedCard";
 
 export interface PurchaseCardParams {
-  // eslint-disable-next-line @typescript-eslint/no-explicit-any
-  sdk: any;
-  // eslint-disable-next-line @typescript-eslint/no-explicit-any
-  keyManager: any;
+  sdk: DashSdk;
+  keyManager: DashKeyManager;
   contractId: string;
   cardId: string;
   /** Price in credits — must match the on-chain $price. */

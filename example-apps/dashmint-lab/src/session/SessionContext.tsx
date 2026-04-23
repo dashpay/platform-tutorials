@@ -33,6 +33,7 @@ import {
   saveContractId,
 } from "../dash/contract";
 import { errorMessage, type Logger } from "../dash/logger";
+import type { DashKeyManager, DashSdk } from "../dash/types";
 
 export type SessionStatus =
   | "idle"
@@ -46,12 +47,10 @@ export interface SessionValue {
   error: string | null;
 
   /** Connected EvoSDK instance (undefined before connect). */
-  // eslint-disable-next-line @typescript-eslint/no-explicit-any
-  sdk: any | null;
+  sdk: DashSdk | null;
 
   /** Identity key manager. Null in browse-only mode or logged out. */
-  // eslint-disable-next-line @typescript-eslint/no-explicit-any
-  keyManager: any | null;
+  keyManager: DashKeyManager | null;
 
   /** The signed-in identity ID, or null in browse-only mode. */
   identityId: string | null;
@@ -84,10 +83,8 @@ export { SessionContext };
 export function SessionProvider({ children }: { children: ReactNode }) {
   const [status, setStatus] = useState<SessionStatus>("idle");
   const [error, setError] = useState<string | null>(null);
-  // eslint-disable-next-line @typescript-eslint/no-explicit-any
-  const [sdk, setSdk] = useState<any | null>(null);
-  // eslint-disable-next-line @typescript-eslint/no-explicit-any
-  const [keyManager, setKeyManager] = useState<any | null>(null);
+  const [sdk, setSdk] = useState<DashSdk | null>(null);
+  const [keyManager, setKeyManager] = useState<DashKeyManager | null>(null);
   const [identityId, setIdentityId] = useState<string | null>(null);
   const [contractId, setContractIdState] = useState<string | null>(() =>
     loadStoredContractId(),

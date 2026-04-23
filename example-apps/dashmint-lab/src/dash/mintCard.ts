@@ -9,6 +9,7 @@
 import { Document } from "@dashevo/evo-sdk";
 
 import type { Logger } from "./logger";
+import type { DashKeyManager, DashSdk } from "./types";
 
 export interface MintCardInput {
   name: string;
@@ -20,10 +21,8 @@ export interface MintCardInput {
 }
 
 export interface MintCardParams {
-  // eslint-disable-next-line @typescript-eslint/no-explicit-any
-  sdk: any;
-  // eslint-disable-next-line @typescript-eslint/no-explicit-any
-  keyManager: any;
+  sdk: DashSdk;
+  keyManager: DashKeyManager;
   contractId: string;
   card: MintCardInput;
   log?: Logger;

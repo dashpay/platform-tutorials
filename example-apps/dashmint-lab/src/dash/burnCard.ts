@@ -8,13 +8,12 @@
  * SDK method: sdk.documents.delete({ document, identityKey, signer })
  */
 import type { Logger } from "./logger";
+import type { DashKeyManager, DashSdk } from "./types";
 import { withAuthedCard } from "./withAuthedCard";
 
 export interface BurnCardParams {
-  // eslint-disable-next-line @typescript-eslint/no-explicit-any
-  sdk: any;
-  // eslint-disable-next-line @typescript-eslint/no-explicit-any
-  keyManager: any;
+  sdk: DashSdk;
+  keyManager: DashKeyManager;
   contractId: string;
   cardId: string;
   log?: Logger;

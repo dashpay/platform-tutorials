@@ -4,14 +4,14 @@
  * When not authenticated, shows a Login button instead.
  */
 import type { SessionStatus } from "../session/SessionContext";
+import type { DashSdk } from "../dash/types";
 import { useDpnsName } from "../hooks/useDpnsName";
 import { truncateId } from "../lib/format";
 
 interface IdentityCardProps {
   status: SessionStatus;
   identityId: string | null;
-  // eslint-disable-next-line @typescript-eslint/no-explicit-any
-  sdk: any | null;
+  sdk: DashSdk | null;
   onLoginClick: () => void;
 }
 
