@@ -72,8 +72,22 @@ function renderBackdrop(recipe: ArtRecipe, terrainId: string) {
     case "storm":
       return (
         <>
-          <ellipse cx="66" cy="34" rx="42" ry="16" fill={palette.accentSoft} opacity={0.24} />
-          <ellipse cx="118" cy="28" rx="46" ry="18" fill={palette.glow} opacity={0.15} />
+          <ellipse
+            cx="66"
+            cy="34"
+            rx="42"
+            ry="16"
+            fill={palette.accentSoft}
+            opacity={0.24}
+          />
+          <ellipse
+            cx="118"
+            cy="28"
+            rx="46"
+            ry="18"
+            fill={palette.glow}
+            opacity={0.15}
+          />
           <path
             d="M 136 18 L 120 48 L 135 48 L 118 80 L 154 42 L 136 42 Z"
             fill={palette.accent}
@@ -102,8 +116,22 @@ function renderBackdrop(recipe: ArtRecipe, terrainId: string) {
     case "shadow":
       return (
         <>
-          <ellipse cx="54" cy="52" rx="54" ry="22" fill={palette.accentSoft} opacity={0.18} />
-          <ellipse cx="134" cy="36" rx="36" ry="14" fill={palette.glow} opacity={0.12} />
+          <ellipse
+            cx="54"
+            cy="52"
+            rx="54"
+            ry="22"
+            fill={palette.accentSoft}
+            opacity={0.18}
+          />
+          <ellipse
+            cx="134"
+            cy="36"
+            rx="36"
+            ry="14"
+            fill={palette.glow}
+            opacity={0.12}
+          />
           <path
             d={`M 0 ${terrainLift + 6} C 38 84, 88 92, 128 82 C 152 76, 166 88, 180 86 L 180 120 L 0 120 Z`}
             fill={palette.terrain}
@@ -171,8 +199,16 @@ function renderBackdrop(recipe: ArtRecipe, terrainId: string) {
 }
 
 function renderSubject(recipe: ArtRecipe) {
-  const { theme, palette, attackBias, defenseBias, offsetX, offsetY, rotation, subjectScale } =
-    recipe;
+  const {
+    theme,
+    palette,
+    attackBias,
+    defenseBias,
+    offsetX,
+    offsetY,
+    rotation,
+    subjectScale,
+  } = recipe;
   const cx = 90 + offsetX;
   const cy = 60 + offsetY;
   const bodyFill = palette.shadow;
@@ -220,7 +256,12 @@ function renderSubject(recipe: ArtRecipe) {
             d={`M ${cx - 10} ${cy - 6} L ${cx + 4} ${cy - 26} L ${cx + 2} ${cy - 10} L ${cx + 18} ${cy - 12} L ${cx - 2} ${cy + 24} L ${cx + 2} ${cy + 2} L ${cx - 12} ${cy + 4} Z`}
             fill={accentFill}
           />
-          <circle cx={cx - 4} cy={cy - 4} r={2 + attackBias * 1.6} fill={palette.glow} />
+          <circle
+            cx={cx - 4}
+            cy={cy - 4}
+            r={2 + attackBias * 1.6}
+            fill={palette.glow}
+          />
         </g>
       );
     case "frost":
@@ -271,9 +312,30 @@ function renderSubject(recipe: ArtRecipe) {
     case "earth":
       return (
         <g transform={transform}>
-          <rect x={cx - 26} y={cy - 18} width={52} height={38} rx={8} fill={bodyFill} />
-          <rect x={cx - 16} y={cy - 36} width={32} height={24} rx={6} fill={bodyFill} />
-          <rect x={cx - 18} y={cy - 12} width={36} height={26} rx={6} fill={accentFill} />
+          <rect
+            x={cx - 26}
+            y={cy - 18}
+            width={52}
+            height={38}
+            rx={8}
+            fill={bodyFill}
+          />
+          <rect
+            x={cx - 16}
+            y={cy - 36}
+            width={32}
+            height={24}
+            rx={6}
+            fill={bodyFill}
+          />
+          <rect
+            x={cx - 18}
+            y={cy - 12}
+            width={36}
+            height={26}
+            rx={6}
+            fill={accentFill}
+          />
           <path
             d={`M ${cx - 24} ${cy + 2} C ${cx - 34} ${cy + 4}, ${cx - 34} ${cy + 24}, ${cx - 12} ${cy + 14}`}
             fill="none"
@@ -327,7 +389,14 @@ function renderSubject(recipe: ArtRecipe) {
             d={`M ${cx} ${cy - 10} L ${cx + 20} ${cy + 28} L ${cx - 20} ${cy + 28} Z`}
             fill={accentFill}
           />
-          <rect x={cx - 7} y={cy - 2} width={14} height={26} rx={6} fill={bodyFill} />
+          <rect
+            x={cx - 7}
+            y={cy - 2}
+            width={14}
+            height={26}
+            rx={6}
+            fill={bodyFill}
+          />
           <path
             d={`M ${cx - 20} ${cy} Q ${cx} ${cy - 18} ${cx + 20} ${cy}`}
             fill="none"
@@ -405,7 +474,11 @@ export function CardArt({
               stopColor={recipe.palette.glow}
               stopOpacity={recipe.glowOpacity}
             />
-            <stop offset="100%" stopColor={recipe.palette.glow} stopOpacity="0" />
+            <stop
+              offset="100%"
+              stopColor={recipe.palette.glow}
+              stopOpacity="0"
+            />
           </radialGradient>
           <linearGradient id={terrainId} x1="0%" y1="0%" x2="100%" y2="0%">
             <stop offset="0%" stopColor={recipe.palette.accentSoft} />

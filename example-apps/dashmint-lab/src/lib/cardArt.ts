@@ -61,7 +61,10 @@ const THEME_RULES: ReadonlyArray<{
   keywords: readonly string[];
 }> = [
   { theme: "inferno", keywords: ["fire", "dragon", "flame", "volcanic"] },
-  { theme: "storm", keywords: ["storm", "thunder", "sky", "falcon", "lightning"] },
+  {
+    theme: "storm",
+    keywords: ["storm", "thunder", "sky", "falcon", "lightning"],
+  },
   { theme: "frost", keywords: ["frost", "ice", "warden", "freeze"] },
   { theme: "shadow", keywords: ["shadow", "dark", "night", "fox"] },
   { theme: "earth", keywords: ["stone", "iron", "golem", "mammoth", "rock"] },
@@ -227,18 +230,26 @@ export function buildArtRecipe(input: CardArtInput): ArtRecipe {
     attackBias,
     defenseBias,
     balance,
-    rotation:
-      (attackBias - defenseBias) * 14 + (random() * 2 - 1) * 7,
+    rotation: (attackBias - defenseBias) * 14 + (random() * 2 - 1) * 7,
     offsetX: (random() * 2 - 1) * 8,
     offsetY: (random() * 2 - 1) * 6,
     terrainLift: 82 - attackBias * 10 + defenseBias * 6,
     subjectScale: 1 + rarityBoost * 0.4 + balance * 0.04,
     fxCount: input.rarity === "legendary" ? 8 : input.rarity === "rare" ? 6 : 4,
-    slashCount: 2 + Math.round(attackBias * 3) + (input.rarity === "legendary" ? 1 : 0),
+    slashCount:
+      2 + Math.round(attackBias * 3) + (input.rarity === "legendary" ? 1 : 0),
     glowOpacity:
-      input.rarity === "legendary" ? 0.42 : input.rarity === "rare" ? 0.3 : 0.18,
+      input.rarity === "legendary"
+        ? 0.42
+        : input.rarity === "rare"
+          ? 0.3
+          : 0.18,
     shieldOpacity: 0.12 + defenseBias * 0.24,
     highlightOpacity:
-      input.rarity === "legendary" ? 0.26 : input.rarity === "rare" ? 0.18 : 0.1,
+      input.rarity === "legendary"
+        ? 0.26
+        : input.rarity === "rare"
+          ? 0.18
+          : 0.1,
   };
 }

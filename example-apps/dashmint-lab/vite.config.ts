@@ -4,7 +4,10 @@ import react from "@vitejs/plugin-react";
 import tailwindcss from "@tailwindcss/vite";
 
 const evoSdkModulePath = fileURLToPath(
-  new URL("./node_modules/@dashevo/evo-sdk/dist/evo-sdk.module.js", import.meta.url),
+  new URL(
+    "./node_modules/@dashevo/evo-sdk/dist/evo-sdk.module.js",
+    import.meta.url,
+  ),
 );
 
 // https://vite.dev/config/
