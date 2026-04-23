@@ -97,7 +97,14 @@ export function CardTile({
       </div>
 
       {/* Card art */}
-      <CardArt cardId={card.id} rarity={rarity} />
+      <CardArt
+        cardId={card.id}
+        rarity={rarity}
+        name={data.name}
+        description={data.description}
+        attack={atk}
+        defense={def}
+      />
 
       {/* Title + description (always reserve 2 lines for description) */}
       <div>
