@@ -13,6 +13,7 @@ import { formatCredits, truncateId, truncateName } from "../lib/format";
 import { useDpnsName } from "../hooks/useDpnsName";
 import { documentUrl } from "../lib/explorer";
 import { CardArt } from "./CardArt";
+import { IdentityLink } from "./IdentityLink";
 import { StatPair } from "./StatPair";
 import { RarityTag } from "./RarityTag";
 
@@ -122,13 +123,18 @@ export function CardTile({
             className="h-[18px] w-[18px] shrink-0 rounded-full"
             style={{ background: ownerAvatar(card.ownerId) }}
           />
-          <span className="truncate font-mono text-[11px] text-ink-2">
-            {ownerName
-              ? `@${truncateName(ownerName)}`
-              : card.ownerId
-                ? truncateId(card.ownerId, 6)
-                : "—"}
-          </span>
+          {card.ownerId ? (
+            <IdentityLink
+              identityId={card.ownerId}
+              className="truncate font-mono text-[11px] text-ink-2 hover:text-accent"
+            >
+              {ownerName
+                ? `@${truncateName(ownerName)}`
+                : truncateId(card.ownerId, 6)}
+            </IdentityLink>
+          ) : (
+            <span className="truncate font-mono text-[11px] text-ink-2">—</span>
+          )}
         </div>
 
         {/* Action buttons */}

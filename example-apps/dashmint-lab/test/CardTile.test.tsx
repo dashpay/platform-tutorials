@@ -172,6 +172,20 @@ describe("CardTile", () => {
     expect(screen.getByText("owner-…abcdef")).toBeTruthy();
   });
 
+  it("wraps the owner label in a Platform Explorer link for the owner's identity", () => {
+    mockUseDpnsName.mockReturnValue("alice");
+
+    render(<CardTile card={card} currentIdentityId={null} sdk={sdk} />);
+
+    const ownerLink = screen.getByText("@alice").closest("a");
+    expect(ownerLink).not.toBeNull();
+    expect(ownerLink!.getAttribute("href")).toBe(
+      `https://testnet.platform-explorer.com/identity/${card.ownerId}`,
+    );
+    expect(ownerLink!.getAttribute("target")).toBe("_blank");
+    expect(ownerLink!.getAttribute("rel")).toContain("noreferrer");
+  });
+
   it("copies the card id and opens the explorer from the overflow menu", () => {
     render(<CardTile card={card} currentIdentityId={null} sdk={sdk} />);
 

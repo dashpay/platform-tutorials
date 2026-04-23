@@ -6,7 +6,6 @@ import { useSession } from "../session/useSession";
 import { truncateId } from "../lib/format";
 import { useDpnsName } from "../hooks/useDpnsName";
 import { useResolvedRecipient } from "../hooks/useResolvedRecipient";
-import { identityUrl } from "../lib/explorer";
 import {
   classifyRecipientInput,
   type RecipientMode,
@@ -14,6 +13,7 @@ import {
 import { normalizeDpnsName } from "../dash/resolveRecipient";
 import { Modal } from "./Modal";
 import { CardSummary } from "./CardSummary";
+import { IdentityLink } from "./IdentityLink";
 import {
   OperationResultNotice,
   type OperationResult,
@@ -26,20 +26,6 @@ export interface TransferModalProps {
 }
 
 const SUCCESS_CLOSE_DELAY_MS = 700;
-
-function IdentityLink({ identityId }: { identityId: string }) {
-  return (
-    <a
-      href={identityUrl(identityId)}
-      target="_blank"
-      rel="noreferrer noopener"
-      className="underline decoration-dotted underline-offset-2 hover:text-accent"
-      onClick={(e) => e.stopPropagation()}
-    >
-      {truncateId(identityId)}
-    </a>
-  );
-}
 
 export function TransferModal({
   card,
