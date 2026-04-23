@@ -47,13 +47,24 @@ vi.mock("../src/components/AppShell", () => ({
   AppShell: ({
     children,
     onLoginOpen,
+    onTabChange,
   }: {
     children: React.ReactNode;
     onLoginOpen: () => void;
+    onTabChange: (tab: "collection" | "mint" | "how-it-works") => void;
   }) => (
     <div>
       <button type="button" onClick={onLoginOpen}>
         Open Login
+      </button>
+      <button type="button" onClick={() => onTabChange("collection")}>
+        Collection Tab
+      </button>
+      <button type="button" onClick={() => onTabChange("mint")}>
+        Mint Tab
+      </button>
+      <button type="button" onClick={() => onTabChange("how-it-works")}>
+        How Tab
       </button>
       {children}
     </div>
@@ -403,9 +414,7 @@ describe("App", () => {
 
     render(<App />);
 
-    await waitFor(() => {
-      expect(mockListAllCards).toHaveBeenCalledTimes(1);
-    });
+    await screen.findByRole("button", { name: "Transfer First Card" });
 
     fireEvent.click(screen.getByRole("button", { name: "Transfer First Card" }));
     fireEvent.click(screen.getByRole("button", { name: "Trigger Transfer Refresh" }));
@@ -413,6 +422,7 @@ describe("App", () => {
     await waitFor(() => {
       expect(mockListAllCards).toHaveBeenCalledTimes(2);
     });
+    await screen.findByRole("button", { name: "Price First Card" });
 
     fireEvent.click(screen.getByRole("button", { name: "Price First Card" }));
     fireEvent.click(screen.getByRole("button", { name: "Trigger Price Refresh" }));
@@ -420,6 +430,7 @@ describe("App", () => {
     await waitFor(() => {
       expect(mockListAllCards).toHaveBeenCalledTimes(3);
     });
+    await screen.findByRole("button", { name: "Purchase First Card" });
 
     fireEvent.click(screen.getByRole("button", { name: "Purchase First Card" }));
     fireEvent.click(screen.getByRole("button", { name: "Trigger Purchase Refresh" }));
@@ -427,6 +438,7 @@ describe("App", () => {
     await waitFor(() => {
       expect(mockListAllCards).toHaveBeenCalledTimes(4);
     });
+    await screen.findByRole("button", { name: "Burn First Card" });
 
     fireEvent.click(screen.getByRole("button", { name: "Burn First Card" }));
     fireEvent.click(screen.getByRole("button", { name: "Trigger Burn Refresh" }));
@@ -434,5 +446,67 @@ describe("App", () => {
     await waitFor(() => {
       expect(mockListAllCards).toHaveBeenCalledTimes(5);
     });
+  });
+
+  it("shows the login gate on the mint screen when not authenticated", async () => {
+    const session = makeSession({ status: "browsing" as const });
+    mockUseSession.mockReturnValue(session);
+    mockListAllCards.mockResolvedValue(cards);
+
+    render(<App />);
+
+    fireEvent.click(screen.getByRole("button", { name: "Mint Tab" }));
+
+    expect(
+      screen.getByText("Login as contract owner to access this feature"),
+    ).toBeTruthy();
+    fireEvent.click(screen.getByRole("button", { name: "Login" }));
+    expect(screen.getByTestId("login-modal").textContent).toContain("open:true");
+    expect(screen.getByText("Mint Form")).toBeTruthy();
+  });
+
+  it("shows the owner gate on the mint screen for authenticated non-owners", async () => {
+    const session = makeSession({
+      status: "authenticated" as const,
+      identityId: "identity-1",
+      contractOwnerId: "owner-2",
+    });
+    mockUseSession.mockReturnValue(session);
+    mockListMyCards.mockResolvedValue([cards[1]]);
+
+    render(<App />);
+
+    fireEvent.click(screen.getByRole("button", { name: "Mint Tab" }));
+
+    expect(
+      screen.getByText(
+        "Only the contract owner can mint new cards. Register your own new contract in Settings to try this feature.",
+      ),
+    ).toBeTruthy();
+    fireEvent.click(screen.getByRole("button", { name: "Settings" }));
+    expect(screen.getByTestId("login-modal").textContent).toContain("open:true");
+    expect(screen.getByText("Mint Form")).toBeTruthy();
+  });
+
+  it("does not show a gate on the mint screen for the contract owner", async () => {
+    const session = makeSession({
+      status: "authenticated" as const,
+      identityId: "owner-1",
+      contractOwnerId: "owner-1",
+    });
+    mockUseSession.mockReturnValue(session);
+    mockListMyCards.mockResolvedValue([cards[1]]);
+
+    render(<App />);
+
+    fireEvent.click(screen.getByRole("button", { name: "Mint Tab" }));
+
+    expect(screen.getByText("Mint Form")).toBeTruthy();
+    expect(
+      screen.queryByText("Login as contract owner to access this feature"),
+    ).toBeNull();
+    expect(
+      screen.queryByText(/Only the contract owner can mint new cards/),
+    ).toBeNull();
   });
 });
