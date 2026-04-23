@@ -88,6 +88,7 @@ export interface DashSdk {
   };
   dpns: {
     username(identityId: string): Promise<string | null | undefined>;
+    resolveName(name: string): Promise<string | null | undefined>;
   };
 }
 

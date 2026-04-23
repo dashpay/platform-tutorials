@@ -82,6 +82,7 @@ interface ConnectedDashClientLike {
   };
   dpns: {
     username(identityId: string): Promise<string | null | undefined>;
+    resolveName(name: string): Promise<string | null | undefined>;
   };
 }
 

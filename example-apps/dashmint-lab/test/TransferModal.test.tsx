@@ -12,14 +12,19 @@ import { afterEach, describe, expect, it, vi } from "vitest";
 import { TransferModal } from "../src/components/TransferModal";
 import type { Card } from "../src/dash/queries";
 import type { DashKeyManager, DashSdk } from "../src/dash/types";
+import type { ResolvedRecipient } from "../src/hooks/useResolvedRecipient";
 
-const { mockUseSession, mockTransferCard, mockUseDpnsName } = vi.hoisted(
-  () => ({
-    mockUseSession: vi.fn(),
-    mockTransferCard: vi.fn(),
-    mockUseDpnsName: vi.fn(),
-  }),
-);
+const {
+  mockUseSession,
+  mockTransferCard,
+  mockUseDpnsName,
+  mockUseResolvedRecipient,
+} = vi.hoisted(() => ({
+  mockUseSession: vi.fn(),
+  mockTransferCard: vi.fn(),
+  mockUseDpnsName: vi.fn(),
+  mockUseResolvedRecipient: vi.fn(),
+}));
 
 vi.mock("../src/session/useSession", () => ({
   useSession: mockUseSession,
@@ -31,6 +36,10 @@ vi.mock("../src/dash/transferCard", () => ({
 
 vi.mock("../src/hooks/useDpnsName", () => ({
   useDpnsName: mockUseDpnsName,
+}));
+
+vi.mock("../src/hooks/useResolvedRecipient", () => ({
+  useResolvedRecipient: mockUseResolvedRecipient,
 }));
 
 const card: Card = {
@@ -49,6 +58,15 @@ const sessionValue = {
   contractId: "contract-1",
   log: vi.fn(),
 };
+
+// An identity ID that includes `0`/`O`/`I`/`l`-free characters so it
+// classifies as "ambiguous" (not forced into "name" by the classifier).
+const SAMPLE_ID = "5LmvdJbGAtnk2Z3y5bwa2YcX9hk5GhVePtkT21a2mxAn";
+
+const idle: ResolvedRecipient = { status: "idle" };
+function resolved(identityId: string): ResolvedRecipient {
+  return { status: "resolved", identityId };
+}
 
 function deferred<T>() {
   let resolve!: (value: T | PromiseLike<T>) => void;
@@ -82,12 +100,14 @@ describe("TransferModal", () => {
     const onClose = vi.fn();
     mockUseSession.mockReturnValue(sessionValue);
     mockUseDpnsName.mockReturnValue(null);
+    // Ambiguous fallback: the name lookup misses so we submit the raw input.
+    mockUseResolvedRecipient.mockReturnValue({ status: "not-found" });
     mockTransferCard.mockRejectedValueOnce(new Error("Transfer failed"));
 
     render(<TransferModal card={card} onClose={onClose} />);
 
-    fireEvent.change(screen.getByLabelText("Recipient identity ID"), {
-      target: { value: "recipient-id" },
+    fireEvent.change(screen.getByLabelText("Recipient identity or DPNS name"), {
+      target: { value: SAMPLE_ID },
     });
     await act(async () => {
       fireEvent.click(screen.getByRole("button", { name: "Transfer" }));
@@ -104,6 +124,7 @@ describe("TransferModal", () => {
     vi.useFakeTimers();
     mockUseSession.mockReturnValue(sessionValue);
     mockUseDpnsName.mockReturnValue("alice");
+    mockUseResolvedRecipient.mockReturnValue({ status: "not-found" });
     mockTransferCard.mockResolvedValueOnce(undefined);
 
     render(
@@ -114,12 +135,9 @@ describe("TransferModal", () => {
       />,
     );
 
-    fireEvent.change(
-      screen.getByPlaceholderText("Identity ID of the recipient"),
-      {
-        target: { value: "  recipient-id-12345678901234567890123456789012  " },
-      },
-    );
+    fireEvent.change(screen.getByPlaceholderText("alice.dash or identity ID"), {
+      target: { value: `  ${SAMPLE_ID}  ` },
+    });
     fireEvent.click(screen.getByRole("button", { name: "Transfer" }));
 
     expect(mockTransferCard).toHaveBeenCalledWith({
@@ -127,7 +145,7 @@ describe("TransferModal", () => {
       keyManager: sessionValue.keyManager,
       contractId: "contract-1",
       cardId: "card-1",
-      recipientId: "recipient-id-12345678901234567890123456789012",
+      recipientId: SAMPLE_ID,
       log: sessionValue.log,
     });
 
@@ -147,47 +165,33 @@ describe("TransferModal", () => {
     expect(onClose).toHaveBeenCalledTimes(1);
   });
 
-  it("skips DPNS lookup when the trimmed recipient is shorter than 32 chars", () => {
+  it("passes the trimmed input into the resolver hook for ambiguous strings", () => {
     mockUseSession.mockReturnValue(sessionValue);
     mockUseDpnsName.mockReturnValue(null);
+    mockUseResolvedRecipient.mockReturnValue(idle);
 
     render(<TransferModal card={card} onClose={vi.fn()} />);
 
-    fireEvent.change(screen.getByLabelText("Recipient identity ID"), {
-      target: { value: "  short-id  " },
+    fireEvent.change(screen.getByLabelText("Recipient identity or DPNS name"), {
+      target: { value: `  ${SAMPLE_ID}  ` },
     });
 
-    expect(mockUseDpnsName).toHaveBeenLastCalledWith(sessionValue.sdk, null);
-  });
-
-  it("passes the trimmed recipient into DPNS lookup at 32 chars or more", () => {
-    mockUseSession.mockReturnValue(sessionValue);
-    mockUseDpnsName.mockReturnValue(null);
-
-    render(<TransferModal card={card} onClose={vi.fn()} />);
-
-    fireEvent.change(screen.getByLabelText("Recipient identity ID"), {
-      target: { value: "  12345678901234567890123456789012  " },
-    });
-
-    expect(mockUseDpnsName).toHaveBeenLastCalledWith(
+    expect(mockUseResolvedRecipient).toHaveBeenLastCalledWith(
       sessionValue.sdk,
-      "12345678901234567890123456789012",
+      SAMPLE_ID,
     );
   });
 
-  it("renders a resolved DPNS name in the helper and transfer summary", () => {
+  it("shows the reverse DPNS hint when a pasted ID resolves via ambiguous fallback", () => {
     mockUseSession.mockReturnValue(sessionValue);
     mockUseDpnsName.mockReturnValue("alice");
+    mockUseResolvedRecipient.mockReturnValue({ status: "not-found" });
 
     render(<TransferModal card={card} onClose={vi.fn()} />);
 
-    fireEvent.change(
-      screen.getByPlaceholderText("Identity ID of the recipient"),
-      {
-        target: { value: "12345678901234567890123456789012" },
-      },
-    );
+    fireEvent.change(screen.getByPlaceholderText("alice.dash or identity ID"), {
+      target: { value: SAMPLE_ID },
+    });
 
     expect(screen.getByText("✓ alice.dash")).toBeTruthy();
     expect(screen.getByText(/Transferring/).textContent).toContain(
@@ -196,10 +200,119 @@ describe("TransferModal", () => {
     expect(screen.getByText(/Transferring/).textContent).toContain("…");
   });
 
+  it("resolves a DPNS name, submits the resolved ID, and shows the summary", () => {
+    mockUseSession.mockReturnValue(sessionValue);
+    mockUseDpnsName.mockReturnValue(null);
+    mockUseResolvedRecipient.mockReturnValue(resolved(SAMPLE_ID));
+    mockTransferCard.mockResolvedValueOnce(undefined);
+
+    render(<TransferModal card={card} onClose={vi.fn()} />);
+
+    fireEvent.change(screen.getByPlaceholderText("alice.dash or identity ID"), {
+      target: { value: "Alice.dash" },
+    });
+
+    expect(screen.getByText(/Transferring/).textContent).toContain(
+      "alice.dash",
+    );
+
+    const explorerLinks = screen
+      .getAllByRole("link")
+      .filter((el) => el.getAttribute("href")?.includes("/identity/"));
+    expect(explorerLinks.length).toBeGreaterThan(0);
+    expect(explorerLinks[0].getAttribute("href")).toBe(
+      `https://testnet.platform-explorer.com/identity/${SAMPLE_ID}`,
+    );
+    expect(explorerLinks[0].getAttribute("target")).toBe("_blank");
+
+    fireEvent.click(screen.getByRole("button", { name: "Transfer" }));
+
+    expect(mockTransferCard).toHaveBeenCalledWith(
+      expect.objectContaining({ recipientId: SAMPLE_ID }),
+    );
+  });
+
+  it("shows 'No identity found' and disables Transfer when a name does not resolve", () => {
+    mockUseSession.mockReturnValue(sessionValue);
+    mockUseDpnsName.mockReturnValue(null);
+    mockUseResolvedRecipient.mockReturnValue({ status: "not-found" });
+
+    render(<TransferModal card={card} onClose={vi.fn()} />);
+
+    fireEvent.change(screen.getByPlaceholderText("alice.dash or identity ID"), {
+      target: { value: "nobody.dash" },
+    });
+
+    expect(screen.getByText(/No identity found for/).textContent).toContain(
+      "nobody.dash",
+    );
+    expect(
+      (screen.getByRole("button", { name: "Transfer" }) as HTMLButtonElement)
+        .disabled,
+    ).toBe(true);
+  });
+
+  it("never submits a not-found name as a raw identity ID", async () => {
+    mockUseSession.mockReturnValue(sessionValue);
+    mockUseDpnsName.mockReturnValue(null);
+    mockUseResolvedRecipient.mockReturnValue({ status: "not-found" });
+
+    render(<TransferModal card={card} onClose={vi.fn()} />);
+
+    fireEvent.change(screen.getByPlaceholderText("alice.dash or identity ID"), {
+      target: { value: "nobody.dash" },
+    });
+
+    // Even if the button were somehow clicked (e.g. via form submit), the
+    // handler must guard against sending the typed name as a recipientId.
+    await act(async () => {
+      fireEvent.click(screen.getByRole("button", { name: "Transfer" }));
+    });
+
+    expect(mockTransferCard).not.toHaveBeenCalled();
+  });
+
+  it("shows 'Resolving…' and disables Transfer while a name lookup is in flight", () => {
+    mockUseSession.mockReturnValue(sessionValue);
+    mockUseDpnsName.mockReturnValue(null);
+    mockUseResolvedRecipient.mockReturnValue({ status: "resolving" });
+
+    render(<TransferModal card={card} onClose={vi.fn()} />);
+
+    fireEvent.change(screen.getByPlaceholderText("alice.dash or identity ID"), {
+      target: { value: "alice.dash" },
+    });
+
+    expect(screen.getByText("Resolving…")).toBeTruthy();
+    expect(
+      (screen.getByRole("button", { name: "Transfer" }) as HTMLButtonElement)
+        .disabled,
+    ).toBe(true);
+  });
+
+  it("blocks submission and shows an inline error for invalid characters", () => {
+    mockUseSession.mockReturnValue(sessionValue);
+    mockUseDpnsName.mockReturnValue(null);
+    mockUseResolvedRecipient.mockReturnValue(idle);
+
+    render(<TransferModal card={card} onClose={vi.fn()} />);
+
+    fireEvent.change(screen.getByPlaceholderText("alice.dash or identity ID"), {
+      target: { value: "alice@dash" },
+    });
+
+    expect(screen.getByText(/letters, digits, and hyphens only/)).toBeTruthy();
+    expect(
+      (screen.getByRole("button", { name: "Transfer" }) as HTMLButtonElement)
+        .disabled,
+    ).toBe(true);
+  });
+
   it("closes when cancel is clicked", () => {
     const onClose = vi.fn();
     mockUseSession.mockReturnValue(sessionValue);
     mockUseDpnsName.mockReturnValue(null);
+    mockUseResolvedRecipient.mockReturnValue(idle);
 
     render(<TransferModal card={card} onClose={onClose} />);
 
@@ -212,12 +325,13 @@ describe("TransferModal", () => {
     const transfer = deferred<void>();
     mockUseSession.mockReturnValue(sessionValue);
     mockUseDpnsName.mockReturnValue(null);
+    mockUseResolvedRecipient.mockReturnValue(resolved(SAMPLE_ID));
     mockTransferCard.mockReturnValueOnce(transfer.promise);
 
     render(<TransferModal card={card} onClose={vi.fn()} />);
 
-    fireEvent.change(screen.getByLabelText("Recipient identity ID"), {
-      target: { value: "recipient-id-12345678901234567890123456789012" },
+    fireEvent.change(screen.getByLabelText("Recipient identity or DPNS name"), {
+      target: { value: "alice.dash" },
     });
     await act(async () => {
       fireEvent.click(screen.getByRole("button", { name: "Transfer" }));

@@ -11,6 +11,7 @@ import type { DashSdk } from "../dash/types";
 import { rarityOf } from "../lib/rarity";
 import { formatCredits, truncateId, truncateName } from "../lib/format";
 import { useDpnsName } from "../hooks/useDpnsName";
+import { documentUrl } from "../lib/explorer";
 import { CardArt } from "./CardArt";
 import { StatPair } from "./StatPair";
 import { RarityTag } from "./RarityTag";
@@ -27,8 +28,6 @@ export interface CardTileProps {
   onBurn?: (card: Card) => void;
   onLoginPrompt?: () => void;
 }
-
-const explorerBase = "https://testnet.platform-explorer.com";
 
 const RARITY_RAIL_COLORS = {
   common: "var(--color-rarity-common)",
@@ -202,10 +201,7 @@ export function CardTile({
                 </button>
                 <button
                   onClick={() => {
-                    window.open(
-                      `${explorerBase}/document/${card.id}`,
-                      "_blank",
-                    );
+                    window.open(documentUrl(card.id), "_blank");
                     setMenuOpen(false);
                   }}
                 >
