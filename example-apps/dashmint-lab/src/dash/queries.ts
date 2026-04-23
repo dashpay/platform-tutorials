@@ -12,7 +12,7 @@
  *
  * SDK method: sdk.documents.query({ dataContractId, documentTypeName, where?, limit })
  */
-import type { Logger } from './logger';
+import type { Logger } from './logger.js';
 
 export interface Card {
   id: string;

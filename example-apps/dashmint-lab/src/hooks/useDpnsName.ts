@@ -34,31 +34,24 @@ export function useDpnsName(
   sdk: any | null,
   identityId: string | undefined | null,
 ): string | null {
-  const cachedNow = identityId ? cache.get(identityId) : undefined
-  const initialName =
-    typeof cachedNow === 'string' ? cachedNow : null
-
-  const [name, setName] = useState<string | null>(initialName)
-
-  // Reset synchronously when identityId changes and we already know the answer.
-  // This avoids a stale name flash without calling setState inside the effect.
-  if (name !== initialName) {
-    setName(initialName)
-  }
+  const [, forceRender] = useState(0)
+  const cached = identityId ? cache.get(identityId) : undefined
 
   useEffect(() => {
     if (!sdk || !identityId) return
 
-    const cached = cache.get(identityId)
-
-    // Already resolved (string or null) — handled by the sync reset above.
-    if (cached !== undefined && !(cached instanceof Promise)) return
+    if (cached !== undefined && !(cached instanceof Promise)) {
+      return
+    }
 
     // Already in-flight — wait on the existing promise
     if (cached instanceof Promise) {
       let cancelled = false
       cached.then((val) => {
-        if (!cancelled) setName(val)
+        if (!cancelled) {
+          cache.set(identityId, val)
+          forceRender((n) => n + 1)
+        }
       })
       return () => { cancelled = true }
     }
@@ -70,11 +63,11 @@ export function useDpnsName(
     let cancelled = false
     promise.then((val) => {
       cache.set(identityId, val)
-      if (!cancelled) setName(val)
+      if (!cancelled) forceRender((n) => n + 1)
     })
 
     return () => { cancelled = true }
-  }, [sdk, identityId])
+  }, [sdk, identityId, cached])
 
-  return name
+  return cached instanceof Promise ? null : (cached ?? null)
 }

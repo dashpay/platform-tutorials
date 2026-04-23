@@ -7,9 +7,9 @@
  * query by owner, attack, or defense.
  *
  * The three flags at the top of the schema are what make this an NFT:
- *   transferable: 1         — documents can be sent to another identity
- *   tradeMode: 1            — documents can be priced and purchased
- *   creationRestrictionMode: 1 — (any identity can mint; 2 = owner only, etc.)
+ *   transferable: 1         — documents can be sent to another identity (0 to disable)
+ *   tradeMode: 1            — documents can be priced and purchased (0 to disable)
+ *   creationRestrictionMode: 1 — (1 - only the contract owner can mint; 0 - anyone can mint) 
  *
  * SDK methods: new DataContract({ ... }), sdk.contracts.publish(...)
  */
