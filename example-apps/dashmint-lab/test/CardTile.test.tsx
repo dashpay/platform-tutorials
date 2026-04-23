@@ -136,7 +136,9 @@ describe("CardTile", () => {
     expect(screen.queryByRole("button", { name: "Transfer" })).toBeNull();
     expect(screen.queryByRole("button", { name: "Burn Card" })).toBeNull();
     expect(screen.getByRole("button", { name: "Copy ID" })).toBeTruthy();
-    expect(screen.getByRole("button", { name: "View on Explorer" })).toBeTruthy();
+    expect(
+      screen.getByRole("button", { name: "View on Explorer" }),
+    ).toBeTruthy();
   });
 
   it("prompts login for a browse-only buyer on listed cards", () => {

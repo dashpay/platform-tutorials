@@ -53,9 +53,7 @@ describe("LoginModal", () => {
     fireEvent.change(screen.getByPlaceholderText("mnemonic phrase"), {
       target: { value: "test mnemonic words" },
     });
-    fireEvent.click(
-      screen.getByRole("button", { name: /advanced settings/i }),
-    );
+    fireEvent.click(screen.getByRole("button", { name: /advanced settings/i }));
     fireEvent.change(screen.getByRole("spinbutton"), {
       target: { value: "2" },
     });
@@ -93,9 +91,7 @@ describe("LoginModal", () => {
 
     render(<LoginModal open onClose={vi.fn()} />);
 
-    fireEvent.click(
-      screen.getByRole("button", { name: /advanced settings/i }),
-    );
+    fireEvent.click(screen.getByRole("button", { name: /advanced settings/i }));
     fireEvent.change(
       screen.getByPlaceholderText("Default testnet contract used if blank"),
       {

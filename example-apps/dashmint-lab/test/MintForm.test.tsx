@@ -90,9 +90,8 @@ describe("MintForm", () => {
     });
 
     expect(
-      (
-        screen.getByPlaceholderText("e.g. Fire Dragon") as HTMLInputElement
-      ).value,
+      (screen.getByPlaceholderText("e.g. Fire Dragon") as HTMLInputElement)
+        .value,
     ).toBe("");
     expect(
       (

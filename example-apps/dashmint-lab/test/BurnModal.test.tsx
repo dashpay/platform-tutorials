@@ -69,7 +69,9 @@ describe("BurnModal", () => {
     fireEvent.click(screen.getByRole("button", { name: "Burn Card" }));
 
     expect(mockBurnCard).not.toHaveBeenCalled();
-    expect(screen.getByText("Are you sure? This action is permanent.")).toBeTruthy();
+    expect(
+      screen.getByText("Are you sure? This action is permanent."),
+    ).toBeTruthy();
     expect(screen.getByRole("button", { name: "Confirm Burn" })).toBeTruthy();
   });
 

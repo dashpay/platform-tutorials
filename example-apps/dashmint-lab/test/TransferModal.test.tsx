@@ -13,11 +13,13 @@ import { TransferModal } from "../src/components/TransferModal";
 import type { Card } from "../src/dash/queries";
 import type { DashKeyManager, DashSdk } from "../src/dash/types";
 
-const { mockUseSession, mockTransferCard, mockUseDpnsName } = vi.hoisted(() => ({
-  mockUseSession: vi.fn(),
-  mockTransferCard: vi.fn(),
-  mockUseDpnsName: vi.fn(),
-}));
+const { mockUseSession, mockTransferCard, mockUseDpnsName } = vi.hoisted(
+  () => ({
+    mockUseSession: vi.fn(),
+    mockTransferCard: vi.fn(),
+    mockUseDpnsName: vi.fn(),
+  }),
+);
 
 vi.mock("../src/session/useSession", () => ({
   useSession: mockUseSession,
@@ -112,9 +114,12 @@ describe("TransferModal", () => {
       />,
     );
 
-    fireEvent.change(screen.getByPlaceholderText("Identity ID of the recipient"), {
-      target: { value: "  recipient-id-12345678901234567890123456789012  " },
-    });
+    fireEvent.change(
+      screen.getByPlaceholderText("Identity ID of the recipient"),
+      {
+        target: { value: "  recipient-id-12345678901234567890123456789012  " },
+      },
+    );
     fireEvent.click(screen.getByRole("button", { name: "Transfer" }));
 
     expect(mockTransferCard).toHaveBeenCalledWith({
@@ -177,12 +182,17 @@ describe("TransferModal", () => {
 
     render(<TransferModal card={card} onClose={vi.fn()} />);
 
-    fireEvent.change(screen.getByPlaceholderText("Identity ID of the recipient"), {
-      target: { value: "12345678901234567890123456789012" },
-    });
+    fireEvent.change(
+      screen.getByPlaceholderText("Identity ID of the recipient"),
+      {
+        target: { value: "12345678901234567890123456789012" },
+      },
+    );
 
     expect(screen.getByText("✓ alice.dash")).toBeTruthy();
-    expect(screen.getByText(/Transferring/).textContent).toContain("alice.dash");
+    expect(screen.getByText(/Transferring/).textContent).toContain(
+      "alice.dash",
+    );
     expect(screen.getByText(/Transferring/).textContent).toContain("…");
   });
 
@@ -215,8 +225,11 @@ describe("TransferModal", () => {
 
     await settle();
     expect(
-      (screen.getByRole("button", { name: "Transferring…" }) as HTMLButtonElement)
-        .disabled,
+      (
+        screen.getByRole("button", {
+          name: "Transferring…",
+        }) as HTMLButtonElement
+      ).disabled,
     ).toBe(true);
     expect(
       (screen.getByRole("button", { name: "Cancel" }) as HTMLButtonElement)

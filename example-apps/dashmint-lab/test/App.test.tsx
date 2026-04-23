@@ -129,7 +129,9 @@ vi.mock("../src/components/CardGrid", () => ({
   }) =>
     cards.length ? (
       <div>
-        <div data-testid="cards">{cards.map((card) => card.data.name).join("|")}</div>
+        <div data-testid="cards">
+          {cards.map((card) => card.data.name).join("|")}
+        </div>
         <button type="button" onClick={() => onTransfer?.(cards[0])}>
           Transfer First Card
         </button>
@@ -153,9 +155,7 @@ vi.mock("../src/components/CardGrid", () => ({
 
 vi.mock("../src/components/LoginModal", () => ({
   LoginModal: ({ open }: LoginModalProps) => (
-    <div data-testid="login-modal">
-      open:{String(open)}
-    </div>
+    <div data-testid="login-modal">open:{String(open)}</div>
   ),
 }));
 
@@ -385,23 +385,43 @@ describe("App", () => {
       );
     });
 
-    expect(screen.getByTestId("login-modal").textContent).toContain("open:false");
-    expect(screen.getByTestId("transfer-modal").textContent).toContain("card:none");
-    expect(screen.getByTestId("set-price-modal").textContent).toContain("card:none");
-    expect(screen.getByTestId("purchase-modal").textContent).toContain("card:none");
+    expect(screen.getByTestId("login-modal").textContent).toContain(
+      "open:false",
+    );
+    expect(screen.getByTestId("transfer-modal").textContent).toContain(
+      "card:none",
+    );
+    expect(screen.getByTestId("set-price-modal").textContent).toContain(
+      "card:none",
+    );
+    expect(screen.getByTestId("purchase-modal").textContent).toContain(
+      "card:none",
+    );
     expect(screen.getByTestId("burn-modal").textContent).toContain("card:none");
 
     fireEvent.click(screen.getByRole("button", { name: "Open Login" }));
-    expect(screen.getByTestId("login-modal").textContent).toContain("open:true");
+    expect(screen.getByTestId("login-modal").textContent).toContain(
+      "open:true",
+    );
 
-    fireEvent.click(screen.getByRole("button", { name: "Transfer First Card" }));
-    expect(screen.getByTestId("transfer-modal").textContent).toContain("card:a");
+    fireEvent.click(
+      screen.getByRole("button", { name: "Transfer First Card" }),
+    );
+    expect(screen.getByTestId("transfer-modal").textContent).toContain(
+      "card:a",
+    );
 
     fireEvent.click(screen.getByRole("button", { name: "Price First Card" }));
-    expect(screen.getByTestId("set-price-modal").textContent).toContain("card:a");
+    expect(screen.getByTestId("set-price-modal").textContent).toContain(
+      "card:a",
+    );
 
-    fireEvent.click(screen.getByRole("button", { name: "Purchase First Card" }));
-    expect(screen.getByTestId("purchase-modal").textContent).toContain("card:a");
+    fireEvent.click(
+      screen.getByRole("button", { name: "Purchase First Card" }),
+    );
+    expect(screen.getByTestId("purchase-modal").textContent).toContain(
+      "card:a",
+    );
 
     fireEvent.click(screen.getByRole("button", { name: "Burn First Card" }));
     expect(screen.getByTestId("burn-modal").textContent).toContain("card:a");
@@ -416,8 +436,12 @@ describe("App", () => {
 
     await screen.findByRole("button", { name: "Transfer First Card" });
 
-    fireEvent.click(screen.getByRole("button", { name: "Transfer First Card" }));
-    fireEvent.click(screen.getByRole("button", { name: "Trigger Transfer Refresh" }));
+    fireEvent.click(
+      screen.getByRole("button", { name: "Transfer First Card" }),
+    );
+    fireEvent.click(
+      screen.getByRole("button", { name: "Trigger Transfer Refresh" }),
+    );
 
     await waitFor(() => {
       expect(mockListAllCards).toHaveBeenCalledTimes(2);
@@ -425,15 +449,21 @@ describe("App", () => {
     await screen.findByRole("button", { name: "Price First Card" });
 
     fireEvent.click(screen.getByRole("button", { name: "Price First Card" }));
-    fireEvent.click(screen.getByRole("button", { name: "Trigger Price Refresh" }));
+    fireEvent.click(
+      screen.getByRole("button", { name: "Trigger Price Refresh" }),
+    );
 
     await waitFor(() => {
       expect(mockListAllCards).toHaveBeenCalledTimes(3);
     });
     await screen.findByRole("button", { name: "Purchase First Card" });
 
-    fireEvent.click(screen.getByRole("button", { name: "Purchase First Card" }));
-    fireEvent.click(screen.getByRole("button", { name: "Trigger Purchase Refresh" }));
+    fireEvent.click(
+      screen.getByRole("button", { name: "Purchase First Card" }),
+    );
+    fireEvent.click(
+      screen.getByRole("button", { name: "Trigger Purchase Refresh" }),
+    );
 
     await waitFor(() => {
       expect(mockListAllCards).toHaveBeenCalledTimes(4);
@@ -441,7 +471,9 @@ describe("App", () => {
     await screen.findByRole("button", { name: "Burn First Card" });
 
     fireEvent.click(screen.getByRole("button", { name: "Burn First Card" }));
-    fireEvent.click(screen.getByRole("button", { name: "Trigger Burn Refresh" }));
+    fireEvent.click(
+      screen.getByRole("button", { name: "Trigger Burn Refresh" }),
+    );
 
     await waitFor(() => {
       expect(mockListAllCards).toHaveBeenCalledTimes(5);
@@ -461,7 +493,9 @@ describe("App", () => {
       screen.getByText("Login as contract owner to access this feature"),
     ).toBeTruthy();
     fireEvent.click(screen.getByRole("button", { name: "Login" }));
-    expect(screen.getByTestId("login-modal").textContent).toContain("open:true");
+    expect(screen.getByTestId("login-modal").textContent).toContain(
+      "open:true",
+    );
     expect(screen.getByText("Mint Form")).toBeTruthy();
   });
 
@@ -484,7 +518,9 @@ describe("App", () => {
       ),
     ).toBeTruthy();
     fireEvent.click(screen.getByRole("button", { name: "Settings" }));
-    expect(screen.getByTestId("login-modal").textContent).toContain("open:true");
+    expect(screen.getByTestId("login-modal").textContent).toContain(
+      "open:true",
+    );
     expect(screen.getByText("Mint Form")).toBeTruthy();
   });
 

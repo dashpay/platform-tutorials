@@ -94,7 +94,11 @@ describe("SetPriceModal", () => {
     mockSetPrice.mockResolvedValueOnce(undefined);
 
     render(
-      <SetPriceModal card={unlistedCard} onClose={onClose} onPriced={onPriced} />,
+      <SetPriceModal
+        card={unlistedCard}
+        onClose={onClose}
+        onPriced={onPriced}
+      />,
     );
 
     fireEvent.change(screen.getByLabelText("Price"), {
