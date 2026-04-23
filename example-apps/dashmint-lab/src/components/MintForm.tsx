@@ -3,25 +3,11 @@
  * sdk, keyManager, and the contract ID.
  */
 import { useState, type FormEvent } from "react";
+import { drawStarterPack, STARTER_PACK_SIZE } from "../data/starterPack";
 import { errorMessage } from "../dash/logger";
 import { mintCard } from "../dash/mintCard";
 import { useSession } from "../session/useSession";
 import { OddsTable } from "./OddsTable";
-
-const STARTER_CARDS = [
-  {
-    name: "Fire Dragon",
-    description: "A legendary beast from the volcanic plains",
-  },
-  {
-    name: "Stone Golem",
-    description: "An ancient guardian carved from living rock",
-  },
-  {
-    name: "Shadow Fox",
-    description: "A swift trickster that strikes from darkness",
-  },
-];
 
 export interface MintFormProps {
   contractId: string;
@@ -60,9 +46,10 @@ export function MintForm({ contractId, onMinted }: MintFormProps) {
   async function handleStarterPack() {
     if (!session.sdk || !session.keyManager) return;
     setMintingPack(true);
-    session.log("Minting starter pack (3 cards)…");
+    session.log(`Minting starter pack (${STARTER_PACK_SIZE} cards)…`);
     try {
-      for (const card of STARTER_CARDS) {
+      const packCards = drawStarterPack();
+      for (const card of packCards) {
         await mintCard({
           sdk: session.sdk,
           keyManager: session.keyManager,
@@ -149,8 +136,8 @@ export function MintForm({ contractId, onMinted }: MintFormProps) {
           Starter Pack
         </h2>
         <p className="text-[12px] leading-[1.55] text-ink-3">
-          Mint the Fire Dragon, Stone Golem, and Shadow Fox from the tutorial
-          outline.
+          Mint a random set of {STARTER_PACK_SIZE} sample cards from the
+          tutorial card pool.
         </p>
         <button
           type="button"

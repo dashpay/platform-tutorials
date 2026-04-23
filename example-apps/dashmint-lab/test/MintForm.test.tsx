@@ -12,10 +12,13 @@ import { afterEach, describe, expect, it, vi } from "vitest";
 import { MintForm } from "../src/components/MintForm";
 import type { DashKeyManager, DashSdk } from "../src/dash/types";
 
-const { mockUseSession, mockMintCard } = vi.hoisted(() => ({
-  mockUseSession: vi.fn(),
-  mockMintCard: vi.fn(),
-}));
+const { mockUseSession, mockMintCard, mockDrawStarterPack } = vi.hoisted(
+  () => ({
+    mockUseSession: vi.fn(),
+    mockMintCard: vi.fn(),
+    mockDrawStarterPack: vi.fn(),
+  }),
+);
 
 vi.mock("../src/session/useSession", () => ({
   useSession: mockUseSession,
@@ -25,11 +28,33 @@ vi.mock("../src/dash/mintCard", () => ({
   mintCard: mockMintCard,
 }));
 
+vi.mock("../src/data/starterPack", () => ({
+  STARTER_PACK_SIZE: 3,
+  drawStarterPack: mockDrawStarterPack,
+}));
+
+import { STARTER_PACK_SIZE } from "../src/data/starterPack";
+
 const sessionValue = {
   sdk: {} as DashSdk,
   keyManager: {} as DashKeyManager,
   log: vi.fn(),
 };
+
+const starterPackCards = [
+  {
+    name: "Stone Golem",
+    description: "An ancient guardian carved from living rock",
+  },
+  {
+    name: "Crystal Serpent",
+    description: "A glittering wyrm with scales sharp as glass",
+  },
+  {
+    name: "Sun Priestess",
+    description: "A radiant caster who shields allies with solar fire",
+  },
+];
 
 afterEach(() => {
   cleanup();
@@ -128,6 +153,7 @@ describe("MintForm", () => {
     const log = vi.fn();
     mockUseSession.mockReturnValue({ ...sessionValue, log });
     mockMintCard.mockResolvedValue(undefined);
+    mockDrawStarterPack.mockReturnValue(starterPackCards);
 
     render(<MintForm contractId="contract-1" onMinted={onMinted} />);
 
@@ -141,33 +167,33 @@ describe("MintForm", () => {
       sdk: sessionValue.sdk,
       keyManager: sessionValue.keyManager,
       contractId: "contract-1",
-      card: {
-        name: "Fire Dragon",
-        description: "A legendary beast from the volcanic plains",
-      },
+      card: starterPackCards[0],
       log,
     });
     expect(mockMintCard).toHaveBeenNthCalledWith(2, {
       sdk: sessionValue.sdk,
       keyManager: sessionValue.keyManager,
       contractId: "contract-1",
-      card: {
-        name: "Stone Golem",
-        description: "An ancient guardian carved from living rock",
-      },
+      card: starterPackCards[1],
       log,
     });
     expect(mockMintCard).toHaveBeenNthCalledWith(3, {
       sdk: sessionValue.sdk,
       keyManager: sessionValue.keyManager,
       contractId: "contract-1",
-      card: {
-        name: "Shadow Fox",
-        description: "A swift trickster that strikes from darkness",
-      },
+      card: starterPackCards[2],
       log,
     });
-    expect(log).toHaveBeenCalledWith("Minting starter pack (3 cards)…");
+    expect(
+      new Set(
+        mockMintCard.mock.calls.map(
+          ([args]) => (args as { card: { name: string } }).card.name,
+        ),
+      ).size,
+    ).toBe(3);
+    expect(log).toHaveBeenCalledWith(
+      `Minting starter pack (${STARTER_PACK_SIZE} cards)…`,
+    );
     expect(log).toHaveBeenCalledWith("Starter pack minted!", "success");
     expect(onMinted).toHaveBeenCalledTimes(1);
   });
@@ -179,6 +205,7 @@ describe("MintForm", () => {
     mockMintCard
       .mockResolvedValueOnce(undefined)
       .mockRejectedValueOnce(new Error("second mint failed"));
+    mockDrawStarterPack.mockReturnValue(starterPackCards);
 
     render(<MintForm contractId="contract-1" onMinted={onMinted} />);
 
@@ -188,7 +215,9 @@ describe("MintForm", () => {
       expect(mockMintCard).toHaveBeenCalledTimes(2);
     });
 
-    expect(log).toHaveBeenCalledWith("Minting starter pack (3 cards)…");
+    expect(log).toHaveBeenCalledWith(
+      `Minting starter pack (${STARTER_PACK_SIZE} cards)…`,
+    );
     expect(log).toHaveBeenCalledWith(
       "Starter pack error: second mint failed",
       "error",
