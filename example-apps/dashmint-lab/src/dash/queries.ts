@@ -19,6 +19,9 @@ import type {
   DashSdk,
 } from "./types";
 
+// Platform caps document queries at 100 results per request.
+const MAX_QUERY_LIMIT = 100;
+
 export interface Card {
   id: string;
   ownerId: string;
@@ -65,7 +68,7 @@ export async function listMyCards({
   sdk,
   contractId,
   identityId,
-  limit = 100,
+  limit = MAX_QUERY_LIMIT,
   log,
 }: BaseParams & { identityId: string }): Promise<Card[]> {
   log?.("Loading your cards…");
@@ -83,7 +86,7 @@ export async function listMyCards({
 export async function listAllCards({
   sdk,
   contractId,
-  limit = 50,
+  limit = MAX_QUERY_LIMIT,
   log,
 }: BaseParams): Promise<Card[]> {
   log?.("Loading all cards (any owner)…");
@@ -100,7 +103,7 @@ export async function listAllCards({
 export async function listMarketplaceCards({
   sdk,
   contractId,
-  limit = 50,
+  limit = MAX_QUERY_LIMIT,
   log,
 }: BaseParams): Promise<Card[]> {
   log?.("Loading marketplace…");
