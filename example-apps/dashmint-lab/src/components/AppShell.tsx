@@ -87,7 +87,7 @@ export function AppShell({
   );
 
   return (
-    <div className="grid min-h-screen grid-cols-[1fr] md:grid-cols-[208px_1fr]">
+    <div className="min-h-screen md:grid md:grid-cols-[208px_1fr]">
       {/* Mobile top bar */}
       <div className="sticky top-0 z-30 flex items-center justify-between border-b border-line bg-bg px-3.5 py-2.5 md:hidden">
         <div className="flex items-center gap-2.5">
