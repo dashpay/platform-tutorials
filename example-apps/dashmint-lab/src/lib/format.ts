@@ -1,6 +1,6 @@
 /** Truncate a long identifier for display. */
 export function truncateId(id: string | null | undefined, n = 8): string {
-  if (!id) return '—';
+  if (!id) return "—";
   if (id.length <= n * 2) return id;
   return `${id.slice(0, n)}…${id.slice(-6)}`;
 }
@@ -15,7 +15,7 @@ export function truncateName(name: string, max = 16): string {
 
 /** Format a credit amount with thousands separators. */
 export function formatCredits(price: number | bigint | undefined): string {
-  if (price === undefined || price === null) return '';
-  const n = typeof price === 'bigint' ? price : BigInt(Math.trunc(price));
+  if (price === undefined || price === null) return "";
+  const n = typeof price === "bigint" ? price : BigInt(Math.trunc(price));
   return n.toLocaleString();
 }

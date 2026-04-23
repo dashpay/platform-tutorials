@@ -22,17 +22,17 @@ Production build: `npm run build && npm run preview`
 
 Every SDK call lives in its own file under [`src/dash/`](src/dash/). Open the file to see the full implementation with a JSDoc header explaining what it does and why.
 
-| Operation | File | SDK method |
-| --- | --- | --- |
-| Connect to testnet | [`src/dash/client.ts`](src/dash/client.ts) | `EvoSDK.testnetTrusted()` + `sdk.connect()` |
-| Derive identity keys | [`src/dash/keyManager.ts`](src/dash/keyManager.ts) | `wallet.deriveKeyFromSeedWithPath` |
-| Deploy card contract | [`src/dash/contract.ts`](src/dash/contract.ts) | `sdk.contracts.publish` |
-| Mint a card | [`src/dash/mintCard.ts`](src/dash/mintCard.ts) | `sdk.documents.create` |
-| Transfer a card | [`src/dash/transferCard.ts`](src/dash/transferCard.ts) | `sdk.documents.transfer` |
-| Set / remove price | [`src/dash/setPrice.ts`](src/dash/setPrice.ts) | `sdk.documents.setPrice` |
-| Purchase a card | [`src/dash/purchaseCard.ts`](src/dash/purchaseCard.ts) | `sdk.documents.purchase` |
-| Burn (delete) a card | [`src/dash/burnCard.ts`](src/dash/burnCard.ts) | `sdk.documents.delete` |
-| Query cards | [`src/dash/queries.ts`](src/dash/queries.ts) | `sdk.documents.query` |
+| Operation            | File                                                   | SDK method                                  |
+| -------------------- | ------------------------------------------------------ | ------------------------------------------- |
+| Connect to testnet   | [`src/dash/client.ts`](src/dash/client.ts)             | `EvoSDK.testnetTrusted()` + `sdk.connect()` |
+| Derive identity keys | [`src/dash/keyManager.ts`](src/dash/keyManager.ts)     | `wallet.deriveKeyFromSeedWithPath`          |
+| Deploy card contract | [`src/dash/contract.ts`](src/dash/contract.ts)         | `sdk.contracts.publish`                     |
+| Mint a card          | [`src/dash/mintCard.ts`](src/dash/mintCard.ts)         | `sdk.documents.create`                      |
+| Transfer a card      | [`src/dash/transferCard.ts`](src/dash/transferCard.ts) | `sdk.documents.transfer`                    |
+| Set / remove price   | [`src/dash/setPrice.ts`](src/dash/setPrice.ts)         | `sdk.documents.setPrice`                    |
+| Purchase a card      | [`src/dash/purchaseCard.ts`](src/dash/purchaseCard.ts) | `sdk.documents.purchase`                    |
+| Burn (delete) a card | [`src/dash/burnCard.ts`](src/dash/burnCard.ts)         | `sdk.documents.delete`                      |
+| Query cards          | [`src/dash/queries.ts`](src/dash/queries.ts)           | `sdk.documents.query`                       |
 
 Two supporting files:
 

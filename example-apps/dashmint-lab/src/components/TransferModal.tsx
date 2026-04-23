@@ -1,16 +1,16 @@
-import { useEffect, useState, type FormEvent } from 'react'
-import { transferCard } from '../dash/transferCard'
-import type { Card } from '../dash/queries'
-import { useSession } from '../session/useSession'
-import { truncateId } from '../lib/format'
-import { useDpnsName } from '../hooks/useDpnsName'
-import { Modal } from './Modal'
-import { CardSummary } from './CardSummary'
+import { useEffect, useState, type FormEvent } from "react";
+import { transferCard } from "../dash/transferCard";
+import type { Card } from "../dash/queries";
+import { useSession } from "../session/useSession";
+import { truncateId } from "../lib/format";
+import { useDpnsName } from "../hooks/useDpnsName";
+import { Modal } from "./Modal";
+import { CardSummary } from "./CardSummary";
 
 export interface TransferModalProps {
-  card: Card | null
-  onClose: () => void
-  onTransferred?: () => void
+  card: Card | null;
+  onClose: () => void;
+  onTransferred?: () => void;
 }
 
 export function TransferModal({
@@ -18,25 +18,25 @@ export function TransferModal({
   onClose,
   onTransferred,
 }: TransferModalProps) {
-  const session = useSession()
-  const [recipient, setRecipient] = useState('')
-  const [submitting, setSubmitting] = useState(false)
+  const session = useSession();
+  const [recipient, setRecipient] = useState("");
+  const [submitting, setSubmitting] = useState(false);
   // Resolve DPNS name once the input looks like a valid identity ID (32+ chars, base58).
-  const trimmedRecipient = recipient.trim()
+  const trimmedRecipient = recipient.trim();
   const recipientName = useDpnsName(
     session.sdk,
     trimmedRecipient.length >= 32 ? trimmedRecipient : null,
-  )
+  );
 
   useEffect(() => {
-    if (card) setRecipient('')
-  }, [card])
+    if (card) setRecipient("");
+  }, [card]);
 
   async function handleSubmit(e: FormEvent) {
-    e.preventDefault()
+    e.preventDefault();
     if (!card || !session.sdk || !session.keyManager || !session.contractId)
-      return
-    setSubmitting(true)
+      return;
+    setSubmitting(true);
     try {
       await transferCard({
         sdk: session.sdk,
@@ -45,11 +45,11 @@ export function TransferModal({
         cardId: card.id,
         recipientId: recipient.trim(),
         log: session.log,
-      })
-      onTransferred?.()
-      onClose()
+      });
+      onTransferred?.();
+      onClose();
     } finally {
-      setSubmitting(false)
+      setSubmitting(false);
     }
   }
 
@@ -79,11 +79,19 @@ export function TransferModal({
 
             {trimmedRecipient && (
               <p className="mt-2 text-[11px] text-ink-3">
-                Transferring &ldquo;<span className="text-ink">{card.data.name}</span>&rdquo; to{' '}
+                Transferring &ldquo;
+                <span className="text-ink">{card.data.name}</span>&rdquo; to{" "}
                 <span className="text-accent">
-                  {recipientName
-                    ? <>{recipientName}.dash <span className="text-ink-4">({truncateId(trimmedRecipient)})</span></>
-                    : truncateId(trimmedRecipient)}
+                  {recipientName ? (
+                    <>
+                      {recipientName}.dash{" "}
+                      <span className="text-ink-4">
+                        ({truncateId(trimmedRecipient)})
+                      </span>
+                    </>
+                  ) : (
+                    truncateId(trimmedRecipient)
+                  )}
                 </span>
               </p>
             )}
@@ -94,7 +102,7 @@ export function TransferModal({
                 disabled={submitting || !recipient.trim()}
                 className="flex-1 rounded-md bg-accent px-4 py-2 text-[13px] font-semibold text-bg transition hover:bg-accent-dim disabled:cursor-not-allowed disabled:bg-surface-2 disabled:text-ink-4"
               >
-                {submitting ? 'Transferring…' : 'Transfer'}
+                {submitting ? "Transferring…" : "Transfer"}
               </button>
               <button
                 type="button"
@@ -108,5 +116,5 @@ export function TransferModal({
         </form>
       )}
     </Modal>
-  )
+  );
 }

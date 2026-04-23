@@ -9,13 +9,16 @@
  *   rare        total 11-14
  *   common      total <= 10
  */
-export type Rarity = 'common' | 'rare' | 'legendary';
+export type Rarity = "common" | "rare" | "legendary";
 
-export function rarityOf(attack: number | undefined, defense: number | undefined): Rarity {
+export function rarityOf(
+  attack: number | undefined,
+  defense: number | undefined,
+): Rarity {
   const total = (attack ?? 0) + (defense ?? 0);
-  if (total >= 15) return 'legendary';
-  if (total >= 11) return 'rare';
-  return 'common';
+  if (total >= 15) return "legendary";
+  if (total >= 11) return "rare";
+  return "common";
 }
 
 export function rarityLabel(rarity: Rarity): string {

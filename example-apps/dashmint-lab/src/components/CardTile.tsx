@@ -5,42 +5,43 @@
  * actions (transfer, setPrice, purchase, burn, copyId). Action buttons
  * show/hide based on owner vs. buyer vs. browse-only.
  */
-import { useState, useRef, useEffect } from 'react'
-import type { Card } from '../dash/queries'
-import { rarityOf } from '../lib/rarity'
-import { formatCredits, truncateId, truncateName } from '../lib/format'
-import { useDpnsName } from '../hooks/useDpnsName'
-import { CardArt } from './CardArt'
-import { StatPair } from './StatPair'
-import { RarityTag } from './RarityTag'
+import { useState, useRef, useEffect } from "react";
+import type { Card } from "../dash/queries";
+import { rarityOf } from "../lib/rarity";
+import { formatCredits, truncateId, truncateName } from "../lib/format";
+import { useDpnsName } from "../hooks/useDpnsName";
+import { CardArt } from "./CardArt";
+import { StatPair } from "./StatPair";
+import { RarityTag } from "./RarityTag";
 
 export interface CardTileProps {
-  card: Card
+  card: Card;
   /** Current user's identity ID, or null in browse-only mode. */
-  currentIdentityId: string | null
+  currentIdentityId: string | null;
   /** Connected SDK instance — used for lazy DPNS name resolution. */
   // eslint-disable-next-line @typescript-eslint/no-explicit-any
-  sdk?: any | null
-  onTransfer?: (card: Card) => void
-  onSetPrice?: (card: Card) => void
-  onPurchase?: (card: Card) => void
-  onBurn?: (card: Card) => void
-  onLoginPrompt?: () => void
+  sdk?: any | null;
+  onTransfer?: (card: Card) => void;
+  onSetPrice?: (card: Card) => void;
+  onPurchase?: (card: Card) => void;
+  onBurn?: (card: Card) => void;
+  onLoginPrompt?: () => void;
 }
 
-const explorerBase = 'https://testnet.platform-explorer.com'
+const explorerBase = "https://testnet.platform-explorer.com";
 
 const RARITY_RAIL_COLORS = {
-  common: 'var(--color-rarity-common)',
-  rare: 'var(--color-rarity-rare)',
-  legendary: 'var(--color-rarity-legend)',
-} as const
+  common: "var(--color-rarity-common)",
+  rare: "var(--color-rarity-rare)",
+  legendary: "var(--color-rarity-legend)",
+} as const;
 
 function ownerAvatar(seed: string | null): string {
-  if (!seed) return 'conic-gradient(from 0deg, oklch(40% 0.02 260), oklch(30% 0.02 260))'
-  let h = 0
-  for (let i = 0; i < seed.length; i++) h = (h + seed.charCodeAt(i) * 37) % 360
-  return `conic-gradient(from ${h}deg, oklch(65% 0.15 ${h}), oklch(50% 0.12 ${(h + 120) % 360}), oklch(65% 0.15 ${h}))`
+  if (!seed)
+    return "conic-gradient(from 0deg, oklch(40% 0.02 260), oklch(30% 0.02 260))";
+  let h = 0;
+  for (let i = 0; i < seed.length; i++) h = (h + seed.charCodeAt(i) * 37) % 360;
+  return `conic-gradient(from ${h}deg, oklch(65% 0.15 ${h}), oklch(50% 0.12 ${(h + 120) % 360}), oklch(65% 0.15 ${h}))`;
 }
 
 export function CardTile({
@@ -53,34 +54,34 @@ export function CardTile({
   onBurn,
   onLoginPrompt,
 }: CardTileProps) {
-  const { data } = card
-  const atk = data.attack ?? 0
-  const def = data.defense ?? 0
-  const rarity = rarityOf(data.attack, data.defense)
-  const isOwner = !!currentIdentityId && card.ownerId === currentIdentityId
-  const hasPrice = !!card.$price
-  const ownerName = useDpnsName(sdk, card.ownerId ?? null)
+  const { data } = card;
+  const atk = data.attack ?? 0;
+  const def = data.defense ?? 0;
+  const rarity = rarityOf(data.attack, data.defense);
+  const isOwner = !!currentIdentityId && card.ownerId === currentIdentityId;
+  const hasPrice = !!card.$price;
+  const ownerName = useDpnsName(sdk, card.ownerId ?? null);
 
-  const [menuOpen, setMenuOpen] = useState(false)
-  const menuRef = useRef<HTMLDivElement>(null)
+  const [menuOpen, setMenuOpen] = useState(false);
+  const menuRef = useRef<HTMLDivElement>(null);
 
   useEffect(() => {
-    if (!menuOpen) return
+    if (!menuOpen) return;
     const handler = (e: MouseEvent) => {
       if (menuRef.current && !menuRef.current.contains(e.target as Node)) {
-        setMenuOpen(false)
+        setMenuOpen(false);
       }
-    }
-    document.addEventListener('click', handler, true)
-    return () => document.removeEventListener('click', handler, true)
-  }, [menuOpen])
+    };
+    document.addEventListener("click", handler, true);
+    return () => document.removeEventListener("click", handler, true);
+  }, [menuOpen]);
 
   return (
     <article className="relative flex aspect-[3/4] flex-col gap-2.5 rounded-xl border border-line bg-surface p-3 pl-5 transition-[border-color,background] duration-[120ms] hover:border-line-2 hover:bg-surface-2">
       {/* Rarity left rail */}
       <span
         className={`absolute top-3 bottom-3 left-1.5 w-0.5 rounded-sm ${
-          rarity === 'common' ? 'opacity-45' : ''
+          rarity === "common" ? "opacity-45" : ""
         }`}
         style={{ background: RARITY_RAIL_COLORS[rarity] }}
       />
@@ -101,10 +102,13 @@ export function CardTile({
       {/* Title + description (always reserve 2 lines for description) */}
       <div>
         <h3 className="text-[15px] font-semibold leading-[1.25] tracking-[-0.01em] text-ink">
-          {data.name ?? '?'}
+          {data.name ?? "?"}
         </h3>
-        <p className="mt-0.5 line-clamp-2 text-[11.5px] leading-[1.5] text-ink-3" style={{ minHeight: '2lh' }}>
-          {data.description ?? '\u00A0'}
+        <p
+          className="mt-0.5 line-clamp-2 text-[11.5px] leading-[1.5] text-ink-3"
+          style={{ minHeight: "2lh" }}
+        >
+          {data.description ?? "\u00A0"}
         </p>
       </div>
 
@@ -123,8 +127,8 @@ export function CardTile({
             {ownerName
               ? `@${truncateName(ownerName)}`
               : card.ownerId
-              ? truncateId(card.ownerId, 6)
-              : '—'}
+                ? truncateId(card.ownerId, 6)
+                : "—"}
           </span>
         </div>
 
@@ -181,8 +185,8 @@ export function CardTile({
                 {isOwner && (
                   <button
                     onClick={() => {
-                      onTransfer?.(card)
-                      setMenuOpen(false)
+                      onTransfer?.(card);
+                      setMenuOpen(false);
                     }}
                   >
                     Transfer
@@ -190,8 +194,8 @@ export function CardTile({
                 )}
                 <button
                   onClick={() => {
-                    navigator.clipboard.writeText(card.id)
-                    setMenuOpen(false)
+                    navigator.clipboard.writeText(card.id);
+                    setMenuOpen(false);
                   }}
                 >
                   Copy ID
@@ -200,9 +204,9 @@ export function CardTile({
                   onClick={() => {
                     window.open(
                       `${explorerBase}/document/${card.id}`,
-                      '_blank',
-                    )
-                    setMenuOpen(false)
+                      "_blank",
+                    );
+                    setMenuOpen(false);
                   }}
                 >
                   View on Explorer
@@ -213,8 +217,8 @@ export function CardTile({
                     <button
                       className="danger"
                       onClick={() => {
-                        onBurn?.(card)
-                        setMenuOpen(false)
+                        onBurn?.(card);
+                        setMenuOpen(false);
                       }}
                     >
                       Burn Card
@@ -227,5 +231,5 @@ export function CardTile({
         </div>
       </div>
     </article>
-  )
+  );
 }

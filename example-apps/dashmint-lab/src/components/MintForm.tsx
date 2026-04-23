@@ -2,34 +2,43 @@
  * Mint-a-card form. Calls src/dash/mintCard directly; session provides
  * sdk, keyManager, and the contract ID.
  */
-import { useState, type FormEvent } from 'react'
-import { errorMessage } from '../dash/logger'
-import { mintCard } from '../dash/mintCard'
-import { useSession } from '../session/useSession'
-import { OddsTable } from './OddsTable'
+import { useState, type FormEvent } from "react";
+import { errorMessage } from "../dash/logger";
+import { mintCard } from "../dash/mintCard";
+import { useSession } from "../session/useSession";
+import { OddsTable } from "./OddsTable";
 
 const STARTER_CARDS = [
-  { name: 'Fire Dragon', description: 'A legendary beast from the volcanic plains' },
-  { name: 'Stone Golem', description: 'An ancient guardian carved from living rock' },
-  { name: 'Shadow Fox', description: 'A swift trickster that strikes from darkness' },
-]
+  {
+    name: "Fire Dragon",
+    description: "A legendary beast from the volcanic plains",
+  },
+  {
+    name: "Stone Golem",
+    description: "An ancient guardian carved from living rock",
+  },
+  {
+    name: "Shadow Fox",
+    description: "A swift trickster that strikes from darkness",
+  },
+];
 
 export interface MintFormProps {
-  contractId: string
-  onMinted?: () => void
+  contractId: string;
+  onMinted?: () => void;
 }
 
 export function MintForm({ contractId, onMinted }: MintFormProps) {
-  const session = useSession()
-  const [name, setName] = useState('')
-  const [description, setDescription] = useState('')
-  const [submitting, setSubmitting] = useState(false)
-  const [mintingPack, setMintingPack] = useState(false)
+  const session = useSession();
+  const [name, setName] = useState("");
+  const [description, setDescription] = useState("");
+  const [submitting, setSubmitting] = useState(false);
+  const [mintingPack, setMintingPack] = useState(false);
 
   async function handleSubmit(e: FormEvent) {
-    e.preventDefault()
-    if (!session.sdk || !session.keyManager) return
-    setSubmitting(true)
+    e.preventDefault();
+    if (!session.sdk || !session.keyManager) return;
+    setSubmitting(true);
     try {
       await mintCard({
         sdk: session.sdk,
@@ -37,24 +46,21 @@ export function MintForm({ contractId, onMinted }: MintFormProps) {
         contractId,
         card: { name, description },
         log: session.log,
-      })
-      setName('')
-      setDescription('')
-      onMinted?.()
+      });
+      setName("");
+      setDescription("");
+      onMinted?.();
     } catch (err) {
-      session.log(
-        `Mint error: ${errorMessage(err)}`,
-        'error',
-      )
+      session.log(`Mint error: ${errorMessage(err)}`, "error");
     } finally {
-      setSubmitting(false)
+      setSubmitting(false);
     }
   }
 
   async function handleStarterPack() {
-    if (!session.sdk || !session.keyManager) return
-    setMintingPack(true)
-    session.log('Minting starter pack (3 cards)…')
+    if (!session.sdk || !session.keyManager) return;
+    setMintingPack(true);
+    session.log("Minting starter pack (3 cards)…");
     try {
       for (const card of STARTER_CARDS) {
         await mintCard({
@@ -63,17 +69,14 @@ export function MintForm({ contractId, onMinted }: MintFormProps) {
           contractId,
           card,
           log: session.log,
-        })
+        });
       }
-      session.log('Starter pack minted!', 'success')
-      onMinted?.()
+      session.log("Starter pack minted!", "success");
+      onMinted?.();
     } catch (err) {
-      session.log(
-        `Starter pack error: ${errorMessage(err)}`,
-        'error',
-      )
+      session.log(`Starter pack error: ${errorMessage(err)}`, "error");
     } finally {
-      setMintingPack(false)
+      setMintingPack(false);
     }
   }
 
@@ -134,7 +137,7 @@ export function MintForm({ contractId, onMinted }: MintFormProps) {
           disabled={submitting || !name.trim()}
           className="h-10 rounded-md bg-accent px-[18px] text-[13px] font-semibold text-bg transition hover:bg-accent-dim disabled:cursor-not-allowed disabled:bg-surface-2 disabled:text-ink-4"
         >
-          {submitting ? 'Minting…' : 'Mint card'}
+          {submitting ? "Minting…" : "Mint card"}
         </button>
       </form>
 
@@ -146,7 +149,8 @@ export function MintForm({ contractId, onMinted }: MintFormProps) {
           Starter Pack
         </h2>
         <p className="text-[12px] leading-[1.55] text-ink-3">
-          Mint the Fire Dragon, Stone Golem, and Shadow Fox from the tutorial outline.
+          Mint the Fire Dragon, Stone Golem, and Shadow Fox from the tutorial
+          outline.
         </p>
         <button
           type="button"
@@ -154,9 +158,9 @@ export function MintForm({ contractId, onMinted }: MintFormProps) {
           disabled={mintingPack}
           className="self-start rounded-md border border-line-2 px-4 py-2 text-[13px] font-semibold text-ink transition hover:border-accent-dim hover:text-ink disabled:cursor-not-allowed disabled:border-line disabled:text-ink-4"
         >
-          {mintingPack ? 'Minting…' : 'Mint Starter Pack'}
+          {mintingPack ? "Minting…" : "Mint Starter Pack"}
         </button>
       </div>
     </div>
-  )
+  );
 }

@@ -1,15 +1,15 @@
-import { useState } from 'react'
-import { purchaseCard } from '../dash/purchaseCard'
-import type { Card } from '../dash/queries'
-import { useSession } from '../session/useSession'
-import { formatCredits } from '../lib/format'
-import { Modal } from './Modal'
-import { CardSummary } from './CardSummary'
+import { useState } from "react";
+import { purchaseCard } from "../dash/purchaseCard";
+import type { Card } from "../dash/queries";
+import { useSession } from "../session/useSession";
+import { formatCredits } from "../lib/format";
+import { Modal } from "./Modal";
+import { CardSummary } from "./CardSummary";
 
 export interface PurchaseModalProps {
-  card: Card | null
-  onClose: () => void
-  onPurchased?: () => void
+  card: Card | null;
+  onClose: () => void;
+  onPurchased?: () => void;
 }
 
 export function PurchaseModal({
@@ -17,8 +17,8 @@ export function PurchaseModal({
   onClose,
   onPurchased,
 }: PurchaseModalProps) {
-  const session = useSession()
-  const [submitting, setSubmitting] = useState(false)
+  const session = useSession();
+  const [submitting, setSubmitting] = useState(false);
 
   async function handleBuy() {
     if (
@@ -29,8 +29,8 @@ export function PurchaseModal({
       card.$price === undefined ||
       card.$price === null
     )
-      return
-    setSubmitting(true)
+      return;
+    setSubmitting(true);
     try {
       await purchaseCard({
         sdk: session.sdk,
@@ -39,11 +39,11 @@ export function PurchaseModal({
         cardId: card.id,
         price: card.$price,
         log: session.log,
-      })
-      onPurchased?.()
-      onClose()
+      });
+      onPurchased?.();
+      onClose();
     } finally {
-      setSubmitting(false)
+      setSubmitting(false);
     }
   }
 
@@ -68,7 +68,7 @@ export function PurchaseModal({
                 disabled={submitting}
                 className="flex-1 rounded-md bg-accent px-4 py-2 text-[13px] font-semibold text-bg transition hover:bg-accent-dim disabled:cursor-not-allowed disabled:bg-surface-2 disabled:text-ink-4"
               >
-                {submitting ? 'Purchasing…' : 'Buy'}
+                {submitting ? "Purchasing…" : "Buy"}
               </button>
               <button
                 type="button"
@@ -82,5 +82,5 @@ export function PurchaseModal({
         </div>
       )}
     </Modal>
-  )
+  );
 }

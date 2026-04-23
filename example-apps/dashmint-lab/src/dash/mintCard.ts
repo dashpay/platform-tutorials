@@ -6,9 +6,9 @@
  *
  * SDK method: sdk.documents.create({ document, identityKey, signer })
  */
-import { Document } from '@dashevo/evo-sdk';
+import { Document } from "@dashevo/evo-sdk";
 
-import type { Logger } from './logger';
+import type { Logger } from "./logger";
 
 export interface MintCardInput {
   name: string;
@@ -41,7 +41,7 @@ export async function mintCard({
   log,
 }: MintCardParams): Promise<void> {
   const name = card.name.trim();
-  if (!name) throw new Error('Card name is required.');
+  if (!name) throw new Error("Card name is required.");
 
   const attack = card.attack ?? rollStat();
   const defense = card.defense ?? rollStat();
@@ -56,11 +56,11 @@ export async function mintCard({
 
   const doc = new Document({
     properties,
-    documentTypeName: 'card',
+    documentTypeName: "card",
     dataContractId: contractId,
     ownerId: identity.id,
   });
 
   await sdk.documents.create({ document: doc, identityKey, signer });
-  log?.(`Card "${name}" minted!`, 'success');
+  log?.(`Card "${name}" minted!`, "success");
 }

@@ -4,8 +4,8 @@
  */
 
 interface StatPairProps {
-  atk: number
-  def: number
+  atk: number;
+  def: number;
 }
 
 function StatColumn({
@@ -13,11 +13,11 @@ function StatColumn({
   value,
   barColor,
 }: {
-  label: string
-  value: number
-  barColor: string
+  label: string;
+  value: number;
+  barColor: string;
 }) {
-  const pct = `${Math.min(100, (Math.min(10, value) / 10) * 100)}%`
+  const pct = `${Math.min(100, (Math.min(10, value) / 10) * 100)}%`;
 
   return (
     <div>
@@ -36,22 +36,14 @@ function StatColumn({
         />
       </div>
     </div>
-  )
+  );
 }
 
 export function StatPair({ atk, def }: StatPairProps) {
   return (
     <div className="grid grid-cols-2 gap-2.5">
-      <StatColumn
-        label="ATK"
-        value={atk}
-        barColor="var(--color-accent)"
-      />
-      <StatColumn
-        label="DEF"
-        value={def}
-        barColor="var(--color-ink-2)"
-      />
+      <StatColumn label="ATK" value={atk} barColor="var(--color-accent)" />
+      <StatColumn label="DEF" value={def} barColor="var(--color-ink-2)" />
     </div>
-  )
+  );
 }

@@ -3,23 +3,24 @@
  * Shows conic-gradient avatar, DPNS name, and connection sync status.
  * When not authenticated, shows a Login button instead.
  */
-import type { SessionStatus } from '../session/SessionContext'
-import { useDpnsName } from '../hooks/useDpnsName'
-import { truncateId } from '../lib/format'
+import type { SessionStatus } from "../session/SessionContext";
+import { useDpnsName } from "../hooks/useDpnsName";
+import { truncateId } from "../lib/format";
 
 interface IdentityCardProps {
-  status: SessionStatus
-  identityId: string | null
+  status: SessionStatus;
+  identityId: string | null;
   // eslint-disable-next-line @typescript-eslint/no-explicit-any
-  sdk: any | null
-  onLoginClick: () => void
+  sdk: any | null;
+  onLoginClick: () => void;
 }
 
 function avatarGradient(seed: string | null): string {
-  if (!seed) return 'conic-gradient(from 0deg, oklch(40% 0.02 260), oklch(30% 0.02 260))'
-  let h = 0
-  for (let i = 0; i < seed.length; i++) h = (h + seed.charCodeAt(i) * 37) % 360
-  return `conic-gradient(from ${h}deg, oklch(65% 0.15 ${h}), oklch(50% 0.12 ${(h + 120) % 360}), oklch(65% 0.15 ${h}))`
+  if (!seed)
+    return "conic-gradient(from 0deg, oklch(40% 0.02 260), oklch(30% 0.02 260))";
+  let h = 0;
+  for (let i = 0; i < seed.length; i++) h = (h + seed.charCodeAt(i) * 37) % 360;
+  return `conic-gradient(from ${h}deg, oklch(65% 0.15 ${h}), oklch(50% 0.12 ${(h + 120) % 360}), oklch(65% 0.15 ${h}))`;
 }
 
 export function IdentityCard({
@@ -28,10 +29,10 @@ export function IdentityCard({
   sdk,
   onLoginClick,
 }: IdentityCardProps) {
-  const dpnsName = useDpnsName(sdk, identityId)
+  const dpnsName = useDpnsName(sdk, identityId);
 
-  const isAuthed = status === 'authenticated'
-  const isConnected = status === 'browsing' || isAuthed
+  const isAuthed = status === "authenticated";
+  const isConnected = status === "browsing" || isAuthed;
 
   if (!isConnected) {
     return (
@@ -46,23 +47,23 @@ export function IdentityCard({
         <div className="mt-2.5 flex items-center gap-1.5">
           <span
             className={`conn-dot ${
-              status === 'connecting'
-                ? 'connecting'
-                : status === 'error'
-                ? 'error'
-                : ''
+              status === "connecting"
+                ? "connecting"
+                : status === "error"
+                  ? "error"
+                  : ""
             }`}
           />
           <span className="font-mono text-[10.5px] text-ink-3">
-            {status === 'connecting'
-              ? 'Connecting…'
-              : status === 'error'
-              ? 'Error'
-              : 'Offline'}
+            {status === "connecting"
+              ? "Connecting…"
+              : status === "error"
+                ? "Error"
+                : "Offline"}
           </span>
         </div>
       </div>
-    )
+    );
   }
 
   return (
@@ -88,7 +89,7 @@ export function IdentityCard({
             />
             <div className="min-w-0">
               <div className="truncate text-[12px] font-medium text-ink transition-colors group-hover:text-accent">
-                {dpnsName ? `@${dpnsName}` : 'Identity'}
+                {dpnsName ? `@${dpnsName}` : "Identity"}
               </div>
               {identityId && (
                 <div className="truncate font-mono text-[10px] text-ink-4">
@@ -100,12 +101,10 @@ export function IdentityCard({
         </>
       )}
 
-      <div className={`flex items-center gap-1.5 ${isAuthed ? 'mt-2.5' : ''}`}>
+      <div className={`flex items-center gap-1.5 ${isAuthed ? "mt-2.5" : ""}`}>
         <span className="conn-dot connected" />
-        <span className="font-mono text-[10.5px] text-ink-3">
-          Connected
-        </span>
+        <span className="font-mono text-[10.5px] text-ink-3">Connected</span>
       </div>
     </button>
-  )
+  );
 }

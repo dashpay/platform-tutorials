@@ -7,8 +7,8 @@
  *
  * SDK method: sdk.documents.delete({ document, identityKey, signer })
  */
-import type { Logger } from './logger';
-import { withAuthedCard } from './withAuthedCard';
+import type { Logger } from "./logger";
+import { withAuthedCard } from "./withAuthedCard";
 
 export interface BurnCardParams {
   // eslint-disable-next-line @typescript-eslint/no-explicit-any
@@ -36,7 +36,7 @@ export async function burnCard({
       contractId,
       cardId,
       preFetch: false,
-      errorLabel: 'Burn error',
+      errorLabel: "Burn error",
       log,
     },
     async ({ identity, identityKey, signer }) => {
@@ -45,12 +45,12 @@ export async function burnCard({
           id: cardId,
           ownerId: identity.id,
           dataContractId: contractId,
-          documentTypeName: 'card',
+          documentTypeName: "card",
         },
         identityKey,
         signer,
       });
-      log?.('Card burned.', 'success');
+      log?.("Card burned.", "success");
     },
   );
 }

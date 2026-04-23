@@ -3,8 +3,8 @@
  */
 
 interface CollectionToolbarProps {
-  sortLabel: string
-  onSortClick: () => void
+  sortLabel: string;
+  onSortClick: () => void;
 }
 
 export function CollectionToolbar({
@@ -19,5 +19,5 @@ export function CollectionToolbar({
     >
       Sort: {sortLabel}
     </button>
-  )
+  );
 }

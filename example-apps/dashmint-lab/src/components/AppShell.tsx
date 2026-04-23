@@ -2,21 +2,21 @@
  * Two-column app shell: 208px fixed left nav + fluid main column.
  * Replaces the old top-header + centered-max-width layout.
  */
-import { useState, type ReactNode } from 'react'
-import type { TopTab } from './Tabs'
-import type { SessionStatus } from '../session/SessionContext'
-import { NavButton } from './NavButton'
-import { IdentityCard } from './IdentityCard'
+import { useState, type ReactNode } from "react";
+import type { TopTab } from "./Tabs";
+import type { SessionStatus } from "../session/SessionContext";
+import { NavButton } from "./NavButton";
+import { IdentityCard } from "./IdentityCard";
 
 interface AppShellProps {
-  tab: TopTab
-  onTabChange: (t: TopTab) => void
-  status: SessionStatus
-  identityId: string | null
+  tab: TopTab;
+  onTabChange: (t: TopTab) => void;
+  status: SessionStatus;
+  identityId: string | null;
   // eslint-disable-next-line @typescript-eslint/no-explicit-any
-  sdk: any | null
-  onLoginOpen: () => void
-  children: ReactNode
+  sdk: any | null;
+  onLoginOpen: () => void;
+  children: ReactNode;
 }
 
 function LogoAvatar() {
@@ -25,10 +25,10 @@ function LogoAvatar() {
       className="h-[26px] w-[26px] shrink-0 rounded-[7px]"
       style={{
         background:
-          'conic-gradient(from 30deg, oklch(74% 0.16 55), oklch(60% 0.14 30), oklch(74% 0.16 55))',
+          "conic-gradient(from 30deg, oklch(74% 0.16 55), oklch(60% 0.14 30), oklch(74% 0.16 55))",
       }}
     />
-  )
+  );
 }
 
 export function AppShell({
@@ -40,39 +40,51 @@ export function AppShell({
   onLoginOpen,
   children,
 }: AppShellProps) {
-  const [drawerOpen, setDrawerOpen] = useState(false)
-  const closeDrawer = () => setDrawerOpen(false)
+  const [drawerOpen, setDrawerOpen] = useState(false);
+  const closeDrawer = () => setDrawerOpen(false);
 
   const nav = (
     <nav className="flex flex-col gap-0.5">
       <NavButton
         label="Collection"
         glyph="▤"
-        active={tab === 'collection'}
-        onClick={() => { onTabChange('collection'); closeDrawer() }}
+        active={tab === "collection"}
+        onClick={() => {
+          onTabChange("collection");
+          closeDrawer();
+        }}
       />
       <NavButton
         label="Mint"
         glyph="✦"
-        active={tab === 'mint'}
-        onClick={() => { onTabChange('mint'); closeDrawer() }}
+        active={tab === "mint"}
+        onClick={() => {
+          onTabChange("mint");
+          closeDrawer();
+        }}
       />
       <NavButton
         label="How it works"
         glyph="?"
-        active={tab === 'how-it-works'}
-        onClick={() => { onTabChange('how-it-works'); closeDrawer() }}
+        active={tab === "how-it-works"}
+        onClick={() => {
+          onTabChange("how-it-works");
+          closeDrawer();
+        }}
       />
-      {status !== 'authenticated' && (
+      {status !== "authenticated" && (
         <NavButton
           label="Login"
           glyph="→"
           active={false}
-          onClick={() => { onLoginOpen(); closeDrawer() }}
+          onClick={() => {
+            onLoginOpen();
+            closeDrawer();
+          }}
         />
       )}
     </nav>
-  )
+  );
 
   return (
     <div className="grid min-h-screen grid-cols-[1fr] md:grid-cols-[208px_1fr]">
@@ -89,7 +101,15 @@ export function AppShell({
           aria-expanded={drawerOpen}
           className="flex h-8 w-8 items-center justify-center rounded-md text-ink-3 hover:text-ink"
         >
-          <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round">
+          <svg
+            width="18"
+            height="18"
+            viewBox="0 0 24 24"
+            fill="none"
+            stroke="currentColor"
+            strokeWidth="2"
+            strokeLinecap="round"
+          >
             <path d="M3 6h18M3 12h18M3 18h18" />
           </svg>
         </button>
@@ -108,7 +128,7 @@ export function AppShell({
       <aside
         aria-label="Main navigation"
         className={`fixed inset-y-0 left-0 z-40 flex w-[208px] flex-col gap-[22px] overflow-y-auto border-r border-line bg-bg px-3.5 py-[18px] transition-transform duration-200 ease-out md:sticky md:top-0 md:z-auto md:h-screen md:translate-x-0 ${
-          drawerOpen ? 'translate-x-0' : 'max-md:-translate-x-full'
+          drawerOpen ? "translate-x-0" : "max-md:-translate-x-full"
         }`}
       >
         {/* Logo + title */}
@@ -133,17 +153,18 @@ export function AppShell({
             status={status}
             identityId={identityId}
             sdk={sdk}
-            onLoginClick={() => { onLoginOpen(); closeDrawer() }}
+            onLoginClick={() => {
+              onLoginOpen();
+              closeDrawer();
+            }}
           />
         </div>
       </aside>
 
       {/* Main content */}
       <main className="min-w-0 px-4 py-[22px] md:px-7">
-        <div className="mx-auto max-w-[1310px]">
-          {children}
-        </div>
+        <div className="mx-auto max-w-[1310px]">{children}</div>
       </main>
     </div>
-  )
+  );
 }

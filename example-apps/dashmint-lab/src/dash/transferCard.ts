@@ -7,8 +7,8 @@
  *
  * SDK method: sdk.documents.transfer({ document, recipientId, identityKey, signer })
  */
-import type { Logger } from './logger';
-import { withAuthedCard } from './withAuthedCard';
+import type { Logger } from "./logger";
+import { withAuthedCard } from "./withAuthedCard";
 
 export interface TransferCardParams {
   // eslint-disable-next-line @typescript-eslint/no-explicit-any
@@ -29,11 +29,11 @@ export async function transferCard({
   recipientId,
   log,
 }: TransferCardParams): Promise<void> {
-  if (!recipientId) throw new Error('Recipient identity ID is required.');
+  if (!recipientId) throw new Error("Recipient identity ID is required.");
   log?.(`Transferring card ${cardId} to ${recipientId}…`);
 
   await withAuthedCard(
-    { sdk, keyManager, contractId, cardId, errorLabel: 'Transfer error', log },
+    { sdk, keyManager, contractId, cardId, errorLabel: "Transfer error", log },
     async ({ doc, identityKey, signer }) => {
       await sdk.documents.transfer({
         document: doc,
@@ -41,7 +41,7 @@ export async function transferCard({
         identityKey,
         signer,
       });
-      log?.('Card transferred!', 'success');
+      log?.("Card transferred!", "success");
     },
   );
 }

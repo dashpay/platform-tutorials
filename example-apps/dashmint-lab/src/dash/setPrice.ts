@@ -7,8 +7,8 @@
  *
  * SDK method: sdk.documents.setPrice({ document, price, identityKey, signer })
  */
-import type { Logger } from './logger';
-import { withAuthedCard } from './withAuthedCard';
+import type { Logger } from "./logger";
+import { withAuthedCard } from "./withAuthedCard";
 
 export interface SetPriceParams {
   // eslint-disable-next-line @typescript-eslint/no-explicit-any
@@ -30,7 +30,7 @@ export async function setPrice({
   price,
   log,
 }: SetPriceParams): Promise<void> {
-  const priceBig = typeof price === 'bigint' ? price : BigInt(price);
+  const priceBig = typeof price === "bigint" ? price : BigInt(price);
   const removing = priceBig === 0n;
 
   log?.(
@@ -45,7 +45,7 @@ export async function setPrice({
       keyManager,
       contractId,
       cardId,
-      errorLabel: removing ? 'Remove price error' : 'Set price error',
+      errorLabel: removing ? "Remove price error" : "Set price error",
       log,
     },
     async ({ doc, identityKey, signer }) => {
@@ -55,7 +55,7 @@ export async function setPrice({
         identityKey,
         signer,
       });
-      log?.(removing ? 'Card removed from sale.' : 'Price set!', 'success');
+      log?.(removing ? "Card removed from sale." : "Price set!", "success");
     },
   );
 }

@@ -1,34 +1,30 @@
-import { useEffect, useState, type FormEvent } from 'react'
-import { setPrice } from '../dash/setPrice'
-import type { Card } from '../dash/queries'
-import { useSession } from '../session/useSession'
-import { formatCredits } from '../lib/format'
-import { Modal } from './Modal'
-import { CardSummary } from './CardSummary'
+import { useEffect, useState, type FormEvent } from "react";
+import { setPrice } from "../dash/setPrice";
+import type { Card } from "../dash/queries";
+import { useSession } from "../session/useSession";
+import { formatCredits } from "../lib/format";
+import { Modal } from "./Modal";
+import { CardSummary } from "./CardSummary";
 
 export interface SetPriceModalProps {
-  card: Card | null
-  onClose: () => void
-  onPriced?: () => void
+  card: Card | null;
+  onClose: () => void;
+  onPriced?: () => void;
 }
 
-export function SetPriceModal({
-  card,
-  onClose,
-  onPriced,
-}: SetPriceModalProps) {
-  const session = useSession()
-  const [amount, setAmount] = useState('')
-  const [submitting, setSubmitting] = useState(false)
+export function SetPriceModal({ card, onClose, onPriced }: SetPriceModalProps) {
+  const session = useSession();
+  const [amount, setAmount] = useState("");
+  const [submitting, setSubmitting] = useState(false);
 
   useEffect(() => {
-    if (card) setAmount('')
-  }, [card])
+    if (card) setAmount("");
+  }, [card]);
 
   async function submitPrice(price: number | bigint) {
     if (!card || !session.sdk || !session.keyManager || !session.contractId)
-      return
-    setSubmitting(true)
+      return;
+    setSubmitting(true);
     try {
       await setPrice({
         sdk: session.sdk,
@@ -37,28 +33,28 @@ export function SetPriceModal({
         cardId: card.id,
         price,
         log: session.log,
-      })
-      onPriced?.()
-      onClose()
+      });
+      onPriced?.();
+      onClose();
     } finally {
-      setSubmitting(false)
+      setSubmitting(false);
     }
   }
 
   async function handleSubmit(e: FormEvent) {
-    e.preventDefault()
-    const n = parseInt(amount, 10)
-    if (!Number.isFinite(n) || n < 1) return
-    await submitPrice(n)
+    e.preventDefault();
+    const n = parseInt(amount, 10);
+    if (!Number.isFinite(n) || n < 1) return;
+    await submitPrice(n);
   }
 
   const hasCurrentPrice =
-    !!card && card.$price !== undefined && card.$price !== null
+    !!card && card.$price !== undefined && card.$price !== null;
 
   return (
     <Modal
       open={!!card}
-      title={hasCurrentPrice ? 'Change price' : 'Set price'}
+      title={hasCurrentPrice ? "Change price" : "Set price"}
       onClose={onClose}
     >
       {card && (
@@ -90,7 +86,11 @@ export function SetPriceModal({
                 disabled={submitting || !amount.trim()}
                 className="flex-1 rounded-md bg-accent px-4 py-2 text-[13px] font-semibold text-bg transition hover:bg-accent-dim disabled:cursor-not-allowed disabled:bg-surface-2 disabled:text-ink-4"
               >
-                {submitting ? 'Saving…' : hasCurrentPrice ? 'Update price' : 'List for sale'}
+                {submitting
+                  ? "Saving…"
+                  : hasCurrentPrice
+                    ? "Update price"
+                    : "List for sale"}
               </button>
               {hasCurrentPrice && (
                 <button
@@ -114,5 +114,5 @@ export function SetPriceModal({
         </form>
       )}
     </Modal>
-  )
+  );
 }

@@ -12,7 +12,7 @@
  *
  * SDK method: sdk.documents.query({ dataContractId, documentTypeName, where?, limit })
  */
-import type { Logger } from './logger.js';
+import type { Logger } from "./logger.js";
 
 export interface Card {
   id: string;
@@ -31,7 +31,7 @@ type RawDoc = any;
 
 function toCard(id: string | null, raw: RawDoc): Card {
   const j: Record<string, unknown> =
-    typeof raw?.toJSON === 'function' ? raw.toJSON() : raw;
+    typeof raw?.toJSON === "function" ? raw.toJSON() : raw;
   return {
     id: (id ?? (j.$id as string) ?? (j.id as string)) as string,
     ownerId: j.$ownerId as string,
@@ -69,11 +69,11 @@ export async function listMyCards({
   limit = 100,
   log,
 }: BaseParams & { identityId: string }): Promise<Card[]> {
-  log?.('Loading your cards…');
+  log?.("Loading your cards…");
   const results = await sdk.documents.query({
     dataContractId: contractId,
-    documentTypeName: 'card',
-    where: [['$ownerId', '==', identityId]],
+    documentTypeName: "card",
+    where: [["$ownerId", "==", identityId]],
     limit,
   });
   const cards = normalizeCards(results);
@@ -87,10 +87,10 @@ export async function listAllCards({
   limit = 50,
   log,
 }: BaseParams): Promise<Card[]> {
-  log?.('Loading all cards (any owner)…');
+  log?.("Loading all cards (any owner)…");
   const results = await sdk.documents.query({
     dataContractId: contractId,
-    documentTypeName: 'card',
+    documentTypeName: "card",
     limit,
   });
   const cards = normalizeCards(results);
@@ -104,10 +104,10 @@ export async function listMarketplaceCards({
   limit = 50,
   log,
 }: BaseParams): Promise<Card[]> {
-  log?.('Loading marketplace…');
+  log?.("Loading marketplace…");
   const results = await sdk.documents.query({
     dataContractId: contractId,
-    documentTypeName: 'card',
+    documentTypeName: "card",
     limit,
   });
   const cards = normalizeCards(results).filter((c) => c.$price);

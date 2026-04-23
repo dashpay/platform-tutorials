@@ -7,4 +7,4 @@
  *
  * SDK method: EvoSDK.testnetTrusted() / EvoSDK.mainnetTrusted() + sdk.connect()
  */
-export { createClient } from '../../../../setupDashClient-core.mjs';
+export { createClient } from "../../../../setupDashClient-core.mjs";

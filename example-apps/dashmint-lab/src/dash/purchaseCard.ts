@@ -6,8 +6,8 @@
  *
  * SDK method: sdk.documents.purchase({ document, buyerId, price, identityKey, signer })
  */
-import type { Logger } from './logger';
-import { withAuthedCard } from './withAuthedCard';
+import type { Logger } from "./logger";
+import { withAuthedCard } from "./withAuthedCard";
 
 export interface PurchaseCardParams {
   // eslint-disable-next-line @typescript-eslint/no-explicit-any
@@ -29,7 +29,7 @@ export async function purchaseCard({
   price,
   log,
 }: PurchaseCardParams): Promise<void> {
-  const priceBig = typeof price === 'bigint' ? price : BigInt(price);
+  const priceBig = typeof price === "bigint" ? price : BigInt(price);
   log?.(`Purchasing card ${cardId} for ${priceBig} credits…`);
 
   await withAuthedCard(
@@ -38,7 +38,7 @@ export async function purchaseCard({
       keyManager,
       contractId,
       cardId,
-      errorLabel: 'Purchase error',
+      errorLabel: "Purchase error",
       log,
     },
     async ({ doc, identity, identityKey, signer }) => {
@@ -49,7 +49,7 @@ export async function purchaseCard({
         identityKey,
         signer,
       });
-      log?.('Card purchased!', 'success');
+      log?.("Card purchased!", "success");
     },
   );
 }

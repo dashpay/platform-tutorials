@@ -3,27 +3,27 @@
  * backdrop click dismiss, ESC dismiss. Shared by Login, Transfer,
  * SetPrice, and Purchase modals.
  */
-import { useEffect, type ReactNode } from 'react'
+import { useEffect, type ReactNode } from "react";
 
 export interface ModalProps {
-  open: boolean
-  title: string
-  onClose: () => void
-  children: ReactNode
-  footer?: ReactNode
+  open: boolean;
+  title: string;
+  onClose: () => void;
+  children: ReactNode;
+  footer?: ReactNode;
 }
 
 export function Modal({ open, title, onClose, children, footer }: ModalProps) {
   useEffect(() => {
-    if (!open) return
+    if (!open) return;
     const onKey = (e: KeyboardEvent) => {
-      if (e.key === 'Escape') onClose()
-    }
-    window.addEventListener('keydown', onKey)
-    return () => window.removeEventListener('keydown', onKey)
-  }, [open, onClose])
+      if (e.key === "Escape") onClose();
+    };
+    window.addEventListener("keydown", onKey);
+    return () => window.removeEventListener("keydown", onKey);
+  }, [open, onClose]);
 
-  if (!open) return null
+  if (!open) return null;
 
   return (
     <div
@@ -47,10 +47,8 @@ export function Modal({ open, title, onClose, children, footer }: ModalProps) {
           </button>
         </div>
         <div className="px-5 pb-4">{children}</div>
-        {footer && (
-          <div className="flex gap-2 px-5 pb-5 pt-2">{footer}</div>
-        )}
+        {footer && <div className="flex gap-2 px-5 pb-5 pt-2">{footer}</div>}
       </div>
     </div>
-  )
+  );
 }

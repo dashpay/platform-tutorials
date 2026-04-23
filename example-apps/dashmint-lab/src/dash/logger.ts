@@ -8,17 +8,17 @@
  * The four levels mirror the original HTML tutorial's CSS classes so the
  * port is 1:1 with the existing app's activity feed.
  */
-export type LogLevel = 'info' | 'success' | 'error';
+export type LogLevel = "info" | "success" | "error";
 
 export type Logger = (message: string, level?: LogLevel) => void;
 
-export const consoleLogger: Logger = (msg, level = 'info') => {
+export const consoleLogger: Logger = (msg, level = "info") => {
   const fn =
-    level === 'error'
+    level === "error"
       ? console.error
-      : level === 'success'
-      ? console.log
-      : console.info;
+      : level === "success"
+        ? console.log
+        : console.info;
   fn(`[dash:${level}] ${msg}`);
 };
 
@@ -34,10 +34,10 @@ export const consoleLogger: Logger = (msg, level = 'info') => {
  */
 export function errorMessage(err: unknown): string {
   if (err instanceof Error) return err.message;
-  if (typeof err === 'string') return err;
-  if (err && typeof err === 'object') {
+  if (typeof err === "string") return err;
+  if (err && typeof err === "object") {
     const obj = err as Record<string, unknown>;
-    if (typeof obj.message === 'string') return obj.message;
+    if (typeof obj.message === "string") return obj.message;
     try {
       return JSON.stringify(err);
     } catch {

@@ -17,7 +17,7 @@
  *
  * SDK methods inside: keyManager.getAuth(), sdk.documents.get(...)
  */
-import { errorMessage, type Logger } from './logger.js';
+import { errorMessage, type Logger } from "./logger.js";
 
 // eslint-disable-next-line @typescript-eslint/no-explicit-any
 type Sdk = any;
@@ -64,7 +64,7 @@ export async function withAuthedCard<T>(
     contractId,
     cardId,
     preFetch = true,
-    errorLabel = 'Error',
+    errorLabel = "Error",
     log,
   } = opts;
 
@@ -79,7 +79,7 @@ export async function withAuthedCard<T>(
     };
 
     if (preFetch) {
-      const doc = await sdk.documents.get(contractId, 'card', cardId);
+      const doc = await sdk.documents.get(contractId, "card", cardId);
       doc.revision = BigInt(doc.revision) + 1n;
       ctx.doc = doc;
     }
@@ -87,7 +87,7 @@ export async function withAuthedCard<T>(
     return await fn(ctx);
   } catch (e) {
     const message = errorMessage(e);
-    log?.(`${errorLabel}: ${message}`, 'error');
+    log?.(`${errorLabel}: ${message}`, "error");
     throw e;
   }
 }
