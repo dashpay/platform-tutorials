@@ -39,7 +39,7 @@ Schema lives in [src/dash/contract.ts](src/dash/contract.ts) as `ANCHOR_CONTRACT
 - Owner index `byOwner` for history queries
 - `documentsMutable: false`, `canBeDeleted: false` — anchors are immutable by design
 
-`DEFAULT_CONTRACT_ID` is `null`. The app stores a registered ID under `localStorage['dashproof-lab.contractId']`. Browse-only verification needs a contract ID set in Settings unless a default is hardcoded in [contract.ts](src/dash/contract.ts).
+`DEFAULT_CONTRACT_ID` is `DTqBwBiAuRGv4NJmBLsp9ytoUCt19Rxw3ekx8na6xB9Z`. The app stores overrides under `localStorage['dashproof-lab.contractId']`, but fresh installs can verify and review history immediately against the bundled testnet contract in [contract.ts](src/dash/contract.ts).
 
 ## SDK Patterns
 

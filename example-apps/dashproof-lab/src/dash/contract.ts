@@ -83,10 +83,12 @@ export const ANCHOR_CONTRACT = {
 const STORAGE_KEY = "dashproof-lab.contractId";
 
 /**
- * Replace this with a deployed anchor contract ID once one exists for this app.
- * Until then, read-only access requires the user to paste or register a contract.
+ * Default contract ID baked into the tutorial so read-only mode works on a
+ * fresh machine without any setup. Users can override it in Settings or
+ * register their own contract.
  */
-export const DEFAULT_CONTRACT_ID: string | null = null;
+export const DEFAULT_CONTRACT_ID =
+  "DTqBwBiAuRGv4NJmBLsp9ytoUCt19Rxw3ekx8na6xB9Z";
 
 export function loadStoredContractId(): string | null {
   return localStorage.getItem(STORAGE_KEY) ?? DEFAULT_CONTRACT_ID;

@@ -302,12 +302,6 @@ export function VerifyPanel({
           )}
         </div>
 
-        {!contractId ? (
-          <OperationResultNotice title="Contract required">
-            Paste a proof contract ID in Settings before querying for a match.
-          </OperationResultNotice>
-        ) : null}
-
         {statusNotice ? (
           <OperationResultNotice tone={statusNotice.tone} title={statusNotice.title}>
             {statusNotice.body}

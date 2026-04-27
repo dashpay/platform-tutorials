@@ -93,17 +93,6 @@ function App() {
         </header>
 
         <div className="mt-6">
-          {!session.contractId && (
-            <div className="mb-6">
-              <OperationResultNotice title="Contract setup">
-                This build includes the full proof app and contract schema, but
-                it still needs a deployed anchor contract ID to support
-                read-only access. Open Settings to paste one, or log in and
-                register a new contract.
-              </OperationResultNotice>
-            </div>
-          )}
-
           {session.error && (
             <div className="mb-6">
               <OperationResultNotice tone="error" title="Session error">

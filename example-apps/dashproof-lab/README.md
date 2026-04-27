@@ -26,7 +26,7 @@ npm run lint
 - The app stores only the digest plus small metadata like `chainId`, filename, MIME type, size, and an optional note.
 - The app auto-connects in read-only mode on load.
 - `Create proof` requires login to submit, but still lets you hash a file locally first.
-- `Verify proof` works in read-only mode as long as you have a contract ID configured.
+- `Verify proof` works in read-only mode out of the box with the bundled default contract ID.
 - `Review proof history` supports both `My anchors` for the authenticated identity and `By chain` lookups for any `chainId`.
 - `chainId` is explained in the UI and auto-suggested from known fixtures or the selected filename, but remains fully editable.
 - Verification runs automatically after file selection when the app has both a contract ID and a connected SDK.
@@ -56,8 +56,8 @@ npm run lint
 
 ## Contract and Settings flow
 
-- The app does not currently ship with a bundled deployed contract ID.
-- On a fresh machine, read-only access needs a contract ID pasted into Settings or a new contract registered after login.
+- The app ships with a bundled deployed proof contract ID for testnet read-only access.
+- On a fresh machine, verify and chain-history flows work immediately unless you clear or override the stored/default contract ID.
 - The login modal becomes a Settings modal after authentication.
 - Settings can:
   - paste and reuse an existing contract ID

@@ -274,10 +274,14 @@ describe("dashproof helpers", () => {
   it("persists and clears the stored contract ID", () => {
     localStorage.clear();
 
-    expect(loadStoredContractId()).toBeNull();
+    expect(loadStoredContractId()).toBe(
+      "DTqBwBiAuRGv4NJmBLsp9ytoUCt19Rxw3ekx8na6xB9Z",
+    );
     saveContractId("contract-123");
     expect(loadStoredContractId()).toBe("contract-123");
     clearStoredContractId();
-    expect(loadStoredContractId()).toBeNull();
+    expect(loadStoredContractId()).toBe(
+      "DTqBwBiAuRGv4NJmBLsp9ytoUCt19Rxw3ekx8na6xB9Z",
+    );
   });
 });

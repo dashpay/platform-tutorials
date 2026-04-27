@@ -337,13 +337,6 @@ export function AnchorForm({
           />
         </label>
 
-        {!contractId ? (
-          <OperationResultNotice title="Contract required">
-            Paste a deployed proof contract ID in Settings, or log in and
-            register a new contract before anchoring.
-          </OperationResultNotice>
-        ) : null}
-
         {statusText && (
           <OperationResultNotice tone={statusTone} title="Proof status">
             {statusText}
