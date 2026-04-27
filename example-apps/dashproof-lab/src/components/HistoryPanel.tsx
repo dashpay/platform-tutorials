@@ -425,30 +425,6 @@ function ChainSearchForm({ value, onChange, onSubmit }: ChainSearchFormProps) {
   );
 }
 
-function MetaPair({
-  label,
-  value,
-  mono,
-}: {
-  label: string;
-  value: ReactNode;
-  mono?: boolean;
-}) {
-  return (
-    <div className="flex min-w-0 flex-col gap-[3px]">
-      <span className="text-[9.5px] font-semibold uppercase tracking-[0.12em] text-ink-4">
-        {label}
-      </span>
-      <span
-        className={`truncate text-[13px] text-ink-2 ${mono ? "font-mono" : ""}`}
-        title={typeof value === "string" ? value : undefined}
-      >
-        {value}
-      </span>
-    </div>
-  );
-}
-
 function FactsValue({
   children,
   mono,
