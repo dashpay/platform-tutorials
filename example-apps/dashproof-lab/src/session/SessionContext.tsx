@@ -84,6 +84,7 @@ export function SessionProvider({ children }: { children: ReactNode }) {
     async (mnemonic: string, identityIndex = 0) => {
       const trimmed = mnemonic.trim();
       if (!trimmed) throw new Error("Mnemonic is required.");
+      setError(null);
       try {
         const connected = sdk ?? (await connect());
         const manager = await IdentityKeyManager.create({
@@ -108,6 +109,7 @@ export function SessionProvider({ children }: { children: ReactNode }) {
   );
 
   const enterReadOnly = useCallback(async () => {
+    setError(null);
     try {
       if (!sdk) await connect();
       setKeyManager(null);
@@ -125,6 +127,7 @@ export function SessionProvider({ children }: { children: ReactNode }) {
   const logout = useCallback(() => {
     setKeyManager(null);
     setIdentityId(null);
+    setError(null);
     setStatus(sdk ? "readonly" : "idle");
     log("Logged out.");
   }, [sdk, log]);
