@@ -5,6 +5,8 @@ import {
   fireEvent,
   render,
   screen,
+  waitFor,
+  within,
 } from "@testing-library/react";
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 
@@ -53,7 +55,8 @@ afterEach(() => {
 
 describe("VerifyPanel", () => {
   it("verifies a file hash without requiring login", async () => {
-    mockHashFile.mockResolvedValue(Uint8Array.from([0x01, 0x02]));
+    const digest = Uint8Array.from([0x01, 0x02]);
+    mockHashFile.mockResolvedValue(digest);
     mockFindAnchorByHash.mockResolvedValue({
       id: "anchor-1",
       ownerId: "owner-1",
@@ -80,13 +83,29 @@ describe("VerifyPanel", () => {
       target: { files: [file] },
     });
     await screen.findByText("Dash Platform has a matching proof for this file.");
+    await waitFor(() => {
+      expect(mockFindAnchorByHash).toHaveBeenCalledWith(
+        expect.objectContaining({
+          contractId: "contract-1",
+          entryHash: digest,
+        }),
+      );
+    });
     expect(screen.getByText(/drop file or click to select/i)).toBeTruthy();
-    expect(screen.getAllByText("proof.txt").length).toBeGreaterThan(0);
     expect(screen.getByText(formatHashBlocks("0102"))).toBeTruthy();
     expect(screen.getByRole("button", { name: /copy hash/i })).toBeTruthy();
-    expect(screen.getByText("chain-a")).toBeTruthy();
-    expect(screen.getByText("anchored")).toBeTruthy();
-    fireEvent.click(screen.getByRole("button", { name: /view chain history/i }));
+    const matchingAnchor = screen.getByText("Matching proof").closest("div");
+    expect(matchingAnchor).toBeTruthy();
+    const resultPanel = matchingAnchor?.parentElement;
+    expect(resultPanel).toBeTruthy();
+    expect(within(resultPanel as HTMLElement).getByText("chain-a")).toBeTruthy();
+    expect(within(resultPanel as HTMLElement).getByText("proof.txt")).toBeTruthy();
+    expect(within(resultPanel as HTMLElement).getByText("anchored")).toBeTruthy();
+    fireEvent.click(
+      within(resultPanel as HTMLElement).getByRole("button", {
+        name: /view chain history/i,
+      }),
+    );
     expect(onViewChainHistory).toHaveBeenCalledWith("chain-a");
   });
 

@@ -96,6 +96,8 @@ describe("HistoryPanel", () => {
         }),
       );
     });
+    await screen.findByText("proof.txt");
     expect(screen.getByDisplayValue("chain-a")).toBeTruthy();
+    expect(screen.getByText("proof.txt")).toBeTruthy();
   });
 });

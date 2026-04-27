@@ -4,7 +4,18 @@ import { readFileSync } from "node:fs";
 import { dirname, resolve } from "node:path";
 import { fileURLToPath } from "node:url";
 
-import { describe, expect, it } from "vitest";
+import { describe, expect, it, vi } from "vitest";
+
+const { mockDocumentConstructor } = vi.hoisted(() => ({
+  mockDocumentConstructor: vi.fn(),
+}));
+
+vi.mock("@dashevo/evo-sdk", () => ({
+  Document: function MockDocument(args: unknown) {
+    mockDocumentConstructor(args);
+    return { args };
+  },
+}));
 
 import { createAnchor } from "../src/dash/createAnchor";
 import {
@@ -128,7 +139,7 @@ describe("dashproof helpers", () => {
     });
   });
 
-  it("createAnchor trims optional fields and rejects a missing chainId", async () => {
+  it("createAnchor rejects a missing chainId", async () => {
     await expect(
       createAnchor({
         sdk: {
@@ -153,6 +164,111 @@ describe("dashproof helpers", () => {
         },
       }),
     ).rejects.toThrow("Chain ID is required.");
+  });
+
+  it("createAnchor trims optional fields before document creation", async () => {
+    mockDocumentConstructor.mockReset();
+    const mockDocumentsCreate = vi.fn().mockResolvedValue(undefined);
+
+    await createAnchor({
+      sdk: {
+        documents: {
+          create: mockDocumentsCreate,
+        },
+      },
+      keyManager: {
+        async getAuth() {
+          return {
+            identity: { id: "identity-1" },
+            identityKey: "identity-key",
+            signer: "signer",
+          };
+        },
+      },
+      contractId: "contract-1",
+      anchor: {
+        entryHash: new Uint8Array(32).fill(4),
+        chainId: "  chain-1  ",
+        filename: "  proof.txt  ",
+        mimeType: "  text/plain  ",
+        size: 12.8,
+        note: "  hello  ",
+      },
+    });
+
+    expect(mockDocumentConstructor).toHaveBeenCalledWith({
+      properties: {
+        entryHash: "BAQEBAQEBAQEBAQEBAQEBAQEBAQEBAQEBAQEBAQEBAQ=",
+        chainId: "chain-1",
+        filename: "proof.txt",
+        mimeType: "text/plain",
+        size: 12,
+        note: "hello",
+      },
+      documentTypeName: "anchor",
+      dataContractId: "contract-1",
+      ownerId: "identity-1",
+    });
+    expect(mockDocumentsCreate).toHaveBeenCalledWith({
+      document: {
+        args: {
+          properties: {
+            entryHash: "BAQEBAQEBAQEBAQEBAQEBAQEBAQEBAQEBAQEBAQEBAQ=",
+            chainId: "chain-1",
+            filename: "proof.txt",
+            mimeType: "text/plain",
+            size: 12,
+            note: "hello",
+          },
+          documentTypeName: "anchor",
+          dataContractId: "contract-1",
+          ownerId: "identity-1",
+        },
+      },
+      identityKey: "identity-key",
+      signer: "signer",
+    });
+  });
+
+  it("createAnchor omits blank optional string fields", async () => {
+    mockDocumentConstructor.mockReset();
+    const mockDocumentsCreate = vi.fn().mockResolvedValue(undefined);
+
+    await createAnchor({
+      sdk: {
+        documents: {
+          create: mockDocumentsCreate,
+        },
+      },
+      keyManager: {
+        async getAuth() {
+          return {
+            identity: { id: "identity-1" },
+            identityKey: undefined,
+            signer: undefined,
+          };
+        },
+      },
+      contractId: "contract-1",
+      anchor: {
+        entryHash: new Uint8Array(32).fill(5),
+        chainId: "chain-2",
+        filename: "   ",
+        mimeType: "   ",
+        note: "   ",
+      },
+    });
+
+    expect(mockDocumentConstructor).toHaveBeenCalledWith({
+      properties: {
+        entryHash: "BQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQUFBQU=",
+        chainId: "chain-2",
+      },
+      documentTypeName: "anchor",
+      dataContractId: "contract-1",
+      ownerId: "identity-1",
+    });
+    expect(mockDocumentsCreate).toHaveBeenCalledTimes(1);
   });
 
   it("persists and clears the stored contract ID", () => {

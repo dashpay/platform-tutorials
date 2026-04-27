@@ -119,7 +119,7 @@ describe("App", () => {
     });
   });
 
-  it("switches screens and opens the shared modals", () => {
+  it("wires screen switching and modal state through mocked child components", () => {
     mockUseSession.mockReturnValue(makeSession({ status: "readonly" }));
 
     render(<App />);

@@ -318,7 +318,7 @@ export function VerifyPanel({
       {result && (
         <div className="mt-6 rounded-lg border border-line bg-bg px-5 py-5">
           <div className="text-[10px] font-semibold uppercase tracking-[0.12em] text-ink-4">
-            Matching anchor
+            Matching proof
           </div>
           <dl className="mt-4 grid gap-4 sm:grid-cols-2">
             <div>

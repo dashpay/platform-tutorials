@@ -345,7 +345,7 @@ export function AnchorForm({
         ) : null}
 
         {statusText && (
-          <OperationResultNotice tone={statusTone} title="Anchor status">
+          <OperationResultNotice tone={statusTone} title="Proof status">
             {statusText}
           </OperationResultNotice>
         )}
