@@ -1,5 +1,7 @@
 {
   "name": "dashproof-lab",
+  "displayName": "DashProof Lab",
+  "description": "Prove a file existed at a Platform timestamp by hashing locally and anchoring the SHA-256 digest on Dash Platform testnet.",
   "private": true,
   "version": "0.0.0",
   "type": "module",

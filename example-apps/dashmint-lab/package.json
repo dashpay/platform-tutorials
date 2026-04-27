@@ -1,5 +1,7 @@
 {
   "name": "dashmint-lab",
+  "displayName": "DashMint Lab",
+  "description": "Mint, transfer, set prices, and trade NFT-style collectible cards on Dash Platform testnet.",
   "private": true,
   "version": "0.0.0",
   "type": "module",

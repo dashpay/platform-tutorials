@@ -26,6 +26,7 @@ jobs:
     outputs:
       matrix: ${{ steps.set.outputs.matrix }}
       apps: ${{ steps.set.outputs.apps }}
+      meta: ${{ steps.set.outputs.meta }}
     steps:
       - uses: actions/checkout@de0fac2e4500dabe0009e67214ff5f5447ce83dd # v6.0.2
 
@@ -33,23 +34,27 @@ jobs:
         name: Discover apps
         run: |
           set -euo pipefail
-          apps=()
+          metas=()
           for pkg in example-apps/*/package.json; do
             [ -f "$pkg" ] || continue
             dir="$(dirname "$pkg")"
             name="$(basename "$dir")"
             if jq -e '.scripts.build' "$pkg" >/dev/null; then
-              apps+=("$name")
+              metas+=("$(jq --arg name "$name" -c \
+                '{name: $name, displayName: (.displayName // null), description: (.description // null)}' \
+                "$pkg")")
             fi
           done
-          if [ "${#apps[@]}" -eq 0 ]; then
+          if [ "${#metas[@]}" -eq 0 ]; then
             echo "No deployable apps found under example-apps/." >&2
             exit 1
           fi
-          json="$(printf '%s\n' "${apps[@]}" | jq -R . | jq -sc .)"
-          echo "matrix={\"app\":$json}" >> "$GITHUB_OUTPUT"
-          echo "apps=$json" >> "$GITHUB_OUTPUT"
-          echo "Discovered: $json"
+          meta_json="$(printf '%s\n' "${metas[@]}" | jq -sc .)"
+          apps_json="$(echo "$meta_json" | jq -c '[.[].name]')"
+          echo "matrix={\"app\":$apps_json}" >> "$GITHUB_OUTPUT"
+          echo "apps=$apps_json" >> "$GITHUB_OUTPUT"
+          echo "meta=$meta_json" >> "$GITHUB_OUTPUT"
+          echo "Discovered: $apps_json"
 
   build:
     needs: discover
@@ -92,6 +97,12 @@ jobs:
       name: github-pages
       url: ${{ steps.deployment.outputs.page_url }}
     steps:
+      - uses: actions/checkout@de0fac2e4500dabe0009e67214ff5f5447ce83dd # v6.0.2
+
+      - uses: actions/setup-node@48b55a011bda9f5d6aeb4c2d9c7362e8dae4041e # v6.4.0
+        with:
+          node-version: 20
+
       - name: Download all built apps
         uses: actions/download-artifact@v4
         with:
@@ -101,7 +112,6 @@ jobs:
       - name: Assemble combined site
         env:
           APPS_JSON: ${{ needs.discover.outputs.apps }}
-          REPO_NAME: ${{ github.event.repository.name }}
         run: |
           set -euo pipefail
           mkdir -p _site
@@ -116,18 +126,10 @@ jobs:
             cp -r "$src/." "_site/$app/"
           done
 
-          {
-            echo '<!doctype html>'
-            echo '<meta charset="utf-8">'
-            echo "<title>${REPO_NAME} — example apps</title>"
-            echo '<style>body{font-family:system-ui,sans-serif;max-width:42rem;margin:3rem auto;padding:0 1rem;line-height:1.6}a{color:#06c}</style>'
-            echo "<h1>${REPO_NAME} — example apps</h1>"
-            echo '<ul>'
-            for app in "${apps[@]}"; do
-              echo "  <li><a href=\"./${app}/\">${app}</a></li>"
-            done
-            echo '</ul>'
-          } > _site/index.html
+      - name: Generate landing page
+        env:
+          META_JSON: ${{ needs.discover.outputs.meta }}
+        run: node .github/scripts/build-landing-page.mjs "$META_JSON" _site/index.html
 
       - uses: actions/upload-pages-artifact@fc324d3547104276b827a68afc52ff2a11cc49c9 # v5.0.0
         with:
