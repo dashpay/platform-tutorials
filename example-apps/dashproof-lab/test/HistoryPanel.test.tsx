@@ -64,9 +64,9 @@ describe("HistoryPanel", () => {
     expect(mockListAnchorsByOwner).toHaveBeenCalled();
   });
 
-  it("loads chain history in browse-only mode", async () => {
+  it("loads chain history in read-only mode", async () => {
     mockUseSession.mockReturnValue({
-      status: "browsing",
+      status: "readonly",
       sdk: {},
       identityId: null,
       log: vi.fn(),

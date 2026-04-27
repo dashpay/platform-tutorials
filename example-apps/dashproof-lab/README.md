@@ -24,9 +24,9 @@ npm run lint
 - Files never leave the browser.
 - SHA-256 is computed locally before any Platform call.
 - The app stores only the digest plus small metadata like `chainId`, filename, MIME type, size, and an optional note.
-- The app auto-connects in browse-only mode on load.
+- The app auto-connects in read-only mode on load.
 - `Create proof` requires login to submit, but still lets you hash a file locally first.
-- `Verify proof` works in browse-only mode as long as you have a contract ID configured.
+- `Verify proof` works in read-only mode as long as you have a contract ID configured.
 - `Review proof history` supports both `My anchors` for the authenticated identity and `By chain` lookups for any `chainId`.
 - `chainId` is explained in the UI and auto-suggested from known fixtures or the selected filename, but remains fully editable.
 - Verification runs automatically after file selection when the app has both a contract ID and a connected SDK.
@@ -57,7 +57,7 @@ npm run lint
 ## Contract and Settings flow
 
 - The app does not currently ship with a bundled deployed contract ID.
-- On a fresh machine, browse-only reads need a contract ID pasted into Settings or a new contract registered after login.
+- On a fresh machine, read-only access needs a contract ID pasted into Settings or a new contract registered after login.
 - The login modal becomes a Settings modal after authentication.
 - Settings can:
   - paste and reuse an existing contract ID
@@ -98,7 +98,7 @@ Every SDK call lives in its own file under [`src/dash/`](./src/dash/).
 ## Reading the codebase
 
 1. Start with [`src/dash/`](./src/dash/) for the raw Platform calls and contract schema.
-2. Then read [`src/session/SessionContext.tsx`](./src/session/SessionContext.tsx) for browse-only and authenticated session state.
+2. Then read [`src/session/SessionContext.tsx`](./src/session/SessionContext.tsx) for read-only and authenticated session state.
 3. Then move to [`src/components/AnchorForm.tsx`](./src/components/AnchorForm.tsx), [`src/components/VerifyPanel.tsx`](./src/components/VerifyPanel.tsx), and [`src/components/HistoryPanel.tsx`](./src/components/HistoryPanel.tsx).
 4. Hashing and chain-ID helpers live under [`src/lib/`](./src/lib/).
 

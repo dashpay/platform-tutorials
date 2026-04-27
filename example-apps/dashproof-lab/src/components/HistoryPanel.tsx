@@ -141,7 +141,7 @@ export function HistoryPanel({
             History
           </div>
           <h2 className="mt-2 text-[18px] font-semibold tracking-tight text-ink">
-            Browse owner and chain timelines
+            Review owner and chain timelines
           </h2>
         </div>
         <div className="flex flex-wrap gap-2">

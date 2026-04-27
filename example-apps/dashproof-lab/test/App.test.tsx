@@ -93,7 +93,7 @@ function makeSession(overrides: Record<string, unknown> = {}) {
     error: null,
     identityId: null,
     contractId: "contract-1",
-    browseOnly: vi.fn().mockResolvedValue(undefined),
+    enterReadOnly: vi.fn().mockResolvedValue(undefined),
     ...overrides,
   };
 }
@@ -108,19 +108,19 @@ afterEach(() => {
 });
 
 describe("App", () => {
-  it("auto-connects in browse-only mode from idle", async () => {
+  it("auto-connects in read-only mode from idle", async () => {
     const session = makeSession();
     mockUseSession.mockReturnValue(session);
 
     render(<App />);
 
     await waitFor(() => {
-      expect(session.browseOnly).toHaveBeenCalled();
+      expect(session.enterReadOnly).toHaveBeenCalled();
     });
   });
 
   it("switches screens and opens the shared modals", () => {
-    mockUseSession.mockReturnValue(makeSession({ status: "browsing" }));
+    mockUseSession.mockReturnValue(makeSession({ status: "readonly" }));
 
     render(<App />);
     expect(screen.getByText("Anchor Form")).toBeTruthy();

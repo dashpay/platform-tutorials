@@ -37,7 +37,7 @@ vi.mock("../src/dash/createAnchor", () => ({
 
 function makeSession(overrides: Record<string, unknown> = {}) {
   return {
-    status: "browsing",
+    status: "readonly",
     sdk: { documents: {} },
     keyManager: null,
     log: vi.fn(),

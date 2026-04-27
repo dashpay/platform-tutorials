@@ -31,7 +31,7 @@ const screenCopy: Record<TopTab, { title: string; subtitle: string }> = {
 
 function App() {
   const session = useSession();
-  const { status, browseOnly } = session;
+  const { status, enterReadOnly } = session;
   const [tab, setTab] = useState<TopTab>("anchor");
   const [loginOpen, setLoginOpen] = useState(false);
   const [starterFilesOpen, setStarterFilesOpen] = useState(false);
@@ -40,8 +40,8 @@ function App() {
   const [historyRequestToken, setHistoryRequestToken] = useState(0);
 
   useEffect(() => {
-    if (status === "idle") void browseOnly();
-  }, [status, browseOnly]);
+    if (status === "idle") void enterReadOnly();
+  }, [status, enterReadOnly]);
 
   const header = useMemo(() => screenCopy[tab], [tab]);
 
@@ -98,7 +98,7 @@ function App() {
               <OperationResultNotice title="Contract setup">
                 This build includes the full proof app and contract schema, but
                 it still needs a deployed anchor contract ID to support
-                browse-only reads. Open Settings to paste one, or log in and
+                read-only access. Open Settings to paste one, or log in and
                 register a new contract.
               </OperationResultNotice>
             </div>

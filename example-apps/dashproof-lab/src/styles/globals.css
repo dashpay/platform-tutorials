@@ -72,7 +72,7 @@ textarea {
 
 .conn-dot.connected,
 .conn-dot.authenticated,
-.conn-dot.browsing {
+.conn-dot.readonly {
   background: #22c55e;
 }
 

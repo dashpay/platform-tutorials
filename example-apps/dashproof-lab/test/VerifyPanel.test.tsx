@@ -40,7 +40,7 @@ beforeEach(() => {
   mockHashFile.mockReset();
   mockFindAnchorByHash.mockReset();
   mockUseSession.mockReturnValue({
-    status: "browsing",
+    status: "readonly",
     sdk: {},
     log: vi.fn(),
   });

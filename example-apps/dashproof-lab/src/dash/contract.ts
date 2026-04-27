@@ -84,7 +84,7 @@ const STORAGE_KEY = "dashproof-lab.contractId";
 
 /**
  * Replace this with a deployed anchor contract ID once one exists for this app.
- * Until then, browse-only reads require the user to paste or register a contract.
+ * Until then, read-only access requires the user to paste or register a contract.
  */
 export const DEFAULT_CONTRACT_ID: string | null = null;
 

@@ -20,7 +20,7 @@ import type { DashKeyManager, DashSdk } from "../dash/types";
 export type SessionStatus =
   | "idle"
   | "connecting"
-  | "browsing"
+  | "readonly"
   | "authenticated"
   | "error";
 
@@ -34,7 +34,7 @@ export interface SessionValue {
   setContractId: (id: string | null) => void;
   log: Logger;
   login: (mnemonic: string, identityIndex?: number) => Promise<void>;
-  browseOnly: () => Promise<void>;
+  enterReadOnly: () => Promise<void>;
   logout: () => void;
 }
 
@@ -107,13 +107,13 @@ export function SessionProvider({ children }: { children: ReactNode }) {
     [sdk, connect, log],
   );
 
-  const browseOnly = useCallback(async () => {
+  const enterReadOnly = useCallback(async () => {
     try {
       if (!sdk) await connect();
       setKeyManager(null);
       setIdentityId(null);
-      setStatus("browsing");
-      log("Browse-only mode enabled.");
+      setStatus("readonly");
+      log("Read-only mode enabled.");
     } catch (err) {
       const message = errorMessage(err);
       setError(message);
@@ -125,7 +125,7 @@ export function SessionProvider({ children }: { children: ReactNode }) {
   const logout = useCallback(() => {
     setKeyManager(null);
     setIdentityId(null);
-    setStatus(sdk ? "browsing" : "idle");
+    setStatus(sdk ? "readonly" : "idle");
     log("Logged out.");
   }, [sdk, log]);
 
@@ -140,7 +140,7 @@ export function SessionProvider({ children }: { children: ReactNode }) {
       setContractId,
       log,
       login,
-      browseOnly,
+      enterReadOnly,
       logout,
     }),
     [
@@ -153,7 +153,7 @@ export function SessionProvider({ children }: { children: ReactNode }) {
       setContractId,
       log,
       login,
-      browseOnly,
+      enterReadOnly,
       logout,
     ],
   );

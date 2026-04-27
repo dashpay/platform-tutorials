@@ -61,8 +61,8 @@ function Probe() {
       <div data-testid="identity">{session.identityId ?? ""}</div>
       <div data-testid="contract">{session.contractId ?? ""}</div>
       <div data-testid="error">{session.error ?? ""}</div>
-      <button type="button" onClick={() => void session.browseOnly()}>
-        Browse
+      <button type="button" onClick={() => void session.enterReadOnly()}>
+        Read-only
       </button>
       <button type="button" onClick={() => void session.login("  seed  ", 2)}>
         Login
@@ -94,7 +94,7 @@ afterEach(() => {
 });
 
 describe("SessionProvider", () => {
-  it("connects in browse-only mode", async () => {
+  it("enters read-only mode", async () => {
     const sdk = {};
     mockCreateClient.mockResolvedValue(sdk);
 
@@ -103,10 +103,10 @@ describe("SessionProvider", () => {
         <Probe />
       </SessionProvider>,
     );
-    fireEvent.click(screen.getByRole("button", { name: "Browse" }));
+    fireEvent.click(screen.getByRole("button", { name: "Read-only" }));
 
     await waitFor(() => {
-      expect(screen.getByTestId("status").textContent).toBe("browsing");
+      expect(screen.getByTestId("status").textContent).toBe("readonly");
     });
     expect(mockCreateClient).toHaveBeenCalledWith("testnet");
   });

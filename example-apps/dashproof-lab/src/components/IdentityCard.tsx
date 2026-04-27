@@ -26,7 +26,7 @@ export function IdentityCard({
   onLoginClick,
 }: IdentityCardProps) {
   const isAuthed = status === "authenticated";
-  const isConnected = status === "browsing" || isAuthed;
+  const isConnected = status === "readonly" || isAuthed;
 
   if (!isConnected) {
     return (
