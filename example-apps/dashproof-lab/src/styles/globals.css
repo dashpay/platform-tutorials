@@ -23,8 +23,26 @@
     "JetBrains Mono", ui-monospace, "Cascadia Code", "Fira Code", monospace;
 }
 
-:root {
+:root,
+:root[data-theme="dark"] {
   color-scheme: dark;
+}
+
+:root[data-theme="light"] {
+  color-scheme: light;
+
+  --color-bg: oklch(99% 0.004 260);
+  --color-surface: oklch(97% 0.006 260);
+  --color-surface-2: oklch(94% 0.008 260);
+  --color-line: oklch(89% 0.01 260);
+  --color-line-2: oklch(82% 0.012 260);
+
+  --color-ink: oklch(20% 0.02 260);
+  --color-ink-2: oklch(35% 0.018 260);
+  --color-ink-3: oklch(50% 0.015 260);
+  --color-ink-4: oklch(62% 0.012 260);
+
+  --color-danger: oklch(55% 0.22 25);
 }
 
 html,
