@@ -68,6 +68,15 @@ export function AppShell({
           closeDrawer();
         }}
       />
+      <NavButton
+        label="How it works"
+        glyph="i"
+        active={tab === "how-it-works"}
+        onClick={() => {
+          onTabChange("how-it-works");
+          closeDrawer();
+        }}
+      />
       {status !== "authenticated" && (
         <NavButton
           label="Login"

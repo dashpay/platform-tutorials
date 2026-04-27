@@ -28,6 +28,7 @@ npm run lint
 - `Create proof` requires login to submit, but still lets you hash a file locally first.
 - `Verify proof` works in read-only mode out of the box with the bundled default contract ID.
 - `Review proof history` supports both `My anchors` for the authenticated identity and `By chain` lookups for any `chainId`.
+- `How it works` gives developers an in-app guide to the proof model, Platform operations, and code reading order.
 - `chainId` is explained in the UI and auto-suggested from known fixtures or the selected filename, but remains fully editable.
 - Verification runs automatically after file selection when the app has both a contract ID and a connected SDK.
 - A successful verify result can jump directly into the `By chain` history view with the matching `chainId` prefilled.
@@ -53,6 +54,12 @@ npm run lint
 
 - `My anchors` loads documents for the authenticated identity.
 - `By chain` loads all proofs grouped under a specific `chainId`.
+
+### How it works
+
+- Explains the proof-of-existence model in developer terms.
+- Maps core app actions to `src/dash/` files and SDK methods.
+- Recommends a reading order for learning from the example app.
 
 ## Contract and Settings flow
 
@@ -99,7 +106,7 @@ Every SDK call lives in its own file under [`src/dash/`](./src/dash/).
 
 1. Start with [`src/dash/`](./src/dash/) for the raw Platform calls and contract schema.
 2. Then read [`src/session/SessionContext.tsx`](./src/session/SessionContext.tsx) for read-only and authenticated session state.
-3. Then move to [`src/components/AnchorForm.tsx`](./src/components/AnchorForm.tsx), [`src/components/VerifyPanel.tsx`](./src/components/VerifyPanel.tsx), and [`src/components/HistoryPanel.tsx`](./src/components/HistoryPanel.tsx).
+3. Then move to [`src/components/HowItWorks.tsx`](./src/components/HowItWorks.tsx) for the in-app guide, followed by [`src/components/AnchorForm.tsx`](./src/components/AnchorForm.tsx), [`src/components/VerifyPanel.tsx`](./src/components/VerifyPanel.tsx), and [`src/components/HistoryPanel.tsx`](./src/components/HistoryPanel.tsx).
 4. Hashing and chain-ID helpers live under [`src/lib/`](./src/lib/).
 
 ## Tech stack

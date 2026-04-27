@@ -57,6 +57,7 @@ export function LoginModal({ open, onClose }: LoginModalProps) {
       const index = Number.parseInt(identityIndex, 10);
       await session.login(mnemonic, Number.isNaN(index) ? 0 : index);
       setMnemonic("");
+      onClose();
     } catch (err) {
       setError(errorMessage(err));
     } finally {

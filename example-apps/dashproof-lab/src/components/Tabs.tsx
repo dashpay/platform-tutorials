@@ -1,4 +1,4 @@
-export type TopTab = "anchor" | "verify" | "history";
+export type TopTab = "anchor" | "verify" | "history" | "how-it-works";
 
 interface TabsProps {
   value: TopTab;
@@ -6,9 +6,10 @@ interface TabsProps {
 }
 
 const TAB_COPY: Array<{ id: TopTab; label: string; glyph: string }> = [
-  { id: "anchor", label: "Anchor", glyph: "#" },
-  { id: "verify", label: "Verify", glyph: "?" },
+  { id: "anchor", label: "Create proof", glyph: "#" },
+  { id: "verify", label: "Verify proof", glyph: "?" },
   { id: "history", label: "History", glyph: "↺" },
+  { id: "how-it-works", label: "How it works", glyph: "i" },
 ];
 
 export function Tabs({ value, onChange }: TabsProps) {

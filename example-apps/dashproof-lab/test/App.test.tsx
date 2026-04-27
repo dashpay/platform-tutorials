@@ -31,7 +31,7 @@ vi.mock("../src/components/AppShell", () => ({
   }: {
     children: React.ReactNode;
     onLoginOpen: () => void;
-    onTabChange: (tab: "anchor" | "verify" | "history") => void;
+    onTabChange: (tab: "anchor" | "verify" | "history" | "how-it-works") => void;
   }) => (
     <div>
       <button type="button" onClick={onLoginOpen}>
@@ -42,6 +42,9 @@ vi.mock("../src/components/AppShell", () => ({
       </button>
       <button type="button" onClick={() => onTabChange("history")}>
         History Tab
+      </button>
+      <button type="button" onClick={() => onTabChange("how-it-works")}>
+        How It Works Tab
       </button>
       {children}
     </div>
@@ -73,6 +76,10 @@ vi.mock("../src/components/HistoryPanel", () => ({
   }: {
     requestedChainId?: string | null;
   }) => <div>History Panel:{requestedChainId ?? ""}</div>,
+}));
+
+vi.mock("../src/components/HowItWorks", () => ({
+  HowItWorks: () => <div>How It Works Panel</div>,
 }));
 
 vi.mock("../src/components/LoginModal", () => ({
@@ -129,6 +136,9 @@ describe("App", () => {
     expect(screen.getByText("Verify Panel")).toBeTruthy();
     fireEvent.click(screen.getByRole("button", { name: "Open Chain History" }));
     expect(screen.getByText("History Panel:chain-from-verify")).toBeTruthy();
+
+    fireEvent.click(screen.getByRole("button", { name: "How It Works Tab" }));
+    expect(screen.getByText("How It Works Panel")).toBeTruthy();
 
     fireEvent.click(screen.getByRole("button", { name: /starter files/i }));
     expect(screen.getByTestId("starter-files-modal").textContent).toBe(

@@ -5,6 +5,7 @@ import { AppShell } from "./components/AppShell";
 import { AnchorForm } from "./components/AnchorForm";
 import { ExampleFilesModal } from "./components/ExampleFilesModal";
 import { HistoryPanel } from "./components/HistoryPanel";
+import { HowItWorks } from "./components/HowItWorks";
 import { LoginModal } from "./components/LoginModal";
 import { OperationResultNotice } from "./components/OperationResultNotice";
 import { VerifyPanel } from "./components/VerifyPanel";
@@ -26,6 +27,11 @@ const screenCopy: Record<TopTab, { title: string; subtitle: string }> = {
     title: "Review proof history",
     subtitle:
       "Inspect your own anchors or load a full chain timeline by chainId.",
+  },
+  "how-it-works": {
+    title: "How it works",
+    subtitle:
+      "Understand the proof flow, Platform operations, and code structure behind DashProof Lab.",
   },
 };
 
@@ -122,6 +128,7 @@ function App() {
               requestToken={historyRequestToken}
             />
           )}
+          {tab === "how-it-works" && <HowItWorks />}
         </div>
       </AppShell>
 
