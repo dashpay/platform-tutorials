@@ -191,7 +191,7 @@ export function AnchorForm({
     chainId.trim().length > 0;
 
   return (
-    <section className="rounded-lg border border-line bg-surface p-5">
+    <section className="mx-auto max-w-[1000px] rounded-lg border border-line bg-surface p-5">
       <div className="flex items-start justify-between gap-4">
         <div>
           <div className="text-[10px] font-semibold uppercase tracking-[0.12em] text-ink-4">

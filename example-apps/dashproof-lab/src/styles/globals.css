@@ -13,8 +13,8 @@
   --color-ink-3: oklch(62% 0.012 90);
   --color-ink-4: oklch(48% 0.014 90);
 
-  --color-accent: oklch(74% 0.16 55);
-  --color-accent-dim: oklch(52% 0.12 55);
+  --color-accent: #008de4;
+  --color-accent-dim: #016fbd;
   --color-danger: oklch(68% 0.2 25);
 
   --font-sans:

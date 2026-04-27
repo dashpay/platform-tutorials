@@ -21,7 +21,7 @@ function LogoAvatar() {
       className="h-[26px] w-[26px] shrink-0 rounded-[7px]"
       style={{
         background:
-          "conic-gradient(from 30deg, oklch(74% 0.16 55), oklch(60% 0.14 30), oklch(74% 0.16 55))",
+          "conic-gradient(from 210deg, #008de4, #36aef0, #012060, #0b0f3b, #008de4)",
       }}
     />
   );
