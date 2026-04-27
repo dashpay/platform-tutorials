@@ -47,9 +47,7 @@ export function CopyButton({
       aria-label={`Copy ${label.toLowerCase()}`}
       onClick={handleClick}
       className={`flex h-[22px] w-[22px] shrink-0 items-center justify-center rounded-md border border-transparent transition ${
-        done
-          ? "text-[oklch(72%_0.14_150)]"
-          : "text-ink-4 hover:bg-surface-2 hover:text-ink-2"
+        done ? "text-accent" : "text-ink-4 hover:bg-surface-2 hover:text-ink-2"
       }`}
     >
       {done ? (

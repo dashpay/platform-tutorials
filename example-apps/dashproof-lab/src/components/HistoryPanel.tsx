@@ -784,7 +784,7 @@ function Toast({ message }: { message: string }) {
         height="13"
         viewBox="0 0 16 16"
         fill="none"
-        stroke="oklch(72% 0.14 150)"
+        stroke="var(--color-accent)"
         strokeWidth="2"
         strokeLinecap="round"
         strokeLinejoin="round"

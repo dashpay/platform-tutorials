@@ -59,7 +59,7 @@ function App() {
 
   return (
     <>
-      <Toaster position="bottom-center" richColors />
+      <Toaster position="bottom-center" />
       <AppShell
         tab={tab}
         onTabChange={setTab}
