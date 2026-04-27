@@ -6,7 +6,10 @@ import {
   type AnchorRecord,
 } from "../dash/queries";
 import { errorMessage } from "../dash/logger";
-import { formatBytes, formatTimestamp, truncateId } from "../lib/format";
+import {
+  formatBytes,
+  truncateId,
+} from "../lib/format";
 import { useSession } from "../session/useSession";
 import { OperationResultNotice } from "./OperationResultNotice";
 
@@ -18,6 +21,8 @@ interface HistoryPanelProps {
   requestedChainId?: string | null;
   requestToken?: number;
 }
+
+const EXPLORER_BASE = "https://testnet.platform-explorer.com";
 
 export function HistoryPanel({
   contractId,
@@ -128,9 +133,48 @@ export function HistoryPanel({
             : "No anchors found for that chain."
           : null;
 
+  const groupedAnchors = anchors.reduce<
+    Array<{ chainId: string; items: AnchorRecord[] }>
+  >((groups, anchor) => {
+    const existing = groups.at(-1);
+    if (existing?.chainId === anchor.chainId) {
+      existing.items.push(anchor);
+      return groups;
+    }
+
+    groups.push({
+      chainId: anchor.chainId,
+      items: [anchor],
+    });
+    return groups;
+  }, []);
+
+  function openChainHistory(chainId: string) {
+    const trimmed = chainId.trim();
+    if (!trimmed) return;
+    setMode("chain");
+    setChainInput(trimmed);
+    setActiveChainId(trimmed);
+    setErrorState(null);
+  }
+
   function handleChainSubmit(event: FormEvent) {
     event.preventDefault();
     setActiveChainId(chainInput.trim());
+  }
+
+  function formatCompactTimestamp(timestamp: number | null | undefined): string {
+    if (!timestamp) return "Pending";
+    return new Date(timestamp).toLocaleString(undefined, {
+      month: "short",
+      day: "numeric",
+      hour: "numeric",
+      minute: "2-digit",
+    });
+  }
+
+  function documentUrl(documentId: string): string {
+    return `${EXPLORER_BASE}/document/${documentId}`;
   }
 
   return (
@@ -200,58 +244,120 @@ export function HistoryPanel({
         </div>
       )}
 
-      <div className="mt-5 space-y-3">
-        {anchors.map((anchor) => (
-          <article
-            key={anchor.id}
-            className="rounded-lg border border-line bg-bg px-5 py-4"
-          >
-            <div className="flex flex-col gap-4 md:flex-row md:items-start md:justify-between">
-              <div>
-                <div className="text-[10px] font-semibold uppercase tracking-[0.12em] text-ink-3">
-                  Chain
+      <div className="mt-5 space-y-4">
+        {effectiveMode === "my"
+          ? anchors.map((anchor) => (
+              <article
+                key={anchor.id}
+                className="rounded-lg border border-line bg-bg px-5 py-4"
+              >
+                <div className="flex flex-col gap-1 sm:flex-row sm:items-baseline sm:justify-between sm:gap-4">
+                  <h3 className="break-words text-[20px] leading-tight font-semibold text-ink">
+                    {anchor.filename ?? anchor.chainId}
+                  </h3>
+                  <div className="shrink-0 text-sm text-ink-3">
+                    {formatCompactTimestamp(anchor.createdAt)}
+                  </div>
                 </div>
-                <div className="mt-1 text-lg font-semibold text-ink">
-                  {anchor.chainId}
+                {anchor.note && (
+                  <p className="mt-3 text-sm leading-6 text-ink-2">
+                    {anchor.note}
+                  </p>
+                )}
+                <div className="mt-3 flex flex-wrap items-center gap-x-2 gap-y-1 text-sm text-ink-2">
+                  <span>{formatBytes(anchor.size)}</span>
+                  <span className="text-ink-4">•</span>
+                  <span>{anchor.mimeType ?? "unknown type"}</span>
+                  <span className="text-ink-4">•</span>
+                  <button
+                    type="button"
+                    onClick={() => openChainHistory(anchor.chainId)}
+                    className="break-words text-left text-sm text-ink-3 underline decoration-line-2 underline-offset-3 transition hover:text-accent"
+                  >
+                    {anchor.chainId}
+                  </button>
+                  <span className="text-ink-4">•</span>
+                  <span className="font-mono text-[12px]">
+                    {truncateId(anchor.ownerId, 6)}
+                  </span>
+                  <span className="text-ink-4">•</span>
+                  <a
+                    href={documentUrl(anchor.id)}
+                    target="_blank"
+                    rel="noreferrer"
+                    className="font-mono text-[12px] text-ink-3 underline decoration-line-2 underline-offset-3 transition hover:text-accent"
+                  >
+                    {truncateId(anchor.id, 6)}
+                  </a>
+                  <span className="text-ink-4">•</span>
+                  <span className="font-mono text-[12px]">
+                    {truncateId(anchor.entryHashHex, 8)}
+                  </span>
                 </div>
-                <div className="mt-2 font-mono text-[12px] leading-6 text-ink-2">
-                  {anchor.entryHashHex}
-                </div>
-              </div>
-              <div className="grid gap-3 text-sm text-ink-2 sm:grid-cols-2 md:min-w-[330px]">
-                <div>
+              </article>
+            ))
+          : groupedAnchors.map((group) => (
+              <section
+                key={group.chainId}
+                className="rounded-lg border border-line bg-bg px-5 py-4"
+              >
+                <div className="flex flex-col gap-1 border-b border-line pb-3">
                   <div className="text-[10px] font-semibold uppercase tracking-[0.12em] text-ink-3">
-                    Anchored at
+                    Chain
                   </div>
-                  <div className="mt-1">{formatTimestamp(anchor.createdAt)}</div>
-                </div>
-                <div>
-                  <div className="text-[10px] font-semibold uppercase tracking-[0.12em] text-ink-3">
-                    Owner
-                  </div>
-                  <div className="mt-1 font-mono text-[12px]">
-                    {truncateId(anchor.ownerId, 12)}
+                  <div className="break-words text-sm font-medium text-ink-2">
+                    {group.chainId}
                   </div>
                 </div>
-                <div>
-                  <div className="text-[10px] font-semibold uppercase tracking-[0.12em] text-ink-3">
-                    File
-                  </div>
-                  <div className="mt-1">{anchor.filename ?? "—"}</div>
+
+                <div className="divide-y divide-line">
+                  {group.items.map((anchor) => (
+                    <article
+                      key={anchor.id}
+                      className="py-4"
+                    >
+                      <div className="flex flex-col gap-1 sm:flex-row sm:items-baseline sm:justify-between sm:gap-4">
+                        <h3 className="break-words text-[20px] leading-tight font-semibold text-ink">
+                          {anchor.filename ?? anchor.chainId}
+                        </h3>
+                        <div className="shrink-0 text-sm text-ink-3">
+                          {formatCompactTimestamp(anchor.createdAt)}
+                        </div>
+                      </div>
+                      {anchor.note && (
+                        <p className="mt-3 text-sm leading-6 text-ink-2">
+                          {anchor.note}
+                        </p>
+                      )}
+                      <div className="mt-3 flex flex-wrap items-center gap-x-2 gap-y-1 text-sm text-ink-2">
+                        <span>{formatBytes(anchor.size)}</span>
+                        <span className="text-ink-4">•</span>
+                        <span>{anchor.mimeType ?? "unknown type"}</span>
+                        <span className="text-ink-4">•</span>
+                        <span>{anchor.chainId}</span>
+                        <span className="text-ink-4">•</span>
+                        <span className="font-mono text-[12px]">
+                          {truncateId(anchor.ownerId, 6)}
+                        </span>
+                        <span className="text-ink-4">•</span>
+                        <a
+                          href={documentUrl(anchor.id)}
+                          target="_blank"
+                          rel="noreferrer"
+                          className="font-mono text-[12px] text-ink-3 underline decoration-line-2 underline-offset-3 transition hover:text-accent"
+                        >
+                          {truncateId(anchor.id, 6)}
+                        </a>
+                        <span className="text-ink-4">•</span>
+                        <span className="font-mono text-[12px]">
+                          {truncateId(anchor.entryHashHex, 8)}
+                        </span>
+                      </div>
+                    </article>
+                  ))}
                 </div>
-                <div>
-                  <div className="text-[10px] font-semibold uppercase tracking-[0.12em] text-ink-3">
-                    Size
-                  </div>
-                  <div className="mt-1">{formatBytes(anchor.size)}</div>
-                </div>
-              </div>
-            </div>
-            {anchor.note && (
-              <p className="mt-3 text-sm leading-6 text-ink-2">{anchor.note}</p>
-            )}
-          </article>
-        ))}
+              </section>
+            ))}
       </div>
     </section>
   );
