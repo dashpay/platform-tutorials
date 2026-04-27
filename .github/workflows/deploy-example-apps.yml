@@ -1,0 +1,137 @@
+name: Deploy example apps to GitHub Pages
+
+# Manual-only trigger so forks never auto-publish. Forkers must (1) enable
+# Pages with source "GitHub Actions" in repo Settings, then (2) run this
+# workflow from the Actions tab. Every subdirectory under example-apps/
+# that has a package.json with a "build" script is auto-discovered and
+# deployed to:
+#   https://<owner>.github.io/<repo>/<app-name>/
+# Adding a new app requires no workflow edits.
+
+on:
+  workflow_dispatch:
+
+permissions:
+  contents: read
+  pages: write
+  id-token: write
+
+concurrency:
+  group: pages-example-apps
+  cancel-in-progress: true
+
+jobs:
+  discover:
+    runs-on: ubuntu-latest
+    outputs:
+      matrix: ${{ steps.set.outputs.matrix }}
+      apps: ${{ steps.set.outputs.apps }}
+    steps:
+      - uses: actions/checkout@de0fac2e4500dabe0009e67214ff5f5447ce83dd # v6.0.2
+
+      - id: set
+        name: Discover apps
+        run: |
+          set -euo pipefail
+          apps=()
+          for pkg in example-apps/*/package.json; do
+            [ -f "$pkg" ] || continue
+            dir="$(dirname "$pkg")"
+            name="$(basename "$dir")"
+            if jq -e '.scripts.build' "$pkg" >/dev/null; then
+              apps+=("$name")
+            fi
+          done
+          if [ "${#apps[@]}" -eq 0 ]; then
+            echo "No deployable apps found under example-apps/." >&2
+            exit 1
+          fi
+          json="$(printf '%s\n' "${apps[@]}" | jq -R . | jq -sc .)"
+          echo "matrix={\"app\":$json}" >> "$GITHUB_OUTPUT"
+          echo "apps=$json" >> "$GITHUB_OUTPUT"
+          echo "Discovered: $json"
+
+  build:
+    needs: discover
+    runs-on: ubuntu-latest
+    strategy:
+      fail-fast: false
+      matrix: ${{ fromJson(needs.discover.outputs.matrix) }}
+    steps:
+      - uses: actions/checkout@de0fac2e4500dabe0009e67214ff5f5447ce83dd # v6.0.2
+
+      - uses: actions/setup-node@48b55a011bda9f5d6aeb4c2d9c7362e8dae4041e # v6.4.0
+        with:
+          node-version: 20
+          cache: npm
+          cache-dependency-path: example-apps/${{ matrix.app }}/package-lock.json
+
+      - name: Install
+        run: npm ci
+        working-directory: example-apps/${{ matrix.app }}
+
+      - name: Build
+        run: npm run build
+        working-directory: example-apps/${{ matrix.app }}
+        env:
+          # Self-configuring base path: resolves to /<repo>/<app>/ on any fork.
+          VITE_BASE_PATH: /${{ github.event.repository.name }}/${{ matrix.app }}/
+
+      - name: Upload built dist
+        uses: actions/upload-artifact@v4
+        with:
+          name: site-${{ matrix.app }}
+          path: example-apps/${{ matrix.app }}/dist
+          if-no-files-found: error
+          retention-days: 1
+
+  deploy:
+    needs: [discover, build]
+    runs-on: ubuntu-latest
+    environment:
+      name: github-pages
+      url: ${{ steps.deployment.outputs.page_url }}
+    steps:
+      - name: Download all built apps
+        uses: actions/download-artifact@v4
+        with:
+          pattern: site-*
+          path: artifacts
+
+      - name: Assemble combined site
+        env:
+          APPS_JSON: ${{ needs.discover.outputs.apps }}
+          REPO_NAME: ${{ github.event.repository.name }}
+        run: |
+          set -euo pipefail
+          mkdir -p _site
+          mapfile -t apps < <(echo "$APPS_JSON" | jq -r '.[]')
+          for app in "${apps[@]}"; do
+            src="artifacts/site-$app"
+            if [ ! -d "$src" ]; then
+              echo "Missing artifact for $app" >&2
+              exit 1
+            fi
+            mkdir -p "_site/$app"
+            cp -r "$src/." "_site/$app/"
+          done
+
+          {
+            echo '<!doctype html>'
+            echo '<meta charset="utf-8">'
+            echo "<title>${REPO_NAME} — example apps</title>"
+            echo '<style>body{font-family:system-ui,sans-serif;max-width:42rem;margin:3rem auto;padding:0 1rem;line-height:1.6}a{color:#06c}</style>'
+            echo "<h1>${REPO_NAME} — example apps</h1>"
+            echo '<ul>'
+            for app in "${apps[@]}"; do
+              echo "  <li><a href=\"./${app}/\">${app}</a></li>"
+            done
+            echo '</ul>'
+          } > _site/index.html
+
+      - uses: actions/upload-pages-artifact@fc324d3547104276b827a68afc52ff2a11cc49c9 # v5.0.0
+        with:
+          path: _site
+
+      - id: deployment
+        uses: actions/deploy-pages@cd2ce8fcbc39b97be8ca5fce6e763baed58fa128 # v5.0.0
