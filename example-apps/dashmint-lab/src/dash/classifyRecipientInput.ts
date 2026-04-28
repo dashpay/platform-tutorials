@@ -15,8 +15,8 @@ const NAME_ONLY_CHAR = /[-0OIl]/;
 
 export function classifyRecipientInput(trimmed: string): RecipientMode {
   if (!trimmed) return "invalid";
-  if (trimmed.includes(".")) return "name";
   if (NON_RECIPIENT_CHAR.test(trimmed)) return "invalid";
+  if (trimmed.includes(".")) return "name";
   if (NAME_ONLY_CHAR.test(trimmed)) return "name";
   return "ambiguous";
 }

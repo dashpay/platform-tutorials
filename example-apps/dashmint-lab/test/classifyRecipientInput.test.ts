@@ -32,6 +32,13 @@ describe("classifyRecipientInput", () => {
     expect(classifyRecipientInput("alice!")).toBe("invalid");
   });
 
+  it("treats dotted strings with disallowed chars as invalid", () => {
+    expect(classifyRecipientInput("alice@dash.foo")).toBe("invalid");
+    expect(classifyRecipientInput("alice_dash.foo")).toBe("invalid");
+    expect(classifyRecipientInput("ali ce.dash")).toBe("invalid");
+    expect(classifyRecipientInput("alice!.dash")).toBe("invalid");
+  });
+
   it("treats pure base58 strings (any case, any length) as ambiguous", () => {
     // Pure base58 alphabet excludes 0 O I l and .- — short and long forms.
     expect(classifyRecipientInput("abc")).toBe("ambiguous");
