@@ -16,16 +16,9 @@ export type ResolvedRecipient =
   | { status: "not-found" };
 
 // Module-level cache keyed by normalized full name.
-// Values: resolved identity ID, null (not found), or a pending Promise.
+// Values: resolved identity ID, null (confirmed not-found), or a pending
+// Promise. Transient errors are NOT cached so a future render retries.
 const cache = new Map<string, string | null | Promise<string | null>>();
-
-async function lookup(sdk: DashSdk, fullName: string): Promise<string | null> {
-  try {
-    return await resolveDpnsName(sdk, fullName);
-  } catch {
-    return null;
-  }
-}
 
 export function useResolvedRecipient(
   sdk: DashSdk | null | undefined,
@@ -53,25 +46,40 @@ export function useResolvedRecipient(
 
     if (current instanceof Promise) {
       let cancelled = false;
-      current.then((val) => {
-        if (!cancelled) {
-          cache.set(key, val);
-          forceRender((n) => n + 1);
-        }
-      });
+      current.then(
+        (val) => {
+          if (!cancelled) {
+            cache.set(key, val);
+            forceRender((n) => n + 1);
+          }
+        },
+        () => {
+          // Sibling hook will have evicted the entry; just re-render so we
+          // pick up the cleared state and retry on the next effect run.
+          if (!cancelled) forceRender((n) => n + 1);
+        },
+      );
       return () => {
         cancelled = true;
       };
     }
 
-    const promise = lookup(sdk, key);
+    const promise = resolveDpnsName(sdk, key);
     cache.set(key, promise);
 
     let cancelled = false;
-    promise.then((val) => {
-      cache.set(key, val);
-      if (!cancelled) forceRender((n) => n + 1);
-    });
+    promise.then(
+      (val) => {
+        cache.set(key, val);
+        if (!cancelled) forceRender((n) => n + 1);
+      },
+      () => {
+        // Don't cache transient failures — drop the in-flight entry so the
+        // next render retries instead of seeing a stuck Promise.
+        if (cache.get(key) === promise) cache.delete(key);
+        if (!cancelled) forceRender((n) => n + 1);
+      },
+    );
 
     return () => {
       cancelled = true;

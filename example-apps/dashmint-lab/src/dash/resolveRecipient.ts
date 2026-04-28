@@ -3,7 +3,9 @@
  *
  * Lowercases the input and appends ".dash" if missing, since DPNS stores
  * normalized labels and `sdk.dpns.resolveName` expects the full name.
- * Throws a user-friendly Error if the name does not resolve.
+ * Returns null when the name has no record. Real SDK/network errors
+ * propagate so callers can distinguish a confirmed "not found" from a
+ * transient failure.
  *
  * SDK method: sdk.dpns.resolveName(name)
  */
@@ -12,12 +14,10 @@ import type { DashSdk } from "./types";
 export async function resolveDpnsName(
   sdk: DashSdk,
   input: string,
-): Promise<string> {
+): Promise<string | null> {
   const fullName = normalizeDpnsName(input);
   const id = await sdk.dpns.resolveName(fullName);
-  if (typeof id !== "string" || !id) {
-    throw new Error(`No identity found for "${fullName}"`);
-  }
+  if (typeof id !== "string" || !id) return null;
   return id;
 }
 

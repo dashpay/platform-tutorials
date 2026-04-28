@@ -50,17 +50,20 @@ describe("resolveDpnsName", () => {
     expect(resolveName).toHaveBeenCalledWith("alice.dash");
   });
 
-  it("throws a user-friendly error when the name does not resolve", async () => {
+  it("returns null when the name has no record", async () => {
     const sdk = sdkWith(async () => null);
-    await expect(resolveDpnsName(sdk, "nobody")).rejects.toThrow(
-      'No identity found for "nobody.dash"',
-    );
+    await expect(resolveDpnsName(sdk, "nobody")).resolves.toBeNull();
   });
 
-  it("throws when the SDK returns a non-string (e.g. undefined)", async () => {
-    const sdk = sdkWith(async () => null);
-    await expect(resolveDpnsName(sdk, "nobody")).rejects.toThrow(
-      /No identity found/,
-    );
+  it("returns null when the SDK returns a non-string (e.g. undefined)", async () => {
+    const sdk = sdkWith(async () => undefined as unknown as string);
+    await expect(resolveDpnsName(sdk, "nobody")).resolves.toBeNull();
+  });
+
+  it("propagates SDK errors instead of swallowing them", async () => {
+    const sdk = sdkWith(async () => {
+      throw new Error("network down");
+    });
+    await expect(resolveDpnsName(sdk, "alice")).rejects.toThrow("network down");
   });
 });
