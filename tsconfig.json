@@ -72,5 +72,5 @@
     "forceConsistentCasingInFileNames": true /* Disallow inconsistently-cased references to the same file. */
   },
   "include": ["./setupDashClient.mjs"],
-  "exclude": ["node_modules"]
+  "exclude": ["node_modules", "example-apps"]
 }

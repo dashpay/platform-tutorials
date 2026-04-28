@@ -121,7 +121,8 @@ Read-only tests skip gracefully when `PLATFORM_MNEMONIC` is unset.
 - **`2-Contracts-and-Documents/`** — data contract variants (minimal, indexed, binary, timestamps, history, NFT), document CRUD, NFT operations
 - **`test/`** — test runner, assertions, read-only and read-write test suites
 - **`docs/`** — HTML/JS interactive tutorial runner (separate from Node tutorials)
+- **`example-apps/`** — Standalone applications (Vite + React + TypeScript) that consume the tutorial SDK code. Each has its own `package.json`, tsconfig, and toolchain — the conventions in this file (Node16 modules, `airbnb-base`, etc.) describe the **root** tutorial code only and do not apply inside `example-apps/`. See each app's local `CLAUDE.md` for its conventions.
 
 ### Linting / Types
 
-TypeScript (`tsconfig.json`) checks JS files with `strict: true`, `noUnusedLocals: true`, targeting Node16 modules. ESLint uses `airbnb-base`. Prettier uses single quotes, 2-space tabs, trailing commas.
+`npm run lint` runs `tsc` against the root `tsconfig.json`, which is scoped narrowly via `include: ["./setupDashClient.mjs"]` and transitively typechecks the tutorial `.mjs` files via `allowJs` + `checkJs`. Settings: `strict: true`, `noUnusedLocals: true`, Node16 module resolution. Apps under `example-apps/` are excluded from this typecheck — they have their own tsconfigs and run their own `tsc -b` via each app's `npm run build`. ESLint uses `airbnb-base`. Prettier uses single quotes, 2-space tabs, trailing commas.
