@@ -492,10 +492,10 @@ function IdField({ label, value, href, onCopied }: IdFieldProps) {
 
 function FileHeader({ anchor }: { anchor: AnchorRecord }) {
   return (
-    <div className="flex min-w-0 items-start gap-3">
-      <div className="min-w-0 flex-1">
+    <div className="flex min-w-0 flex-col items-start gap-1 sm:flex-row sm:gap-3">
+      <div className="min-w-0 flex-1 self-stretch">
         <div className="flex flex-wrap items-center gap-2">
-          <h3 className="break-words text-[17px] leading-tight font-semibold tracking-tight text-ink">
+          <h3 className="min-w-0 break-all text-[17px] leading-tight font-semibold tracking-tight text-ink">
             {anchor.filename ?? anchor.chainId}
           </h3>
           <TypeChip mime={anchor.mimeType} />
@@ -506,7 +506,7 @@ function FileHeader({ anchor }: { anchor: AnchorRecord }) {
           </p>
         )}
       </div>
-      <div className="flex shrink-0 flex-col items-end gap-[2px] text-right">
+      <div className="flex shrink-0 flex-row items-baseline gap-x-2 gap-y-[2px] text-left sm:flex-col sm:items-end sm:text-right">
         <span className="text-[12.5px] font-medium text-ink-2">
           {formatRelativeTime(anchor.createdAt)}
         </span>
@@ -526,7 +526,7 @@ function FactsRow({
   onChainClick: (chainId: string) => void;
 }) {
   return (
-    <div className="mt-3.5 grid grid-cols-[auto_minmax(0,1fr)_auto] gap-x-6 gap-y-[3px]">
+    <div className="mt-3.5 grid grid-cols-[auto_minmax(0,1fr)_auto] gap-x-3 gap-y-[3px] sm:gap-x-6">
       <span className="text-[9.5px] font-semibold uppercase tracking-[0.12em] text-ink-4">
         Size
       </span>
@@ -540,19 +540,18 @@ function FactsRow({
       <FactsValue>
         {formatBytes(anchor.size)}
       </FactsValue>
-      <div className="min-w-0">
-        <button
-          type="button"
-          onClick={() => onChainClick(anchor.chainId)}
-          className="m-0 block w-full min-w-0 appearance-none border-0 bg-transparent p-0 text-left transition hover:text-accent"
+      <button
+        type="button"
+        onClick={() => onChainClick(anchor.chainId)}
+        className="m-0 block w-full min-w-0 appearance-none border-0 bg-transparent p-0 text-left transition hover:text-accent"
+      >
+        <span
+          className="block truncate text-[13px] leading-[1.35] text-ink-2 underline decoration-line-2 underline-offset-[3px] hover:decoration-accent-dim"
+          title={anchor.chainId}
         >
-          <FactsValue>
-            <span className="truncate underline decoration-line-2 underline-offset-[3px] hover:decoration-accent-dim">
-              {anchor.chainId}
-            </span>
-          </FactsValue>
-        </button>
-      </div>
+          {anchor.chainId}
+        </span>
+      </button>
       <FactsValue mono align="right">
         {truncateId(anchor.ownerId, 6)}
       </FactsValue>
