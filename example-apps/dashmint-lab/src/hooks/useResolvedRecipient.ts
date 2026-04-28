@@ -42,13 +42,18 @@ export function useResolvedRecipient(
   useEffect(() => {
     if (!sdk || !key) return;
 
-    if (cached !== undefined && !(cached instanceof Promise)) {
+    // Read inside the effect so concurrent hook instances mounting in the
+    // same render see each other's in-flight promise instead of all
+    // starting fresh lookups.
+    const current = cache.get(key);
+
+    if (current !== undefined && !(current instanceof Promise)) {
       return;
     }
 
-    if (cached instanceof Promise) {
+    if (current instanceof Promise) {
       let cancelled = false;
-      cached.then((val) => {
+      current.then((val) => {
         if (!cancelled) {
           cache.set(key, val);
           forceRender((n) => n + 1);
@@ -71,7 +76,7 @@ export function useResolvedRecipient(
     return () => {
       cancelled = true;
     };
-  }, [sdk, key, cached]);
+  }, [sdk, key]);
 
   if (!shouldResolve) return { status: "idle" };
   if (cached === undefined || cached instanceof Promise) {

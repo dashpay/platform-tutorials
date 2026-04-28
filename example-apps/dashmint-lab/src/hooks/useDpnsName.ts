@@ -39,14 +39,19 @@ export function useDpnsName(
   useEffect(() => {
     if (!sdk || !identityId) return;
 
-    if (cached !== undefined && !(cached instanceof Promise)) {
+    // Read inside the effect so concurrent hook instances mounting in the
+    // same render see each other's in-flight promise instead of all
+    // starting fresh lookups.
+    const current = cache.get(identityId);
+
+    if (current !== undefined && !(current instanceof Promise)) {
       return;
     }
 
     // Already in-flight — wait on the existing promise
-    if (cached instanceof Promise) {
+    if (current instanceof Promise) {
       let cancelled = false;
-      cached.then((val) => {
+      current.then((val) => {
         if (!cancelled) {
           cache.set(identityId, val);
           forceRender((n) => n + 1);
@@ -70,7 +75,7 @@ export function useDpnsName(
     return () => {
       cancelled = true;
     };
-  }, [sdk, identityId, cached]);
+  }, [sdk, identityId]);
 
   return cached instanceof Promise ? null : (cached ?? null);
 }
