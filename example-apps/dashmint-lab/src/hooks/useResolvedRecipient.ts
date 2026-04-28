@@ -26,10 +26,11 @@ export function useResolvedRecipient(
 ): ResolvedRecipient {
   const [, forceRender] = useState(0);
 
-  const mode = input ? classifyRecipientInput(input) : "invalid";
+  const trimmed = input?.trim() ?? "";
+  const mode = trimmed ? classifyRecipientInput(trimmed) : "invalid";
   const shouldResolve =
-    !!sdk && !!input && (mode === "name" || mode === "ambiguous");
-  const key = shouldResolve ? normalizeDpnsName(input!) : null;
+    !!sdk && !!trimmed && (mode === "name" || mode === "ambiguous");
+  const key = shouldResolve ? normalizeDpnsName(trimmed) : null;
   const cached = key ? cache.get(key) : undefined;
 
   useEffect(() => {
