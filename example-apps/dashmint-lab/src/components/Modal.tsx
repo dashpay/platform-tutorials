@@ -3,7 +3,7 @@
  * backdrop click dismiss, ESC dismiss. Shared by Login, Transfer,
  * SetPrice, and Purchase modals.
  */
-import { useEffect, type ReactNode } from "react";
+import { useEffect, useId, useRef, type ReactNode } from "react";
 
 export interface ModalProps {
   open: boolean;
@@ -14,6 +14,9 @@ export interface ModalProps {
 }
 
 export function Modal({ open, title, onClose, children, footer }: ModalProps) {
+  const dialogRef = useRef<HTMLDivElement>(null);
+  const titleId = useId();
+
   useEffect(() => {
     if (!open) return;
     const onKey = (e: KeyboardEvent) => {
@@ -23,6 +26,10 @@ export function Modal({ open, title, onClose, children, footer }: ModalProps) {
     return () => window.removeEventListener("keydown", onKey);
   }, [open, onClose]);
 
+  useEffect(() => {
+    if (open) dialogRef.current?.focus();
+  }, [open]);
+
   if (!open) return null;
 
   return (
@@ -31,11 +38,19 @@ export function Modal({ open, title, onClose, children, footer }: ModalProps) {
       onClick={onClose}
     >
       <div
-        className="w-full max-w-md overflow-hidden rounded-xl border border-line bg-surface shadow-[0_24px_60px_-20px_rgba(0,0,0,0.7)]"
+        ref={dialogRef}
+        role="dialog"
+        aria-modal="true"
+        aria-labelledby={titleId}
+        tabIndex={-1}
+        className="w-full max-w-md overflow-hidden rounded-xl border border-line bg-surface shadow-[0_24px_60px_-20px_rgba(0,0,0,0.7)] outline-none"
         onClick={(e) => e.stopPropagation()}
       >
         <div className="flex items-center justify-between px-5 py-3">
-          <h2 className="text-[10px] font-semibold uppercase tracking-[0.12em] text-ink-4">
+          <h2
+            id={titleId}
+            className="text-[10px] font-semibold uppercase tracking-[0.12em] text-ink-4"
+          >
             {title}
           </h2>
           <button
