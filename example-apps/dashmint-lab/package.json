@@ -12,6 +12,8 @@
     "format:check": "prettier --check .",
     "lint": "eslint .",
     "test": "vitest run",
+    "test:e2e": "playwright test",
+    "test:e2e:ui": "playwright test --ui",
     "preview": "vite preview"
   },
   "dependencies": {
@@ -24,6 +26,7 @@
   },
   "devDependencies": {
     "@eslint/js": "^9.39.4",
+    "@playwright/test": "^1.59.1",
     "@testing-library/react": "^16.3.2",
     "@types/node": "^24.12.2",
     "@types/react": "^19.2.14",
