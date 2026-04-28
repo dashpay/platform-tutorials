@@ -24,6 +24,7 @@ export function MintForm({ contractId, onMinted }: MintFormProps) {
   async function handleSubmit(e: FormEvent) {
     e.preventDefault();
     if (!session.sdk || !session.keyManager) return;
+    if (submitting || mintingPack) return;
     setSubmitting(true);
     try {
       await mintCard({
@@ -45,6 +46,7 @@ export function MintForm({ contractId, onMinted }: MintFormProps) {
 
   async function handleStarterPack() {
     if (!session.sdk || !session.keyManager) return;
+    if (submitting || mintingPack) return;
     setMintingPack(true);
     session.log(`Minting starter pack (${STARTER_PACK_SIZE} cards)…`);
     try {
@@ -121,7 +123,7 @@ export function MintForm({ contractId, onMinted }: MintFormProps) {
 
         <button
           type="submit"
-          disabled={submitting || !name.trim()}
+          disabled={submitting || mintingPack || !name.trim()}
           className="h-10 rounded-md bg-accent px-[18px] text-[13px] font-semibold text-bg transition hover:bg-accent-dim disabled:cursor-not-allowed disabled:bg-surface-2 disabled:text-ink-4"
         >
           {submitting ? "Minting…" : "Mint card"}
@@ -142,7 +144,7 @@ export function MintForm({ contractId, onMinted }: MintFormProps) {
         <button
           type="button"
           onClick={handleStarterPack}
-          disabled={mintingPack}
+          disabled={submitting || mintingPack}
           className="self-start rounded-md border border-line-2 px-4 py-2 text-[13px] font-semibold text-ink transition hover:border-accent-dim hover:text-ink disabled:cursor-not-allowed disabled:border-line disabled:text-ink-4"
         >
           {mintingPack ? "Minting…" : "Mint Starter Pack"}
