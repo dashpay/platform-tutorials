@@ -1,4 +1,5 @@
 import { EXAMPLE_FILE_FIXTURES } from "../data/exampleFiles";
+import { CopyButton } from "./CopyButton";
 
 export function ExampleFilesPanel() {
   return (
@@ -33,12 +34,15 @@ export function ExampleFilesPanel() {
           </div>
 
           <dl className="mt-4 grid gap-3 sm:grid-cols-2">
-            <div>
+            <div className="min-w-0">
               <dt className="text-[10px] font-semibold uppercase tracking-[0.12em] text-ink-4">
                 Suggested chain
               </dt>
-              <dd className="mt-1 font-mono text-[12px] text-ink-2">
-                {fixture.chainId}
+              <dd className="mt-1 flex min-w-0 items-center gap-1.5">
+                <span className="min-w-0 truncate font-mono text-[12px] text-ink-2">
+                  {fixture.chainId}
+                </span>
+                <CopyButton value={fixture.chainId} label="Suggested chain" />
               </dd>
             </div>
             <div>
