@@ -21,7 +21,7 @@ React + TypeScript + Vite app for minting, viewing, transferring, and trading NF
 - **[src/data/starterPack.ts](src/data/starterPack.ts)** — shared card pool and `drawStarterPack()` Fisher-Yates shuffle. Injectable RNG for deterministic tests.
 - **[src/lib/](src/lib/)** — pure utilities: [rarity.ts](src/lib/rarity.ts) (tier from atk+def), [format.ts](src/lib/format.ts), [explorer.ts](src/lib/explorer.ts) (Platform Explorer URLs), [cardArt.ts](src/lib/cardArt.ts) (theme/palette recipe — presentation only, not Platform-relevant).
 - **[src/styles/globals.css](src/styles/globals.css)** — Tailwind v4 import + rarity tokens.
-- **[test/](test/)** — Vitest + Testing Library. Co-located by subject (e.g. `CardTile.test.tsx`, `SessionContext.test.tsx`). Default env is `node`; tests that need DOM opt in with `// @vitest-environment jsdom`.
+- **[test/](test/)** — Vitest + Testing Library. All test files live here per the `include` pattern in [vite.config.ts](vite.config.ts) and are named after the subject under test (e.g. `CardTile.test.tsx`, `SessionContext.test.tsx`). Default env is `node`; tests that need DOM opt in with `// @vitest-environment jsdom`.
 
 ## SDK Patterns
 
