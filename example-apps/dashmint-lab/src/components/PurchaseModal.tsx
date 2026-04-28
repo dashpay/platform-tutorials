@@ -1,4 +1,4 @@
-import { useState } from "react";
+import { useEffect, useState } from "react";
 import { purchaseCard } from "../dash/purchaseCard";
 import { errorMessage } from "../dash/logger";
 import type { Card } from "../dash/queries";
@@ -27,6 +27,13 @@ export function PurchaseModal({
   const session = useSession();
   const [submitting, setSubmitting] = useState(false);
   const [result, setResult] = useState<OperationResult | null>(null);
+
+  useEffect(() => {
+    if (card) {
+      setResult(null);
+      setSubmitting(false);
+    }
+  }, [card]);
 
   async function handleBuy() {
     if (
