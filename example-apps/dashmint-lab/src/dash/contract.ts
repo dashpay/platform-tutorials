@@ -135,8 +135,7 @@ export async function registerContract({
     identityKey,
     signer,
   });
-  const contractId =
-    published.id?.toString() || published.toJSON?.()?.id;
+  const contractId = published.id?.toString() || published.toJSON?.()?.id;
 
   if (!contractId) {
     throw new Error(
