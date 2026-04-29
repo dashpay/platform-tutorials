@@ -1,298 +1,119 @@
+<!--
+  DashProof Lite — single-file, read-only proof-of-existence demo on Dash Platform testnet.
+
+  What it does
+  ------------
+  - Verify: hash a file locally with SHA-256, look up the digest on-chain.
+  - History by chainId: list all anchors recorded under a given bucket label.
+
+  How it works
+  ------------
+  - The "anchor" data contract on testnet stores: entryHash (SHA-256 of the file,
+    base64-encoded), chainId (free-form bucket), and optional file metadata.
+    The file itself never leaves the browser.
+  - Read-only mode needs no identity or signing — just connect to testnet.
+  - Writes are NOT implemented here; use the React app at example-apps/dashproof-lab/
+    or the Node tutorials in 2-Contracts-and-Documents/ for that.
+
+  Why single-file
+  ---------------
+  - No build step. Open it directly in a browser or host as a static file.
+  - SDK comes from esm.sh (CDN-served ES module).
+
+  Gotcha worth knowing
+  --------------------
+  - `entryHash` is queried as a base64 string, NOT a byte array. Indexed queries
+    on byteArray fields currently fail (dashpay/platform#3540), so the contract
+    stores the hash as 44-char base64. We display it as hex by decoding on read.
+-->
 <!DOCTYPE html>
 <html lang="en">
 <head>
   <meta charset="UTF-8">
   <meta name="viewport" content="width=device-width, initial-scale=1">
   <title>DashProof Lite</title>
-  <link rel="preconnect" href="https://fonts.googleapis.com">
-  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
-  <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&family=JetBrains+Mono:wght@400;500;600&display=swap" rel="stylesheet">
   <style>
-    :root {
-      --bg: oklch(18% 0.012 260);
-      --surface: oklch(22% 0.013 260);
-      --surface-2: oklch(26% 0.014 260);
-      --line: oklch(30% 0.015 260);
-      --line-2: oklch(36% 0.016 260);
-      --ink: oklch(96% 0.008 90);
-      --ink-3: oklch(62% 0.012 90);
-      --ink-4: oklch(48% 0.014 90);
-      --accent: #008de4;
-      --accent-dim: #016fbd;
-      --danger: oklch(68% 0.2 25);
-      --sans: 'Inter', system-ui, -apple-system, 'Segoe UI', Roboto, sans-serif;
-      --mono: 'JetBrains Mono', ui-monospace, 'Cascadia Code', 'Fira Code', monospace;
-      color-scheme: dark;
-    }
-
-    * { box-sizing: border-box; }
-    html, body { margin: 0; min-height: 100vh; background: var(--bg); color: var(--ink); font-family: var(--sans); }
-    button, input { font: inherit; color: inherit; }
-    :focus-visible { outline: 2px solid var(--accent-dim); outline-offset: 2px; }
-    a { color: var(--accent); text-decoration: none; }
-    a:hover { color: var(--ink); }
-
-    .shell { display: grid; grid-template-columns: 208px 1fr; min-height: 100vh; }
-    aside.sidebar {
-      position: sticky; top: 0; height: 100vh;
-      display: flex; flex-direction: column; gap: 22px;
-      padding: 18px 14px;
-      border-right: 1px solid var(--line);
-      overflow-y: auto;
-    }
-
-    .brand { display: flex; align-items: center; gap: 10px; }
-    .logo {
-      width: 26px; height: 26px; border-radius: 7px; flex-shrink: 0;
-      background: conic-gradient(from 210deg, #008de4, #36aef0, #012060, #0b0f3b, #008de4);
-    }
-    .brand-title { font-size: 13px; font-weight: 600; line-height: 1.2; }
-    .brand-sub { font-size: 10px; font-weight: 600; text-transform: uppercase; letter-spacing: 0.1em; color: var(--ink-4); margin-top: 2px; }
-
-    nav.nav { display: flex; flex-direction: column; gap: 2px; }
-    .nav-btn {
-      position: relative; width: 100%;
-      display: flex; align-items: center; gap: 8px;
-      padding: 8px 10px;
-      border: none; border-radius: 8px;
-      background: transparent; color: var(--ink-3);
-      font-size: 13px; font-weight: 500; text-align: left;
-      cursor: pointer;
-      transition: background 120ms, color 120ms;
-    }
-    .nav-btn:hover { color: var(--ink); }
-    .nav-btn.active { background: var(--surface-2); color: var(--ink); }
-    .nav-btn.active::before {
-      content: ''; position: absolute;
-      top: 8px; bottom: 8px; left: 6px;
-      width: 2px; border-radius: 2px; background: var(--accent);
-    }
-    .nav-glyph { width: 14px; text-align: center; font-size: 14px; color: var(--ink-4); font-family: var(--mono); }
-    .nav-btn.active .nav-glyph { color: var(--accent); }
-
-    .info-card, .card, .page-header {
-      border: 1px solid var(--line);
-      background: var(--surface);
-      border-radius: 8px;
-    }
-    .info-card { padding: 12px; font-size: 12px; line-height: 1.5; color: var(--ink-3); }
-
-    .conn {
-      margin-top: auto; padding-top: 14px;
-      border-top: 1px solid var(--line);
-      display: flex; align-items: center; gap: 8px;
-      font-family: var(--mono); font-size: 10.5px; color: var(--ink-3);
-    }
-    .conn-dot { width: 8px; height: 8px; border-radius: 9999px; background: var(--ink-4); }
-    .conn-dot.connecting { background: var(--accent); animation: pulse 1s infinite; }
-    .conn-dot.connected { background: #22c55e; }
-    .conn-dot.error { background: var(--danger); }
-    @keyframes pulse { 0%, 100% { opacity: 1; } 50% { opacity: 0.4; } }
-
-    main { min-width: 0; padding: 22px 28px; }
-    .container { max-width: 1160px; margin: 0 auto; }
-
-    .page-header { padding: 20px; margin-bottom: 18px; }
-    .page-header h1 { margin: 0; font-size: 22px; font-weight: 600; letter-spacing: -0.01em; line-height: 1.15; }
-    .page-header p { margin: 6px 0 0; font-size: 12.5px; color: var(--ink-3); max-width: 720px; line-height: 1.5; }
-
+    body { font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif; margin: 0; line-height: 1.4; }
+    .shell { display: grid; grid-template-columns: 180px 1fr; min-height: 100vh; }
+    aside { border-right: 1px solid #ddd; padding: 1rem; }
+    aside h1 { font-size: 1rem; margin: 0 0 1rem; }
+    nav button { display: block; width: 100%; text-align: left; padding: 0.4rem 0.6rem; margin-bottom: 0.25rem; border: 1px solid transparent; background: none; border-radius: 4px; cursor: pointer; font: inherit; }
+    nav button.active { background: #eef; border-color: #cce; }
+    main { padding: 1rem 1.5rem; max-width: 760px; }
     .panel { display: none; }
     .panel.active { display: block; }
-
-    .card { padding: 18px; margin-bottom: 14px; }
-    .card h2 { margin: 0 0 4px; font-size: 14px; font-weight: 600; }
-    .card .hint { margin: 0 0 14px; font-size: 12px; color: var(--ink-3); line-height: 1.5; }
-
-    .label {
-      display: block; margin-bottom: 6px;
-      font-size: 10px; font-weight: 600; text-transform: uppercase; letter-spacing: 0.12em;
-      color: var(--ink-4);
-    }
-
-    input[type="text"], input[type="file"] {
-      width: 100%;
-      padding: 9px 10px;
-      border: 1px solid var(--line-2); border-radius: 6px;
-      background: var(--bg); color: var(--ink); font-size: 13px;
-    }
-    input[type="text"]:focus { border-color: var(--accent-dim); }
-    input[type="file"] { padding: 8px; cursor: pointer; }
-    input:disabled { opacity: 0.5; cursor: not-allowed; }
-
-    .btn {
-      display: inline-flex; align-items: center;
-      padding: 8px 14px;
-      border: none; border-radius: 6px;
-      background: var(--accent); color: white;
-      font-size: 13px; font-weight: 500;
-      cursor: pointer;
-      transition: background 120ms;
-    }
-    .btn:hover:not(:disabled) { background: var(--accent-dim); }
-    .btn:disabled { opacity: 0.5; cursor: not-allowed; }
-
-    .row { display: flex; gap: 8px; align-items: center; flex-wrap: wrap; }
-
-    .hash { font-family: var(--mono); font-size: 11.5px; word-break: break-all; }
-
-    .result { margin-top: 14px; }
-    .result:empty { display: none; }
-
-    .status-msg {
-      padding: 10px 12px;
-      border: 1px solid var(--line); border-radius: 6px;
-      background: var(--bg);
-      font-family: var(--mono); font-size: 11.5px; color: var(--ink-3);
-    }
-    .status-msg.miss { border-color: var(--ink-4); }
-    .status-msg.err { border-color: var(--danger); color: var(--danger); }
-
-    .anchor-card {
-      border: 1px solid var(--line); border-radius: 8px;
-      background: var(--bg);
-      overflow: hidden;
-    }
-    .anchor-card + .anchor-card { margin-top: 10px; }
-    .anchor-card.match { border-color: var(--accent-dim); }
-
-    .anchor-head {
-      display: flex; align-items: center; justify-content: space-between; gap: 12px;
-      padding: 12px 14px;
-      border-bottom: 1px solid var(--line); background: var(--surface);
-    }
-    .anchor-head .title { font-size: 13px; font-weight: 600; word-break: break-word; }
-    .anchor-head .badge {
-      flex-shrink: 0;
-      padding: 3px 8px; border-radius: 999px;
-      font-size: 10px; font-weight: 600; text-transform: uppercase; letter-spacing: 0.1em;
-      color: var(--accent);
-      background: rgba(0, 141, 228, 0.12);
-      border: 1px solid rgba(0, 141, 228, 0.4);
-    }
-    .anchor-head .badge.muted { color: var(--ink-3); background: transparent; border-color: var(--line); }
-
-    .anchor-body {
-      display: grid; grid-template-columns: max-content 1fr; gap: 8px 16px;
-      padding: 12px 14px; font-size: 12px;
-    }
-    .anchor-body dt {
-      padding-top: 2px;
-      color: var(--ink-4);
-      font-size: 10px; font-weight: 600; text-transform: uppercase; letter-spacing: 0.1em;
-    }
-    .anchor-body dd { margin: 0; word-break: break-all; }
-    .anchor-body dd.mono { font-family: var(--mono); font-size: 11px; }
-
-    .result-list { display: flex; flex-direction: column; gap: 10px; }
-    .result-summary { margin-bottom: 10px; font-family: var(--mono); font-size: 11px; color: var(--ink-3); }
-
-    .meta {
-      margin-top: 18px; padding-top: 14px;
-      border-top: 1px solid var(--line);
-      font-size: 11px; color: var(--ink-4);
-    }
-    .meta .hash { font-size: 10.5px; }
-
-    footer.page-footer {
-      max-width: 1160px; margin: 40px auto 0;
-      padding-top: 16px;
-      border-top: 1px solid var(--line);
-      text-align: center; font-size: 12px; color: var(--ink-3);
-    }
-
-    @media (max-width: 720px) {
+    .muted { color: #666; }
+    section { border: 1px solid #ddd; border-radius: 6px; padding: 1rem; margin: 1rem 0; }
+    input[type="text"] { width: 100%; padding: 0.4rem; box-sizing: border-box; font-family: inherit; }
+    button.action { padding: 0.4rem 0.9rem; cursor: pointer; }
+    button:disabled { cursor: not-allowed; opacity: 0.6; }
+    pre { background: #f5f5f5; padding: 0.75rem; border-radius: 4px; overflow-x: auto; font-size: 0.85rem; white-space: pre-wrap; word-break: break-all; }
+    .hash { font-family: ui-monospace, SFMono-Regular, Menlo, monospace; font-size: 0.85rem; }
+    .ok { color: #1a7f37; }
+    .miss { color: #b54708; }
+    .err { color: #b42318; }
+    #status { font-size: 0.85rem; padding: 0.3rem 0.5rem; background: #fff3cd; border-radius: 4px; display: inline-block; margin-top: 1rem; }
+    #status.connected { background: #d1f7d6; }
+    #status.failed { background: #fde2e1; }
+    @media (max-width: 600px) {
       .shell { grid-template-columns: 1fr; }
-      aside.sidebar { position: static; height: auto; }
-      main { padding: 18px 16px; }
+      aside { border-right: none; border-bottom: 1px solid #ddd; }
     }
   </style>
 </head>
 <body>
   <div class="shell">
-    <aside class="sidebar">
-      <div class="brand">
-        <div class="logo"></div>
-        <div>
-          <div class="brand-title">DashProof Lite</div>
-          <div class="brand-sub">Testnet</div>
-        </div>
-      </div>
-
-      <nav class="nav">
-        <button class="nav-btn active" data-tab="verify" type="button">
-          <span class="nav-glyph">?</span>Verify proof
-        </button>
-        <button class="nav-btn" data-tab="history" type="button">
-          <span class="nav-glyph">↺</span>History
-        </button>
+    <aside>
+      <h1>DashProof Lite</h1>
+      <!-- Sidebar nav: data-tab maps to panel id below -->
+      <nav>
+        <button class="nav-btn active" data-tab="verify" type="button">Verify</button>
+        <button class="nav-btn" data-tab="history" type="button">History</button>
       </nav>
-
-      <div class="info-card">
-        Files stay local. The app only sends the SHA-256 hash to Dash Platform to look up an existing anchor.
-      </div>
-
-      <div class="conn">
-        <span class="conn-dot connecting" id="conn-dot"></span>
-        <span id="conn-text">Connecting…</span>
-      </div>
+      <div id="status">Connecting…</div>
     </aside>
 
     <main>
-      <div class="container">
-        <section class="panel active" id="panel-verify">
-          <header class="page-header">
-            <h1>Verify proof</h1>
-            <p>Hashes the file locally with SHA-256, then queries Dash Platform for an existing anchor of the same digest. The file never leaves your browser.</p>
-          </header>
-          <div class="card">
-            <h2>Pick a file</h2>
-            <p class="hint">Drop in any file you previously anchored. We compute SHA-256 in the browser and look it up by <span class="hash">entryHash</span>.</p>
-            <span class="label">File</span>
-            <input type="file" id="verify-file" disabled>
-            <div class="hash" id="verify-hash" style="margin-top: 10px;"></div>
-            <div class="result" id="verify-result"></div>
-          </div>
-        </section>
+      <!-- Each panel matches a sidebar nav button via id="panel-<tab>" -->
+      <section class="panel active" id="panel-verify">
+        <h2>Verify a file</h2>
+        <p class="muted">Hashes the file locally with SHA-256, then looks up the digest on-chain. The file never leaves your browser.</p>
+        <input type="file" id="verify-file" disabled>
+        <div id="verify-hash" class="hash" style="margin-top: 0.5rem;"></div>
+        <pre id="verify-result"></pre>
+      </section>
 
-        <section class="panel" id="panel-history">
-          <header class="page-header">
-            <h1>History</h1>
-            <p>List all anchors recorded under a given <span class="hash">chainId</span> bucket, newest first.</p>
-          </header>
-          <div class="card">
-            <h2>Look up by chainId</h2>
-            <p class="hint">Try <span class="hash">demo-proof-fixture-01</span> for the bundled example fixture.</p>
-            <span class="label">chainId</span>
-            <div class="row">
-              <input type="text" id="chain-id" placeholder="e.g. demo-proof-fixture-01" disabled>
-              <button class="btn" id="chain-btn" type="button" disabled>Look up</button>
-            </div>
-            <div class="result" id="chain-result"></div>
-          </div>
-        </section>
-
-        <div class="meta">
-          Contract: <span class="hash" id="contract-id"></span>
+      <section class="panel" id="panel-history">
+        <h2>History by chainId</h2>
+        <p class="muted">List all anchors recorded under a given <code>chainId</code> bucket.</p>
+        <input type="text" id="chain-id" placeholder="e.g. demo-proof-fixture-01" disabled>
+        <div style="margin-top: 0.5rem;">
+          <button class="action" id="chain-btn" disabled>Look up</button>
         </div>
+        <pre id="chain-result"></pre>
+      </section>
 
-        <footer class="page-footer">
-          <a href="https://github.com/dashpay/platform-tutorials" target="_blank" rel="noreferrer">View on GitHub</a>
-        </footer>
-      </div>
+      <p class="muted" style="font-size: 0.8rem;">
+        Contract: <span class="hash" id="contract-id"></span>
+      </p>
     </main>
   </div>
 
   <script type="module">
+    // Pull the Evo SDK from esm.sh — no bundler needed. esm.sh resolves the npm
+    // package and serves it as a browser-native ES module. Pin a specific
+    // version (e.g. '@dashevo/evo-sdk@3.1.0-dev.1') for reproducibility.
     import { EvoSDK } from 'https://esm.sh/@dashevo/evo-sdk';
 
+    // The "anchor" data contract is already published on testnet by the React app.
+    // Anyone querying with the same contract id hits the same documents.
     const CONTRACT_ID = 'DTqBwBiAuRGv4NJmBLsp9ytoUCt19Rxw3ekx8na6xB9Z';
     const DOC_TYPE = 'anchor';
 
     const $ = (id) => document.getElementById(id);
     $('contract-id').textContent = CONTRACT_ID;
 
-    const connDot = $('conn-dot');
-    const connText = $('conn-text');
+    const statusEl = $('status');
     const fileInput = $('verify-file');
     const verifyHashEl = $('verify-hash');
     const verifyResultEl = $('verify-result');
@@ -300,19 +121,22 @@
     const chainBtn = $('chain-btn');
     const chainResultEl = $('chain-result');
 
+    // Sidebar tab switching: toggle .active on the clicked nav button and the
+    // matching panel (panel id is "panel-<data-tab>").
     document.querySelectorAll('.nav-btn').forEach((btn) => {
       btn.addEventListener('click', () => {
         const tab = btn.dataset.tab;
         document.querySelectorAll('.nav-btn').forEach((b) => b.classList.toggle('active', b === btn));
-        document.querySelectorAll('.panel').forEach((p) => {
-          p.classList.toggle('active', p.id === `panel-${tab}`);
-        });
+        document.querySelectorAll('.panel').forEach((p) => p.classList.toggle('active', p.id === `panel-${tab}`));
       });
     });
 
+    // --- Byte / encoding helpers ----------------------------------------------
     function bytesToHex(bytes) {
       return Array.from(bytes, (b) => b.toString(16).padStart(2, '0')).join('');
     }
+    // Browser-native base64 encode (Uint8Array → string). atob/btoa work on
+    // "binary strings" so we hand-build one byte-by-byte.
     function bytesToBase64(bytes) {
       let bin = '';
       for (const b of bytes) bin += String.fromCharCode(b);
@@ -322,29 +146,33 @@
       const bin = atob(s);
       return Uint8Array.from(bin, (c) => c.charCodeAt(0));
     }
+    // SHA-256 via WebCrypto. Runs entirely in the browser; the file never
+    // leaves the page.
     async function hashFile(file) {
       const buf = await file.arrayBuffer();
       return new Uint8Array(await crypto.subtle.digest('SHA-256', buf));
     }
 
+    // --- Document normalization -----------------------------------------------
+    // sdk.documents.query() can return an array, a Map, or a plain object
+    // depending on SDK version. Flatten all three shapes to AnchorRecord[].
     function toAnchor(id, doc) {
+      // Some result shapes wrap the document; .toJSON() unwraps it. Fallback to
+      // treating `doc` itself as the data when toJSON isn't present.
       const data = (doc && typeof doc.toJSON === 'function') ? doc.toJSON() : doc;
-      let createdAt = null;
-      if (data.$createdAt != null) {
-        createdAt = typeof data.$createdAt === 'bigint' ? Number(data.$createdAt) : Number(data.$createdAt);
-      }
+      const createdAt = data.$createdAt != null ? Number(data.$createdAt) : null;
+      // entryHash is stored as base64 — decode for hex display in the UI.
       let entryHashHex = null;
       try {
         if (typeof data.entryHash === 'string') {
           entryHashHex = bytesToHex(base64ToBytes(data.entryHash));
         }
-      } catch { /* leave null */ }
+      } catch { /* leave null on bad input */ }
       return {
         id: id ?? data.$id ?? null,
         ownerId: data.$ownerId ?? null,
         createdAt,
         createdAtIso: createdAt ? new Date(createdAt).toISOString() : null,
-        entryHashB64: data.entryHash ?? null,
         entryHashHex,
         chainId: data.chainId ?? null,
         filename: data.filename ?? null,
@@ -353,83 +181,6 @@
         note: data.note ?? null,
       };
     }
-
-    function renderStatus(el, kind, text) {
-      el.innerHTML = '';
-      const div = document.createElement('div');
-      div.className = 'status-msg' + (kind ? ' ' + kind : '');
-      div.textContent = text;
-      el.appendChild(div);
-    }
-
-    function renderAnchorCard(anchor, opts = {}) {
-      const card = document.createElement('div');
-      card.className = 'anchor-card' + (opts.match ? ' match' : '');
-
-      const head = document.createElement('div');
-      head.className = 'anchor-head';
-      const title = document.createElement('div');
-      title.className = 'title';
-      title.textContent = anchor.filename || anchor.chainId || '(unnamed anchor)';
-      const badge = document.createElement('div');
-      badge.className = 'badge' + (opts.match ? '' : ' muted');
-      badge.textContent = opts.match
-        ? 'Match'
-        : (anchor.createdAt
-            ? new Date(anchor.createdAt).toLocaleString(undefined, {
-                month: 'short', day: 'numeric',
-                hour: '2-digit', minute: '2-digit',
-              })
-            : 'Anchor');
-      head.append(title, badge);
-
-      const body = document.createElement('dl');
-      body.className = 'anchor-body';
-      const anchoredText = anchor.createdAt
-        ? new Date(anchor.createdAt).toLocaleString(undefined, {
-            year: 'numeric', month: 'short', day: 'numeric',
-            hour: '2-digit', minute: '2-digit', second: '2-digit',
-            timeZoneName: 'short',
-          })
-        : null;
-      const rows = [
-        ['Chain', anchor.chainId, 'mono'],
-        ['Anchored', anchoredText, ''],
-        ['Owner', anchor.ownerId, 'mono'],
-        ['SHA-256', anchor.entryHashHex, 'mono'],
-        ['Document ID', anchor.id, 'mono'],
-        ['Type', anchor.mimeType, ''],
-        ['Size', anchor.size != null ? `${anchor.size} bytes` : null, ''],
-        ['Note', anchor.note, ''],
-      ];
-      for (const [label, value, cls] of rows) {
-        if (value == null || value === '') continue;
-        const dt = document.createElement('dt');
-        dt.textContent = label;
-        const dd = document.createElement('dd');
-        if (cls) dd.classList.add(cls);
-        dd.textContent = value;
-        body.append(dt, dd);
-      }
-
-      card.append(head, body);
-      return card;
-    }
-
-    function renderAnchorList(el, anchors, summary) {
-      el.innerHTML = '';
-      if (summary) {
-        const s = document.createElement('div');
-        s.className = 'result-summary';
-        s.textContent = summary;
-        el.appendChild(s);
-      }
-      const list = document.createElement('div');
-      list.className = 'result-list';
-      for (const a of anchors) list.appendChild(renderAnchorCard(a));
-      el.appendChild(list);
-    }
-
     function normalize(results) {
       if (!results) return [];
       if (Array.isArray(results)) return results.map((d) => toAnchor(null, d));
@@ -437,10 +188,14 @@
       return Object.entries(entries).map(([id, d]) => toAnchor(id, d));
     }
 
+    // --- Queries --------------------------------------------------------------
+    // Look up an anchor by SHA-256 digest. The contract has a unique index on
+    // entryHash, so at most one document matches.
     async function findByHash(sdk, digest) {
       const results = await sdk.documents.query({
         dataContractId: CONTRACT_ID,
         documentTypeName: DOC_TYPE,
+        // NOTE: query value is base64, not raw bytes — see the file-top comment.
         where: [['entryHash', '==', bytesToBase64(digest)]],
         orderBy: [['entryHash', 'asc']],
         limit: 1,
@@ -448,6 +203,8 @@
       return normalize(results)[0] ?? null;
     }
 
+    // List anchors filed under a given chainId bucket. The contract has a
+    // (chainId, $createdAt) index, so orderBy must include both.
     async function listByChain(sdk, chainId) {
       const trimmed = chainId.trim();
       if (!trimmed) return [];
@@ -458,78 +215,87 @@
         orderBy: [['chainId', 'asc'], ['$createdAt', 'asc']],
         limit: 100,
       });
-      return normalize(results)
-        .sort((a, b) => (b.createdAt ?? 0) - (a.createdAt ?? 0));
+      // Re-sort newest-first for display (the index sort is asc).
+      return normalize(results).sort((a, b) => (b.createdAt ?? 0) - (a.createdAt ?? 0));
     }
 
+    // --- Connect to testnet ---------------------------------------------------
+    // testnetTrusted() uses the SDK's bundled list of trusted nodes — no config
+    // needed. connect() does the gRPC handshake + initial sync.
     let sdk;
     try {
       sdk = EvoSDK.testnetTrusted();
       await sdk.connect();
-      connDot.className = 'conn-dot connected';
-      connText.textContent = 'Connected';
+      statusEl.textContent = 'Connected to testnet';
+      statusEl.className = 'connected';
       fileInput.disabled = false;
       chainInput.disabled = false;
       chainBtn.disabled = false;
     } catch (err) {
-      connDot.className = 'conn-dot error';
-      connText.textContent = 'Connection failed';
-      renderStatus(verifyResultEl, 'err', 'Connection failed: ' + (err?.message ?? err));
+      statusEl.textContent = 'Connection failed';
+      statusEl.className = 'failed';
+      verifyResultEl.className = 'err';
+      verifyResultEl.textContent = 'Connection failed: ' + (err?.message ?? err);
       throw err;
     }
 
+    // --- Verify panel ---------------------------------------------------------
     fileInput.addEventListener('change', async () => {
       const file = fileInput.files?.[0];
       if (!file) return;
       verifyHashEl.textContent = 'Hashing…';
-      verifyResultEl.innerHTML = '';
+      verifyResultEl.className = '';
+      verifyResultEl.textContent = '';
       try {
         const digest = await hashFile(file);
-        const hex = bytesToHex(digest);
-        verifyHashEl.textContent = `SHA-256: ${hex}`;
-        renderStatus(verifyResultEl, '', 'Querying…');
+        verifyHashEl.textContent = `SHA-256: ${bytesToHex(digest)}`;
+        verifyResultEl.textContent = 'Querying…';
         const match = await findByHash(sdk, digest);
         if (match) {
-          verifyResultEl.innerHTML = '';
-          verifyResultEl.appendChild(renderAnchorCard(match, { match: true }));
+          verifyResultEl.className = 'ok';
+          verifyResultEl.textContent = 'MATCH FOUND\n\n' + JSON.stringify(match, null, 2);
         } else {
-          renderStatus(verifyResultEl, 'miss', 'No anchor found for this file.');
+          verifyResultEl.className = 'miss';
+          verifyResultEl.textContent = 'No anchor found for this file.';
         }
       } catch (err) {
-        renderStatus(verifyResultEl, 'err', 'Error: ' + (err?.message ?? err));
+        verifyResultEl.className = 'err';
+        verifyResultEl.textContent = 'Error: ' + (err?.message ?? err);
       }
     });
 
+    // --- History panel --------------------------------------------------------
     async function runChainLookup() {
       const value = chainInput.value;
+      chainResultEl.className = '';
       if (!value.trim()) {
-        renderStatus(chainResultEl, 'miss', 'Enter a chainId.');
+        chainResultEl.className = 'miss';
+        chainResultEl.textContent = 'Enter a chainId.';
         return;
       }
       chainBtn.disabled = true;
-      renderStatus(chainResultEl, '', 'Querying…');
+      chainResultEl.textContent = 'Querying…';
       try {
         const anchors = await listByChain(sdk, value);
         if (anchors.length === 0) {
-          renderStatus(chainResultEl, 'miss', `No anchors found for chainId "${value.trim()}".`);
+          chainResultEl.className = 'miss';
+          chainResultEl.textContent = `No anchors found for chainId "${value.trim()}".`;
         } else {
-          renderAnchorList(
-            chainResultEl,
-            anchors,
-            `${anchors.length} anchor(s) found (newest first)`,
-          );
+          chainResultEl.className = 'ok';
+          chainResultEl.textContent =
+            `${anchors.length} anchor(s) found (newest first)\n\n` +
+            JSON.stringify(anchors, null, 2);
         }
       } catch (err) {
-        renderStatus(chainResultEl, 'err', 'Error: ' + (err?.message ?? err));
+        chainResultEl.className = 'err';
+        chainResultEl.textContent = 'Error: ' + (err?.message ?? err);
       } finally {
         chainBtn.disabled = false;
       }
     }
 
     chainBtn.addEventListener('click', runChainLookup);
-    chainInput.addEventListener('keydown', (e) => {
-      if (e.key === 'Enter') runChainLookup();
-    });
+    chainInput.addEventListener('keydown', (e) => { if (e.key === 'Enter') runChainLookup(); });
   </script>
 </body>
 </html>
