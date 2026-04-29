@@ -1,0 +1,10 @@
+{
+  "artifact": "release-bundle",
+  "version": "2026.04.24",
+  "signed_off_by": "qa-team",
+  "notes": [
+    "candidate build accepted",
+    "checksums verified",
+    "deployment window approved"
+  ]
+}

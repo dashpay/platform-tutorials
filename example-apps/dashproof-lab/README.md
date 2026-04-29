@@ -1,0 +1,128 @@
+# DashProof Lab — Dash Platform Proof of Existence
+
+`DashProof Lab` is a React + TypeScript + Vite example app that hashes files in the browser, anchors the resulting SHA-256 digest on Dash Platform, and later verifies the same file by querying that stored hash.
+
+The app is structured as a tutorial example, not a production product. Platform operations live under [`src/dash/`](./src/dash/), UI flows live under [`src/components/`](./src/components/), and session state lives in [`src/session/`](./src/session/).
+
+## Quick start
+
+```bash
+npm install
+npm run dev
+```
+
+Other scripts:
+
+```bash
+npm run build
+npm run test              # Vitest unit/component suite
+npm run test:e2e          # Playwright end-to-end suite (boots Vite on :5173)
+npm run test:e2e:ui       # Playwright with the interactive UI runner
+npm run test:e2e:install  # one-time: install the Chromium browser binary
+npm run lint
+```
+
+## Current app behavior
+
+- Files never leave the browser.
+- SHA-256 is computed locally before any Platform call.
+- The app stores only the digest plus small metadata like `chainId`, filename, MIME type, size, and an optional note.
+- The app auto-connects in read-only mode on load.
+- `Create proof` requires login to submit, but still lets you hash a file locally first.
+- `Verify proof` works in read-only mode out of the box with the bundled default contract ID.
+- `Review proof history` supports both `My anchors` for the authenticated identity and `By chain` lookups for any `chainId`.
+- `How it works` gives developers an in-app guide to the proof model, Platform operations, and code reading order.
+- `chainId` is explained in the UI and auto-suggested from known fixtures or the selected filename, but remains fully editable.
+- Verification runs automatically after file selection when the app has both a contract ID and a connected SDK.
+- A successful verify result can jump directly into the `By chain` history view with the matching `chainId` prefilled.
+
+## Screens
+
+### Create proof
+
+- Drag in a file or click to select one.
+- Compute its SHA-256 locally and review the full grouped hash before submission.
+- Use the suggested `Group / Chain ID` or replace it with your own grouping label.
+- Add an optional note.
+- Submit an immutable proof document after login.
+
+### Verify proof
+
+- Drag in a file or click to select one.
+- The browser computes the SHA-256 hash locally, then automatically checks Dash Platform for a matching proof.
+- If a match exists, the app displays owner, `chainId`, timestamp, and stored metadata.
+- The matched `chainId` links into History so you can open that chain timeline directly.
+
+### Review proof history
+
+- `My anchors` loads documents for the authenticated identity.
+- `By chain` loads all proofs grouped under a specific `chainId`.
+
+### How it works
+
+- Explains the proof-of-existence model in developer terms.
+- Maps core app actions to `src/dash/` files and SDK methods.
+- Recommends a reading order for learning from the example app.
+
+## Contract and Settings flow
+
+- The app ships with a bundled deployed proof contract ID for testnet read-only access.
+- On a fresh machine, verify and chain-history flows work immediately unless you clear or override the stored/default contract ID.
+- The login modal becomes a Settings modal after authentication.
+- Settings can:
+  - paste and reuse an existing contract ID
+  - register a fresh proof contract on testnet
+  - switch the app to that newly registered contract immediately
+
+## Starter files
+
+The repo includes three example files under [`public/example-files/`](./public/example-files/). The app exposes them through the `Starter files` button in the page header, which opens a modal with:
+
+- downloadable fixture files
+- known SHA-256 hashes
+- suggested `chainId` values
+- short notes for demo bootstrapping
+
+These fixtures are also used in tests so the hash examples stay grounded in real repo files.
+
+## Contract schema notes
+
+- The contract schema in [`src/dash/contract.ts`](./src/dash/contract.ts) includes `"$createdAt"` in `required`, so newly anchored documents can display a Platform-created timestamp.
+- The app stores `entryHash` as a base64-encoded SHA-256 digest string in the document, then normalizes it back to bytes and hex for queries and UI display.
+- `byHash` is unique, so duplicate proofs for the same hash are rejected by design within a single deployed contract.
+
+## Platform operations at a glance
+
+Every SDK call lives in its own file under [`src/dash/`](./src/dash/).
+
+| Operation               | File                                                     | SDK method                                  |
+| ----------------------- | -------------------------------------------------------- | ------------------------------------------- |
+| Connect to testnet      | [`src/dash/client.ts`](./src/dash/client.ts)             | `EvoSDK.testnetTrusted()` + `sdk.connect()` |
+| Derive identity keys    | [`src/dash/keyManager.ts`](./src/dash/keyManager.ts)     | wallet/key derivation helpers               |
+| Register proof contract | [`src/dash/contract.ts`](./src/dash/contract.ts)         | `sdk.contracts.publish`                     |
+| Submit anchor           | [`src/dash/createAnchor.ts`](./src/dash/createAnchor.ts) | `sdk.documents.create`                      |
+| Query by hash           | [`src/dash/queries.ts`](./src/dash/queries.ts)           | `sdk.documents.query`                       |
+| Query by owner          | [`src/dash/queries.ts`](./src/dash/queries.ts)           | `sdk.documents.query`                       |
+| Query by chain          | [`src/dash/queries.ts`](./src/dash/queries.ts)           | `sdk.documents.query`                       |
+
+## Reading the codebase
+
+1. Start with [`src/dash/`](./src/dash/) for the raw Platform calls and contract schema.
+2. Then read [`src/session/SessionContext.tsx`](./src/session/SessionContext.tsx) for read-only and authenticated session state.
+3. Then move to [`src/components/HowItWorks.tsx`](./src/components/HowItWorks.tsx) for the in-app guide, followed by [`src/components/AnchorForm.tsx`](./src/components/AnchorForm.tsx), [`src/components/VerifyPanel.tsx`](./src/components/VerifyPanel.tsx), and [`src/components/HistoryPanel.tsx`](./src/components/HistoryPanel.tsx).
+4. Hashing and chain-ID helpers live under [`src/lib/`](./src/lib/).
+
+### End-to-end tests
+
+Playwright specs live under [`e2e/`](./e2e/) and exercise the real app against the bundled testnet contract. Run `npm run test:e2e:install` once on a fresh machine to install the Chromium binary. Auth-gated specs (anchor writes, `My anchors` history) require `PLATFORM_MNEMONIC` in the repo-root `.env`; the read-only specs run without it. The Playwright config auto-starts the Vite dev server on port 5173 — anchor-write specs run serially while read-only specs run in parallel.
+
+## Tech stack
+
+- React 19
+- TypeScript
+- Vite 8
+- Tailwind CSS v4
+- Vitest + Testing Library (unit / component)
+- Playwright (end-to-end)
+- `@dashevo/evo-sdk`
+- sonner

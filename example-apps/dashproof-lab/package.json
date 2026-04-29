@@ -1,7 +1,7 @@
 {
-  "name": "dashmint-lab",
-  "displayName": "DashMint Lab",
-  "description": "Mint, transfer, set prices, and trade NFT-style collectible cards on Dash Platform testnet.",
+  "name": "dashproof-lab",
+  "displayName": "DashProof Lab",
+  "description": "Prove a file existed at a Platform timestamp by hashing locally and anchoring the SHA-256 digest on Dash Platform testnet.",
   "private": true,
   "version": "0.0.0",
   "type": "module",
@@ -12,6 +12,10 @@
     "format:check": "prettier --check .",
     "lint": "eslint .",
     "test": "vitest run",
+    "test:coverage": "vitest run --coverage",
+    "test:e2e": "playwright test",
+    "test:e2e:ui": "playwright test --ui",
+    "test:e2e:install": "playwright install chromium",
     "preview": "vite preview"
   },
   "dependencies": {
@@ -24,11 +28,14 @@
   },
   "devDependencies": {
     "@eslint/js": "^9.39.4",
+    "@playwright/test": "^1.59.1",
     "@testing-library/react": "^16.3.2",
     "@types/node": "^24.12.2",
     "@types/react": "^19.2.14",
     "@types/react-dom": "^19.2.3",
     "@vitejs/plugin-react": "^6.0.1",
+    "@vitest/coverage-v8": "^4.1.5",
+    "dotenv": "^17.3.1",
     "eslint": "^9.39.4",
     "eslint-plugin-react-hooks": "^7.0.1",
     "eslint-plugin-react-refresh": "^0.5.2",

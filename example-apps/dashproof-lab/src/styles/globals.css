@@ -1,0 +1,99 @@
+@import url("https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&family=JetBrains+Mono:wght@400;500;600&display=swap");
+@import "tailwindcss";
+
+@theme {
+  --color-bg: oklch(18% 0.012 260);
+  --color-surface: oklch(22% 0.013 260);
+  --color-surface-2: oklch(26% 0.014 260);
+  --color-line: oklch(30% 0.015 260);
+  --color-line-2: oklch(36% 0.016 260);
+
+  --color-ink: oklch(96% 0.008 90);
+  --color-ink-2: oklch(82% 0.01 90);
+  --color-ink-3: oklch(62% 0.012 90);
+  --color-ink-4: oklch(48% 0.014 90);
+
+  --color-accent: #008de4;
+  --color-accent-dim: #016fbd;
+  --color-danger: oklch(68% 0.2 25);
+
+  --font-sans:
+    "Inter", system-ui, -apple-system, "Segoe UI", Roboto, sans-serif;
+  --font-mono:
+    "JetBrains Mono", ui-monospace, "Cascadia Code", "Fira Code", monospace;
+}
+
+:root,
+:root[data-theme="dark"] {
+  color-scheme: dark;
+}
+
+:root[data-theme="light"] {
+  color-scheme: light;
+
+  --color-bg: oklch(99% 0.004 260);
+  --color-surface: oklch(97% 0.006 260);
+  --color-surface-2: oklch(94% 0.008 260);
+  --color-line: oklch(89% 0.01 260);
+  --color-line-2: oklch(82% 0.012 260);
+
+  --color-ink: oklch(20% 0.02 260);
+  --color-ink-2: oklch(35% 0.018 260);
+  --color-ink-3: oklch(50% 0.015 260);
+  --color-ink-4: oklch(62% 0.012 260);
+
+  --color-danger: oklch(55% 0.22 25);
+}
+
+html,
+body,
+#root {
+  min-height: 100vh;
+  margin: 0;
+  background: var(--color-bg);
+  color: var(--color-ink);
+  font-family: var(--font-sans);
+}
+
+button,
+input,
+textarea {
+  font: inherit;
+}
+
+:focus-visible {
+  outline: 2px solid var(--color-accent-dim);
+  outline-offset: 2px;
+}
+
+@keyframes conn-pulse {
+  0%,
+  100% {
+    opacity: 1;
+  }
+  50% {
+    opacity: 0.4;
+  }
+}
+
+.conn-dot {
+  width: 8px;
+  height: 8px;
+  border-radius: 9999px;
+  background: var(--color-ink-4);
+}
+
+.conn-dot.connecting {
+  background: var(--color-accent);
+  animation: conn-pulse 1s infinite;
+}
+
+.conn-dot.connected,
+.conn-dot.authenticated,
+.conn-dot.readonly {
+  background: #22c55e;
+}
+
+.conn-dot.error {
+  background: var(--color-danger);
+}

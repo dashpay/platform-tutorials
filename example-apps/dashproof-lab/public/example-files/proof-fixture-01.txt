@@ -1,0 +1,3 @@
+DashProof Lab fixture 01
+This file is meant for proof-of-existence demos.
+Version: 1

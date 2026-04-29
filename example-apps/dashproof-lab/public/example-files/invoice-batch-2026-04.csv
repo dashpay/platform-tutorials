@@ -1,0 +1,3 @@
+invoice_id,customer,amount_usd,due_date
+INV-2026-04-001,Acme Studio,1250.00,2026-05-15
+INV-2026-04-002,Northwind Workshop,980.50,2026-05-18
