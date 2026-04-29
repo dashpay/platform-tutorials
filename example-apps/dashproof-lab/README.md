@@ -15,7 +15,10 @@ Other scripts:
 
 ```bash
 npm run build
-npm run test
+npm run test              # Vitest unit/component suite
+npm run test:e2e          # Playwright end-to-end suite (boots Vite on :5173)
+npm run test:e2e:ui       # Playwright with the interactive UI runner
+npm run test:e2e:install  # one-time: install the Chromium browser binary
 npm run lint
 ```
 
@@ -109,12 +112,17 @@ Every SDK call lives in its own file under [`src/dash/`](./src/dash/).
 3. Then move to [`src/components/HowItWorks.tsx`](./src/components/HowItWorks.tsx) for the in-app guide, followed by [`src/components/AnchorForm.tsx`](./src/components/AnchorForm.tsx), [`src/components/VerifyPanel.tsx`](./src/components/VerifyPanel.tsx), and [`src/components/HistoryPanel.tsx`](./src/components/HistoryPanel.tsx).
 4. Hashing and chain-ID helpers live under [`src/lib/`](./src/lib/).
 
+### End-to-end tests
+
+Playwright specs live under [`e2e/`](./e2e/) and exercise the real app against the bundled testnet contract. Run `npm run test:e2e:install` once on a fresh machine to install the Chromium binary. Auth-gated specs (anchor writes, `My anchors` history) require `PLATFORM_MNEMONIC` in the repo-root `.env`; the read-only specs run without it. The Playwright config auto-starts the Vite dev server on port 5173 — anchor-write specs run serially while read-only specs run in parallel.
+
 ## Tech stack
 
 - React 19
 - TypeScript
 - Vite 8
 - Tailwind CSS v4
-- Vitest + Testing Library
+- Vitest + Testing Library (unit / component)
+- Playwright (end-to-end)
 - `@dashevo/evo-sdk`
 - sonner

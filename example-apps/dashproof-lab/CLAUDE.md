@@ -14,6 +14,9 @@ Files never leave the browser. `$createdAt` from the resulting document is the p
 - `npm run build` — typecheck (`tsc -b`) then bundle
 - `npm run lint` — ESLint
 - `npm run test` — Vitest suite in [test/](test/)
+- `npm run test:e2e` — Playwright suite in [e2e/](e2e/) (auto-boots Vite on :5173)
+- `npm run test:e2e:ui` — Playwright with the interactive UI runner
+- `npm run test:e2e:install` — install the Chromium browser binary (one-time)
 - `npm run format` / `format:check` — Prettier
 - `npm run preview` — serve production build locally
 
@@ -27,6 +30,7 @@ Files never leave the browser. `$createdAt` from the resulting document is the p
 - **[src/data/exampleFiles.ts](src/data/exampleFiles.ts)** — manifest of starter fixtures under [public/example-files/](public/example-files/) with known SHA-256 values; `suggestChainId` uses these to round-trip a stable chainId for the fixtures.
 - **[src/dash/types.ts](src/dash/types.ts)** / **[src/dash/logger.ts](src/dash/logger.ts)** — shared SDK types and the `Logger` interface (`(message, level?) => void`) wired through every dash helper.
 - **[test/](test/)** — Vitest + Testing Library. Co-located by subject (e.g. `AnchorForm.test.tsx`, `SessionContext.test.tsx`, `dash.test.ts`). Default Vitest env is `node` ([vite.config.ts](vite.config.ts)); component tests opt into DOM with a `// @vitest-environment jsdom` pragma at the top of the file.
+- **[e2e/](e2e/)** — Playwright specs (`anchor`, `verify`, `history`, `theme`, `copy`) plus shared `fixtures.ts`. Driven by [playwright.config.ts](playwright.config.ts), which loads `PLATFORM_MNEMONIC` from `../../.env` (repo root, with optional `dashproof-lab/.env` override) and auto-starts `npm run dev` on port 5173. Read-only specs run in parallel; anchor-write specs are forced serial via `test.describe.configure({ mode: "serial" })` to avoid concurrent writes to the same identity. `fixtures.ts` exports a `HAS_MNEMONIC` flag so auth-gated specs `test.skip` cleanly when no mnemonic is set.
 
 ## Anchor contract
 
