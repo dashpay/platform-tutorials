@@ -8,6 +8,9 @@ test.describe("Verify panel", () => {
     await gotoVerify(page);
 
     const fixture = fixtureFile("proof-fixture-01.txt");
+    // Known SHA-256 from src/data/exampleFiles.ts (proof-fixture-01).
+    const expectedHashHex =
+      "02e4e7cd6b6c73ec895e82d5e59065f30ffbb70f03fdd7d2a575ffd0c333d414";
 
     await page.getByLabel("Select file", { exact: true }).setInputFiles({
       name: fixture.name,
@@ -15,9 +18,14 @@ test.describe("Verify panel", () => {
       buffer: fixture.buffer,
     });
 
-    // Hash populated → Copy hash enables. Cheaper than scanning the
-    // formatHashBlocks output (which inserts whitespace between groups).
+    // Hash populated → Copy hash enables. (formatHashBlocks inserts spaces
+    // and newlines between 8-char blocks, so a substring match doesn't work
+    // directly — read the container's textContent and strip whitespace.)
     await expect(page.getByRole("button", { name: "Copy hash" })).toBeEnabled();
+    const hashContainer = page.locator("div.font-mono.whitespace-pre-wrap");
+    await expect(hashContainer).toBeVisible();
+    const renderedHash = (await hashContainer.textContent()) ?? "";
+    expect(renderedHash.replace(/\s+/g, "")).toBe(expectedHashHex);
 
     // Network round-trip to testnet — generous wait. "Proof found" notice
     // confirms findAnchorByHash returned a record.

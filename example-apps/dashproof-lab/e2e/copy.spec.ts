@@ -1,3 +1,4 @@
+import { createHash } from "node:crypto";
 import { test, expect, gotoAnchor } from "./fixtures";
 
 test.describe("Copy buttons", () => {
@@ -23,7 +24,11 @@ test.describe("Copy buttons", () => {
     const clipboardValue = await page.evaluate(() =>
       navigator.clipboard.readText(),
     );
-    // SHA-256 hex is 64 chars.
-    expect(clipboardValue).toMatch(/^[0-9a-f]{64}$/);
+    // The browser hashes locally with crypto.subtle; recompute the digest in
+    // Node from the same input bytes and assert exact equality.
+    const expected = createHash("sha256")
+      .update(randomFilePayload.buffer)
+      .digest("hex");
+    expect(clipboardValue).toBe(expected);
   });
 });

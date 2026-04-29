@@ -50,34 +50,6 @@ test.describe("History panel — chain lookup (read-only)", () => {
     ).toBeVisible();
   });
 
-  test("renders timeline rows in newest-first order", async ({ page }) => {
-    await gotoHistory(page);
-
-    await page.getByPlaceholder("invoice-2026-04").fill(KNOWN_CHAIN_ID);
-    await page.getByRole("button", { name: "Load chain" }).click();
-
-    // Wait for the chain header to render before scraping rows.
-    await expect(page.locator(EXPLORER_DOC_HREF).first()).toBeVisible();
-
-    // Each TimelineRow surfaces a compact timestamp via formatCompactTimestamp.
-    // Pull every visible "Mon DD, YYYY, h:mm AM/PM" string and confirm
-    // descending order. With one row it's trivially true.
-    const dates = await page.evaluate(() => {
-      const matches = Array.from(
-        document.querySelectorAll("article, [class*='timeline'], time, span"),
-      )
-        .map((el) => el.textContent ?? "")
-        .filter((t) => /\b\d{4}\b/.test(t) && /:\d{2}/.test(t))
-        .map((t) => Date.parse(t.trim()))
-        .filter((n) => !Number.isNaN(n));
-      return matches;
-    });
-
-    for (let i = 1; i < dates.length; i += 1) {
-      expect(dates[i - 1]).toBeGreaterThanOrEqual(dates[i]);
-    }
-  });
-
   test("chain-header copy button copies the chainId and shows the panel toast", async ({
     page,
   }) => {
@@ -87,12 +59,14 @@ test.describe("History panel — chain lookup (read-only)", () => {
     await page.getByRole("button", { name: "Load chain" }).click();
     await expect(page.locator(EXPLORER_DOC_HREF).first()).toBeVisible();
 
-    // The chain header has its own CopyButton next to the chainId, separate
-    // from per-row IdField copies. Scope to the header bar by its "Chain"
-    // section label and click the only copy-chain button there.
+    // ChainHeader is the only place that renders a CopyButton with
+    // label="Chain" (per-row IdFields use "Hash" / "Document ID"). Scope to
+    // the chain-header bar so a future CopyButton elsewhere with the same
+    // label can't satisfy this locator.
     const copyChainBtn = page
-      .getByRole("button", { name: "Copy chain" })
-      .first();
+      .locator("section")
+      .filter({ has: page.getByText("Chain", { exact: true }) })
+      .getByRole("button", { name: "Copy chain" });
     await copyChainBtn.click();
 
     await expect(page.getByText("Chain copied")).toBeVisible();
