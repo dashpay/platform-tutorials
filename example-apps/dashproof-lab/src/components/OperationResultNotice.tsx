@@ -22,7 +22,11 @@ export function OperationResultNotice({
   children,
 }: OperationResultNoticeProps) {
   return (
-    <div className={`rounded-lg border px-4 py-3 ${toneClass[tone]}`}>
+    <div
+      role={tone === "error" ? "alert" : "status"}
+      aria-live="polite"
+      className={`rounded-lg border px-4 py-3 ${toneClass[tone]}`}
+    >
       <div className="text-[10px] font-semibold uppercase tracking-[0.12em]">
         {title}
       </div>

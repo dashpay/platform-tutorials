@@ -48,6 +48,10 @@ const RELATIVE_DIVISIONS: Array<{
   { amount: Number.POSITIVE_INFINITY, name: "year" },
 ];
 
+const relativeTimeFormatter = new Intl.RelativeTimeFormat(undefined, {
+  numeric: "auto",
+});
+
 export function formatRelativeTime(
   timestamp: number | null | undefined,
   fromNow: number = Date.now(),
@@ -57,8 +61,7 @@ export function formatRelativeTime(
   let value = diffSec;
   for (const div of RELATIVE_DIVISIONS) {
     if (Math.abs(value) < div.amount) {
-      const rtf = new Intl.RelativeTimeFormat(undefined, { numeric: "auto" });
-      return rtf.format(Math.round(value), div.name);
+      return relativeTimeFormatter.format(Math.round(value), div.name);
     }
     value /= div.amount;
   }

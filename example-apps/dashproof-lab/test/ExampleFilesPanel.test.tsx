@@ -26,6 +26,16 @@ afterEach(() => {
   cleanup();
 });
 
+function expectedHref(publicPath: string): string {
+  // Mirrors resolveFixtureHref in ExampleFilesPanel: BASE_URL ('/' in tests)
+  // joined to a leading-slash-stripped publicPath.
+  const base = import.meta.env.BASE_URL.endsWith("/")
+    ? import.meta.env.BASE_URL
+    : `${import.meta.env.BASE_URL}/`;
+  const trimmed = publicPath.startsWith("/") ? publicPath.slice(1) : publicPath;
+  return `${base}${trimmed}`;
+}
+
 describe("ExampleFilesPanel", () => {
   it("renders one row per fixture with filename, hash, and chain id", () => {
     const { container } = render(<ExampleFilesPanel />);
@@ -44,20 +54,28 @@ describe("ExampleFilesPanel", () => {
         within(row)
           .getByRole("link", { name: /download fixture/i })
           .getAttribute("href"),
-      ).toBe(fixture.publicPath);
+      ).toBe(expectedHref(fixture.publicPath));
     }
   });
 
-  it("exposes a download link with the fixture's public path", () => {
+  it("resolves the download href against import.meta.env.BASE_URL so sub-path deploys work", () => {
     render(<ExampleFilesPanel />);
     const fixture = EXAMPLE_FILE_FIXTURES[0];
 
     const links = screen.getAllByRole("link", { name: /download fixture/i });
     const link = links.find(
-      (anchor) => anchor.getAttribute("href") === fixture.publicPath,
+      (anchor) =>
+        anchor.getAttribute("href") === expectedHref(fixture.publicPath),
     );
     expect(link).toBeTruthy();
     expect(link?.getAttribute("download")).toBe(fixture.filename);
+
+    // The resolved href must never start with "//" (which would resolve as
+    // an absolute URL on the parent origin), and must end with the fixture
+    // filename so the browser still downloads the right asset.
+    const href = link!.getAttribute("href")!;
+    expect(href.startsWith("//")).toBe(false);
+    expect(href.endsWith(fixture.filename)).toBe(true);
   });
 
   it("copies the suggested chain id when the copy button is clicked", () => {

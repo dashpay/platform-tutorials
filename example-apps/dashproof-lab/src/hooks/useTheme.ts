@@ -58,11 +58,7 @@ export function __resetThemeStoreForTests(): void {
 }
 
 export function useTheme() {
-  const theme = useSyncExternalStore(
-    subscribe,
-    readCurrent,
-    () => "dark",
-  );
+  const theme = useSyncExternalStore(subscribe, readCurrent, () => "dark");
 
   const setTheme = useCallback((next: Theme) => {
     setThemeStore(next);

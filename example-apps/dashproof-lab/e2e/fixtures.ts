@@ -96,7 +96,7 @@ export async function gotoHistory(page: Page) {
 // sidebar IdentityCard. Caller is responsible for skipping when HAS_MNEMONIC
 // is false.
 export async function loginViaModal(page: Page) {
-  const mnemonic = process.env.PLATFORM_MNEMONIC;
+  const mnemonic = process.env.PLATFORM_MNEMONIC?.trim();
   if (!mnemonic)
     throw new Error("PLATFORM_MNEMONIC is required for loginViaModal");
 

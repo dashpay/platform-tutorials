@@ -1,10 +1,9 @@
 export async function hashFile(file: File): Promise<Uint8Array> {
-  const bytes =
+  const buffer =
     typeof file.arrayBuffer === "function"
-      ? new Uint8Array(await file.arrayBuffer())
-      : typeof file.text === "function"
-        ? new TextEncoder().encode(await file.text())
-        : new Uint8Array(await new Response(file).arrayBuffer());
+      ? await file.arrayBuffer()
+      : await new Response(file).arrayBuffer();
+  const bytes = new Uint8Array(buffer);
   const digest = await crypto.subtle.digest("SHA-256", bytes);
   return new Uint8Array(digest);
 }
@@ -37,7 +36,9 @@ export function coerceBytes(value: unknown): Uint8Array {
   if (value instanceof Uint8Array) return value;
   if (value instanceof ArrayBuffer) return new Uint8Array(value);
   if (ArrayBuffer.isView(value)) {
-    return new Uint8Array(value.buffer.slice(0));
+    return new Uint8Array(
+      value.buffer.slice(value.byteOffset, value.byteOffset + value.byteLength),
+    );
   }
   if (Array.isArray(value)) return Uint8Array.from(value as number[]);
   if (typeof value === "string") {

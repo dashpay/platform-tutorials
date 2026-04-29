@@ -205,18 +205,20 @@ describe("registerContract", () => {
     expect(localStorage.getItem("dashproof-lab.contractId")).toBe("json-id");
   });
 
-  it('returns "unknown" when publish yields no id at all', async () => {
+  it("throws and does not persist anything when publish yields no id", async () => {
     const sdk = makeSdk({
       nonce: 0n,
       publishResult: {},
     });
 
-    const id = await registerContract({
-      sdk: sdk as never,
-      keyManager: makeKeyManager() as never,
-    });
+    await expect(
+      registerContract({
+        sdk: sdk as never,
+        keyManager: makeKeyManager() as never,
+      }),
+    ).rejects.toThrow(/no ID/i);
 
-    expect(id).toBe("unknown");
+    expect(localStorage.getItem("dashproof-lab.contractId")).toBeNull();
   });
 });
 

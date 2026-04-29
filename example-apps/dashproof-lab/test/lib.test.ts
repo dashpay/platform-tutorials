@@ -63,6 +63,14 @@ describe("lib/hash", () => {
       expect(source[0]).toBe(10);
     });
 
+    it("honors byteOffset/byteLength for typed-array subviews", () => {
+      // A Uint8Array subview from offset 2, length 3 should produce only
+      // the [30, 40, 50] bytes — not the full backing buffer.
+      const buffer = Uint8Array.from([10, 20, 30, 40, 50, 60]).buffer;
+      const subview = new Int8Array(buffer, 2, 3);
+      expect(coerceBytes(subview)).toEqual(Uint8Array.from([30, 40, 50]));
+    });
+
     it("converts a plain number array", () => {
       expect(coerceBytes([1, 2, 3])).toEqual(Uint8Array.from([1, 2, 3]));
     });

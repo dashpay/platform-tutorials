@@ -1,6 +1,17 @@
 import { EXAMPLE_FILE_FIXTURES } from "../data/exampleFiles";
 import { CopyButton } from "./CopyButton";
 
+// Strip the leading "/" from publicPath and join against BASE_URL so downloads
+// resolve correctly when the app is served from a sub-path (e.g. GitHub Pages).
+function resolveFixtureHref(publicPath: string): string {
+  const base = import.meta.env.BASE_URL;
+  const trimmedBase = base.endsWith("/") ? base : `${base}/`;
+  const trimmedPath = publicPath.startsWith("/")
+    ? publicPath.slice(1)
+    : publicPath;
+  return `${trimmedBase}${trimmedPath}`;
+}
+
 export function ExampleFilesPanel() {
   return (
     <div className="space-y-3">
@@ -24,7 +35,7 @@ export function ExampleFilesPanel() {
 
             <div className="flex shrink-0 flex-wrap gap-2">
               <a
-                href={fixture.publicPath}
+                href={resolveFixtureHref(fixture.publicPath)}
                 download={fixture.filename}
                 className="inline-flex rounded-md border border-line-2 px-3 py-1.5 text-[12px] font-semibold text-ink-2 transition hover:border-accent-dim hover:text-ink"
               >

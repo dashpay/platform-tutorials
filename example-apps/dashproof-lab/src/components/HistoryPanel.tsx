@@ -163,18 +163,19 @@ export function HistoryPanel({
           : null;
 
   const groupedAnchors = useMemo(() => {
-    return anchors.reduce<Array<{ chainId: string; items: AnchorRecord[] }>>(
-      (groups, anchor) => {
-        const existing = groups.at(-1);
-        if (existing?.chainId === anchor.chainId) {
-          existing.items.push(anchor);
-          return groups;
-        }
-        groups.push({ chainId: anchor.chainId, items: [anchor] });
-        return groups;
-      },
-      [],
-    );
+    // Group by chainId regardless of input order. The "by owner" mode sorts by
+    // $createdAt, so same-chain anchors can be split across the list — a
+    // sequential reduce would emit duplicate groups in that case.
+    const byChain = new Map<string, AnchorRecord[]>();
+    for (const anchor of anchors) {
+      const existing = byChain.get(anchor.chainId);
+      if (existing) {
+        existing.push(anchor);
+      } else {
+        byChain.set(anchor.chainId, [anchor]);
+      }
+    }
+    return Array.from(byChain, ([chainId, items]) => ({ chainId, items }));
   }, [anchors]);
 
   const myStats = useMemo(() => {

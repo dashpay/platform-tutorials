@@ -144,8 +144,10 @@ export async function registerContract({
     identityKey,
     signer,
   });
-  const contractId =
-    published.id?.toString() || published.toJSON?.()?.id || "unknown";
+  const contractId = published.id?.toString() || published.toJSON?.()?.id;
+  if (!contractId) {
+    throw new Error("Contract publish returned no ID.");
+  }
 
   saveContractId(contractId);
   log?.(`Proof contract registered: ${contractId}`, "success");
