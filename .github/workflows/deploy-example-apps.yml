@@ -59,6 +59,9 @@ jobs:
   build:
     needs: discover
     runs-on: ubuntu-latest
+    # An app's test or build failure is reported in the UI but doesn't fail
+    # the job, so the deploy step can still publish whichever apps passed.
+    continue-on-error: true
     strategy:
       fail-fast: false
       matrix: ${{ fromJson(needs.discover.outputs.matrix) }}
@@ -73,6 +76,15 @@ jobs:
 
       - name: Install
         run: npm ci
+        working-directory: example-apps/${{ matrix.app }}
+
+      - name: Test
+        run: |
+          if jq -e '.scripts.test' package.json >/dev/null; then
+            npm test
+          else
+            echo "No test script for ${{ matrix.app }} — skipping"
+          fi
         working-directory: example-apps/${{ matrix.app }}
 
       - name: Build
@@ -110,25 +122,41 @@ jobs:
           path: artifacts
 
       - name: Assemble combined site
+        id: assemble
         env:
           APPS_JSON: ${{ needs.discover.outputs.apps }}
+          META_JSON: ${{ needs.discover.outputs.meta }}
         run: |
           set -euo pipefail
           mkdir -p _site
+          deployed=()
           mapfile -t apps < <(echo "$APPS_JSON" | jq -r '.[]')
           for app in "${apps[@]}"; do
             src="artifacts/site-$app"
             if [ ! -d "$src" ]; then
-              echo "Missing artifact for $app" >&2
-              exit 1
+              echo "::warning::Skipping $app — no artifact (test or build failed)"
+              continue
             fi
             mkdir -p "_site/$app"
             cp -r "$src/." "_site/$app/"
+            deployed+=("$app")
           done
+          if [ "${#deployed[@]}" -eq 0 ]; then
+            echo "No apps passed tests + build; aborting deploy." >&2
+            exit 1
+          fi
+          deployed_json=$(printf '%s\n' "${deployed[@]}" | jq -R . | jq -sc .)
+          filtered_meta=$(echo "$META_JSON" | jq -c --argjson keep "$deployed_json" \
+            '[.[] | select(.name as $n | $keep | index($n))]')
+          {
+            echo "meta<<__META_EOF__"
+            echo "$filtered_meta"
+            echo "__META_EOF__"
+          } >> "$GITHUB_OUTPUT"
 
       - name: Generate landing page
         env:
-          META_JSON: ${{ needs.discover.outputs.meta }}
+          META_JSON: ${{ steps.assemble.outputs.meta }}
         run: node .github/scripts/build-landing-page.mjs "$META_JSON" _site/index.html
 
       - uses: actions/upload-pages-artifact@fc324d3547104276b827a68afc52ff2a11cc49c9 # v5.0.0
