@@ -47,14 +47,17 @@
     input[type="text"] { width: 100%; padding: 0.4rem; box-sizing: border-box; font-family: inherit; }
     button.action { padding: 0.4rem 0.9rem; cursor: pointer; }
     button:disabled { cursor: not-allowed; opacity: 0.6; }
-    pre { background: #f5f5f5; padding: 0.75rem; border-radius: 4px; overflow-x: auto; font-size: 0.85rem; white-space: pre-wrap; word-break: break-all; }
     .hash { font-family: ui-monospace, SFMono-Regular, Menlo, monospace; font-size: 0.85rem; }
-    .ok { color: #1a7f37; }
-    .miss { color: #b54708; }
-    .err { color: #b42318; }
-    #status { font-size: 0.85rem; padding: 0.3rem 0.5rem; background: #fff3cd; border-radius: 4px; display: inline-block; margin-top: 1rem; }
-    #status.connected { background: #d1f7d6; }
-    #status.failed { background: #fde2e1; }
+    .anchor { border: 1px solid #ddd; border-radius: 6px; margin: 0.5rem 0; background: #fafafa; padding: 0.5rem 0.75rem; }
+    .anchor .title { font-weight: 500; margin-bottom: 0.4rem; padding-bottom: 0.4rem; border-bottom: 1px solid #eee; }
+    .anchor dl { margin: 0; display: grid; grid-template-columns: max-content 1fr; gap: 0.25rem 0.75rem; font-size: 0.85rem; }
+    .anchor dt { color: #666; text-transform: uppercase; font-size: 0.7rem; letter-spacing: 0.05em; padding-top: 0.15rem; }
+    .anchor dd { margin: 0; word-break: break-all; font-size: 0.85rem; }
+    .summary-line { font-size: 0.8rem; color: #666; margin: 0.5rem 0 0.25rem; }
+    .status-line { padding: 0.5rem 0.75rem; border: 1px solid #ddd; border-radius: 4px; background: #f5f5f5; font-size: 0.85rem; margin-top: 0.5rem; }
+    .status-line.miss { border-color: #f0c987; background: #fff8e1; }
+    .status-line.err { border-color: #e8a09a; background: #fdecea; color: #b42318; }
+    #status { font-size: 0.85rem; color: #666; margin-top: 1rem; }
     @media (max-width: 600px) {
       .shell { grid-template-columns: 1fr; }
       aside { border-right: none; border-bottom: 1px solid #ddd; }
@@ -80,7 +83,7 @@
         <p class="muted">Hashes the file locally with SHA-256, then looks up the digest on-chain. The file never leaves your browser.</p>
         <input type="file" id="verify-file" disabled>
         <div id="verify-hash" class="hash" style="margin-top: 0.5rem;"></div>
-        <pre id="verify-result"></pre>
+        <div id="verify-result"></div>
       </section>
 
       <section class="panel" id="panel-history">
@@ -90,7 +93,7 @@
         <div style="margin-top: 0.5rem;">
           <button class="action" id="chain-btn" disabled>Look up</button>
         </div>
-        <pre id="chain-result"></pre>
+        <div id="chain-result"></div>
       </section>
 
       <p class="muted" style="font-size: 0.8rem;">
@@ -100,6 +103,14 @@
   </div>
 
   <script type="module">
+    // ============================================================================
+    // DASH PLATFORM SDK
+    // ----------------------------------------------------------------------------
+    // Everything in this section is the SDK surface this demo touches: the import,
+    // the contract identifiers, the connection, and the two read queries. The rest
+    // of the file (encoding helpers, DOM wiring, event handlers) is plumbing.
+    // ============================================================================
+
     // Pull the Evo SDK from esm.sh — no bundler needed. esm.sh resolves the npm
     // package and serves it as a browser-native ES module. Pin a specific
     // version (e.g. '@dashevo/evo-sdk@3.1.0-dev.1') for reproducibility.
@@ -110,85 +121,15 @@
     const CONTRACT_ID = 'DTqBwBiAuRGv4NJmBLsp9ytoUCt19Rxw3ekx8na6xB9Z';
     const DOC_TYPE = 'anchor';
 
-    const $ = (id) => document.getElementById(id);
-    $('contract-id').textContent = CONTRACT_ID;
-
-    const statusEl = $('status');
-    const fileInput = $('verify-file');
-    const verifyHashEl = $('verify-hash');
-    const verifyResultEl = $('verify-result');
-    const chainInput = $('chain-id');
-    const chainBtn = $('chain-btn');
-    const chainResultEl = $('chain-result');
-
-    // Sidebar tab switching: toggle .active on the clicked nav button and the
-    // matching panel (panel id is "panel-<data-tab>").
-    document.querySelectorAll('.nav-btn').forEach((btn) => {
-      btn.addEventListener('click', () => {
-        const tab = btn.dataset.tab;
-        document.querySelectorAll('.nav-btn').forEach((b) => b.classList.toggle('active', b === btn));
-        document.querySelectorAll('.panel').forEach((p) => p.classList.toggle('active', p.id === `panel-${tab}`));
-      });
-    });
-
-    // --- Byte / encoding helpers ----------------------------------------------
-    function bytesToHex(bytes) {
-      return Array.from(bytes, (b) => b.toString(16).padStart(2, '0')).join('');
-    }
-    // Browser-native base64 encode (Uint8Array → string). atob/btoa work on
-    // "binary strings" so we hand-build one byte-by-byte.
-    function bytesToBase64(bytes) {
-      let bin = '';
-      for (const b of bytes) bin += String.fromCharCode(b);
-      return btoa(bin);
-    }
-    function base64ToBytes(s) {
-      const bin = atob(s);
-      return Uint8Array.from(bin, (c) => c.charCodeAt(0));
-    }
-    // SHA-256 via WebCrypto. Runs entirely in the browser; the file never
-    // leaves the page.
-    async function hashFile(file) {
-      const buf = await file.arrayBuffer();
-      return new Uint8Array(await crypto.subtle.digest('SHA-256', buf));
+    // Connect to testnet. testnetTrusted() uses the SDK's bundled list of trusted
+    // nodes — no node URL or config needed. connect() does the gRPC handshake
+    // + initial sync. No identity or signing is required for read-only queries.
+    async function connectSdk() {
+      const sdk = EvoSDK.testnetTrusted();
+      await sdk.connect();
+      return sdk;
     }
 
-    // --- Document normalization -----------------------------------------------
-    // sdk.documents.query() can return an array, a Map, or a plain object
-    // depending on SDK version. Flatten all three shapes to AnchorRecord[].
-    function toAnchor(id, doc) {
-      // Some result shapes wrap the document; .toJSON() unwraps it. Fallback to
-      // treating `doc` itself as the data when toJSON isn't present.
-      const data = (doc && typeof doc.toJSON === 'function') ? doc.toJSON() : doc;
-      const createdAt = data.$createdAt != null ? Number(data.$createdAt) : null;
-      // entryHash is stored as base64 — decode for hex display in the UI.
-      let entryHashHex = null;
-      try {
-        if (typeof data.entryHash === 'string') {
-          entryHashHex = bytesToHex(base64ToBytes(data.entryHash));
-        }
-      } catch { /* leave null on bad input */ }
-      return {
-        id: id ?? data.$id ?? null,
-        ownerId: data.$ownerId ?? null,
-        createdAt,
-        createdAtIso: createdAt ? new Date(createdAt).toISOString() : null,
-        entryHashHex,
-        chainId: data.chainId ?? null,
-        filename: data.filename ?? null,
-        mimeType: data.mimeType ?? null,
-        size: data.size != null ? Number(data.size) : null,
-        note: data.note ?? null,
-      };
-    }
-    function normalize(results) {
-      if (!results) return [];
-      if (Array.isArray(results)) return results.map((d) => toAnchor(null, d));
-      const entries = results instanceof Map ? Object.fromEntries(results) : results;
-      return Object.entries(entries).map(([id, d]) => toAnchor(id, d));
-    }
-
-    // --- Queries --------------------------------------------------------------
     // Look up an anchor by SHA-256 digest. The contract has a unique index on
     // entryHash, so at most one document matches.
     async function findByHash(sdk, digest) {
@@ -219,76 +160,178 @@
       return normalize(results).sort((a, b) => (b.createdAt ?? 0) - (a.createdAt ?? 0));
     }
 
-    // --- Connect to testnet ---------------------------------------------------
-    // testnetTrusted() uses the SDK's bundled list of trusted nodes — no config
-    // needed. connect() does the gRPC handshake + initial sync.
+    // sdk.documents.query() can return an array, a Map, or a plain object
+    // depending on SDK version. Flatten all three shapes to AnchorRecord[].
+    function normalize(results) {
+      if (!results) return [];
+      if (Array.isArray(results)) return results.map((d) => toAnchor(null, d));
+      const entries = results instanceof Map ? Object.fromEntries(results) : results;
+      return Object.entries(entries).map(([id, d]) => toAnchor(id, d));
+    }
+
+    // Map a raw document into a shape the UI can render.
+    function toAnchor(id, doc) {
+      // Some result shapes wrap the document; .toJSON() unwraps it. Fallback to
+      // treating `doc` itself as the data when toJSON isn't present.
+      const data = (doc && typeof doc.toJSON === 'function') ? doc.toJSON() : doc;
+      const createdAt = data.$createdAt != null ? Number(data.$createdAt) : null;
+      // entryHash is stored as base64 — decode for hex display in the UI.
+      const entryHashHex = bytesToHex(base64ToBytes(data.entryHash));
+      return {
+        id: id ?? data.$id ?? null,
+        ownerId: data.$ownerId ?? null,
+        createdAt,
+        createdAtIso: createdAt ? new Date(createdAt).toISOString() : null,
+        entryHashHex,
+        chainId: data.chainId ?? null,
+        filename: data.filename ?? null,
+        mimeType: data.mimeType ?? null,
+        size: data.size != null ? Number(data.size) : null,
+        note: data.note ?? null,
+      };
+    }
+
+    // ============================================================================
+    // ENCODING HELPERS (browser-native — no SDK involvement)
+    // ============================================================================
+
+    function bytesToHex(bytes) {
+      return Array.from(bytes, (b) => b.toString(16).padStart(2, '0')).join('');
+    }
+    // atob/btoa work on "binary strings" so we hand-build one byte-by-byte.
+    function bytesToBase64(bytes) {
+      let bin = '';
+      for (const b of bytes) bin += String.fromCharCode(b);
+      return btoa(bin);
+    }
+    function base64ToBytes(s) {
+      const bin = atob(s);
+      return Uint8Array.from(bin, (c) => c.charCodeAt(0));
+    }
+    // SHA-256 via WebCrypto. Runs entirely in the browser; the file never
+    // leaves the page.
+    async function hashFile(file) {
+      const buf = await file.arrayBuffer();
+      return new Uint8Array(await crypto.subtle.digest('SHA-256', buf));
+    }
+
+    // ============================================================================
+    // UI: DOM refs, sidebar tabs, event handlers
+    // ============================================================================
+
+    const $ = (id) => document.getElementById(id);
+    $('contract-id').textContent = CONTRACT_ID;
+
+    const statusEl = $('status');
+    const fileInput = $('verify-file');
+    const verifyHashEl = $('verify-hash');
+    const verifyResultEl = $('verify-result');
+    const chainInput = $('chain-id');
+    const chainBtn = $('chain-btn');
+    const chainResultEl = $('chain-result');
+
+    // Render helpers: build a status banner, a count line, or a card per anchor.
+    function makeDiv(className, text) {
+      const div = document.createElement('div');
+      div.className = className;
+      if (text != null) div.textContent = text;
+      return div;
+    }
+    const statusLine = (text, kind) => makeDiv('status-line' + (kind ? ' ' + kind : ''), text);
+    const summaryLine = (text) => makeDiv('summary-line', text);
+
+    function anchorCard(a) {
+      const card = makeDiv('anchor');
+      const title = a.filename || a.chainId || '(unnamed)';
+      const date = a.createdAtIso ? a.createdAtIso.slice(0, 19).replace('T', ' ') + 'Z' : '';
+      card.appendChild(makeDiv('title', [title, date].filter(Boolean).join('  ·  ')));
+      const dl = document.createElement('dl');
+      const rows = [
+        ['Chain', a.chainId],
+        ['Document ID', a.id],
+        ['Owner', a.ownerId],
+        ['SHA-256', a.entryHashHex],
+        ['Created', a.createdAtIso],
+        ['Type', a.mimeType],
+        ['Size', a.size != null ? `${a.size.toLocaleString()} bytes` : null],
+        ['Note', a.note],
+      ];
+      for (const [k, v] of rows) {
+        if (v == null || v === '') continue;
+        const dt = document.createElement('dt'); dt.textContent = k;
+        const dd = document.createElement('dd'); dd.textContent = v;
+        dl.append(dt, dd);
+      }
+      card.appendChild(dl);
+      return card;
+    }
+
+    // Sidebar tab switching: toggle .active on the clicked nav button and the
+    // matching panel (panel id is "panel-<data-tab>").
+    document.querySelectorAll('.nav-btn').forEach((btn) => {
+      btn.addEventListener('click', () => {
+        const tab = btn.dataset.tab;
+        document.querySelectorAll('.nav-btn').forEach((b) => b.classList.toggle('active', b === btn));
+        document.querySelectorAll('.panel').forEach((p) => p.classList.toggle('active', p.id === `panel-${tab}`));
+      });
+    });
+
+    // Connect on page load, then enable the inputs.
     let sdk;
     try {
-      sdk = EvoSDK.testnetTrusted();
-      await sdk.connect();
+      sdk = await connectSdk();
       statusEl.textContent = 'Connected to testnet';
-      statusEl.className = 'connected';
       fileInput.disabled = false;
       chainInput.disabled = false;
       chainBtn.disabled = false;
     } catch (err) {
       statusEl.textContent = 'Connection failed';
-      statusEl.className = 'failed';
-      verifyResultEl.className = 'err';
-      verifyResultEl.textContent = 'Connection failed: ' + (err?.message ?? err);
+      verifyResultEl.replaceChildren(statusLine('Connection failed: ' + (err?.message ?? err), 'err'));
       throw err;
     }
 
-    // --- Verify panel ---------------------------------------------------------
+    // Verify panel: hash the dropped file, then findByHash().
     fileInput.addEventListener('change', async () => {
       const file = fileInput.files?.[0];
       if (!file) return;
       verifyHashEl.textContent = 'Hashing…';
-      verifyResultEl.className = '';
-      verifyResultEl.textContent = '';
+      verifyResultEl.replaceChildren();
       try {
         const digest = await hashFile(file);
         verifyHashEl.textContent = `SHA-256: ${bytesToHex(digest)}`;
-        verifyResultEl.textContent = 'Querying…';
+        verifyResultEl.replaceChildren(statusLine('Querying…'));
         const match = await findByHash(sdk, digest);
         if (match) {
-          verifyResultEl.className = 'ok';
-          verifyResultEl.textContent = 'MATCH FOUND\n\n' + JSON.stringify(match, null, 2);
+          verifyResultEl.replaceChildren(anchorCard(match));
         } else {
-          verifyResultEl.className = 'miss';
-          verifyResultEl.textContent = 'No anchor found for this file.';
+          verifyResultEl.replaceChildren(statusLine('No anchor found for this file.', 'miss'));
         }
       } catch (err) {
-        verifyResultEl.className = 'err';
-        verifyResultEl.textContent = 'Error: ' + (err?.message ?? err);
+        verifyResultEl.replaceChildren(statusLine('Error: ' + (err?.message ?? err), 'err'));
       }
     });
 
-    // --- History panel --------------------------------------------------------
+    // History panel: query by chainId via listByChain().
     async function runChainLookup() {
       const value = chainInput.value;
-      chainResultEl.className = '';
       if (!value.trim()) {
-        chainResultEl.className = 'miss';
-        chainResultEl.textContent = 'Enter a chainId.';
+        chainResultEl.replaceChildren(statusLine('Enter a chainId.', 'miss'));
         return;
       }
       chainBtn.disabled = true;
-      chainResultEl.textContent = 'Querying…';
+      chainResultEl.replaceChildren(statusLine('Querying…'));
       try {
         const anchors = await listByChain(sdk, value);
         if (anchors.length === 0) {
-          chainResultEl.className = 'miss';
-          chainResultEl.textContent = `No anchors found for chainId "${value.trim()}".`;
+          chainResultEl.replaceChildren(statusLine(`No anchors found for chainId "${value.trim()}".`, 'miss'));
         } else {
-          chainResultEl.className = 'ok';
-          chainResultEl.textContent =
-            `${anchors.length} anchor(s) found (newest first)\n\n` +
-            JSON.stringify(anchors, null, 2);
+          chainResultEl.replaceChildren(
+            summaryLine(`${anchors.length} anchor(s) found (newest first)`),
+            ...anchors.map(anchorCard),
+          );
         }
       } catch (err) {
-        chainResultEl.className = 'err';
-        chainResultEl.textContent = 'Error: ' + (err?.message ?? err);
+        chainResultEl.replaceChildren(statusLine('Error: ' + (err?.message ?? err), 'err'));
       } finally {
         chainBtn.disabled = false;
       }
