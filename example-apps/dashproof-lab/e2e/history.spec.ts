@@ -31,7 +31,9 @@ test.describe("History panel — chain lookup (read-only)", () => {
     await expect(page.locator(EXPLORER_DOC_HREF).first()).toBeVisible();
   });
 
-  test('"My anchors" tab is disabled when not authenticated', async ({ page }) => {
+  test('"My anchors" tab is disabled when not authenticated', async ({
+    page,
+  }) => {
     await gotoHistory(page);
     await expect(page.getByRole("tab", { name: /My anchors/ })).toBeDisabled();
   });
@@ -141,7 +143,6 @@ test.describe("History panel — authed (requires PLATFORM_MNEMONIC)", () => {
     // Wait for owner query to resolve before assertions.
     // (listAnchorsByOwner is fired in an effect after the panel mounts.)
 
-
     const myTab = page.getByRole("tab", { name: /My anchors/ });
     await expect(myTab).toBeEnabled();
     await expect(myTab).toHaveAttribute("aria-selected", "true");
@@ -160,7 +161,6 @@ test.describe("History panel — authed (requires PLATFORM_MNEMONIC)", () => {
     // Wait for owner query to resolve before assertions.
     // (listAnchorsByOwner is fired in an effect after the panel mounts.)
 
-
     await expect(page.locator(EXPLORER_DOC_HREF).first()).toBeVisible();
   });
 
@@ -170,7 +170,6 @@ test.describe("History panel — authed (requires PLATFORM_MNEMONIC)", () => {
     await clickNav(page, "History");
     // Wait for owner query to resolve before assertions.
     // (listAnchorsByOwner is fired in an effect after the panel mounts.)
-
 
     // "By chain" tab is the second tab in the segmented control.
     await page.getByRole("tab", { name: "By chain" }).click();

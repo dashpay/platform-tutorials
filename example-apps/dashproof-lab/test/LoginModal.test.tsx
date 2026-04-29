@@ -65,9 +65,7 @@ afterEach(() => {
 describe("LoginModal", () => {
   it("renders nothing when closed", () => {
     mockUseSession.mockReturnValue(makeSession());
-    const { container } = render(
-      <LoginModal open={false} onClose={vi.fn()} />,
-    );
+    const { container } = render(<LoginModal open={false} onClose={vi.fn()} />);
     expect(container.firstChild).toBeNull();
   });
 

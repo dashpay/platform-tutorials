@@ -243,7 +243,9 @@ export function HistoryPanel({
                   chain{myStats.chains === 1 ? "" : "s"}
                 </span>
               }
-              right={<span className="text-[12px] text-ink-4">Newest first</span>}
+              right={
+                <span className="text-[12px] text-ink-4">Newest first</span>
+              }
             />
           ) : effectiveMode === "chain" ? (
             <SectionSummary
@@ -255,40 +257,42 @@ export function HistoryPanel({
                   proof{anchors.length === 1 ? "" : "s"} in this chain
                 </span>
               }
-              right={<span className="text-[12px] text-ink-4">Latest at top</span>}
+              right={
+                <span className="text-[12px] text-ink-4">Latest at top</span>
+              }
             />
           ) : null}
 
           <div className="flex flex-col gap-3.5">
-            {effectiveMode === "my"
-              ? groupedAnchors.map((group) =>
-                  group.items.length === 1 ? (
-                    <AnchorCard
-                      key={group.items[0].id}
-                      anchor={group.items[0]}
-                      onChainClick={openChainHistory}
-                      onCopied={showToast}
-                    />
-                  ) : (
-                    <ChainBlock
-                      key={group.chainId}
-                      chainId={group.chainId}
-                      items={group.items}
-                      onCopied={showToast}
-                      onChainClick={openChainHistory}
-                    />
-                  ),
-                )
-              : (
-                <ChainBlock
-                  chainId={activeChainId}
-                  items={[...anchors].sort(
-                    (a, b) => (b.createdAt ?? 0) - (a.createdAt ?? 0),
-                  )}
-                  onCopied={showToast}
-                  onChainClick={openChainHistory}
-                />
-              )}
+            {effectiveMode === "my" ? (
+              groupedAnchors.map((group) =>
+                group.items.length === 1 ? (
+                  <AnchorCard
+                    key={group.items[0].id}
+                    anchor={group.items[0]}
+                    onChainClick={openChainHistory}
+                    onCopied={showToast}
+                  />
+                ) : (
+                  <ChainBlock
+                    key={group.chainId}
+                    chainId={group.chainId}
+                    items={group.items}
+                    onCopied={showToast}
+                    onChainClick={openChainHistory}
+                  />
+                ),
+              )
+            ) : (
+              <ChainBlock
+                chainId={activeChainId}
+                items={[...anchors].sort(
+                  (a, b) => (b.createdAt ?? 0) - (a.createdAt ?? 0),
+                )}
+                onCopied={showToast}
+                onChainClick={openChainHistory}
+              />
+            )}
           </div>
         </div>
       )}
@@ -537,9 +541,7 @@ function FactsRow({
         Owner
       </span>
 
-      <FactsValue>
-        {formatBytes(anchor.size)}
-      </FactsValue>
+      <FactsValue>{formatBytes(anchor.size)}</FactsValue>
       <button
         type="button"
         onClick={() => onChainClick(anchor.chainId)}
@@ -568,7 +570,11 @@ function IdRow({
 }) {
   return (
     <div className="mt-3.5 grid gap-2 sm:grid-cols-2">
-      <IdField label="Hash (SHA-256)" value={anchor.entryHashHex} onCopied={onCopied} />
+      <IdField
+        label="Hash (SHA-256)"
+        value={anchor.entryHashHex}
+        onCopied={onCopied}
+      />
       <IdField
         label="Document ID"
         value={anchor.id}
@@ -617,7 +623,10 @@ function ChainBlock({
       <ChainHeader chainId={chainId} items={items} onCopied={onCopied} />
       <div>
         {sorted.map((anchor, i) => (
-          <div key={anchor.id} className={i === 0 ? "" : "border-t border-line"}>
+          <div
+            key={anchor.id}
+            className={i === 0 ? "" : "border-t border-line"}
+          >
             <TimelineRow
               anchor={anchor}
               isFirst={i === 0}

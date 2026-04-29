@@ -6,10 +6,7 @@ interface ExampleFilesModalProps {
   onClose: () => void;
 }
 
-export function ExampleFilesModal({
-  open,
-  onClose,
-}: ExampleFilesModalProps) {
+export function ExampleFilesModal({ open, onClose }: ExampleFilesModalProps) {
   return (
     <Modal
       open={open}

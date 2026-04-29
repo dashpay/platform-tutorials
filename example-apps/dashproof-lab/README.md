@@ -92,15 +92,15 @@ These fixtures are also used in tests so the hash examples stay grounded in real
 
 Every SDK call lives in its own file under [`src/dash/`](./src/dash/).
 
-| Operation | File | SDK method |
-| --- | --- | --- |
-| Connect to testnet | [`src/dash/client.ts`](./src/dash/client.ts) | `EvoSDK.testnetTrusted()` + `sdk.connect()` |
-| Derive identity keys | [`src/dash/keyManager.ts`](./src/dash/keyManager.ts) | wallet/key derivation helpers |
-| Register proof contract | [`src/dash/contract.ts`](./src/dash/contract.ts) | `sdk.contracts.publish` |
-| Submit anchor | [`src/dash/createAnchor.ts`](./src/dash/createAnchor.ts) | `sdk.documents.create` |
-| Query by hash | [`src/dash/queries.ts`](./src/dash/queries.ts) | `sdk.documents.query` |
-| Query by owner | [`src/dash/queries.ts`](./src/dash/queries.ts) | `sdk.documents.query` |
-| Query by chain | [`src/dash/queries.ts`](./src/dash/queries.ts) | `sdk.documents.query` |
+| Operation               | File                                                     | SDK method                                  |
+| ----------------------- | -------------------------------------------------------- | ------------------------------------------- |
+| Connect to testnet      | [`src/dash/client.ts`](./src/dash/client.ts)             | `EvoSDK.testnetTrusted()` + `sdk.connect()` |
+| Derive identity keys    | [`src/dash/keyManager.ts`](./src/dash/keyManager.ts)     | wallet/key derivation helpers               |
+| Register proof contract | [`src/dash/contract.ts`](./src/dash/contract.ts)         | `sdk.contracts.publish`                     |
+| Submit anchor           | [`src/dash/createAnchor.ts`](./src/dash/createAnchor.ts) | `sdk.documents.create`                      |
+| Query by hash           | [`src/dash/queries.ts`](./src/dash/queries.ts)           | `sdk.documents.query`                       |
+| Query by owner          | [`src/dash/queries.ts`](./src/dash/queries.ts)           | `sdk.documents.query`                       |
+| Query by chain          | [`src/dash/queries.ts`](./src/dash/queries.ts)           | `sdk.documents.query`                       |
 
 ## Reading the codebase
 

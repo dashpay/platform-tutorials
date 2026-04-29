@@ -82,16 +82,17 @@ describe("AnchorForm", () => {
     expect(screen.getByText(/drop file or click to select/i)).toBeTruthy();
     expect(screen.getByText(EXAMPLE_FILE_FIXTURES[0].filename)).toBeTruthy();
     expect(screen.getByText("5 B")).toBeTruthy();
-    expect(
-      (screen.getByLabelText(/chain id/i) as HTMLInputElement).value,
-    ).toBe(EXAMPLE_FILE_FIXTURES[0].chainId);
+    expect((screen.getByLabelText(/chain id/i) as HTMLInputElement).value).toBe(
+      EXAMPLE_FILE_FIXTURES[0].chainId,
+    );
     expect(
       screen.getByText(/group related proofs \(e\.g\. invoice-2026-04\)/i),
     ).toBeTruthy();
     expect(
       screen.getByText(
         (_, node) =>
-          node?.textContent === formatHashBlocks(EXAMPLE_FILE_FIXTURES[0].sha256Hex),
+          node?.textContent ===
+          formatHashBlocks(EXAMPLE_FILE_FIXTURES[0].sha256Hex),
       ),
     ).toBeTruthy();
     expect(screen.getByRole("button", { name: /copy hash/i })).toBeTruthy();
@@ -173,9 +174,9 @@ describe("AnchorForm", () => {
     });
 
     await waitFor(() => {
-      expect((screen.getByLabelText(/chain id/i) as HTMLInputElement).value).toBe(
-        "quarterly-audit-report",
-      );
+      expect(
+        (screen.getByLabelText(/chain id/i) as HTMLInputElement).value,
+      ).toBe("quarterly-audit-report");
     });
 
     fireEvent.change(screen.getByLabelText(/chain id/i), {
@@ -193,9 +194,9 @@ describe("AnchorForm", () => {
     });
 
     await waitFor(() => {
-      expect((screen.getByLabelText(/chain id/i) as HTMLInputElement).value).toBe(
-        "custom-chain",
-      );
+      expect(
+        (screen.getByLabelText(/chain id/i) as HTMLInputElement).value,
+      ).toBe("custom-chain");
     });
 
     fireEvent.change(screen.getByLabelText(/chain id/i), {
@@ -213,9 +214,9 @@ describe("AnchorForm", () => {
     });
 
     await waitFor(() => {
-      expect((screen.getByLabelText(/chain id/i) as HTMLInputElement).value).toBe(
-        "release-notes-2026",
-      );
+      expect(
+        (screen.getByLabelText(/chain id/i) as HTMLInputElement).value,
+      ).toBe("release-notes-2026");
     });
   });
 
@@ -231,7 +232,9 @@ describe("AnchorForm", () => {
       />,
     );
 
-    const file = new File(["dropped"], "drop-proof.txt", { type: "text/plain" });
+    const file = new File(["dropped"], "drop-proof.txt", {
+      type: "text/plain",
+    });
     fireEvent.drop(screen.getByRole("button", { name: /file dropzone/i }), {
       dataTransfer: { files: [file] },
     });

@@ -3,11 +3,7 @@
 import { act, renderHook } from "@testing-library/react";
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 
-import {
-  applyTheme,
-  getInitialTheme,
-  useTheme,
-} from "../src/hooks/useTheme";
+import { applyTheme, getInitialTheme, useTheme } from "../src/hooks/useTheme";
 
 const STORAGE_KEY = "dashproof-lab.theme";
 

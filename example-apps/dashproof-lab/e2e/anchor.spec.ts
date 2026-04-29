@@ -18,9 +18,7 @@ test.describe("Anchor flow (requires PLATFORM_MNEMONIC)", () => {
     await gotoAnchor(page);
 
     // Open login modal via the in-form CTA when not authenticated.
-    await page
-      .getByRole("button", { name: "Login to create proof" })
-      .click();
+    await page.getByRole("button", { name: "Login to create proof" }).click();
 
     const mnemonicInput = page.getByPlaceholder("mnemonic phrase");
     await expect(mnemonicInput).toBeVisible();

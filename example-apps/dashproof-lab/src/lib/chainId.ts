@@ -32,8 +32,7 @@ export function suggestChainId({
     EXAMPLE_FILE_FIXTURES.find(
       (item) =>
         normalizedHash && item.sha256Hex.toLowerCase() === normalizedHash,
-    ) ??
-    EXAMPLE_FILE_FIXTURES.find((item) => item.filename === filename);
+    ) ?? EXAMPLE_FILE_FIXTURES.find((item) => item.filename === filename);
 
   if (fixture) return fixture.chainId;
 

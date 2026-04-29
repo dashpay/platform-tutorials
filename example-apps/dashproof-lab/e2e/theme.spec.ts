@@ -13,15 +13,15 @@ test.describe("Theme toggle", () => {
     const expectedNext = initial === "dark" ? "light" : "dark";
 
     // Click the first matching toggle (sidebar on desktop, header on mobile).
-    const toggle = page.getByRole("button", {
-      name: /Switch to (light|dark) theme/,
-    }).first();
+    const toggle = page
+      .getByRole("button", {
+        name: /Switch to (light|dark) theme/,
+      })
+      .first();
     await toggle.click();
 
     await expect
-      .poll(() =>
-        page.evaluate(() => document.documentElement.dataset.theme),
-      )
+      .poll(() => page.evaluate(() => document.documentElement.dataset.theme))
       .toBe(expectedNext);
 
     // Persisted to localStorage under the same key the hook uses.

@@ -15,13 +15,11 @@ import { useSession } from "./session/useSession";
 const screenCopy: Record<TopTab, { title: string; subtitle: string }> = {
   anchor: {
     title: "Create a proof for a local file",
-    subtitle:
-      "We compute a SHA-256 hash and anchor it on Dash Platform.",
+    subtitle: "We compute a SHA-256 hash and anchor it on Dash Platform.",
   },
   verify: {
     title: "Verify proof",
-    subtitle:
-      "Verify the selected file against proofs on Dash Platform.",
+    subtitle: "Verify the selected file against proofs on Dash Platform.",
   },
   history: {
     title: "Review proof history",

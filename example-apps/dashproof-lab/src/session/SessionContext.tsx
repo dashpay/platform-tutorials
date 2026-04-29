@@ -96,7 +96,10 @@ export function SessionProvider({ children }: { children: ReactNode }) {
         setKeyManager(manager);
         setIdentityId(manager.identityId ?? null);
         setStatus("authenticated");
-        log(`Identity resolved: ${manager.identityId ?? "(unknown)"}`, "success");
+        log(
+          `Identity resolved: ${manager.identityId ?? "(unknown)"}`,
+          "success",
+        );
       } catch (err) {
         const message = errorMessage(err);
         setError(message);

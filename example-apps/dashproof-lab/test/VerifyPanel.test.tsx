@@ -82,7 +82,9 @@ describe("VerifyPanel", () => {
     fireEvent.change(screen.getByLabelText(/select file/i), {
       target: { files: [file] },
     });
-    await screen.findByText("Dash Platform has a matching proof for this file.");
+    await screen.findByText(
+      "Dash Platform has a matching proof for this file.",
+    );
     await waitFor(() => {
       expect(mockFindAnchorByHash).toHaveBeenCalledWith(
         expect.objectContaining({
@@ -98,9 +100,15 @@ describe("VerifyPanel", () => {
     expect(matchingAnchor).toBeTruthy();
     const resultPanel = matchingAnchor?.parentElement;
     expect(resultPanel).toBeTruthy();
-    expect(within(resultPanel as HTMLElement).getByText("chain-a")).toBeTruthy();
-    expect(within(resultPanel as HTMLElement).getByText("proof.txt")).toBeTruthy();
-    expect(within(resultPanel as HTMLElement).getByText("anchored")).toBeTruthy();
+    expect(
+      within(resultPanel as HTMLElement).getByText("chain-a"),
+    ).toBeTruthy();
+    expect(
+      within(resultPanel as HTMLElement).getByText("proof.txt"),
+    ).toBeTruthy();
+    expect(
+      within(resultPanel as HTMLElement).getByText("anchored"),
+    ).toBeTruthy();
     fireEvent.click(
       within(resultPanel as HTMLElement).getByRole("button", {
         name: /view chain history/i,
@@ -134,18 +142,24 @@ describe("VerifyPanel", () => {
     render(<VerifyPanel contractId="contract-1" />);
 
     fireEvent.change(screen.getByLabelText(/select file/i), {
-      target: { files: [new File(["proof"], "proof-a.txt", { type: "text/plain" })] },
+      target: {
+        files: [new File(["proof"], "proof-a.txt", { type: "text/plain" })],
+      },
     });
     await screen.findByText(
       "Dash Platform does not have a matching proof for this file hash.",
     );
 
     fireEvent.change(screen.getByLabelText(/select file/i), {
-      target: { files: [new File(["proof"], "proof-b.txt", { type: "text/plain" })] },
+      target: {
+        files: [new File(["proof"], "proof-b.txt", { type: "text/plain" })],
+      },
     });
 
     expect(
-      screen.queryByText("Dash Platform does not have a matching proof for this file hash."),
+      screen.queryByText(
+        "Dash Platform does not have a matching proof for this file hash.",
+      ),
     ).toBeNull();
     expect(screen.getAllByText("Computing hash…").length).toBeGreaterThan(0);
   });

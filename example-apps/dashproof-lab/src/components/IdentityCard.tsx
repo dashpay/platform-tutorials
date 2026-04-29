@@ -86,7 +86,9 @@ export function IdentityCard({
                 {identityId ? truncateId(identityId, 6) : "Identity"}
               </div>
               <div className="truncate font-mono text-[10px] text-ink-4">
-                {contractId ? `contract ${truncateId(contractId, 6)}` : "No contract"}
+                {contractId
+                  ? `contract ${truncateId(contractId, 6)}`
+                  : "No contract"}
               </div>
             </div>
           </div>

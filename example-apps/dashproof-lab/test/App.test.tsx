@@ -31,7 +31,9 @@ vi.mock("../src/components/AppShell", () => ({
   }: {
     children: React.ReactNode;
     onLoginOpen: () => void;
-    onTabChange: (tab: "anchor" | "verify" | "history" | "how-it-works") => void;
+    onTabChange: (
+      tab: "anchor" | "verify" | "history" | "how-it-works",
+    ) => void;
   }) => (
     <div>
       <button type="button" onClick={onLoginOpen}>
@@ -63,7 +65,10 @@ vi.mock("../src/components/VerifyPanel", () => ({
   }) => (
     <div>
       Verify Panel
-      <button type="button" onClick={() => onViewChainHistory?.("chain-from-verify")}>
+      <button
+        type="button"
+        onClick={() => onViewChainHistory?.("chain-from-verify")}
+      >
         Open Chain History
       </button>
     </div>

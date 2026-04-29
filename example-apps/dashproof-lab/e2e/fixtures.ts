@@ -10,14 +10,19 @@ export { expect };
 
 export interface DashproofFixtures {
   randomFilePayload: { name: string; mimeType: string; buffer: Buffer };
-  fixtureFile: (filename: string) => { name: string; mimeType: string; buffer: Buffer };
+  fixtureFile: (filename: string) => {
+    name: string;
+    mimeType: string;
+    buffer: Buffer;
+  };
 }
 
 export const test = base.extend<DashproofFixtures>({
   randomFilePayload: async ({ browserName }, provide) => {
     void browserName;
     const bytes = Buffer.alloc(1024);
-    for (let i = 0; i < bytes.length; i += 1) bytes[i] = Math.floor(Math.random() * 256);
+    for (let i = 0; i < bytes.length; i += 1)
+      bytes[i] = Math.floor(Math.random() * 256);
     const stamp = Date.now().toString(36);
     const rand = Math.random().toString(36).slice(2, 8);
     await provide({
@@ -32,12 +37,11 @@ export const test = base.extend<DashproofFixtures>({
       const path = resolve(__dirname, "../public/example-files", filename);
       return {
         name: filename,
-        mimeType:
-          filename.endsWith(".csv")
-            ? "text/csv"
-            : filename.endsWith(".json")
-              ? "application/json"
-              : "text/plain",
+        mimeType: filename.endsWith(".csv")
+          ? "text/csv"
+          : filename.endsWith(".json")
+            ? "application/json"
+            : "text/plain",
         buffer: readFileSync(path),
       };
     });
@@ -62,7 +66,10 @@ const navLink = (page: Page, label: string) =>
 
 // Click a sidebar nav link without navigating away from the current page.
 // Use this after loginViaModal so the auth state isn't wiped by a reload.
-export async function clickNav(page: Page, label: "Create proof" | "Verify proof" | "History") {
+export async function clickNav(
+  page: Page,
+  label: "Create proof" | "Verify proof" | "History",
+) {
   await navLink(page, label).click();
 }
 
@@ -90,7 +97,8 @@ export async function gotoHistory(page: Page) {
 // is false.
 export async function loginViaModal(page: Page) {
   const mnemonic = process.env.PLATFORM_MNEMONIC;
-  if (!mnemonic) throw new Error("PLATFORM_MNEMONIC is required for loginViaModal");
+  if (!mnemonic)
+    throw new Error("PLATFORM_MNEMONIC is required for loginViaModal");
 
   // Wait for the SDK to connect before clicking Login. Once connected,
   // IdentityCard stops rendering its own "Login" button, leaving only the

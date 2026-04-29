@@ -90,7 +90,9 @@ describe("lib/hash", () => {
     it("throws for unsupported values", () => {
       expect(() => coerceBytes(undefined)).toThrow(/Unsupported byte-array/);
       expect(() => coerceBytes(null)).toThrow(/Unsupported byte-array/);
-      expect(() => coerceBytes(42 as unknown)).toThrow(/Unsupported byte-array/);
+      expect(() => coerceBytes(42 as unknown)).toThrow(
+        /Unsupported byte-array/,
+      );
     });
   });
 });
@@ -111,9 +113,9 @@ describe("lib/chainId", () => {
   });
 
   it("slugifies arbitrary filenames", () => {
-    expect(
-      suggestChainId({ filename: "Quarterly Audit Report.pdf" }),
-    ).toBe("quarterly-audit-report");
+    expect(suggestChainId({ filename: "Quarterly Audit Report.pdf" })).toBe(
+      "quarterly-audit-report",
+    );
     expect(suggestChainId({ filename: "Release Notes 2026.md" })).toBe(
       "release-notes-2026",
     );

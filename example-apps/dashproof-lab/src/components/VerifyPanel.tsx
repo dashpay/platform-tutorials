@@ -139,7 +139,8 @@ export function VerifyPanel({
 
   function handleDragLeave(event: DragEvent<HTMLDivElement>) {
     event.preventDefault();
-    if (event.currentTarget.contains(event.relatedTarget as Node | null)) return;
+    if (event.currentTarget.contains(event.relatedTarget as Node | null))
+      return;
     setDragActive(false);
   }
 
@@ -303,7 +304,10 @@ export function VerifyPanel({
         </div>
 
         {statusNotice ? (
-          <OperationResultNotice tone={statusNotice.tone} title={statusNotice.title}>
+          <OperationResultNotice
+            tone={statusNotice.tone}
+            title={statusNotice.title}
+          >
             {statusNotice.body}
           </OperationResultNotice>
         ) : null}
@@ -375,7 +379,9 @@ export function VerifyPanel({
               <div className="text-[10px] font-semibold uppercase tracking-[0.12em] text-ink-3">
                 Note
               </div>
-              <div className="mt-1 text-sm leading-6 text-ink">{result.note}</div>
+              <div className="mt-1 text-sm leading-6 text-ink">
+                {result.note}
+              </div>
             </div>
           )}
           <button

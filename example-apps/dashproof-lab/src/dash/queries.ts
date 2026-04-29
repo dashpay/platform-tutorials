@@ -6,11 +6,7 @@
  *
  * SDK method: sdk.documents.query(...)
  */
-import {
-  bytesToBase64,
-  bytesToHex,
-  coerceBytes,
-} from "../lib/hash";
+import { bytesToBase64, bytesToHex, coerceBytes } from "../lib/hash";
 import { refreshContractCache } from "./contract";
 import type { Logger } from "./logger";
 import type {
@@ -46,7 +42,10 @@ function toTimestamp(value: DashAnchorQueryJson["$createdAt"]): number | null {
   return null;
 }
 
-function toAnchor(id: string | null, raw: DashAnchorQueryDocument): AnchorRecord {
+function toAnchor(
+  id: string | null,
+  raw: DashAnchorQueryDocument,
+): AnchorRecord {
   const json: DashAnchorQueryJson =
     typeof raw?.toJSON === "function" ? raw.toJSON() : raw;
   const entryHash = coerceBytes(json.entryHash);
@@ -66,9 +65,12 @@ function toAnchor(id: string | null, raw: DashAnchorQueryDocument): AnchorRecord
   };
 }
 
-export function normalizeAnchors(results: DashAnchorQueryResults): AnchorRecord[] {
+export function normalizeAnchors(
+  results: DashAnchorQueryResults,
+): AnchorRecord[] {
   if (Array.isArray(results)) return results.map((doc) => toAnchor(null, doc));
-  const entries = results instanceof Map ? Object.fromEntries(results) : results;
+  const entries =
+    results instanceof Map ? Object.fromEntries(results) : results;
   return Object.entries(entries).map(([id, doc]) => toAnchor(id, doc));
 }
 

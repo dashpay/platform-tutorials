@@ -22,7 +22,9 @@ test.describe("Verify panel", () => {
     // Network round-trip to testnet — generous wait. "Proof found" notice
     // confirms findAnchorByHash returned a record.
     await expect(page.getByText("Proof found")).toBeVisible();
-    await expect(page.getByText("Matching proof", { exact: true })).toBeVisible();
+    await expect(
+      page.getByText("Matching proof", { exact: true }),
+    ).toBeVisible();
 
     // The chainId for this fixture is stable (see exampleFiles.ts).
     await expect(

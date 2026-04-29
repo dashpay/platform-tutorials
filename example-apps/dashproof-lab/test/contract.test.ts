@@ -2,25 +2,22 @@
 
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 
-const {
-  mockDataContractConstructor,
-  MockIdentifier,
-  identifierFreeMock,
-} = vi.hoisted(() => {
-  const identifierFreeMock = vi.fn();
-  class MockIdentifier {
-    static last: MockIdentifier | null = null;
-    constructor(public readonly id: string) {
-      MockIdentifier.last = this;
+const { mockDataContractConstructor, MockIdentifier, identifierFreeMock } =
+  vi.hoisted(() => {
+    const identifierFreeMock = vi.fn();
+    class MockIdentifier {
+      static last: MockIdentifier | null = null;
+      constructor(public readonly id: string) {
+        MockIdentifier.last = this;
+      }
+      free = identifierFreeMock;
     }
-    free = identifierFreeMock;
-  }
-  return {
-    mockDataContractConstructor: vi.fn(),
-    MockIdentifier,
-    identifierFreeMock,
-  };
-});
+    return {
+      mockDataContractConstructor: vi.fn(),
+      MockIdentifier,
+      identifierFreeMock,
+    };
+  });
 
 vi.mock("@dashevo/evo-sdk", () => ({
   DataContract: function MockDataContract(args: unknown) {
@@ -82,9 +79,7 @@ describe("refreshContractCache", () => {
   it("evicts the cached contract and frees the identifier", async () => {
     const removeCachedContract = vi.fn();
     const sdk = {
-      getWasmSdkConnected: vi
-        .fn()
-        .mockResolvedValue({ removeCachedContract }),
+      getWasmSdkConnected: vi.fn().mockResolvedValue({ removeCachedContract }),
     };
 
     await refreshContractCache({ sdk: sdk as never, contractId: "contract-1" });
@@ -99,9 +94,7 @@ describe("refreshContractCache", () => {
       throw new Error("boom");
     });
     const sdk = {
-      getWasmSdkConnected: vi
-        .fn()
-        .mockResolvedValue({ removeCachedContract }),
+      getWasmSdkConnected: vi.fn().mockResolvedValue({ removeCachedContract }),
     };
 
     await expect(

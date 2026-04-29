@@ -1,6 +1,12 @@
 // @vitest-environment jsdom
 
-import { cleanup, fireEvent, render, screen, within } from "@testing-library/react";
+import {
+  cleanup,
+  fireEvent,
+  render,
+  screen,
+  within,
+} from "@testing-library/react";
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 
 import { ExampleFilesPanel } from "../src/components/ExampleFilesPanel";
@@ -35,7 +41,9 @@ describe("ExampleFilesPanel", () => {
       expect(within(row).getByText(fixture.sha256Hex)).toBeTruthy();
       expect(within(row).getByText(fixture.chainId)).toBeTruthy();
       expect(
-        within(row).getByRole("link", { name: /download fixture/i }).getAttribute("href"),
+        within(row)
+          .getByRole("link", { name: /download fixture/i })
+          .getAttribute("href"),
       ).toBe(fixture.publicPath);
     }
   });
@@ -61,6 +69,8 @@ describe("ExampleFilesPanel", () => {
     expect(buttons.length).toBe(EXAMPLE_FILE_FIXTURES.length);
 
     fireEvent.click(buttons[0]);
-    expect(writeTextMock).toHaveBeenCalledWith(EXAMPLE_FILE_FIXTURES[0].chainId);
+    expect(writeTextMock).toHaveBeenCalledWith(
+      EXAMPLE_FILE_FIXTURES[0].chainId,
+    );
   });
 });

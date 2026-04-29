@@ -72,7 +72,9 @@ export function HowItWorks() {
             <li>The file stays in the browser.</li>
             <li>The browser computes a SHA-256 hash locally.</li>
             <li>The app stores a proof document on Dash Platform.</li>
-            <li>Verification means hashing again and querying by the same digest.</li>
+            <li>
+              Verification means hashing again and querying by the same digest.
+            </li>
           </ul>
         </div>
       </section>
@@ -113,9 +115,10 @@ export function HowItWorks() {
           </div>
         </div>
         <div className="mt-3 rounded-lg border border-line bg-bg p-3 text-[12.5px] leading-6 text-ink-2">
-          The contract&apos;s <code className="font-mono text-[12px] text-ink">byHash</code>{" "}
-          index is unique, so duplicate proofs for the same file hash are
-          rejected within a single deployed contract.
+          The contract&apos;s{" "}
+          <code className="font-mono text-[12px] text-ink">byHash</code> index
+          is unique, so duplicate proofs for the same file hash are rejected
+          within a single deployed contract.
         </div>
       </section>
 
@@ -167,14 +170,18 @@ export function HowItWorks() {
         </h3>
         <div className="mt-3 grid gap-3">
           <div className="rounded-lg border border-line bg-bg p-3">
-            <div className="text-[11px] font-semibold text-ink">Create proof</div>
+            <div className="text-[11px] font-semibold text-ink">
+              Create proof
+            </div>
             <p className="mt-1 text-[12.5px] leading-6 text-ink-2">
               The browser hashes the file locally, previews the digest, and
               creates an immutable proof document on Dash Platform after login.
             </p>
           </div>
           <div className="rounded-lg border border-line bg-bg p-3">
-            <div className="text-[11px] font-semibold text-ink">Verify proof</div>
+            <div className="text-[11px] font-semibold text-ink">
+              Verify proof
+            </div>
             <p className="mt-1 text-[12.5px] leading-6 text-ink-2">
               The browser hashes the selected file again and queries the
               contract by digest to find a matching proof.

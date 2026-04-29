@@ -12,13 +12,21 @@ afterEach(() => {
 describe("HowItWorks", () => {
   const expectedOperations = [
     ["Connect to testnet", "src/dash/client.ts", 'createClient("testnet")'],
-    ["Derive identity keys", "src/dash/keyManager.ts", "IdentityKeyManager.create"],
+    [
+      "Derive identity keys",
+      "src/dash/keyManager.ts",
+      "IdentityKeyManager.create",
+    ],
     [
       "Use bundled/default contract ID",
       "src/dash/contract.ts",
       "loadStoredContractId / DEFAULT_CONTRACT_ID",
     ],
-    ["Register proof contract", "src/dash/contract.ts", "sdk.contracts.publish"],
+    [
+      "Register proof contract",
+      "src/dash/contract.ts",
+      "sdk.contracts.publish",
+    ],
     ["Create proof", "src/dash/createAnchor.ts", "sdk.documents.create"],
     ["Verify by hash", "src/dash/queries.ts", "sdk.documents.query"],
     ["Query by owner", "src/dash/queries.ts", "sdk.documents.query"],
@@ -53,22 +61,33 @@ describe("HowItWorks", () => {
     expect(rows).toHaveLength(expectedOperations.length + 1);
 
     const bodyRows = rows.slice(1);
-    for (const [index, [operation, file, method]] of expectedOperations.entries()) {
+    for (const [
+      index,
+      [operation, file, method],
+    ] of expectedOperations.entries()) {
       const cells = within(bodyRows[index] as HTMLElement).getAllByRole("cell");
       expect(cells).toHaveLength(3);
-      expect(cells.map((cell) => cell.textContent)).toEqual([operation, file, method]);
+      expect(cells.map((cell) => cell.textContent)).toEqual([
+        operation,
+        file,
+        method,
+      ]);
     }
   });
 
   it("renders the reading order with all expected paths", () => {
     render(<HowItWorks />);
 
-    const readingOrderHeading = screen.getByRole("heading", { name: /reading order/i });
+    const readingOrderHeading = screen.getByRole("heading", {
+      name: /reading order/i,
+    });
     const section = readingOrderHeading.closest("section");
     expect(section).toBeTruthy();
 
     const items = within(section as HTMLElement).getAllByRole("listitem");
     expect(items).toHaveLength(expectedReadingOrder.length);
-    expect(items.map((item) => item.textContent?.trim())).toEqual(expectedReadingOrder);
+    expect(items.map((item) => item.textContent?.trim())).toEqual(
+      expectedReadingOrder,
+    );
   });
 });

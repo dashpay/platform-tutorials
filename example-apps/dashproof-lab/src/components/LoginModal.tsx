@@ -112,8 +112,8 @@ export function LoginModal({ open, onClose }: LoginModalProps) {
               </button>
             </div>
             <p className="text-[11px] text-ink-4">
-              Register deploys a fresh proof contract to testnet and switches the
-              app to it immediately.
+              Register deploys a fresh proof contract to testnet and switches
+              the app to it immediately.
             </p>
           </div>
 
