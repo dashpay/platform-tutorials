@@ -1,6 +1,11 @@
 import { test, expect, gotoAnchor, HAS_MNEMONIC } from "./fixtures";
 
 test.describe("Anchor flow (requires PLATFORM_MNEMONIC)", () => {
+  // Anchor writes share a single testnet identity; running them in parallel
+  // would race the identity nonce. Keep this describe serial even when the
+  // global config enables parallelism.
+  test.describe.configure({ mode: "serial" });
+
   test.skip(
     !HAS_MNEMONIC,
     "PLATFORM_MNEMONIC not set — skipping anchor write tests",
