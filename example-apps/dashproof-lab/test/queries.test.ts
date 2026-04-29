@@ -76,6 +76,26 @@ describe("queries", () => {
 
       expect(result).toBeNull();
     });
+
+    it("normalizes a non-numeric $createdAt string to null", async () => {
+      const sdk = makeSdk([
+        {
+          $id: "doc-1",
+          $ownerId: "owner-1",
+          $createdAt: "not-a-number",
+          entryHash: "AQID",
+          chainId: "demo",
+        },
+      ]);
+
+      const result = await findAnchorByHash({
+        sdk: sdk as never,
+        contractId: "contract-1",
+        entryHash: Uint8Array.from([1, 2, 3]),
+      });
+
+      expect(result?.createdAt).toBeNull();
+    });
   });
 
   describe("listAnchorsByOwner", () => {

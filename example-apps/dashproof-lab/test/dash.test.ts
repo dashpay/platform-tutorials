@@ -271,6 +271,96 @@ describe("dashproof helpers", () => {
     expect(mockDocumentsCreate).toHaveBeenCalledTimes(1);
   });
 
+  it("createAnchor rejects an entryHash that is not 32 bytes", async () => {
+    await expect(
+      createAnchor({
+        sdk: {
+          documents: {
+            create: async () => undefined,
+          },
+        },
+        keyManager: {
+          async getAuth() {
+            return {
+              identity: { id: "identity-1" },
+              identityKey: undefined,
+              signer: undefined,
+            };
+          },
+        },
+        contractId: "contract-1",
+        anchor: {
+          entryHash: new Uint8Array(16),
+          chainId: "chain-1",
+        },
+      }),
+    ).rejects.toThrow("entryHash must be a 32-byte SHA-256 digest.");
+  });
+
+  it("createAnchor rejects a previousId that is not 32 bytes", async () => {
+    await expect(
+      createAnchor({
+        sdk: {
+          documents: {
+            create: async () => undefined,
+          },
+        },
+        keyManager: {
+          async getAuth() {
+            return {
+              identity: { id: "identity-1" },
+              identityKey: undefined,
+              signer: undefined,
+            };
+          },
+        },
+        contractId: "contract-1",
+        anchor: {
+          entryHash: new Uint8Array(32),
+          chainId: "chain-1",
+          previousId: new Uint8Array(20),
+        },
+      }),
+    ).rejects.toThrow("previousId must be 32 bytes when provided.");
+  });
+
+  it("createAnchor passes a valid previousId through as a number array", async () => {
+    mockDocumentConstructor.mockReset();
+    const mockDocumentsCreate = vi.fn().mockResolvedValue(undefined);
+    const previousId = new Uint8Array(32).fill(9);
+
+    await createAnchor({
+      sdk: {
+        documents: {
+          create: mockDocumentsCreate,
+        },
+      },
+      keyManager: {
+        async getAuth() {
+          return {
+            identity: { id: "identity-1" },
+            identityKey: "identity-key",
+            signer: "signer",
+          };
+        },
+      },
+      contractId: "contract-1",
+      anchor: {
+        entryHash: new Uint8Array(32).fill(1),
+        chainId: "chain-1",
+        previousId,
+      },
+    });
+
+    expect(mockDocumentConstructor).toHaveBeenCalledWith(
+      expect.objectContaining({
+        properties: expect.objectContaining({
+          previousId: Array.from(previousId),
+        }),
+      }),
+    );
+  });
+
   it("persists and clears the stored contract ID", () => {
     localStorage.clear();
 
