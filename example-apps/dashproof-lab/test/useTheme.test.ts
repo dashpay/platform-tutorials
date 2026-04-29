@@ -3,7 +3,12 @@
 import { act, renderHook } from "@testing-library/react";
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 
-import { applyTheme, getInitialTheme, useTheme } from "../src/hooks/useTheme";
+import {
+  __resetThemeStoreForTests,
+  applyTheme,
+  getInitialTheme,
+  useTheme,
+} from "../src/hooks/useTheme";
 
 const STORAGE_KEY = "dashproof-lab.theme";
 
@@ -24,6 +29,7 @@ beforeEach(() => {
   window.localStorage.clear();
   delete document.documentElement.dataset.theme;
   setMatchMediaLight(false);
+  __resetThemeStoreForTests();
 });
 
 afterEach(() => {
@@ -112,5 +118,28 @@ describe("useTheme", () => {
     expect(result.current.theme).toBe("light");
     expect(document.documentElement.dataset.theme).toBe("light");
     expect(window.localStorage.getItem(STORAGE_KEY)).toBe("light");
+  });
+
+  it("keeps multiple consumers in sync when one toggles", () => {
+    document.documentElement.dataset.theme = "dark";
+    const a = renderHook(() => useTheme());
+    const b = renderHook(() => useTheme());
+
+    expect(a.result.current.theme).toBe("dark");
+    expect(b.result.current.theme).toBe("dark");
+
+    act(() => {
+      a.result.current.toggle();
+    });
+
+    expect(a.result.current.theme).toBe("light");
+    expect(b.result.current.theme).toBe("light");
+
+    act(() => {
+      b.result.current.setTheme("dark");
+    });
+
+    expect(a.result.current.theme).toBe("dark");
+    expect(b.result.current.theme).toBe("dark");
   });
 });

@@ -1,4 +1,4 @@
-import { useCallback, useState } from "react";
+import { useCallback, useSyncExternalStore } from "react";
 
 export type Theme = "light" | "dark";
 
@@ -19,26 +19,58 @@ export function applyTheme(theme: Theme): void {
   document.documentElement.dataset.theme = theme;
 }
 
-export function useTheme() {
-  const [theme, setThemeState] = useState<Theme>(() => {
-    if (typeof document !== "undefined") {
-      const current = document.documentElement.dataset.theme;
-      if (current === "light" || current === "dark") return current;
+let current: Theme | null = null;
+const listeners = new Set<() => void>();
+
+function readCurrent(): Theme {
+  if (current !== null) return current;
+  if (typeof document !== "undefined") {
+    const fromDom = document.documentElement.dataset.theme;
+    if (fromDom === "light" || fromDom === "dark") {
+      current = fromDom;
+      return current;
     }
-    return getInitialTheme();
-  });
+  }
+  current = getInitialTheme();
+  return current;
+}
+
+function setThemeStore(next: Theme): void {
+  current = next;
+  applyTheme(next);
+  if (typeof window !== "undefined") {
+    window.localStorage.setItem(STORAGE_KEY, next);
+  }
+  listeners.forEach((l) => l());
+}
+
+function subscribe(listener: () => void): () => void {
+  listeners.add(listener);
+  return () => {
+    listeners.delete(listener);
+  };
+}
+
+// Test-only: clear the cached value so a fresh DOM/localStorage snapshot is read.
+export function __resetThemeStoreForTests(): void {
+  current = null;
+  listeners.clear();
+}
+
+export function useTheme() {
+  const theme = useSyncExternalStore(
+    subscribe,
+    readCurrent,
+    () => "dark",
+  );
 
   const setTheme = useCallback((next: Theme) => {
-    applyTheme(next);
-    if (typeof window !== "undefined") {
-      window.localStorage.setItem(STORAGE_KEY, next);
-    }
-    setThemeState(next);
+    setThemeStore(next);
   }, []);
 
   const toggle = useCallback(() => {
-    setTheme(theme === "dark" ? "light" : "dark");
-  }, [theme, setTheme]);
+    setThemeStore(theme === "dark" ? "light" : "dark");
+  }, [theme]);
 
   return { theme, setTheme, toggle };
 }
