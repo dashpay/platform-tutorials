@@ -91,7 +91,15 @@ export const DEFAULT_CONTRACT_ID =
   "DTqBwBiAuRGv4NJmBLsp9ytoUCt19Rxw3ekx8na6xB9Z";
 
 export function loadStoredContractId(): string | null {
-  return localStorage.getItem(STORAGE_KEY) ?? DEFAULT_CONTRACT_ID;
+  // Reading localStorage can throw SecurityError in sandboxed iframes or
+  // strict cookie configurations. This function runs at SessionProvider
+  // init, so a throw would crash the app on boot — fall back to the
+  // bundled default contract instead.
+  try {
+    return localStorage.getItem(STORAGE_KEY) ?? DEFAULT_CONTRACT_ID;
+  } catch {
+    return DEFAULT_CONTRACT_ID;
+  }
 }
 
 export function saveContractId(id: string): void {

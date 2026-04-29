@@ -31,6 +31,7 @@ import {
   ANCHOR_CONTRACT,
   DEFAULT_CONTRACT_ID,
   ensureContract,
+  loadStoredContractId,
   refreshContractCache,
   registerContract,
 } from "../src/dash/contract";
@@ -102,6 +103,23 @@ describe("refreshContractCache", () => {
     ).rejects.toThrow("boom");
 
     expect(identifierFreeMock).toHaveBeenCalledTimes(1);
+  });
+});
+
+describe("loadStoredContractId", () => {
+  it("falls back to DEFAULT_CONTRACT_ID when localStorage.getItem throws", () => {
+    // Sandboxed iframes / strict cookie settings can make localStorage access
+    // throw SecurityError. The session boots from this function, so it must
+    // never crash the app.
+    const spy = vi
+      .spyOn(Storage.prototype, "getItem")
+      .mockImplementation(() => {
+        throw new Error("SecurityError");
+      });
+
+    expect(loadStoredContractId()).toBe(DEFAULT_CONTRACT_ID);
+
+    spy.mockRestore();
   });
 });
 
