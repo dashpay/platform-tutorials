@@ -1,0 +1,219 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <title>DashProof Lite</title>
+  <style>
+    body { font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif; max-width: 760px; margin: 2rem auto; padding: 0 1rem; line-height: 1.4; }
+    h1 { margin-bottom: 0.25rem; }
+    .muted { color: #666; }
+    section { border: 1px solid #ddd; border-radius: 6px; padding: 1rem; margin: 1rem 0; }
+    input[type="text"] { width: 100%; padding: 0.4rem; box-sizing: border-box; font-family: inherit; }
+    button { padding: 0.4rem 0.9rem; cursor: pointer; }
+    button:disabled { cursor: not-allowed; opacity: 0.6; }
+    pre { background: #f5f5f5; padding: 0.75rem; border-radius: 4px; overflow-x: auto; font-size: 0.85rem; white-space: pre-wrap; word-break: break-all; }
+    .hash { font-family: ui-monospace, SFMono-Regular, Menlo, monospace; font-size: 0.85rem; }
+    .ok { color: #1a7f37; }
+    .miss { color: #b54708; }
+    .err { color: #b42318; }
+    #status { font-size: 0.9rem; padding: 0.4rem 0.6rem; background: #fff3cd; border-radius: 4px; display: inline-block; }
+    #status.connected { background: #d1f7d6; }
+    #status.failed { background: #fde2e1; }
+  </style>
+</head>
+<body>
+  <h1>DashProof Lite</h1>
+  <p class="muted">Read-only verification against Dash Platform testnet.</p>
+  <div id="status">Connecting…</div>
+
+  <section>
+    <h2>Verify a file</h2>
+    <p class="muted">Hashes the file locally with SHA-256, then looks up the digest on-chain. The file never leaves your browser.</p>
+    <input type="file" id="verify-file" disabled>
+    <div id="verify-hash" class="hash" style="margin-top: 0.5rem;"></div>
+    <pre id="verify-result"></pre>
+  </section>
+
+  <section>
+    <h2>History by chainId</h2>
+    <p class="muted">List all anchors recorded under a given <code>chainId</code> bucket.</p>
+    <input type="text" id="chain-id" placeholder="e.g. demo-proof-fixture-01" disabled>
+    <div style="margin-top: 0.5rem;">
+      <button id="chain-btn" disabled>Look up</button>
+    </div>
+    <pre id="chain-result"></pre>
+  </section>
+
+  <p class="muted" style="font-size: 0.8rem;">
+    Contract: <span class="hash" id="contract-id"></span>
+  </p>
+
+  <script type="module">
+    import { EvoSDK } from 'https://esm.sh/@dashevo/evo-sdk';
+
+    const CONTRACT_ID = 'DTqBwBiAuRGv4NJmBLsp9ytoUCt19Rxw3ekx8na6xB9Z';
+    const DOC_TYPE = 'anchor';
+
+    const $ = (id) => document.getElementById(id);
+    $('contract-id').textContent = CONTRACT_ID;
+
+    const statusEl = $('status');
+    const fileInput = $('verify-file');
+    const verifyHashEl = $('verify-hash');
+    const verifyResultEl = $('verify-result');
+    const chainInput = $('chain-id');
+    const chainBtn = $('chain-btn');
+    const chainResultEl = $('chain-result');
+
+    function bytesToHex(bytes) {
+      return Array.from(bytes, (b) => b.toString(16).padStart(2, '0')).join('');
+    }
+    function bytesToBase64(bytes) {
+      let bin = '';
+      for (const b of bytes) bin += String.fromCharCode(b);
+      return btoa(bin);
+    }
+    function base64ToBytes(s) {
+      const bin = atob(s);
+      return Uint8Array.from(bin, (c) => c.charCodeAt(0));
+    }
+    async function hashFile(file) {
+      const buf = await file.arrayBuffer();
+      return new Uint8Array(await crypto.subtle.digest('SHA-256', buf));
+    }
+
+    function toAnchor(id, doc) {
+      const data = (doc && typeof doc.toJSON === 'function') ? doc.toJSON() : doc;
+      const createdAtRaw = data.$createdAt;
+      let createdAt = null;
+      if (createdAtRaw != null) {
+        createdAt = typeof createdAtRaw === 'bigint' ? Number(createdAtRaw) : Number(createdAtRaw);
+      }
+      let entryHashHex = null;
+      try {
+        if (typeof data.entryHash === 'string') {
+          entryHashHex = bytesToHex(base64ToBytes(data.entryHash));
+        }
+      } catch { /* leave null */ }
+      return {
+        id: id ?? data.$id ?? null,
+        ownerId: data.$ownerId ?? null,
+        createdAt,
+        createdAtIso: createdAt ? new Date(createdAt).toISOString() : null,
+        entryHashB64: data.entryHash ?? null,
+        entryHashHex,
+        chainId: data.chainId ?? null,
+        filename: data.filename ?? null,
+        mimeType: data.mimeType ?? null,
+        size: data.size != null ? Number(data.size) : null,
+        note: data.note ?? null,
+      };
+    }
+
+    function normalize(results) {
+      if (!results) return [];
+      if (Array.isArray(results)) return results.map((d) => toAnchor(null, d));
+      const entries = results instanceof Map ? Object.fromEntries(results) : results;
+      return Object.entries(entries).map(([id, d]) => toAnchor(id, d));
+    }
+
+    async function findByHash(sdk, digest) {
+      const results = await sdk.documents.query({
+        dataContractId: CONTRACT_ID,
+        documentTypeName: DOC_TYPE,
+        where: [['entryHash', '==', bytesToBase64(digest)]],
+        orderBy: [['entryHash', 'asc']],
+        limit: 1,
+      });
+      return normalize(results)[0] ?? null;
+    }
+
+    async function listByChain(sdk, chainId) {
+      const trimmed = chainId.trim();
+      if (!trimmed) return [];
+      const results = await sdk.documents.query({
+        dataContractId: CONTRACT_ID,
+        documentTypeName: DOC_TYPE,
+        where: [['chainId', '==', trimmed]],
+        orderBy: [['chainId', 'asc'], ['$createdAt', 'asc']],
+        limit: 100,
+      });
+      return normalize(results)
+        .sort((a, b) => (b.createdAt ?? 0) - (a.createdAt ?? 0));
+    }
+
+    let sdk;
+    try {
+      sdk = EvoSDK.testnetTrusted();
+      await sdk.connect();
+      statusEl.textContent = 'Connected to testnet';
+      statusEl.classList.add('connected');
+      fileInput.disabled = false;
+      chainInput.disabled = false;
+      chainBtn.disabled = false;
+    } catch (err) {
+      statusEl.textContent = 'Connection failed: ' + (err?.message ?? err);
+      statusEl.classList.add('failed');
+      throw err;
+    }
+
+    fileInput.addEventListener('change', async () => {
+      const file = fileInput.files?.[0];
+      if (!file) return;
+      verifyHashEl.textContent = 'Hashing…';
+      verifyResultEl.textContent = '';
+      verifyResultEl.className = '';
+      try {
+        const digest = await hashFile(file);
+        const hex = bytesToHex(digest);
+        verifyHashEl.textContent = `SHA-256: ${hex}`;
+        verifyResultEl.textContent = 'Querying…';
+        const match = await findByHash(sdk, digest);
+        if (match) {
+          verifyResultEl.className = 'ok';
+          verifyResultEl.textContent = 'MATCH FOUND\n\n' + JSON.stringify(match, null, 2);
+        } else {
+          verifyResultEl.className = 'miss';
+          verifyResultEl.textContent = 'No anchor found for this file.';
+        }
+      } catch (err) {
+        verifyResultEl.className = 'err';
+        verifyResultEl.textContent = 'Error: ' + (err?.message ?? err);
+      }
+    });
+
+    async function runChainLookup() {
+      const value = chainInput.value;
+      chainResultEl.className = '';
+      if (!value.trim()) {
+        chainResultEl.textContent = 'Enter a chainId.';
+        return;
+      }
+      chainBtn.disabled = true;
+      chainResultEl.textContent = 'Querying…';
+      try {
+        const anchors = await listByChain(sdk, value);
+        if (anchors.length === 0) {
+          chainResultEl.className = 'miss';
+          chainResultEl.textContent = `No anchors found for chainId "${value.trim()}".`;
+        } else {
+          chainResultEl.className = 'ok';
+          chainResultEl.textContent =
+            `${anchors.length} anchor(s) found (newest first)\n\n` +
+            JSON.stringify(anchors, null, 2);
+        }
+      } catch (err) {
+        chainResultEl.className = 'err';
+        chainResultEl.textContent = 'Error: ' + (err?.message ?? err);
+      } finally {
+        chainBtn.disabled = false;
+      }
+    }
+
+    chainBtn.addEventListener('click', runChainLookup);
+    chainInput.addEventListener('keydown', (e) => {
+      if (e.key === 'Enter') runChainLookup();
+    });
+  </script>
+</body>
+</html>
