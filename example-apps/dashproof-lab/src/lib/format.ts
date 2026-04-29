@@ -1,7 +1,11 @@
-export function truncateId(id: string | null | undefined, head = 10): string {
+export function truncateId(
+  id: string | null | undefined,
+  head = 10,
+  tail = 8,
+): string {
   if (!id) return "—";
-  if (id.length <= head * 2) return id;
-  return `${id.slice(0, head)}…${id.slice(-8)}`;
+  if (id.length <= head + tail) return id;
+  return `${id.slice(0, head)}…${id.slice(-tail)}`;
 }
 
 export function formatBytes(size: number | null | undefined): string {

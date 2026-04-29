@@ -155,6 +155,21 @@ describe("lib/format", () => {
       const id = "ABCDEFGHIJKLMNOPQRSTUVWXYZ";
       expect(truncateId(id, 4)).toBe("ABCD…STUVWXYZ");
     });
+
+    it("never returns a string longer than the input when head ≠ default", () => {
+      // Regression: the old short-circuit used `head * 2` while the slice
+      // used a fixed 8-char tail, so truncateId("ABCDEFGHI", 4) emitted
+      // "ABCD…BCDEFGHI" — 13 chars from a 9-char input. The threshold and
+      // the slice must use the same tail size.
+      const id = "ABCDEFGHI";
+      const result = truncateId(id, 4);
+      expect(result.length).toBeLessThanOrEqual(id.length);
+    });
+
+    it("respects an explicit tail parameter", () => {
+      const id = "ABCDEFGHIJKLMNOPQRSTUVWXYZ";
+      expect(truncateId(id, 4, 4)).toBe("ABCD…WXYZ");
+    });
   });
 
   describe("formatBytes", () => {

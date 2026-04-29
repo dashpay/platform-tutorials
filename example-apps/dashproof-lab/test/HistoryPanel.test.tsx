@@ -61,7 +61,12 @@ describe("HistoryPanel", () => {
     render(<HistoryPanel contractId="contract-1" refreshKey={0} />);
 
     await screen.findByText("my-chain");
-    expect(mockListAnchorsByOwner).toHaveBeenCalled();
+    expect(mockListAnchorsByOwner).toHaveBeenCalledWith(
+      expect.objectContaining({
+        contractId: "contract-1",
+        ownerId: "owner-1",
+      }),
+    );
   });
 
   it("groups same-chainId anchors together even when split by createdAt order", async () => {
