@@ -60,6 +60,12 @@ const navLink = (page: Page, label: string) =>
     .locator('aside[aria-label="Main navigation"]')
     .getByRole("button", { name: new RegExp(`${label}$`) });
 
+// Click a sidebar nav link without navigating away from the current page.
+// Use this after loginViaModal so the auth state isn't wiped by a reload.
+export async function clickNav(page: Page, label: "Create proof" | "Verify proof" | "History") {
+  await navLink(page, label).click();
+}
+
 export async function gotoAnchor(page: Page) {
   await page.goto("/");
   await waitForBrowsingReady(page);
@@ -76,4 +82,26 @@ export async function gotoHistory(page: Page) {
   await page.goto("/");
   await waitForBrowsingReady(page);
   await navLink(page, "History").click();
+}
+
+// Opens the LoginModal via the sidebar "Login" nav button, fills the mnemonic
+// from PLATFORM_MNEMONIC, and waits for the authenticated-state signal in the
+// sidebar IdentityCard. Caller is responsible for skipping when HAS_MNEMONIC
+// is false.
+export async function loginViaModal(page: Page) {
+  const mnemonic = process.env.PLATFORM_MNEMONIC;
+  if (!mnemonic) throw new Error("PLATFORM_MNEMONIC is required for loginViaModal");
+
+  // Wait for the SDK to connect before clicking Login. Once connected,
+  // IdentityCard stops rendering its own "Login" button, leaving only the
+  // sidebar nav "→ Login" — so /Login$/ matches a single element.
+  await waitForBrowsingReady(page);
+  await navLink(page, "Login").click();
+
+  const mnemonicInput = page.getByPlaceholder("mnemonic phrase");
+  await expect(mnemonicInput).toBeVisible();
+  await mnemonicInput.fill(mnemonic);
+  await page.getByRole("button", { name: /Login and continue/ }).click();
+
+  await expect(page.getByText("Authenticated", { exact: true })).toBeVisible();
 }
