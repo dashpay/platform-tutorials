@@ -61,12 +61,22 @@ export function NoteEditor({
           <div className="text-[10px] font-semibold uppercase tracking-[0.12em] text-ink-4">
             {isNew ? "Draft" : "Note detail"}
           </div>
-          <div className="mt-1 truncate text-[18px] font-semibold tracking-tight text-ink">
-            {hasSelection
-              ? isNew
-                ? "New note"
-                : noteDisplayTitle({ title, message })
-              : "Select a note"}
+          <div className="mt-1 truncate text-[18px] font-semibold leading-7 tracking-tight text-ink">
+            {!hasSelection ? (
+              "Select a note"
+            ) : isNew ? (
+              "New note"
+            ) : loading ? (
+              <span className="text-ink-3">
+                <span
+                  aria-hidden
+                  className="mr-2 inline-block h-1.5 w-1.5 animate-pulse rounded-full bg-accent align-middle"
+                />
+                Loading…
+              </span>
+            ) : (
+              noteDisplayTitle({ title, message })
+            )}
           </div>
         </div>
         <div className="flex gap-2">

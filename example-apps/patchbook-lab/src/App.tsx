@@ -46,19 +46,15 @@ function App() {
         onLoginOpen={() => setLoginOpen(true)}
       >
         <header className="rounded-[28px] border border-line bg-surface px-5 py-5 shadow-[0_20px_60px_-36px_rgba(0,0,0,0.45)]">
-          <div className="flex flex-col gap-4 lg:flex-row lg:items-end lg:justify-between">
-            <div>
-              <div className="text-[10px] font-semibold uppercase tracking-[0.14em] text-ink-4">
-                Dash Platform Notes Tutorial
-              </div>
-              <h1 className="mt-2 text-[28px] font-semibold leading-[1.05] tracking-tight text-ink">
-                {header.title}
-              </h1>
-              <p className="mt-2 max-w-[760px] text-[13px] leading-6 text-ink-3">
-                {header.subtitle}
-              </p>
-            </div>
+          <div className="text-[10px] font-semibold uppercase tracking-[0.14em] text-ink-4">
+            Dash Platform Notes Tutorial
           </div>
+          <h1 className="mt-2 text-[28px] font-semibold leading-[1.05] tracking-tight text-ink">
+            {header.title}
+          </h1>
+          <p className="mt-2 max-w-[760px] text-[13px] leading-6 text-ink-3">
+            {header.subtitle}
+          </p>
         </header>
 
         <div className="mt-6">
