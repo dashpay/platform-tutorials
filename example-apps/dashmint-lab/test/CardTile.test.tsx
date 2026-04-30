@@ -186,6 +186,33 @@ describe("CardTile", () => {
     expect(ownerLink!.getAttribute("rel")).toContain("noreferrer");
   });
 
+  it("renders the price chip exactly for small values with the full amount in title", () => {
+    render(
+      <CardTile
+        card={{ ...card, $price: 9_999_999n }}
+        currentIdentityId={null}
+        sdk={sdk}
+      />,
+    );
+
+    const chip = screen.getByText("9,999,999 cr");
+    expect(chip.getAttribute("title")).toBe("9,999,999 credits");
+  });
+
+  it("renders the price chip in compact form past the threshold and keeps the exact value in title", () => {
+    render(
+      <CardTile
+        card={{ ...card, $price: 55_555_555_555_555n }}
+        currentIdentityId={null}
+        sdk={sdk}
+      />,
+    );
+
+    const chip = screen.getByText("55.5T cr");
+    expect(chip.getAttribute("title")).toBe("55,555,555,555,555 credits");
+    expect(screen.queryByText("55,555,555,555,555 cr")).toBeNull();
+  });
+
   it("copies the card id and opens the explorer from the overflow menu", () => {
     render(<CardTile card={card} currentIdentityId={null} sdk={sdk} />);
 

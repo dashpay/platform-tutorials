@@ -1,6 +1,6 @@
 import { describe, expect, it } from "vitest";
 
-import { formatCredits } from "../src/lib/format";
+import { formatCredits, formatCreditsCompact } from "../src/lib/format";
 import { normalizeCards } from "../src/dash/queries";
 import { rarityOf } from "../src/lib/rarity";
 import { withAuthedCard } from "../src/dash/withAuthedCard";
@@ -70,6 +70,26 @@ describe("dashmint helpers", () => {
     expect(rarityOf(8, 7)).toBe("legendary");
     expect(rarityOf(5, 6)).toBe("rare");
     expect(rarityOf(3, 4)).toBe("common");
+  });
+
+  it("formatCreditsCompact keeps small values exact and abbreviates large ones", () => {
+    // Below the 10M threshold: full thousands separators, parity with formatCredits.
+    expect(formatCreditsCompact(undefined)).toBe("");
+    expect(formatCreditsCompact(0n)).toBe("0");
+    expect(formatCreditsCompact(9_999_999n)).toBe("9,999,999");
+
+    // Threshold boundary flips into compact form.
+    expect(formatCreditsCompact(10_000_000n)).toBe("10M");
+
+    // Each scale represented; trailing ".0" is trimmed when the scale is exact.
+    expect(formatCreditsCompact(123_456_789n)).toBe("123.4M");
+    expect(formatCreditsCompact(2_000_000_000n)).toBe("2B");
+    expect(formatCreditsCompact(1_999_999_999n)).toBe("1.9B");
+    expect(formatCreditsCompact(55_555_555_555_555n)).toBe("55.5T");
+    expect(formatCreditsCompact(1_000_000_000_000_000n)).toBe("1Q");
+
+    // number input takes the same path.
+    expect(formatCreditsCompact(15_000_000)).toBe("15M");
   });
 
   it("withAuthedCard increments revision before invoking the mutation", async () => {

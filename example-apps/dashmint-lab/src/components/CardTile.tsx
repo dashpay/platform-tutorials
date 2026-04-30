@@ -9,7 +9,12 @@ import { useState, useRef, useEffect } from "react";
 import type { Card } from "../dash/queries";
 import type { DashSdk } from "../dash/types";
 import { rarityOf } from "../lib/rarity";
-import { formatCredits, truncateId, truncateName } from "../lib/format";
+import {
+  formatCredits,
+  formatCreditsCompact,
+  truncateId,
+  truncateName,
+} from "../lib/format";
 import { useDpnsName } from "../hooks/useDpnsName";
 import { documentUrl } from "../lib/explorer";
 import { CardArt } from "./CardArt";
@@ -90,8 +95,11 @@ export function CardTile({
       <div className="flex items-center justify-between">
         <RarityTag rarity={rarity} />
         {hasPrice && (
-          <span className="rounded-full border border-line-2 px-2 py-0.5 font-mono text-[11px] text-ink-2">
-            {formatCredits(card.$price)} cr
+          <span
+            className="rounded-full border border-line-2 px-2 py-0.5 font-mono text-[11px] text-ink-2"
+            title={`${formatCredits(card.$price)} credits`}
+          >
+            {formatCreditsCompact(card.$price)} cr
           </span>
         )}
       </div>
