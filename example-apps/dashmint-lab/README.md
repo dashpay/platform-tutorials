@@ -81,6 +81,8 @@ Recommended order for understanding how the app works:
 
 [`test/`](test/) uses Vitest + Testing Library, co-located by subject. The default Vitest environment is Node; component tests opt into jsdom per-file with `// @vitest-environment jsdom`. Run with `npm run test`.
 
+[`test/e2e/`](test/e2e/) holds a Playwright suite that runs against real Dash Platform testnet — no mocks. Run with `npm run test:e2e` (or `npm run test:e2e:ui` for the interactive runner). Browse-only specs run without credentials; auth-gated specs activate when `PLATFORM_MNEMONIC` is set in the repo-root `.env` and `test.skip` cleanly otherwise. The only chain-mutating spec is the SetPrice round-trip (list → update → unlist), which is reversible and moves no funds.
+
 ## Deploying to GitHub Pages
 
 The project ships with a fork-friendly deploy workflow at the repo root. Pushing the deploy branch triggers a Vite build with `VITE_BASE_PATH` set to the repo name so links resolve under `/<repo>/`. For local previews of that build, run:
