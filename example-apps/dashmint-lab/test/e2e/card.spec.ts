@@ -91,10 +91,7 @@ test("Marketplace Buy button opens LoginModal when not authenticated", async ({
     test.skip(true, "Marketplace is empty on testnet; nothing to buy.");
   }
 
-  await cards
-    .first()
-    .getByRole("button", { name: /^buy$/i })
-    .click();
+  await cards.first().getByRole("button", { name: /^buy$/i }).click();
   await expect(page.getByRole("dialog")).toBeVisible();
   await expect(
     page.getByRole("dialog").getByPlaceholder("mnemonic phrase"),

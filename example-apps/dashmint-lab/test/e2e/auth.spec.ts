@@ -71,7 +71,9 @@ test.describe("Authenticated flows (auth-gated)", () => {
     await expect(
       dialog.getByPlaceholder("alice.dash or identity ID"),
     ).toBeVisible();
-    await expect(dialog.getByRole("button", { name: /^Transfer$/ })).toBeVisible();
+    await expect(
+      dialog.getByRole("button", { name: /^Transfer$/ }),
+    ).toBeVisible();
 
     await dialog.getByRole("button", { name: /^Cancel$/ }).click();
     await expect(dialog).toBeHidden();
@@ -109,7 +111,10 @@ test.describe("Authenticated flows (auth-gated)", () => {
       }
     }
     if (target === -1) {
-      test.skip(true, "All marketplace listings are owned by the test identity.");
+      test.skip(
+        true,
+        "All marketplace listings are owned by the test identity.",
+      );
     }
 
     const card = cards.nth(target);
@@ -118,7 +123,9 @@ test.describe("Authenticated flows (auth-gated)", () => {
     const dialog = page.getByRole("dialog");
     await expect(dialog).toBeVisible();
     await expect(dialog.locator("h3")).toBeVisible(); // card title
-    await expect(dialog.getByText(/\d[\d,]*\s*(cr|credits)/i).first()).toBeVisible();
+    await expect(
+      dialog.getByText(/\d[\d,]*\s*(cr|credits)/i).first(),
+    ).toBeVisible();
     await expect(dialog.getByRole("button", { name: /^Buy/ })).toBeVisible();
 
     await dialog.getByRole("button", { name: /^Cancel$/ }).click();
@@ -139,7 +146,9 @@ test.describe("Authenticated flows (auth-gated)", () => {
     }
 
     const firstCard = cards.first();
-    const cardTitle = (await firstCard.locator("h3").first().textContent())?.trim();
+    const cardTitle = (
+      await firstCard.locator("h3").first().textContent()
+    )?.trim();
     expect(cardTitle).toBeTruthy();
     const countBefore = await cards.count();
 
@@ -178,6 +187,103 @@ test.describe("Authenticated flows (auth-gated)", () => {
     ).toBeVisible();
   });
 
+  // ─── Settings (IdentityCard re-click) + Logout ────────────────────────────
+
+  test("IdentityCard reopens LoginModal in Settings mode and Logout reverts session", async ({
+    page,
+  }) => {
+    await loginViaModal(page);
+
+    // Click the IdentityCard region. The whole card is a <button>; clicking
+    // anywhere on it triggers onLoginClick → opens LoginModal in settings
+    // variant (since session.status === "authenticated").
+    await page.locator("aside").getByText("Signed in").click();
+
+    const dialog = page.getByRole("dialog", { name: /^Settings$/ });
+    await expect(dialog).toBeVisible();
+
+    // Identity id is shown in full inside the Settings panel.
+    await expect(
+      dialog.getByText(/[1-9A-HJ-NP-Za-km-z]{40,}/).first(),
+    ).toBeVisible();
+    // Contract ID input + register/use buttons.
+    await expect(
+      dialog.getByPlaceholder(/contract id|register a new one/i),
+    ).toBeVisible();
+    await expect(
+      dialog.getByRole("button", { name: /^Use this ID$/ }),
+    ).toBeVisible();
+    await expect(
+      dialog.getByRole("button", { name: /^Register new$/ }),
+    ).toBeVisible();
+    await expect(
+      dialog.getByRole("button", { name: /^Logout$/ }),
+    ).toBeVisible();
+
+    // Logout reverts to browse mode.
+    await dialog.getByRole("button", { name: /^Logout$/ }).click();
+    await expect(dialog).toBeHidden();
+
+    // Post-logout the session goes back to "browsing" (still connected).
+    // IdentityCard hides "Signed in"; the sidebar nav shows its Login button.
+    await expect(page.locator("aside").getByText("Signed in")).toBeHidden();
+    await expect(
+      page.getByRole("navigation").getByRole("button", { name: /login/i }),
+    ).toBeVisible();
+    // Yours sub-tab is hidden again post-logout.
+    await expect(page.getByRole("button", { name: "Yours" })).toHaveCount(0);
+  });
+
+  // ─── TransferModal recipient: raw identity ID resolves ────────────────────
+
+  test("TransferModal accepts a raw identity ID and enables submit", async ({
+    page,
+  }) => {
+    await loginViaModal(page);
+
+    // Pull the test identity's full id from the Settings panel (only place
+    // it's rendered untruncated).
+    await page.locator("aside").getByText("Signed in").click();
+    const settings = page.getByRole("dialog", { name: /^Settings$/ });
+    await expect(settings).toBeVisible();
+    const myId = (
+      await settings
+        .getByText(/[1-9A-HJ-NP-Za-km-z]{40,}/)
+        .first()
+        .textContent()
+    )?.trim();
+    expect(myId && myId.length).toBeGreaterThanOrEqual(40);
+    // Two elements have accessible name "Close" (header × icon button + bottom
+    // Close button). Dismiss with Escape to sidestep the strict-mode collision.
+    await page.keyboard.press("Escape");
+    await expect(settings).toBeHidden();
+
+    await page.getByRole("button", { name: "Yours" }).click();
+    await expect(page.getByText(/loading…/i)).toBeHidden({ timeout: 90_000 });
+    const cards = page.locator("article");
+    if ((await cards.count()) === 0) {
+      test.skip(true, "Signed-in identity owns no cards.");
+    }
+
+    const firstCard = cards.first();
+    await firstCard.getByRole("button", { name: /more actions/i }).click();
+    await firstCard.getByRole("button", { name: /^transfer$/i }).click();
+
+    const dialog = page.getByRole("dialog", { name: /transfer card/i });
+    await expect(dialog).toBeVisible();
+    const input = dialog.getByPlaceholder("alice.dash or identity ID");
+    const submit = dialog.getByRole("button", { name: /^Transfer$/ });
+
+    // Pasting a raw 44-char base58 id (no '.' and no '-/0/O/I/l') classifies
+    // as "ambiguous" — resolveRecipient then verifies it as an identity id.
+    await input.fill(myId ?? "");
+    await expect(dialog.getByText(/✓/)).toBeVisible({ timeout: 30_000 });
+    await expect(submit).toBeEnabled();
+
+    await dialog.getByRole("button", { name: /^Cancel$/ }).click();
+    await expect(dialog).toBeHidden();
+  });
+
   // ─── SetPrice round-trip (write-tier, reversible) ─────────────────────────
 
   // This is the only auth-gated spec that mutates chain state. Listing,
@@ -214,7 +320,9 @@ test.describe("Authenticated flows (auth-gated)", () => {
     const card = cards.nth(chosenIndex);
     const title = (await card.locator("h3").first().textContent())?.trim();
     expect(title).toBeTruthy();
-    const cardByTitle = page.locator("article", { hasText: title ?? "" }).first();
+    const cardByTitle = page
+      .locator("article", { hasText: title ?? "" })
+      .first();
 
     // ── Step 1: List for sale ───────────────────────────────────────────────
     await card.getByRole("button", { name: /^sell$/i }).click();

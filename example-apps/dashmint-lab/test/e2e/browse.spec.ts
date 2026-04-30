@@ -1,4 +1,4 @@
-import { test, expect, rawTest } from "./fixtures";
+import { test, expect, rawTest, HAS_MNEMONIC, loginViaModal } from "./fixtures";
 
 // ─── Browse-only sub-tabs ──────────────────────────────────────────────────
 
@@ -20,7 +20,9 @@ test("Yours sub-tab is hidden when not authenticated", async ({ page }) => {
   await expect(page.getByRole("button", { name: "Yours" })).toHaveCount(0);
 });
 
-test("Mint tab shows the login overlay when not logged in", async ({ page }) => {
+test("Mint tab shows the login overlay when not logged in", async ({
+  page,
+}) => {
   await page
     .getByRole("navigation")
     .getByRole("button", { name: /mint/i })
@@ -209,25 +211,26 @@ test("Price sort puts the highest-priced card first in the Marketplace", async (
 // `bogus-contract` and `mobile-drawer` deliberately bypass the shared `page`
 // fixture's "Connected" wait so they can manipulate localStorage / viewport
 // before the first navigation.
-rawTest("App stays usable when localStorage holds a bogus contract id", async ({
-  page,
-}) => {
-  await page.addInitScript(() => {
-    window.localStorage.setItem("dashmint-lab.contractId", "0".repeat(44));
-  });
-  await page.goto("/");
+rawTest(
+  "App stays usable when localStorage holds a bogus contract id",
+  async ({ page }) => {
+    await page.addInitScript(() => {
+      window.localStorage.setItem("dashmint-lab.contractId", "0".repeat(44));
+    });
+    await page.goto("/");
 
-  await expect(
-    page.getByRole("navigation").getByRole("button", { name: /collection/i }),
-  ).toBeVisible({ timeout: 60_000 });
+    await expect(
+      page.getByRole("navigation").getByRole("button", { name: /collection/i }),
+    ).toBeVisible({ timeout: 60_000 });
 
-  await page.getByRole("button", { name: "All" }).click();
-  await expect(page.getByText(/loading…/i)).toBeHidden({ timeout: 90_000 });
+    await page.getByRole("button", { name: "All" }).click();
+    await expect(page.getByText(/loading…/i)).toBeHidden({ timeout: 90_000 });
 
-  const articles = page.locator("article");
-  const empty = page.getByText(/no cards found/i);
-  await expect(articles.first().or(empty)).toBeVisible();
-});
+    const articles = page.locator("article");
+    const empty = page.getByText(/no cards found/i);
+    await expect(articles.first().or(empty)).toBeVisible();
+  },
+);
 
 rawTest.describe("Mobile viewport", () => {
   rawTest.use({ viewport: { width: 390, height: 844 } });
@@ -248,5 +251,24 @@ rawTest.describe("Mobile viewport", () => {
     // Click outside the drawer to close.
     await page.mouse.click(380, 10);
     await expect(collectionNavBtn).not.toBeInViewport();
+  });
+
+  rawTest("login flow works under a mobile viewport", async ({ page }) => {
+    rawTest.skip(!HAS_MNEMONIC, "PLATFORM_MNEMONIC not set");
+    await page.goto("/");
+    await expect(page.getByText("Connected").first()).toBeVisible({
+      timeout: 60_000,
+    });
+
+    // The sidebar nav (and its Login button) is hidden behind the hamburger
+    // on mobile. Open the drawer first so loginViaModal can find the button.
+    await page.getByRole("button", { name: /open menu/i }).click();
+    await loginViaModal(page);
+
+    // Dismiss the drawer (it stays open after login on this viewport).
+    await page.keyboard.press("Escape");
+
+    // Yours sub-tab is now reachable from the in-page tab row.
+    await expect(page.getByRole("button", { name: "Yours" })).toBeVisible();
   });
 });
