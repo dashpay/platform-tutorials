@@ -8,6 +8,8 @@ React + TypeScript + Vite app for minting, viewing, transferring, and trading NF
 - `npm run build` — typecheck (`tsc -b`) then bundle
 - `npm run lint` — ESLint
 - `npm run test` — Vitest suite in [test/](test/)
+- `npm run test:e2e` — Playwright suite in [test/e2e/](test/e2e/) (auto-boots Vite on :5180)
+- `npm run test:e2e:ui` — Playwright with the interactive UI runner
 - `npm run format` / `format:check` — Prettier
 - `npm run preview` — serve production build locally
 
@@ -23,6 +25,7 @@ React + TypeScript + Vite app for minting, viewing, transferring, and trading NF
 - **[src/styles/globals.css](src/styles/globals.css)** — Tailwind v4 import + rarity tokens.
 - **[public/dashmint-lite.html](public/dashmint-lite.html)** — single-file zero-build companion. Read-only Browse cards (with Marketplace-only toggle), loads `@dashevo/evo-sdk` from `esm.sh`, and ships alongside the React app at `<...>/dashmint-lab/dashmint-lite.html` (Vite copies `public/*` into `dist/`). Intentionally self-contained as a learning reference — don't import app code into it.
 - **[test/](test/)** — Vitest + Testing Library. All test files live here per the `include` pattern in [vite.config.ts](vite.config.ts) and are named after the subject under test (e.g. `CardTile.test.tsx`, `SessionContext.test.tsx`). Default env is `node`; tests that need DOM opt in with `// @vitest-environment jsdom`.
+- **[test/e2e/](test/e2e/)** — Playwright specs (`auth`, `browse`, `card`, `how-it-works`, `login-modal`) plus shared `fixtures.ts`. Driven by [playwright.config.ts](playwright.config.ts), which loads `PLATFORM_MNEMONIC` from `../../.env` (repo root, with optional `dashmint-lab/.env` override) and auto-starts `npx vite` on port 5180. The suite runs against real testnet — no SDK mocks. Auth-gated specs sit in `test.describe.configure({ mode: "serial" })` and `test.skip` cleanly when `PLATFORM_MNEMONIC` is unset (via the `HAS_MNEMONIC` flag from `fixtures.ts`). The only chain-mutating spec is the SetPrice round-trip (list → update → unlist) — reversible state, no funds move; transfer / purchase / burn writes are deliberately excluded.
 
 ## SDK Patterns
 
