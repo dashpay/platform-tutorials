@@ -1,0 +1,323 @@
+<!--
+  DashMint Lite — single-file, read-only NFT card browser on Dash Platform testnet.
+
+  What it does
+  ------------
+  - Browse: list cards from the NFT card data contract on testnet.
+  - Marketplace toggle: filter to cards with a $price set.
+
+  How it works
+  ------------
+  - The "card" data contract on testnet stores: name, description, attack, defense.
+    The contract is flagged transferable + tradeMode, so cards can be sent and
+    priced. Reads need no identity or signing — just connect to testnet.
+  - Writes (mint, transfer, set price, purchase, burn) are NOT implemented here.
+    Use the React app at example-apps/dashmint-lab/ or the Node tutorials in
+    2-Contracts-and-Documents/nfts/ for those.
+
+  Why single-file
+  ---------------
+  - No build step. Open it directly in a browser or host as a static file.
+  - SDK comes from esm.sh (CDN-served ES module).
+
+  Gotcha worth knowing
+  --------------------
+  - There is no server-side index for trade-mode (cards-with-a-price), so
+    "Marketplace only" runs the same query as "All cards" and filters
+    client-side by $price. Same approach as listMarketplaceCards in
+    src/dash/queries.ts in the React app.
+-->
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>DashMint Lite</title>
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+  <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600&display=swap" rel="stylesheet">
+  <style>
+    body { font-family: 'Inter', -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif; margin: 0; line-height: 1.4; background: #fcfcfd; color: #1a1f2e; }
+    .shell { display: grid; grid-template-columns: 208px 1fr; min-height: 100vh; }
+    aside { border-right: 1px solid #e5e7eb; padding: 18px 14px; display: flex; flex-direction: column; }
+    aside h1 { font-size: 13px; font-weight: 600; letter-spacing: -0.01em; margin: 0 0 1rem; }
+    section h2 { font-size: 1.25rem; font-weight: 600; letter-spacing: -0.01em; margin-top: 0; }
+    main { padding: 1rem 1.5rem; max-width: 1100px; }
+    .muted { color: #6b7280; }
+    section { border: 1px solid #e5e7eb; border-radius: 8px; padding: 1.25rem 1.5rem; margin: 1rem 0; background: #f4f5f9; box-shadow: 0 1px 2px rgba(0, 0, 0, 0.04); }
+    .controls { display: flex; flex-wrap: wrap; align-items: center; gap: 1rem; margin-top: 0.5rem; }
+    .controls label { font-size: 0.9rem; cursor: pointer; }
+    .controls label input { margin-right: 0.3rem; }
+    button.action { padding: 0.4rem 0.9rem; cursor: pointer; }
+    button:disabled { cursor: not-allowed; opacity: 0.6; }
+    .hash { font-family: ui-monospace, SFMono-Regular, Menlo, monospace; font-size: 0.85rem; }
+    .grid { display: grid; grid-template-columns: repeat(auto-fill, minmax(220px, 1fr)); gap: 0.75rem; margin-top: 0.5rem; }
+    .card { position: relative; border: 1px solid #e5e7eb; border-top: 3px solid #cbd5e1; border-radius: 8px; background: #fff; padding: 0.75rem 0.85rem 0.85rem; display: flex; flex-direction: column; gap: 0.5rem; box-shadow: 0 1px 2px rgba(0,0,0,0.04); }
+    .card.rarity-common { border-top-color: #94a3b8; }
+    .card.rarity-rare { border-top-color: #3b82f6; }
+    .card.rarity-legendary { border-top-color: #f59e0b; }
+    .card .name { font-weight: 600; font-size: 1rem; line-height: 1.25; padding-right: 4.5rem; }
+    .card .rarity-tag { position: absolute; top: 0.55rem; right: 0.6rem; font-size: 0.62rem; font-weight: 600; text-transform: uppercase; letter-spacing: 0.05em; padding: 0.1rem 0.4rem; border-radius: 999px; background: #f1f5f9; color: #475569; }
+    .card.rarity-rare .rarity-tag { background: #dbeafe; color: #1d4ed8; }
+    .card.rarity-legendary .rarity-tag { background: #fef3c7; color: #b45309; }
+    .card .desc { font-size: 0.8rem; color: #4b5563; margin: 0; }
+    .card .stats { display: grid; grid-template-columns: 1fr 1fr; gap: 0.4rem; }
+    .card .stat { background: #f4f5f9; border-radius: 6px; padding: 0.3rem 0.5rem; text-align: center; }
+    .card .stat-label { font-size: 0.6rem; color: #6b7280; text-transform: uppercase; letter-spacing: 0.06em; }
+    .card .stat-value { font-size: 1.05rem; font-weight: 600; color: #1a1f2e; }
+    .card .price { font-size: 0.78rem; font-weight: 500; color: #047857; background: #ecfdf5; border: 1px solid #a7f3d0; border-radius: 4px; padding: 0.2rem 0.45rem; align-self: flex-start; }
+    .card .meta { margin-top: auto; padding-top: 0.4rem; border-top: 1px solid #f1f5f9; display: grid; gap: 0.15rem; font-size: 0.7rem; color: #6b7280; }
+    .card .meta .label { text-transform: uppercase; letter-spacing: 0.05em; font-size: 0.6rem; }
+    .card .meta .value { font-family: ui-monospace, SFMono-Regular, Menlo, monospace; word-break: break-all; color: #475569; }
+    .summary-line { font-size: 0.8rem; color: #6b7280; margin: 0.5rem 0 0.25rem; }
+    .status-line { padding: 0.5rem 0.75rem; border: 1px solid #e5e7eb; border-radius: 4px; background: #f5f5f5; font-size: 0.85rem; margin-top: 0.5rem; }
+    .status-line.miss { border-color: #f0c987; background: #fff8e1; }
+    .status-line.err { border-color: #e8a09a; background: #fdecea; color: #b42318; }
+    #status { font-size: 0.75rem; color: #6b7280; margin-top: auto; padding-top: 0.75rem; border-top: 1px solid #e5e7eb; }
+    @media (max-width: 600px) {
+      .shell { grid-template-columns: 1fr; }
+      aside { border-right: none; border-bottom: 1px solid #e5e7eb; }
+    }
+  </style>
+</head>
+<body>
+  <div class="shell">
+    <aside>
+      <h1>DashMint Lite</h1>
+      <div class="muted" style="font-size: 0.65rem; text-transform: uppercase; letter-spacing: 0.1em; margin-top: -0.75rem; margin-bottom: 1rem;">Testnet</div>
+      <div id="status">Connecting…</div>
+    </aside>
+
+    <main>
+      <section>
+        <h2>Browse cards</h2>
+        <p class="muted">Read-only listing of NFT cards from the card data contract on testnet.</p>
+        <div class="controls">
+          <label><input type="radio" name="filter" value="all" checked>All cards</label>
+          <label><input type="radio" name="filter" value="market">Marketplace only</label>
+          <button class="action" id="refresh-btn" disabled>Refresh</button>
+        </div>
+        <div id="result"></div>
+      </section>
+
+      <p class="muted" style="font-size: 0.8rem;">
+        Contract: <span class="hash" id="contract-id"></span>
+      </p>
+    </main>
+  </div>
+
+  <script type="module">
+    // ============================================================================
+    // DASH PLATFORM SDK
+    // ----------------------------------------------------------------------------
+    // Everything in this section is the SDK surface this demo touches: the import,
+    // the contract identifier, the connection, and the single read query. The rest
+    // of the file (DOM wiring, render helpers) is plumbing.
+    // ============================================================================
+
+    // Pull the Evo SDK from esm.sh — no bundler needed. esm.sh resolves the npm
+    // package and serves it as a browser-native ES module. Pin a specific
+    // version (e.g. '@dashevo/evo-sdk@3.1.0-dev.1') for reproducibility.
+    import { EvoSDK } from 'https://esm.sh/@dashevo/evo-sdk';
+
+    // The "card" data contract is already published on testnet by the React app.
+    // Anyone querying with the same contract id hits the same documents.
+    const CONTRACT_ID = '4eJR4pgV9mQdyoodfTTwFUp3SYBRJbUrJ5X1ViN2zBhY';
+    const DOC_TYPE = 'card';
+
+    // Connect to testnet. testnetTrusted() uses the SDK's bundled list of trusted
+    // nodes — no node URL or config needed. connect() does the gRPC handshake
+    // + initial sync. No identity or signing is required for read-only queries.
+    async function connectSdk() {
+      const sdk = EvoSDK.testnetTrusted();
+      await sdk.connect();
+      return sdk;
+    }
+
+    // List every card in the contract, capped at the Platform query limit (100).
+    // No server-side $price filter exists, so marketplace mode filters this same
+    // result client-side (see render() below).
+    async function listAllCards(sdk) {
+      const results = await sdk.documents.query({
+        dataContractId: CONTRACT_ID,
+        documentTypeName: DOC_TYPE,
+        limit: 100,
+      });
+      return normalizeCards(results);
+    }
+
+    // sdk.documents.query() can return an array, a Map, or a plain object
+    // depending on SDK version. Flatten all three shapes to Card[].
+    function normalizeCards(results) {
+      if (!results) return [];
+      if (Array.isArray(results)) return results.map((d) => toCard(null, d));
+      const entries = results instanceof Map ? Object.fromEntries(results) : results;
+      return Object.entries(entries).map(([id, d]) => toCard(id, d));
+    }
+
+    // Map a raw document into a shape the UI can render.
+    function toCard(id, doc) {
+      // Some result shapes wrap the document; .toJSON() unwraps it. Fallback to
+      // treating `doc` itself as the data when toJSON isn't present.
+      const data = (doc && typeof doc.toJSON === 'function') ? doc.toJSON() : doc;
+      return {
+        id: id ?? data.$id ?? null,
+        ownerId: data.$ownerId ?? null,
+        name: data.name ?? null,
+        description: data.description ?? null,
+        attack: data.attack ?? null,
+        defense: data.defense ?? null,
+        price: data.$price ?? null,
+      };
+    }
+
+    // ============================================================================
+    // UI: DOM refs, render helpers, event handlers
+    // ============================================================================
+
+    const $ = (id) => document.getElementById(id);
+    $('contract-id').textContent = CONTRACT_ID;
+
+    const statusEl = $('status');
+    const refreshBtn = $('refresh-btn');
+    const resultEl = $('result');
+
+    function makeDiv(className, text) {
+      const div = document.createElement('div');
+      div.className = className;
+      if (text != null) div.textContent = text;
+      return div;
+    }
+    const statusLine = (text, kind) => makeDiv('status-line' + (kind ? ' ' + kind : ''), text);
+    const summaryLine = (text) => makeDiv('summary-line', text);
+
+    // A card is "for sale" when $price is set AND > 0. Zero is not a valid
+    // price on Platform — treat it as unset.
+    function hasPrice(p) {
+      if (p == null) return false;
+      return typeof p === 'bigint' ? p > 0n : Number(p) > 0;
+    }
+
+    // Format a credit amount as a string. Prices come back as bigint or number.
+    function formatPrice(p) {
+      if (!hasPrice(p)) return null;
+      const n = typeof p === 'bigint' ? p.toString() : String(p);
+      return `${n} credits`;
+    }
+
+    // Rarity is derived client-side from attack + defense (not persisted on-chain).
+    // Thresholds match src/lib/rarity.ts in the React app.
+    function rarityOf(attack, defense) {
+      const total = (attack ?? 0) + (defense ?? 0);
+      if (total >= 15) return 'legendary';
+      if (total >= 11) return 'rare';
+      return 'common';
+    }
+
+    // Truncate long IDs to a head…tail form for compact tile display.
+    function shortId(id) {
+      if (!id) return '';
+      const s = String(id);
+      return s.length > 16 ? `${s.slice(0, 6)}…${s.slice(-6)}` : s;
+    }
+
+    function statBlock(label, value) {
+      const wrap = makeDiv('stat');
+      wrap.append(
+        makeDiv('stat-label', label),
+        makeDiv('stat-value', value != null ? String(value) : '—'),
+      );
+      return wrap;
+    }
+
+    function metaRow(label, value) {
+      const wrap = document.createElement('div');
+      const l = makeDiv('label', label);
+      const v = makeDiv('value', value);
+      v.title = value;
+      wrap.append(l, v);
+      return wrap;
+    }
+
+    function cardEl(c) {
+      const rarity = rarityOf(c.attack, c.defense);
+      const wrap = makeDiv(`card rarity-${rarity}`);
+
+      wrap.appendChild(makeDiv('rarity-tag', rarity));
+      wrap.appendChild(makeDiv('name', c.name || '(unnamed)'));
+      if (c.description) {
+        const p = document.createElement('p');
+        p.className = 'desc';
+        p.textContent = c.description;
+        wrap.appendChild(p);
+      }
+
+      const stats = makeDiv('stats');
+      stats.append(statBlock('Attack', c.attack), statBlock('Defense', c.defense));
+      wrap.appendChild(stats);
+
+      if (hasPrice(c.price)) {
+        wrap.appendChild(makeDiv('price', `For sale · ${formatPrice(c.price)}`));
+      }
+
+      const meta = makeDiv('meta');
+      if (c.ownerId) meta.appendChild(metaRow('Owner', shortId(c.ownerId)));
+      if (c.id) meta.appendChild(metaRow('Document ID', shortId(c.id)));
+      wrap.appendChild(meta);
+
+      return wrap;
+    }
+
+    function currentFilter() {
+      return document.querySelector('input[name="filter"]:checked').value;
+    }
+
+    let sdk;
+
+    async function load() {
+      refreshBtn.disabled = true;
+      resultEl.replaceChildren(statusLine('Querying…'));
+      try {
+        const cards = await listAllCards(sdk);
+        const filter = currentFilter();
+        const filtered = filter === 'market' ? cards.filter((c) => hasPrice(c.price)) : cards;
+        if (filtered.length === 0) {
+          const msg = filter === 'market'
+            ? 'No cards currently listed for sale.'
+            : 'No cards found in this contract.';
+          resultEl.replaceChildren(statusLine(msg, 'miss'));
+        } else {
+          const label = filter === 'market' ? 'card(s) for sale' : 'card(s) total';
+          const grid = makeDiv('grid');
+          for (const c of filtered) grid.appendChild(cardEl(c));
+          resultEl.replaceChildren(
+            summaryLine(`${filtered.length} ${label}`),
+            grid,
+          );
+        }
+      } catch (err) {
+        resultEl.replaceChildren(statusLine('Error: ' + (err?.message ?? err), 'err'));
+      } finally {
+        refreshBtn.disabled = false;
+      }
+    }
+
+    // Connect on page load, then auto-run the first query.
+    try {
+      sdk = await connectSdk();
+      statusEl.textContent = 'Connected to testnet';
+      refreshBtn.disabled = false;
+      await load();
+    } catch (err) {
+      statusEl.textContent = 'Connection failed';
+      resultEl.replaceChildren(statusLine('Connection failed: ' + (err?.message ?? err), 'err'));
+      throw err;
+    }
+
+    refreshBtn.addEventListener('click', load);
+    document.querySelectorAll('input[name="filter"]').forEach((r) => {
+      r.addEventListener('change', load);
+    });
+  </script>
+</body>
+</html>
