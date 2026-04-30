@@ -1,0 +1,122 @@
+@import url("https://fonts.googleapis.com/css2?family=Manrope:wght@400;500;600;700&family=IBM+Plex+Mono:wght@400;500;600&display=swap");
+@import "tailwindcss";
+
+@theme {
+  --color-bg: oklch(22% 0.015 72);
+  --color-surface: oklch(27% 0.018 72);
+  --color-surface-2: oklch(32% 0.018 72);
+  --color-line: oklch(38% 0.018 72);
+  --color-line-2: oklch(45% 0.018 72);
+
+  --color-ink: oklch(95% 0.01 95);
+  --color-ink-2: oklch(83% 0.012 95);
+  --color-ink-3: oklch(66% 0.012 95);
+  --color-ink-4: oklch(55% 0.011 95);
+
+  --color-accent: oklch(71% 0.15 72);
+  --color-accent-dim: oklch(62% 0.13 72);
+  --color-danger: oklch(67% 0.19 26);
+
+  --font-sans: "Manrope", system-ui, -apple-system, "Segoe UI", sans-serif;
+  --font-mono:
+    "IBM Plex Mono", ui-monospace, "Cascadia Code", "Fira Code", monospace;
+}
+
+:root,
+:root[data-theme="dark"] {
+  color-scheme: dark;
+}
+
+:root[data-theme="light"] {
+  color-scheme: light;
+
+  --color-bg: oklch(98% 0.014 92);
+  --color-surface: oklch(96% 0.02 92);
+  --color-surface-2: oklch(93% 0.022 92);
+  --color-line: oklch(86% 0.022 86);
+  --color-line-2: oklch(80% 0.022 82);
+
+  --color-ink: oklch(25% 0.03 65);
+  --color-ink-2: oklch(38% 0.026 65);
+  --color-ink-3: oklch(51% 0.02 65);
+  --color-ink-4: oklch(61% 0.016 65);
+
+  --color-accent: oklch(60% 0.14 72);
+  --color-accent-dim: oklch(54% 0.12 72);
+  --color-danger: oklch(58% 0.2 26);
+}
+
+html,
+body,
+#root {
+  min-height: 100vh;
+  margin: 0;
+  background:
+    radial-gradient(
+      circle at top left,
+      color-mix(in oklab, var(--color-surface-2) 35%, transparent),
+      transparent 30%
+    ),
+    linear-gradient(
+      180deg,
+      color-mix(in oklab, var(--color-bg) 90%, black),
+      var(--color-bg)
+    );
+  color: var(--color-ink);
+  font-family: var(--font-sans);
+}
+
+body {
+  background-attachment: fixed;
+}
+
+button,
+input,
+textarea {
+  font: inherit;
+}
+
+textarea {
+  field-sizing: content;
+}
+
+code {
+  font-family: var(--font-mono);
+}
+
+:focus-visible {
+  outline: 2px solid var(--color-accent-dim);
+  outline-offset: 2px;
+}
+
+@keyframes conn-pulse {
+  0%,
+  100% {
+    opacity: 1;
+  }
+  50% {
+    opacity: 0.4;
+  }
+}
+
+.conn-dot {
+  width: 8px;
+  height: 8px;
+  border-radius: 9999px;
+  background: var(--color-ink-4);
+}
+
+.conn-dot.connecting {
+  background: var(--color-accent);
+  animation: conn-pulse 1s infinite;
+}
+
+.conn-dot.connected,
+.conn-dot.authenticated,
+.conn-dot.readonly {
+  background: oklch(70% 0.16 150);
+}
+
+.conn-dot.error {
+  background: var(--color-danger);
+}
