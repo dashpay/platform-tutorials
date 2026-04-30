@@ -71,8 +71,7 @@ export function SetPriceModal({ card, onClose, onPriced }: SetPriceModalProps) {
     await submitPrice(n);
   }
 
-  const hasCurrentPrice =
-    !!card && card.$price !== undefined && card.$price !== null;
+  const hasCurrentPrice = !!card && !!card.$price;
 
   return (
     <Modal
