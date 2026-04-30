@@ -49,7 +49,7 @@ export function NoteEditor({
   const isNew = selectedId === "new";
 
   return (
-    <section className="rounded-[24px] border border-line bg-surface shadow-[0_20px_60px_-36px_rgba(0,0,0,0.45)]">
+    <section className="flex min-h-0 flex-col rounded-[24px] border border-line bg-surface shadow-[0_20px_60px_-36px_rgba(0,0,0,0.45)] xl:h-full">
       <div className="flex items-center justify-between gap-3 border-b border-line px-5 py-4">
         <div>
           <div className="text-[10px] font-semibold uppercase tracking-[0.12em] text-ink-4">
@@ -87,7 +87,7 @@ export function NoteEditor({
         </div>
       </div>
 
-      <div className="space-y-4 px-5 py-5">
+      <div className="flex min-h-0 flex-1 flex-col gap-4 overflow-y-auto px-5 py-5">
         {error && (
           <OperationResultNotice tone="error" title="Editor error">
             {error}
@@ -135,7 +135,7 @@ export function NoteEditor({
               />
             </label>
 
-            <label className="block">
+            <label className="flex min-h-0 flex-1 flex-col">
               <div className="mb-2 text-[10px] font-semibold uppercase tracking-[0.12em] text-ink-4">
                 Body
               </div>
@@ -146,7 +146,7 @@ export function NoteEditor({
                 placeholder="Write a note. If you leave the title blank, the first non-empty line becomes the visible label."
                 disabled={!canEdit}
                 rows={16}
-                className="min-h-[340px] w-full resize-y rounded-[18px] border border-line bg-bg px-4 py-3 text-[14px] leading-6 text-ink outline-none transition focus:border-accent-dim disabled:cursor-not-allowed disabled:text-ink-4"
+                className="w-full min-h-[340px] flex-1 rounded-[18px] border border-line bg-bg px-4 py-3 text-[14px] leading-6 text-ink outline-none transition focus:border-accent-dim disabled:cursor-not-allowed disabled:text-ink-4 xl:min-h-0"
               />
             </label>
 

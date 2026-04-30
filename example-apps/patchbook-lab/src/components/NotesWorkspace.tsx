@@ -265,7 +265,7 @@ export function NotesWorkspace({
         </OperationResultNotice>
       )}
 
-      <div className="grid gap-5 xl:grid-cols-[340px_minmax(0,1fr)]">
+      <div className="grid gap-5 xl:h-[calc(100vh-220px)] xl:min-h-[520px] xl:grid-cols-[340px_minmax(0,1fr)]">
         <NoteList
           notes={notes}
           loading={listLoading}

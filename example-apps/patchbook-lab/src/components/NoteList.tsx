@@ -24,7 +24,7 @@ export function NoteList({
   canCreate,
 }: NoteListProps) {
   return (
-    <section className="rounded-[24px] border border-line bg-surface shadow-[0_20px_60px_-36px_rgba(0,0,0,0.45)]">
+    <section className="flex min-h-0 flex-col rounded-[24px] border border-line bg-surface shadow-[0_20px_60px_-36px_rgba(0,0,0,0.45)] xl:h-full">
       <div className="flex items-center justify-between border-b border-line px-4 py-3">
         <div>
           <div className="text-[10px] font-semibold uppercase tracking-[0.12em] text-ink-4">
@@ -44,7 +44,7 @@ export function NoteList({
         </button>
       </div>
 
-      <div className="max-h-[calc(100vh-270px)] overflow-y-auto p-3">
+      <div className="max-h-[calc(100vh-270px)] min-h-0 flex-1 overflow-y-auto p-3 xl:max-h-none">
         {loading && notes.length === 0 ? (
           <div className="rounded-2xl border border-dashed border-line px-4 py-8 text-center text-[13px] text-ink-4">
             Loading notes…
