@@ -20,6 +20,7 @@ interface NoteEditorProps {
   deleting: boolean;
   canEdit: boolean;
   canDelete: boolean;
+  dirty: boolean;
   contractReady: boolean;
   error: string | null;
   onOpenSettings: () => void;
@@ -39,6 +40,7 @@ export function NoteEditor({
   deleting,
   canEdit,
   canDelete,
+  dirty,
   contractReady,
   error,
   onOpenSettings,
@@ -76,7 +78,7 @@ export function NoteEditor({
             <button
               type="button"
               onClick={onSave}
-              disabled={!canEdit || saving}
+              disabled={!canEdit || saving || !dirty}
               className="rounded-full bg-accent px-3 py-1.5 text-[12px] font-semibold text-bg transition hover:bg-accent-dim disabled:cursor-not-allowed disabled:bg-surface-2 disabled:text-ink-4"
             >
               {saving ? "Saving…" : isNew ? "Create note" : "Save"}

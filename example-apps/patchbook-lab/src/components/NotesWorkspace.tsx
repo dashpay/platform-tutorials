@@ -289,6 +289,7 @@ export function NotesWorkspace({
           deleting={deleting}
           canEdit={canMutate}
           canDelete={Boolean(canMutate && selectedId && selectedId !== "new")}
+          dirty={dirty}
           contractReady={contractReady}
           error={error}
           onOpenSettings={onOpenSettings}
