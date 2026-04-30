@@ -42,7 +42,16 @@ let sdkModulePromise: Promise<{
 }> | null = null;
 function loadSdkModule() {
   if (!sdkModulePromise) {
-    sdkModulePromise = import("../../../../setupDashClient-core.mjs");
+    sdkModulePromise = import("../../../../setupDashClient-core.mjs").catch(
+      (err) => {
+        // Clear the cache on failure so a subsequent connect/login retry
+        // can re-attempt the import (e.g., after a transient chunk fetch
+        // failure). Without this, every retry would await the same
+        // rejected promise and fail immediately.
+        sdkModulePromise = null;
+        throw err;
+      },
+    );
   }
   return sdkModulePromise;
 }
