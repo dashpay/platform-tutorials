@@ -128,6 +128,24 @@ describe("SetPriceModal", () => {
     expect(onClose).toHaveBeenCalledTimes(1);
   });
 
+  it("treats $price === 0n as unlisted (zero is not a valid price)", () => {
+    mockUseSession.mockReturnValue(sessionValue);
+
+    render(
+      <SetPriceModal card={{ ...listedCard, $price: 0n }} onClose={vi.fn()} />,
+    );
+
+    // Modal renders the unlisted variant: "Set price" title, no "Currently
+    // listed at …" anchor, no "Remove from sale" button, and the submit
+    // button reads "List for sale" (not "Update price").
+    expect(screen.getByRole("heading", { name: "Set price" })).toBeTruthy();
+    expect(screen.queryByText(/currently listed at/i)).toBeNull();
+    expect(
+      screen.queryByRole("button", { name: "Remove from sale" }),
+    ).toBeNull();
+    expect(screen.getByRole("button", { name: "List for sale" })).toBeTruthy();
+  });
+
   it("removes a card from sale and closes after success", async () => {
     const onClose = vi.fn();
     const onPriced = vi.fn();
