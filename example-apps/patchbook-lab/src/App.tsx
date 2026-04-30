@@ -58,11 +58,6 @@ function App() {
                 {header.subtitle}
               </p>
             </div>
-            <div className="max-w-[320px] rounded-[20px] border border-line bg-bg/70 px-4 py-3 text-[12px] leading-5 text-ink-3">
-              Apple Notes-like labeling, but still tutorial-friendly: title is
-              optional, note body is required on-chain, and the UI can fall back
-              to the first body line when title is blank.
-            </div>
           </div>
         </header>
 

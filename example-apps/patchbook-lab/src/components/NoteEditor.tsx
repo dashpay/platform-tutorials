@@ -1,4 +1,5 @@
 import type { NoteRecord } from "../dash/queries";
+import { FIELD_BYTE_LIMIT } from "../lib/fieldLimits";
 import {
   formatRelativeTime,
   formatTimestamp,
@@ -21,6 +22,8 @@ interface NoteEditorProps {
   canEdit: boolean;
   canDelete: boolean;
   dirty: boolean;
+  messageBytes: number;
+  messageOversize: boolean;
   contractReady: boolean;
   error: string | null;
   onOpenSettings: () => void;
@@ -41,21 +44,24 @@ export function NoteEditor({
   canEdit,
   canDelete,
   dirty,
+  messageBytes,
+  messageOversize,
   contractReady,
   error,
   onOpenSettings,
 }: NoteEditorProps) {
   const hasSelection = selectedId !== null;
   const isNew = selectedId === "new";
+  const oversize = messageOversize;
 
   return (
     <section className="flex min-h-0 flex-col rounded-[24px] border border-line bg-surface shadow-[0_20px_60px_-36px_rgba(0,0,0,0.45)] xl:h-full">
       <div className="flex items-center justify-between gap-3 border-b border-line px-5 py-4">
-        <div>
+        <div className="min-w-0 flex-1">
           <div className="text-[10px] font-semibold uppercase tracking-[0.12em] text-ink-4">
             {isNew ? "Draft" : "Note detail"}
           </div>
-          <div className="mt-1 text-[18px] font-semibold tracking-tight text-ink">
+          <div className="mt-1 truncate text-[18px] font-semibold tracking-tight text-ink">
             {hasSelection
               ? isNew
                 ? "New note"
@@ -78,7 +84,7 @@ export function NoteEditor({
             <button
               type="button"
               onClick={onSave}
-              disabled={!canEdit || saving || !dirty}
+              disabled={!canEdit || saving || !dirty || oversize}
               className="rounded-full bg-accent px-3 py-1.5 text-[12px] font-semibold text-bg transition hover:bg-accent-dim disabled:cursor-not-allowed disabled:bg-surface-2 disabled:text-ink-4"
             >
               {saving ? "Saving…" : isNew ? "Create note" : "Save"}
@@ -136,8 +142,19 @@ export function NoteEditor({
             </label>
 
             <label className="flex min-h-0 flex-1 flex-col">
-              <div className="mb-2 text-[10px] font-semibold uppercase tracking-[0.12em] text-ink-4">
-                Body
+              <div className="mb-2 flex items-center justify-between gap-3">
+                <div className="text-[10px] font-semibold uppercase tracking-[0.12em] text-ink-4">
+                  Body
+                </div>
+                <div
+                  className={`text-[11px] ${
+                    messageOversize
+                      ? "text-[color:var(--color-danger)]"
+                      : "text-ink-4"
+                  }`}
+                >
+                  {messageBytes} / {FIELD_BYTE_LIMIT} bytes
+                </div>
               </div>
               <textarea
                 aria-label="Body"

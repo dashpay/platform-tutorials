@@ -5,6 +5,7 @@ import { deleteNote } from "../dash/deleteNote";
 import { errorMessage } from "../dash/logger";
 import { getNote, listMyNotes, type NoteRecord } from "../dash/queries";
 import { updateNote } from "../dash/updateNote";
+import { byteLength, FIELD_BYTE_LIMIT } from "../lib/fieldLimits";
 import { useSession } from "../session/useSession";
 import { NoteEditor } from "./NoteEditor";
 import { NoteList } from "./NoteList";
@@ -37,6 +38,8 @@ export function NotesWorkspace({
   const contractReady = Boolean(contractId);
   const canMutate = Boolean(isAuthed && sdk && keyManager && contractId);
   const dirty = title !== baselineTitle || message !== baselineMessage;
+  const messageBytes = byteLength(message);
+  const messageOversize = messageBytes > FIELD_BYTE_LIMIT;
 
   const hasMeaningfulContent = useMemo(
     () => Boolean(title.trim() || message.trim()),
@@ -167,6 +170,12 @@ export function NotesWorkspace({
       setError("Add a title or body before saving.");
       return;
     }
+    if (messageOversize) {
+      setError(
+        `Body exceeds the ${FIELD_BYTE_LIMIT}-byte field limit (${messageBytes} B).`,
+      );
+      return;
+    }
 
     setSaving(true);
     setError(null);
@@ -289,6 +298,8 @@ export function NotesWorkspace({
           canEdit={canMutate}
           canDelete={Boolean(canMutate && selectedId && selectedId !== "new")}
           dirty={dirty}
+          messageBytes={messageBytes}
+          messageOversize={messageOversize}
           contractReady={contractReady}
           error={error}
           onOpenSettings={onOpenSettings}
