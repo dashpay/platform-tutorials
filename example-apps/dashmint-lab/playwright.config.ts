@@ -1,4 +1,14 @@
 import { defineConfig, devices } from "@playwright/test";
+import { config as loadEnv } from "dotenv";
+import { dirname, resolve } from "node:path";
+import { fileURLToPath } from "node:url";
+
+const here = dirname(fileURLToPath(import.meta.url));
+
+// Load repo-root .env first (where PLATFORM_MNEMONIC lives for the tutorials),
+// then let a local dashmint-lab/.env override it if present.
+loadEnv({ path: resolve(here, "../../.env") });
+loadEnv({ path: resolve(here, ".env"), override: true });
 
 const PORT = 5180;
 
@@ -16,6 +26,7 @@ export default defineConfig({
   use: {
     baseURL: `http://localhost:${PORT}`,
     trace: "retain-on-failure",
+    permissions: ["clipboard-read", "clipboard-write"],
   },
 
   projects: [
