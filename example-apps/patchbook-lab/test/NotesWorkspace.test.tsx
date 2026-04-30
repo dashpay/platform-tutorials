@@ -169,8 +169,9 @@ describe("NotesWorkspace", () => {
       updatedAt: 2000,
       revision: 2,
     };
+    const updated = { ...note, title: "Edited", updatedAt: 3000, revision: 3 };
     mockListMyNotes.mockResolvedValue([note]);
-    mockGetNote.mockResolvedValue(note);
+    mockGetNote.mockResolvedValueOnce(note).mockResolvedValueOnce(updated);
     mockUpdateNote.mockResolvedValue(undefined);
     mockDeleteNote.mockResolvedValue(undefined);
 
@@ -185,7 +186,8 @@ describe("NotesWorkspace", () => {
     fireEvent.change(screen.getByLabelText(/title/i), {
       target: { value: "Edited" },
     });
-    fireEvent.click(screen.getByRole("button", { name: /^save$/i }));
+    const saveButton = screen.getByRole("button", { name: /^save$/i });
+    fireEvent.click(saveButton);
 
     await waitFor(() => {
       expect(mockUpdateNote).toHaveBeenCalledWith(
@@ -195,6 +197,16 @@ describe("NotesWorkspace", () => {
           message: "Hello",
         }),
       );
+    });
+
+    // After update, detail should be refetched (mockGetNote called again with same id)
+    await waitFor(() => {
+      expect(mockGetNote).toHaveBeenCalledTimes(2);
+    });
+
+    // Save button should disable once baselines match the freshly-loaded values
+    await waitFor(() => {
+      expect(saveButton.hasAttribute("disabled")).toBe(true);
     });
 
     fireEvent.click(screen.getByRole("button", { name: /delete/i }));

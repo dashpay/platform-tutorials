@@ -45,7 +45,7 @@ export function NoteList({
       </div>
 
       <div className="max-h-[calc(100vh-270px)] overflow-y-auto p-3">
-        {loading ? (
+        {loading && notes.length === 0 ? (
           <div className="rounded-2xl border border-dashed border-line px-4 py-8 text-center text-[13px] text-ink-4">
             Loading notes…
           </div>

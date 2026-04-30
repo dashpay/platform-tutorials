@@ -47,6 +47,7 @@ export function NoteEditor({
 }: NoteEditorProps) {
   const hasSelection = selectedId !== null;
   const isNew = selectedId === "new";
+  const noteMatchesSelection = Boolean(note && note.id === selectedId);
 
   return (
     <section className="rounded-[24px] border border-line bg-surface shadow-[0_20px_60px_-36px_rgba(0,0,0,0.45)]">
@@ -114,7 +115,7 @@ export function NoteEditor({
           <OperationResultNotice title="No note selected">
             Choose a note from the list or create a new one to start writing.
           </OperationResultNotice>
-        ) : loading ? (
+        ) : loading && !noteMatchesSelection && !isNew ? (
           <div className="rounded-2xl border border-dashed border-line px-4 py-10 text-center text-[13px] text-ink-4">
             Loading note…
           </div>

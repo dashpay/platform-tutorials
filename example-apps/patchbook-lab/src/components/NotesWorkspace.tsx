@@ -1,4 +1,4 @@
-import { useCallback, useEffect, useMemo, useState } from "react";
+import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 
 import { createNote } from "../dash/createNote";
 import { deleteNote } from "../dash/deleteNote";
@@ -108,6 +108,30 @@ export function NotesWorkspace({
     void reloadNotes();
   }, [reloadNotes]);
 
+  const loadTokenRef = useRef(0);
+
+  const loadNoteDetail = useCallback(
+    async (noteId: string) => {
+      if (!sdk || !contractId) return;
+      const token = ++loadTokenRef.current;
+      setDetailLoading(true);
+      try {
+        const note = await getNote({ sdk, contractId, noteId, log });
+        if (loadTokenRef.current !== token) return;
+        setSelectedNote(note);
+        setTitle(note?.title ?? "");
+        setMessage(note?.message ?? "");
+        setBaselineTitle(note?.title ?? "");
+        setBaselineMessage(note?.message ?? "");
+      } catch (err) {
+        if (loadTokenRef.current === token) setError(errorMessage(err));
+      } finally {
+        if (loadTokenRef.current === token) setDetailLoading(false);
+      }
+    },
+    [contractId, log, sdk],
+  );
+
   useEffect(() => {
     if (selectedId === "new") {
       setSelectedNote(null);
@@ -117,34 +141,8 @@ export function NotesWorkspace({
       setSelectedNote(null);
       return;
     }
-
-    let cancelled = false;
-    setDetailLoading(true);
-    void getNote({
-      sdk,
-      contractId,
-      noteId: selectedId,
-      log,
-    })
-      .then((note) => {
-        if (cancelled) return;
-        setSelectedNote(note);
-        setTitle(note?.title ?? "");
-        setMessage(note?.message ?? "");
-        setBaselineTitle(note?.title ?? "");
-        setBaselineMessage(note?.message ?? "");
-      })
-      .catch((err) => {
-        if (!cancelled) setError(errorMessage(err));
-      })
-      .finally(() => {
-        if (!cancelled) setDetailLoading(false);
-      });
-
-    return () => {
-      cancelled = true;
-    };
-  }, [contractId, log, sdk, selectedId]);
+    void loadNoteDetail(selectedId);
+  }, [contractId, loadNoteDetail, sdk, selectedId]);
 
   function confirmDiscard(): boolean {
     if (!dirty) return true;
@@ -193,6 +191,7 @@ export function NotesWorkspace({
           message,
           log,
         });
+        await loadNoteDetail(selectedId);
         await reloadNotes(selectedId);
       }
     } catch (err) {
