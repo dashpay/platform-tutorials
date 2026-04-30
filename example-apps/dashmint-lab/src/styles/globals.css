@@ -1,4 +1,6 @@
-@import url("https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&family=JetBrains+Mono:wght@400;500;600&display=swap");
+/* Google Fonts (Inter + JetBrains Mono) loaded via <link> in index.html
+ * with rel="preconnect" so the font fetch parallelizes with JS download
+ * instead of being serialized behind this stylesheet. */
 @import "tailwindcss";
 
 /*

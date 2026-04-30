@@ -23,6 +23,18 @@ export default defineConfig({
     },
   },
   plugins: [react(), tailwindcss()],
+  build: {
+    // Vite auto-injects <link rel="modulepreload"> for every dynamic-import
+    // chunk it discovers at build time. For the ~8MB Evo SDK + WASM chunk
+    // this defeats the whole point of dynamic-importing it: the browser
+    // races to fetch the SDK in parallel with the entry chunk, blocking
+    // FCP. Strip the SDK preload so it only fetches when SessionContext
+    // actually triggers the dynamic import.
+    modulePreload: {
+      resolveDependencies: (_filename, deps) =>
+        deps.filter((d) => !d.includes("evo-sdk")),
+    },
+  },
   test: {
     environment: "node",
     include: ["test/**/*.test.{ts,tsx}"],

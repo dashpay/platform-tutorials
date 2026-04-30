@@ -24,16 +24,37 @@ import {
   type ReactNode,
 } from "react";
 
-import { createClient } from "../dash/client";
-import { IdentityKeyManager } from "../dash/keyManager";
 import {
   clearStoredContractId,
   fetchContractOwnerId,
   loadStoredContractId,
   saveContractId,
-} from "../dash/contract";
+} from "../dash/contractStorage";
 import { errorMessage, type Logger } from "../dash/logger";
 import type { DashKeyManager, DashSdk } from "../dash/types";
+
+// The SDK + IdentityKeyManager pull in @dashevo/evo-sdk (and its ~8MB WASM
+// bundle), so we load them lazily on first use to keep the app shell off
+// the critical path. Cached after first call.
+let sdkModulePromise: Promise<{
+  createClient: (network: string) => Promise<DashSdk>;
+  IdentityKeyManager: typeof import("../../../../setupDashClient-core.mjs").IdentityKeyManager;
+}> | null = null;
+function loadSdkModule() {
+  if (!sdkModulePromise) {
+    sdkModulePromise = import("../../../../setupDashClient-core.mjs").catch(
+      (err) => {
+        // Clear the cache on failure so a subsequent connect/login retry
+        // can re-attempt the import (e.g., after a transient chunk fetch
+        // failure). Without this, every retry would await the same
+        // rejected promise and fail immediately.
+        sdkModulePromise = null;
+        throw err;
+      },
+    );
+  }
+  return sdkModulePromise;
+}
 
 export type SessionStatus =
   | "idle"
@@ -162,6 +183,7 @@ export function SessionProvider({ children }: { children: ReactNode }) {
     setStatus("connecting");
     setError(null);
     log("Connecting to Dash Platform testnet…");
+    const { createClient } = await loadSdkModule();
     const connected = await createClient("testnet");
     log("Connected to testnet.", "info");
     setSdk(connected);
@@ -176,6 +198,7 @@ export function SessionProvider({ children }: { children: ReactNode }) {
       try {
         const connected = sdk ?? (await connect());
         log("Deriving identity keys from mnemonic…");
+        const { IdentityKeyManager } = await loadSdkModule();
         const km = await IdentityKeyManager.create({
           sdk: connected,
           mnemonic: trimmed,

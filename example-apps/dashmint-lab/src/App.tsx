@@ -67,8 +67,12 @@ function App() {
   }, [refreshBalance]);
 
   // Auto-connect in browse-only mode so read tabs work without login.
+  // Defer to the next frame so the shell paints before the SDK chunk
+  // (~8MB WASM) starts downloading.
   useEffect(() => {
-    if (status === "idle") void browseOnly();
+    if (status !== "idle") return;
+    const raf = requestAnimationFrame(() => void browseOnly());
+    return () => cancelAnimationFrame(raf);
   }, [status, browseOnly]);
 
   // Default sub-tab: "My" when logged in, otherwise "All".

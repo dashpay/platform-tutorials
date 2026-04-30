@@ -1,5 +1,5 @@
 /**
- * NFT card data contract schema + ensureContract().
+ * NFT card data contract schema + registerContract / ensureContract.
  *
  * WHAT: A Dash Platform "data contract" defines the schema for documents.
  * This one describes a single document type (`card`) with four fields
@@ -11,12 +11,25 @@
  *   tradeMode: 1            — documents can be priced and purchased (0 to disable)
  *   creationRestrictionMode: 1 — (1 - only the contract owner can mint; 0 - anyone can mint)
  *
+ * Storage helpers (loadStoredContractId, saveContractId, …) and the owner
+ * lookup live in contractStorage.ts so they can be imported without
+ * pulling the @dashevo/evo-sdk runtime into the entry bundle.
+ *
  * SDK methods: new DataContract({ ... }), sdk.contracts.publish(...)
  */
 import { DataContract } from "@dashevo/evo-sdk";
 
+import { loadStoredContractId, saveContractId } from "./contractStorage";
 import type { Logger } from "./logger";
 import type { DashKeyManager, DashSdk } from "./types";
+
+export {
+  DEFAULT_CONTRACT_ID,
+  clearStoredContractId,
+  fetchContractOwnerId,
+  loadStoredContractId,
+  saveContractId,
+} from "./contractStorage";
 
 export const CARD_SCHEMAS = {
   card: {
@@ -61,49 +74,6 @@ export const CARD_SCHEMAS = {
     additionalProperties: false,
   },
 } as const;
-
-/**
- * Fetch the owner identity ID for a given data contract.
- *
- * SDK method: sdk.contracts.fetch(...)
- */
-export async function fetchContractOwnerId({
-  sdk,
-  contractId,
-}: {
-  sdk: DashSdk;
-  contractId: string;
-}): Promise<string | null> {
-  const contract = await sdk.contracts.fetch(contractId);
-  if (!contract) return null;
-  const json =
-    typeof contract.toJSON === "function" ? contract.toJSON() : contract;
-  const ownerId = json.$ownerId ?? json.ownerId ?? null;
-  return ownerId ? String(ownerId) : null;
-}
-
-const STORAGE_KEY = "dashmint-lab.contractId";
-
-/**
- * Default contract ID baked into the tutorial so browse-only mode works
- * on a fresh machine without any setup. Comes from the original
- * HTML tutorial's pre-deployed testnet contract. Users can override it
- * in the Settings modal or register their own.
- */
-export const DEFAULT_CONTRACT_ID =
-  "4eJR4pgV9mQdyoodfTTwFUp3SYBRJbUrJ5X1ViN2zBhY";
-
-export function loadStoredContractId(): string | null {
-  return localStorage.getItem(STORAGE_KEY) ?? DEFAULT_CONTRACT_ID;
-}
-
-export function saveContractId(id: string): void {
-  localStorage.setItem(STORAGE_KEY, id);
-}
-
-export function clearStoredContractId(): void {
-  localStorage.removeItem(STORAGE_KEY);
-}
 
 /**
  * Register a fresh NFT card data contract on Platform and persist its ID.

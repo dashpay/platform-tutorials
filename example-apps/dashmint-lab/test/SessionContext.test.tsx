@@ -34,17 +34,16 @@ const {
   mockToastError: vi.fn(),
 }));
 
-vi.mock("../src/dash/client", () => ({
+// SessionContext dynamic-imports the SDK core module directly (not via the
+// app's client.ts/keyManager.ts wrappers), so mock that module instead.
+vi.mock("../../../setupDashClient-core.mjs", () => ({
   createClient: mockCreateClient,
-}));
-
-vi.mock("../src/dash/keyManager", () => ({
   IdentityKeyManager: {
     create: mockIdentityKeyManagerCreate,
   },
 }));
 
-vi.mock("../src/dash/contract", () => ({
+vi.mock("../src/dash/contractStorage", () => ({
   DEFAULT_CONTRACT_ID: "default-contract-id",
   fetchContractOwnerId: mockFetchContractOwnerId,
   loadStoredContractId: mockLoadStoredContractId,
