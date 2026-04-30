@@ -22,9 +22,7 @@ test("Advanced settings toggle reveals the identity index input", async ({
   const dialog = page.getByRole("dialog");
   await expect(dialog).toBeVisible();
   await dialog.getByRole("button", { name: /advanced settings/i }).click();
-  await expect(
-    dialog.getByText(/identity index/i).first(),
-  ).toBeVisible();
+  await expect(dialog.getByText(/identity index/i).first()).toBeVisible();
   await expect(dialog.locator('input[type="number"]')).toBeVisible();
 });
 
@@ -57,10 +55,7 @@ test("Mint-tab overlay Login button opens the LoginModal", async ({ page }) => {
     .getByRole("button", { name: /mint/i })
     .click();
   // Overlay is shown; click the Login CTA inside it (main column, not sidebar).
-  await page
-    .getByRole("main")
-    .getByRole("button", { name: /login/i })
-    .click();
+  await page.getByRole("main").getByRole("button", { name: /login/i }).click();
   await expect(page.getByRole("dialog")).toBeVisible();
   await expect(
     page.getByRole("dialog").getByPlaceholder("mnemonic phrase"),

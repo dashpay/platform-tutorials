@@ -29,7 +29,9 @@ test("CardTile overflow menu shows Copy ID and View on Explorer", async ({
 
   const firstCard = cards.first();
   await firstCard.getByRole("button", { name: /more actions/i }).click();
-  await expect(firstCard.getByRole("button", { name: /copy id/i })).toBeVisible();
+  await expect(
+    firstCard.getByRole("button", { name: /copy id/i }),
+  ).toBeVisible();
   await expect(
     firstCard.getByRole("button", { name: /view on explorer/i }),
   ).toBeVisible();

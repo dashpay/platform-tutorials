@@ -9,10 +9,7 @@ test("App stays usable when localStorage holds a bogus contract id", async ({
   page,
 }) => {
   await page.addInitScript(() => {
-    window.localStorage.setItem(
-      "dashmint-lab.contractId",
-      "0".repeat(44),
-    );
+    window.localStorage.setItem("dashmint-lab.contractId", "0".repeat(44));
   });
   await page.goto("/");
 

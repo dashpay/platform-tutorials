@@ -15,16 +15,10 @@ test("Mint tab shows the login overlay when not logged in", async ({
   ).toBeVisible();
 });
 
-test.skip(
-  "non-owner sees the contract-owner gating overlay (write tier — needs login)",
-  async () => {
-    /* TODO: implement when login fixture lands. */
-  },
-);
+test.skip("non-owner sees the contract-owner gating overlay (write tier — needs login)", async () => {
+  /* TODO: implement when login fixture lands. */
+});
 
-test.skip(
-  "contract owner can access the Mint form (write tier — needs login)",
-  async () => {
-    /* TODO: implement when login fixture lands. */
-  },
-);
+test.skip("contract owner can access the Mint form (write tier — needs login)", async () => {
+  /* TODO: implement when login fixture lands. */
+});
