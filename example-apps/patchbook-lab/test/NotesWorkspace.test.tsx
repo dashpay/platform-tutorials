@@ -60,20 +60,14 @@ function makeSession(overrides: Record<string, unknown> = {}) {
   };
 }
 
-beforeEach(() => {
-  mockUseSession.mockReset();
-  mockListMyNotes.mockReset();
-  mockGetNote.mockReset();
-  mockCreateNote.mockReset();
-  mockUpdateNote.mockReset();
-  mockDeleteNote.mockReset();
-  vi.spyOn(window, "confirm").mockReturnValue(true);
-  // jsdom does not implement matchMedia; stub it so useMediaQuery resolves
-  // the desktop breakpoint and auto-selection logic runs.
+// jsdom does not implement matchMedia; stub it so useMediaQuery resolves
+// the desired breakpoint. Defaults to desktop; mobile-flavored tests can
+// override by calling stubMatchMedia(false) before render.
+function stubMatchMedia(isDesktop: boolean) {
   vi.stubGlobal(
     "matchMedia",
     vi.fn().mockImplementation((query: string) => ({
-      matches: true,
+      matches: isDesktop,
       media: query,
       onchange: null,
       addEventListener: vi.fn(),
@@ -83,6 +77,17 @@ beforeEach(() => {
       dispatchEvent: vi.fn(),
     })),
   );
+}
+
+beforeEach(() => {
+  mockUseSession.mockReset();
+  mockListMyNotes.mockReset();
+  mockGetNote.mockReset();
+  mockCreateNote.mockReset();
+  mockUpdateNote.mockReset();
+  mockDeleteNote.mockReset();
+  vi.spyOn(window, "confirm").mockReturnValue(true);
+  stubMatchMedia(true);
 });
 
 afterEach(() => {
@@ -109,6 +114,11 @@ describe("NotesWorkspace", () => {
     fireEvent.click(loginButton);
     expect(onOpenSettings).toHaveBeenCalled();
     expect(screen.queryByRole("button", { name: /new note/i })).toBeNull();
+
+    const bridgeLink = screen.getByRole("link", { name: /dash bridge/i });
+    expect(bridgeLink.getAttribute("href")).toBe(
+      "https://bridge.thepasta.org/",
+    );
   });
 
   it("creates a body-only note and reloads the list", async () => {
@@ -243,5 +253,202 @@ describe("NotesWorkspace", () => {
       expect(screen.getByText(/editor error/i)).toBeTruthy();
     });
     expect(screen.getByText("Data contract not found")).toBeTruthy();
+  });
+
+  it("shows the no-contract empty state when authed without a contract", () => {
+    mockUseSession.mockReturnValue(makeSession({ contractId: null }));
+    const onOpenSettings = vi.fn();
+
+    render(<NotesWorkspace onOpenSettings={onOpenSettings} />);
+
+    expect(screen.getByText(/register or select a contract/i)).toBeTruthy();
+    fireEvent.click(screen.getByRole("button", { name: /open settings/i }));
+    expect(onOpenSettings).toHaveBeenCalled();
+    // List/editor chrome should not render in this branch.
+    expect(screen.queryByRole("searchbox")).toBeNull();
+    expect(screen.queryByLabelText(/^body$/i)).toBeNull();
+  });
+
+  it("filters the list with the search input", async () => {
+    // Use mobile layout so only the list pane renders; otherwise the
+    // auto-selected note's title would render in the editor pane too and
+    // confuse text-presence assertions.
+    stubMatchMedia(false);
+    mockUseSession.mockReturnValue(makeSession());
+    const notes = [
+      {
+        id: "n1",
+        ownerId: "identity-1",
+        title: "Grocery list",
+        message: "milk, eggs, bread",
+        createdAt: 1,
+        updatedAt: 10,
+        revision: 0,
+      },
+      {
+        id: "n2",
+        ownerId: "identity-1",
+        title: "Travel ideas",
+        message: "Lisbon, Tokyo",
+        createdAt: 2,
+        updatedAt: 20,
+        revision: 0,
+      },
+      {
+        id: "n3",
+        ownerId: "identity-1",
+        title: null,
+        message: "Random shower thought",
+        createdAt: 3,
+        updatedAt: 30,
+        revision: 0,
+      },
+    ];
+    mockListMyNotes.mockResolvedValue(notes);
+    mockGetNote.mockResolvedValue(notes[0]);
+
+    render(<NotesWorkspace onOpenSettings={vi.fn()} />);
+
+    await waitFor(() => {
+      expect(screen.getByText("Grocery list")).toBeTruthy();
+    });
+
+    const search = screen.getByPlaceholderText(/search/i);
+
+    fireEvent.change(search, { target: { value: "tokyo" } });
+    expect(screen.queryByText("Grocery list")).toBeNull();
+    expect(screen.getByText("Travel ideas")).toBeTruthy();
+    expect(screen.queryByText("Random shower thought")).toBeNull();
+
+    fireEvent.change(search, { target: { value: "zzz-no-match" } });
+    expect(screen.getByText(/no notes match that search/i)).toBeTruthy();
+
+    fireEvent.change(search, { target: { value: "" } });
+    expect(screen.getByText("Grocery list")).toBeTruthy();
+    expect(screen.getByText("Travel ideas")).toBeTruthy();
+  });
+
+  describe("mobile", () => {
+    beforeEach(() => {
+      stubMatchMedia(false);
+    });
+
+    const noteFixture = {
+      id: "note-mobile",
+      ownerId: "identity-1",
+      title: "Phone note",
+      message: "Tap target",
+      createdAt: 1000,
+      updatedAt: 2000,
+      revision: 1,
+    };
+
+    it("does not auto-select the first note on load", async () => {
+      mockUseSession.mockReturnValue(makeSession());
+      mockListMyNotes.mockResolvedValue([noteFixture]);
+      mockGetNote.mockResolvedValue(noteFixture);
+
+      render(<NotesWorkspace onOpenSettings={vi.fn()} />);
+
+      await waitFor(() => {
+        expect(mockListMyNotes).toHaveBeenCalledTimes(1);
+      });
+      // List rendered (note title visible) but editor body field not, since
+      // no note has been selected yet on mobile.
+      expect(screen.getByText(/phone note/i)).toBeTruthy();
+      expect(mockGetNote).not.toHaveBeenCalled();
+      expect(screen.queryByLabelText(/^body$/i)).toBeNull();
+    });
+
+    it("composes a new draft via the floating compose button", async () => {
+      mockUseSession.mockReturnValue(makeSession());
+      mockListMyNotes.mockResolvedValue([]);
+
+      render(<NotesWorkspace onOpenSettings={vi.fn()} />);
+
+      await waitFor(() => {
+        expect(mockListMyNotes).toHaveBeenCalledTimes(1);
+      });
+
+      fireEvent.click(screen.getByRole("button", { name: /compose note/i }));
+      expect(screen.getByRole("button", { name: /create note/i })).toBeTruthy();
+      expect(
+        (screen.getByLabelText(/^title$/i) as HTMLInputElement).value,
+      ).toBe("");
+      expect(
+        (screen.getByLabelText(/^body$/i) as HTMLTextAreaElement).value,
+      ).toBe("");
+    });
+
+    it("returns to the list when the back button is tapped", async () => {
+      mockUseSession.mockReturnValue(makeSession());
+      mockListMyNotes.mockResolvedValue([noteFixture]);
+      mockGetNote.mockResolvedValue(noteFixture);
+
+      render(<NotesWorkspace onOpenSettings={vi.fn()} />);
+
+      await waitFor(() => {
+        expect(screen.getByText(/phone note/i)).toBeTruthy();
+      });
+
+      fireEvent.click(screen.getByText(/phone note/i));
+      await waitFor(() => {
+        expect(screen.getByLabelText(/^body$/i)).toBeTruthy();
+      });
+
+      fireEvent.click(screen.getByRole("button", { name: /back to notes/i }));
+      // Editor body should no longer be rendered; list header stays.
+      expect(screen.queryByLabelText(/^body$/i)).toBeNull();
+      expect(screen.getByText(/my notes/i)).toBeTruthy();
+    });
+
+    it("blocks back navigation when discard is declined", async () => {
+      mockUseSession.mockReturnValue(makeSession());
+      mockListMyNotes.mockResolvedValue([noteFixture]);
+      mockGetNote.mockResolvedValue(noteFixture);
+
+      render(<NotesWorkspace onOpenSettings={vi.fn()} />);
+
+      await waitFor(() => {
+        expect(screen.getByText(/phone note/i)).toBeTruthy();
+      });
+
+      fireEvent.click(screen.getByText(/phone note/i));
+      const titleInput = await screen.findByLabelText(/^title$/i);
+      fireEvent.change(titleInput, { target: { value: "Edited offline" } });
+
+      // Decline the discard prompt -> selection persists, editor stays open.
+      vi.spyOn(window, "confirm").mockReturnValueOnce(false);
+      fireEvent.click(screen.getByRole("button", { name: /back to notes/i }));
+      expect(screen.getByLabelText(/^body$/i)).toBeTruthy();
+      expect(
+        (screen.getByLabelText(/^title$/i) as HTMLInputElement).value,
+      ).toBe("Edited offline");
+    });
+
+    it("deletes a note via the bottom 'Delete note' button", async () => {
+      mockUseSession.mockReturnValue(makeSession());
+      mockListMyNotes.mockResolvedValue([noteFixture]);
+      mockGetNote.mockResolvedValue(noteFixture);
+      mockDeleteNote.mockResolvedValue(undefined);
+
+      render(<NotesWorkspace onOpenSettings={vi.fn()} />);
+
+      await waitFor(() => {
+        expect(screen.getByText(/phone note/i)).toBeTruthy();
+      });
+      fireEvent.click(screen.getByText(/phone note/i));
+      await waitFor(() => {
+        expect(screen.getByLabelText(/^body$/i)).toBeTruthy();
+      });
+
+      fireEvent.click(screen.getByRole("button", { name: /delete note/i }));
+
+      await waitFor(() => {
+        expect(mockDeleteNote).toHaveBeenCalledWith(
+          expect.objectContaining({ noteId: "note-mobile" }),
+        );
+      });
+    });
   });
 });
