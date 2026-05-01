@@ -1,4 +1,11 @@
-import { useCallback, useEffect, useMemo, useRef, useState } from "react";
+import {
+  useCallback,
+  useEffect,
+  useMemo,
+  useRef,
+  useState,
+  type ReactNode,
+} from "react";
 
 import { createNote } from "../dash/createNote";
 import { deleteNote } from "../dash/deleteNote";
@@ -6,10 +13,10 @@ import { errorMessage } from "../dash/logger";
 import { getNote, listMyNotes, type NoteRecord } from "../dash/queries";
 import { updateNote } from "../dash/updateNote";
 import { byteLength, FIELD_BYTE_LIMIT } from "../lib/fieldLimits";
+import { useMediaQuery } from "../lib/useMediaQuery";
 import { useSession } from "../session/useSession";
 import { NoteEditor } from "./NoteEditor";
 import { NoteList } from "./NoteList";
-import { OperationResultNotice } from "./OperationResultNotice";
 
 type SelectedNoteId = string | "new" | null;
 
@@ -20,6 +27,7 @@ export function NotesWorkspace({
 }) {
   const session = useSession();
   const { status, sdk, keyManager, contractId, identityId, log } = session;
+  const isDesktop = useMediaQuery("(min-width: 768px)");
 
   const [notes, setNotes] = useState<NoteRecord[]>([]);
   const [selectedId, setSelectedId] = useState<SelectedNoteId>(null);
@@ -95,7 +103,7 @@ export function NotesWorkspace({
             return current;
           }
           if (current === "new") return current;
-          return nextNotes[0]?.id ?? null;
+          return isDesktop ? (nextNotes[0]?.id ?? null) : null;
         });
       } catch (err) {
         setError(errorMessage(err));
@@ -104,7 +112,7 @@ export function NotesWorkspace({
         setListLoading(false);
       }
     },
-    [contractId, identityId, log, sdk, status],
+    [contractId, identityId, log, sdk, status, isDesktop],
   );
 
   useEffect(() => {
@@ -155,6 +163,17 @@ export function NotesWorkspace({
   function handleSelect(noteId: string) {
     if (!confirmDiscard()) return;
     setSelectedId(noteId);
+    setError(null);
+  }
+
+  function handleBack() {
+    if (!confirmDiscard()) return;
+    setSelectedId(null);
+    setSelectedNote(null);
+    setTitle("");
+    setMessage("");
+    setBaselineTitle("");
+    setBaselineMessage("");
     setError(null);
   }
 
@@ -237,74 +256,157 @@ export function NotesWorkspace({
   }
 
   return (
-    <div className="space-y-5">
-      {!isAuthed && (
-        <OperationResultNotice title="Login required">
-          <div className="flex flex-col items-start gap-3">
-            <div>
-              Patchbook keeps the notebook UI visible, but note creation,
-              editing, and deletion require signing in with a testnet identity.
-            </div>
-            <button
-              type="button"
-              onClick={onOpenSettings}
-              className="rounded-full bg-accent px-3 py-1.5 text-[12px] font-semibold text-bg transition hover:bg-accent-dim"
+    <div className="space-y-5 max-md:flex max-md:min-h-0 max-md:flex-1 max-md:flex-col max-md:space-y-2">
+      {!isAuthed ? (
+        <EmptyState
+          icon={
+            <svg
+              width="32"
+              height="32"
+              viewBox="0 0 24 24"
+              fill="none"
+              stroke="currentColor"
+              strokeWidth="1.75"
+              strokeLinecap="round"
+              strokeLinejoin="round"
+              aria-hidden="true"
             >
-              Log in
-            </button>
-          </div>
-        </OperationResultNotice>
-      )}
-
-      {isAuthed && !contractReady && (
-        <OperationResultNotice title="Register or select a contract">
-          <div className="flex flex-col items-start gap-3">
-            <div>
-              Open Settings to register a Patchbook note contract or paste a
-              contract ID before creating notes.
-            </div>
-            <button
-              type="button"
-              onClick={onOpenSettings}
-              className="rounded-full bg-accent px-3 py-1.5 text-[12px] font-semibold text-bg transition hover:bg-accent-dim"
+              <rect width="18" height="11" x="3" y="11" rx="2" />
+              <path d="M7 11V7a5 5 0 0 1 10 0v4" />
+            </svg>
+          }
+          title="Sign in to see your notes"
+          description="Patchbook stores notes against your testnet identity. Log in with a Dash Platform identity to create, edit, and review your notes."
+          actionLabel="Log in"
+          onAction={onOpenSettings}
+          secondaryHref="https://bridge.thepasta.org/"
+          secondaryLabel="Need an identity? Create one on Dash Bridge"
+          footnote="Notes are not private. They are stored publicly on Dash Platform."
+        />
+      ) : !contractReady ? (
+        <EmptyState
+          icon={
+            <svg
+              width="32"
+              height="32"
+              viewBox="0 0 24 24"
+              fill="none"
+              stroke="currentColor"
+              strokeWidth="1.75"
+              strokeLinecap="round"
+              strokeLinejoin="round"
+              aria-hidden="true"
             >
-              Open Settings
-            </button>
+              <path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z" />
+              <path d="M14 2v6h6" />
+              <path d="M9 13h6M9 17h6" />
+            </svg>
+          }
+          title="Register or select a contract"
+          description="Open Settings to register a Patchbook note contract or paste a contract ID before creating notes."
+          actionLabel="Open Settings"
+          onAction={onOpenSettings}
+        />
+      ) : (
+        <div className="gap-5 max-md:flex max-md:min-h-0 max-md:flex-1 max-md:flex-col xl:grid xl:h-[calc(100vh-220px)] xl:min-h-[520px] xl:grid-cols-[340px_minmax(0,1fr)]">
+          <div
+            className={`min-h-0 max-md:flex-1 ${selectedId !== null ? "hidden md:flex" : "flex"} flex-col`}
+          >
+            <NoteList
+              notes={notes}
+              loading={listLoading}
+              selectedId={selectedId}
+              onSelect={handleSelect}
+              onNew={handleNew}
+              canCreate={canMutate}
+            />
           </div>
-        </OperationResultNotice>
+          <div
+            className={`min-h-0 max-md:flex-1 ${selectedId === null ? "hidden md:flex" : "flex"} flex-col`}
+          >
+            <NoteEditor
+              selectedId={selectedId}
+              note={selectedNote}
+              title={title}
+              message={message}
+              onTitleChange={setTitle}
+              onMessageChange={setMessage}
+              onSave={() => void handleSave()}
+              onDelete={() => void handleDelete()}
+              onBack={handleBack}
+              loading={detailLoading}
+              saving={saving}
+              deleting={deleting}
+              canEdit={canMutate}
+              canDelete={Boolean(
+                canMutate && selectedId && selectedId !== "new",
+              )}
+              dirty={dirty}
+              messageBytes={messageBytes}
+              messageOversize={messageOversize}
+              contractReady={contractReady}
+              error={error}
+              onOpenSettings={onOpenSettings}
+            />
+          </div>
+        </div>
       )}
+    </div>
+  );
+}
 
-      <div className="grid gap-5 xl:h-[calc(100vh-220px)] xl:min-h-[520px] xl:grid-cols-[340px_minmax(0,1fr)]">
-        <NoteList
-          notes={notes}
-          loading={listLoading}
-          selectedId={selectedId}
-          onSelect={handleSelect}
-          onNew={handleNew}
-          canCreate={canMutate}
-        />
-        <NoteEditor
-          selectedId={selectedId}
-          note={selectedNote}
-          title={title}
-          message={message}
-          onTitleChange={setTitle}
-          onMessageChange={setMessage}
-          onSave={() => void handleSave()}
-          onDelete={() => void handleDelete()}
-          loading={detailLoading}
-          saving={saving}
-          deleting={deleting}
-          canEdit={canMutate}
-          canDelete={Boolean(canMutate && selectedId && selectedId !== "new")}
-          dirty={dirty}
-          messageBytes={messageBytes}
-          messageOversize={messageOversize}
-          contractReady={contractReady}
-          error={error}
-          onOpenSettings={onOpenSettings}
-        />
+function EmptyState({
+  icon,
+  title,
+  description,
+  actionLabel,
+  onAction,
+  secondaryHref,
+  secondaryLabel,
+  footnote,
+}: {
+  icon: ReactNode;
+  title: string;
+  description: string;
+  actionLabel: string;
+  onAction: () => void;
+  secondaryHref?: string;
+  secondaryLabel?: string;
+  footnote?: string;
+}) {
+  return (
+    <div className="flex flex-1 flex-col px-6 py-10 text-center max-md:py-8">
+      <div className="flex flex-1 flex-col items-center justify-center gap-4">
+        <div className="flex h-14 w-14 items-center justify-center rounded-full bg-surface-2 text-ink-3">
+          {icon}
+        </div>
+        <div className="max-w-[320px] space-y-2">
+          <div className="text-[16px] font-semibold text-ink">{title}</div>
+          <div className="text-[13px] leading-6 text-ink-3">{description}</div>
+        </div>
+        <button
+          type="button"
+          onClick={onAction}
+          className="rounded-full bg-accent px-5 py-2 text-[13px] font-semibold text-bg transition hover:bg-accent-dim"
+        >
+          {actionLabel}
+        </button>
+        {secondaryHref && secondaryLabel && (
+          <a
+            href={secondaryHref}
+            target="_blank"
+            rel="noreferrer"
+            className="text-[12px] font-medium text-accent underline-offset-2 hover:underline"
+          >
+            {secondaryLabel}
+          </a>
+        )}
       </div>
+      {footnote && (
+        <div className="mt-4 truncate text-[11px] leading-5 text-ink-4">
+          {footnote}
+        </div>
+      )}
     </div>
   );
 }

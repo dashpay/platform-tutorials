@@ -68,11 +68,27 @@ beforeEach(() => {
   mockUpdateNote.mockReset();
   mockDeleteNote.mockReset();
   vi.spyOn(window, "confirm").mockReturnValue(true);
+  // jsdom does not implement matchMedia; stub it so useMediaQuery resolves
+  // the desktop breakpoint and auto-selection logic runs.
+  vi.stubGlobal(
+    "matchMedia",
+    vi.fn().mockImplementation((query: string) => ({
+      matches: true,
+      media: query,
+      onchange: null,
+      addEventListener: vi.fn(),
+      removeEventListener: vi.fn(),
+      addListener: vi.fn(),
+      removeListener: vi.fn(),
+      dispatchEvent: vi.fn(),
+    })),
+  );
 });
 
 afterEach(() => {
   cleanup();
   vi.restoreAllMocks();
+  vi.unstubAllGlobals();
 });
 
 describe("NotesWorkspace", () => {
@@ -85,14 +101,14 @@ describe("NotesWorkspace", () => {
       }),
     );
 
-    render(<NotesWorkspace onOpenSettings={vi.fn()} />);
+    const onOpenSettings = vi.fn();
+    render(<NotesWorkspace onOpenSettings={onOpenSettings} />);
 
-    expect(screen.getByText(/login required/i)).toBeTruthy();
-    expect(
-      screen
-        .getByRole("button", { name: /new note/i })
-        .hasAttribute("disabled"),
-    ).toBe(true);
+    expect(screen.getByText(/sign in to see your notes/i)).toBeTruthy();
+    const loginButton = screen.getByRole("button", { name: /^log in$/i });
+    fireEvent.click(loginButton);
+    expect(onOpenSettings).toHaveBeenCalled();
+    expect(screen.queryByRole("button", { name: /new note/i })).toBeNull();
   });
 
   it("creates a body-only note and reloads the list", async () => {
@@ -209,7 +225,7 @@ describe("NotesWorkspace", () => {
       expect(saveButton.hasAttribute("disabled")).toBe(true);
     });
 
-    fireEvent.click(screen.getByRole("button", { name: /delete/i }));
+    fireEvent.click(screen.getByRole("button", { name: /^delete$/i }));
     await waitFor(() => {
       expect(mockDeleteNote).toHaveBeenCalledWith(
         expect.objectContaining({ noteId: "note-2" }),

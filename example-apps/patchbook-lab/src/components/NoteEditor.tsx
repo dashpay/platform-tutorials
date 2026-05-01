@@ -16,6 +16,7 @@ interface NoteEditorProps {
   onMessageChange: (value: string) => void;
   onSave: () => void;
   onDelete: () => void;
+  onBack: () => void;
   loading: boolean;
   saving: boolean;
   deleting: boolean;
@@ -38,6 +39,7 @@ export function NoteEditor({
   onMessageChange,
   onSave,
   onDelete,
+  onBack,
   loading,
   saving,
   deleting,
@@ -55,9 +57,32 @@ export function NoteEditor({
   const oversize = messageOversize;
 
   return (
-    <section className="flex min-h-0 flex-col rounded-[24px] border border-line bg-surface shadow-[0_20px_60px_-36px_rgba(0,0,0,0.45)] xl:h-full">
-      <div className="flex items-center justify-between gap-3 border-b border-line px-5 py-4">
-        <div className="min-w-0 flex-1">
+    <section className="flex min-h-0 flex-1 flex-col rounded-[24px] border border-line bg-surface shadow-[0_20px_60px_-36px_rgba(0,0,0,0.45)] max-md:rounded-none max-md:border-0 max-md:shadow-none xl:h-full">
+      <div className="flex items-center justify-between gap-3 border-b border-line px-5 py-4 max-md:px-3 max-md:py-2.5">
+        {hasSelection && (
+          <button
+            type="button"
+            onClick={onBack}
+            aria-label="Back to notes"
+            className="-ml-1 flex shrink-0 items-center gap-0.5 rounded-full pl-1 pr-2 py-1 text-[15px] font-medium text-accent transition hover:bg-surface-2 md:hidden"
+          >
+            <svg
+              width="22"
+              height="22"
+              viewBox="0 0 24 24"
+              fill="none"
+              stroke="currentColor"
+              strokeWidth="2.25"
+              strokeLinecap="round"
+              strokeLinejoin="round"
+              aria-hidden="true"
+            >
+              <path d="m15 18-6-6 6-6" />
+            </svg>
+            <span>Notes</span>
+          </button>
+        )}
+        <div className="min-w-0 flex-1 max-md:hidden">
           <div className="text-[10px] font-semibold uppercase tracking-[0.12em] text-ink-4">
             {isNew ? "Draft" : "Note detail"}
           </div>
@@ -79,13 +104,15 @@ export function NoteEditor({
             )}
           </div>
         </div>
+        <div className="flex-1 md:hidden" />
+
         <div className="flex gap-2">
           {canDelete && (
             <button
               type="button"
               onClick={onDelete}
               disabled={deleting}
-              className="rounded-full border border-line-2 px-3 py-1.5 text-[12px] font-semibold text-ink-2 transition hover:border-[color:var(--color-danger)] hover:text-[color:var(--color-danger)] disabled:cursor-not-allowed disabled:border-line disabled:text-ink-4"
+              className="rounded-full border border-line-2 px-3 py-1.5 text-[12px] font-semibold text-ink-2 transition hover:border-[color:var(--color-danger)] hover:text-[color:var(--color-danger)] disabled:cursor-not-allowed disabled:border-line disabled:text-ink-4 max-md:hidden"
             >
               {deleting ? "Deleting…" : "Delete"}
             </button>
@@ -103,7 +130,7 @@ export function NoteEditor({
         </div>
       </div>
 
-      <div className="flex min-h-0 flex-1 flex-col gap-4 overflow-y-auto px-5 py-5">
+      <div className="flex min-h-0 flex-1 flex-col gap-4 overflow-y-auto px-5 py-5 max-md:px-4 max-md:py-3">
         {error && (
           <OperationResultNotice tone="error" title="Editor error">
             {error}
@@ -131,13 +158,37 @@ export function NoteEditor({
             Choose a note from the list or create a new one to start writing.
           </OperationResultNotice>
         ) : loading && !note && !isNew ? (
-          <div className="rounded-2xl border border-dashed border-line px-4 py-10 text-center text-[13px] text-ink-4">
-            Loading note…
+          <div
+            className="flex flex-1 items-center justify-center"
+            role="status"
+            aria-label="Loading note"
+          >
+            <svg
+              className="h-7 w-7 animate-spin text-ink-4"
+              viewBox="0 0 24 24"
+              fill="none"
+              aria-hidden="true"
+            >
+              <circle
+                cx="12"
+                cy="12"
+                r="10"
+                stroke="currentColor"
+                strokeOpacity="0.25"
+                strokeWidth="3"
+              />
+              <path
+                d="M22 12a10 10 0 0 1-10 10"
+                stroke="currentColor"
+                strokeWidth="3"
+                strokeLinecap="round"
+              />
+            </svg>
           </div>
         ) : (
           <>
             <label className="block">
-              <div className="mb-2 text-[10px] font-semibold uppercase tracking-[0.12em] text-ink-4">
+              <div className="mb-2 text-[10px] font-semibold uppercase tracking-[0.12em] text-ink-4 max-md:hidden">
                 Title
               </div>
               <input
@@ -145,14 +196,14 @@ export function NoteEditor({
                 aria-label="Title"
                 value={title}
                 onChange={(event) => onTitleChange(event.target.value)}
-                placeholder="Optional title"
+                placeholder="Title"
                 disabled={!canEdit}
-                className="w-full rounded-[18px] border border-line bg-bg px-4 py-3 text-[15px] text-ink outline-none transition focus:border-accent-dim disabled:cursor-not-allowed disabled:text-ink-4"
+                className="w-full rounded-[18px] border border-line bg-bg px-4 py-3 text-[15px] text-ink outline-none transition focus:border-accent-dim disabled:cursor-not-allowed disabled:text-ink-4 max-md:rounded-none max-md:border-0 max-md:bg-transparent max-md:px-0 max-md:py-1 max-md:text-[22px] max-md:font-semibold"
               />
             </label>
 
             <label className="flex min-h-0 flex-1 flex-col">
-              <div className="mb-2 flex items-center justify-between gap-3">
+              <div className="mb-2 flex items-center justify-between gap-3 max-md:hidden">
                 <div className="text-[10px] font-semibold uppercase tracking-[0.12em] text-ink-4">
                   Body
                 </div>
@@ -173,12 +224,42 @@ export function NoteEditor({
                 placeholder="Write a note. If you leave the title blank, the first non-empty line becomes the visible label."
                 disabled={!canEdit}
                 rows={16}
-                className="w-full min-h-[340px] flex-1 rounded-[18px] border border-line bg-bg px-4 py-3 text-[14px] leading-6 text-ink outline-none transition focus:border-accent-dim disabled:cursor-not-allowed disabled:text-ink-4 xl:min-h-0"
+                className="w-full min-h-0 flex-1 rounded-[18px] border border-line bg-bg px-4 py-3 text-[14px] leading-6 text-ink outline-none transition focus:border-accent-dim disabled:cursor-not-allowed disabled:text-ink-4 max-md:rounded-none max-md:border-0 max-md:bg-transparent max-md:px-0 max-md:py-1 max-md:text-[15px] max-md:leading-6 md:min-h-[340px] xl:min-h-0"
               />
+              <div
+                className={`mt-1 text-right text-[11px] md:hidden ${
+                  messageOversize
+                    ? "text-[color:var(--color-danger)]"
+                    : "text-ink-4"
+                }`}
+              >
+                {messageBytes} / {FIELD_BYTE_LIMIT} bytes
+              </div>
             </label>
 
+            <div className="flex items-center gap-1.5 text-[11px] text-ink-4">
+              <svg
+                width="12"
+                height="12"
+                viewBox="0 0 24 24"
+                fill="none"
+                stroke="currentColor"
+                strokeWidth="2"
+                strokeLinecap="round"
+                strokeLinejoin="round"
+                aria-hidden="true"
+                className="shrink-0"
+              >
+                <circle cx="12" cy="12" r="10" />
+                <path d="M12 16v-4M12 8h.01" />
+              </svg>
+              <span>
+                Notes are stored publicly on Dash Platform — not encrypted.
+              </span>
+            </div>
+
             {note && (
-              <div className="grid gap-3 rounded-[18px] border border-line bg-bg/70 px-4 py-4 text-[12px] text-ink-3 md:grid-cols-3">
+              <div className="grid gap-3 rounded-[18px] border border-line bg-bg/70 px-4 py-4 text-[12px] text-ink-3 max-md:hidden md:grid-cols-3">
                 <div>
                   <div className="text-[10px] font-semibold uppercase tracking-[0.12em] text-ink-4">
                     Created
@@ -202,6 +283,34 @@ export function NoteEditor({
                     {note.revision}
                   </div>
                 </div>
+              </div>
+            )}
+
+            {canDelete && (
+              <div className="mt-2 flex justify-center md:hidden">
+                <button
+                  type="button"
+                  onClick={onDelete}
+                  disabled={deleting}
+                  className="inline-flex items-center gap-2 rounded-full px-4 py-2 text-[14px] font-medium text-[color:var(--color-danger)] transition hover:bg-surface-2 disabled:cursor-not-allowed disabled:text-ink-4"
+                >
+                  <svg
+                    width="16"
+                    height="16"
+                    viewBox="0 0 24 24"
+                    fill="none"
+                    stroke="currentColor"
+                    strokeWidth="2"
+                    strokeLinecap="round"
+                    strokeLinejoin="round"
+                    aria-hidden="true"
+                  >
+                    <path d="M3 6h18" />
+                    <path d="M8 6V4a2 2 0 0 1 2-2h4a2 2 0 0 1 2 2v2" />
+                    <path d="M19 6v14a2 2 0 0 1-2 2H7a2 2 0 0 1-2-2V6" />
+                  </svg>
+                  {deleting ? "Deleting…" : "Delete note"}
+                </button>
               </div>
             )}
           </>

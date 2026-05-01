@@ -14,6 +14,7 @@ interface AppShellProps {
   contractId: string | null;
   onLoginOpen: () => void;
   children: ReactNode;
+  mobileFullBleed?: boolean;
 }
 
 function LogoAvatar() {
@@ -79,6 +80,7 @@ export function AppShell({
   contractId,
   onLoginOpen,
   children,
+  mobileFullBleed = false,
 }: AppShellProps) {
   const [drawerOpen, setDrawerOpen] = useState(false);
   const closeDrawer = () => setDrawerOpen(false);
@@ -195,9 +197,27 @@ export function AppShell({
         </div>
       </aside>
 
-      <main className="min-w-0 px-4 py-5 md:px-7 md:py-7">
-        <div className="mx-auto max-w-[1240px]">{children}</div>
-        <footer className="mx-auto mt-10 flex max-w-[1240px] justify-center border-t border-line pt-4 text-[12px] text-ink-3">
+      <main
+        className={`min-w-0 md:px-7 md:py-7 ${
+          mobileFullBleed
+            ? "max-md:flex max-md:min-h-[calc(100dvh-49px)] max-md:flex-col max-md:bg-surface max-md:p-0"
+            : "px-4 py-5"
+        }`}
+      >
+        <div
+          className={`mx-auto max-w-[1240px] ${
+            mobileFullBleed
+              ? "max-md:flex max-md:min-h-0 max-md:w-full max-md:max-w-none max-md:flex-1 max-md:flex-col"
+              : ""
+          }`}
+        >
+          {children}
+        </div>
+        <footer
+          className={`mx-auto mt-10 flex max-w-[1240px] justify-center border-t border-line pt-4 text-[12px] text-ink-3 ${
+            mobileFullBleed ? "max-md:hidden" : ""
+          }`}
+        >
           <a
             href="https://github.com/dashpay/platform-tutorials"
             target="_blank"

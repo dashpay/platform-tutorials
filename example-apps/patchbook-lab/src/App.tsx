@@ -28,6 +28,8 @@ function App() {
   const [tab, setTab] = useState<TopTab>("notes");
   const [loginOpen, setLoginOpen] = useState(false);
 
+  const mobileFullBleed = tab === "notes";
+
   useEffect(() => {
     if (status === "idle") void enterReadOnly();
   }, [enterReadOnly, status]);
@@ -44,8 +46,13 @@ function App() {
         identityId={session.identityId}
         contractId={session.contractId}
         onLoginOpen={() => setLoginOpen(true)}
+        mobileFullBleed={mobileFullBleed}
       >
-        <header className="rounded-[28px] border border-line bg-surface px-5 py-5 shadow-[0_20px_60px_-36px_rgba(0,0,0,0.45)]">
+        <header
+          className={`rounded-[28px] border border-line bg-surface px-5 py-5 shadow-[0_20px_60px_-36px_rgba(0,0,0,0.45)] max-md:rounded-none max-md:border-0 max-md:bg-transparent max-md:px-4 max-md:py-4 max-md:shadow-none ${
+            tab === "notes" && status === "authenticated" ? "max-md:hidden" : ""
+          }`}
+        >
           <div className="text-[10px] font-semibold uppercase tracking-[0.14em] text-ink-4">
             Dash Platform Notes Tutorial
           </div>
@@ -57,7 +64,13 @@ function App() {
           </p>
         </header>
 
-        <div className="mt-6">
+        <div
+          className={`${
+            tab === "notes" && status === "authenticated"
+              ? "mt-6 max-md:mt-0"
+              : "mt-6"
+          } ${mobileFullBleed ? "max-md:flex max-md:min-h-0 max-md:flex-1 max-md:flex-col" : ""}`}
+        >
           {session.error && (
             <div className="mb-6">
               <OperationResultNotice tone="error" title="Session error">
