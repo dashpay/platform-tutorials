@@ -25,6 +25,7 @@ interface NoteEditorProps {
   error: string | null;
   onOpenSettings: () => void;
   isReadOnly?: boolean;
+  isDesktop: boolean;
 }
 
 export function NoteEditor({
@@ -49,6 +50,7 @@ export function NoteEditor({
   error,
   onOpenSettings,
   isReadOnly = false,
+  isDesktop,
 }: NoteEditorProps) {
   const hasSelection = selectedId !== null;
   const isNew = selectedId === "new";
@@ -80,31 +82,33 @@ export function NoteEditor({
             <span>Notes</span>
           </button>
         )}
-        <div className="min-w-0 flex-1 max-md:hidden">
-          {!hasSelection ? (
-            <div className="text-[14px] text-ink-4">
-              Select a note from the list
-            </div>
-          ) : loading && !note && !isNew ? (
-            <div className="inline-flex items-center gap-2 text-[14px] text-ink-4">
-              <span
-                aria-hidden
-                className="inline-block h-1.5 w-1.5 animate-pulse rounded-full bg-accent"
+        {isDesktop && (
+          <div className="min-w-0 flex-1">
+            {!hasSelection ? (
+              <div className="text-[14px] text-ink-4">
+                Select a note from the list
+              </div>
+            ) : loading && !note && !isNew ? (
+              <div className="inline-flex items-center gap-2 text-[14px] text-ink-4">
+                <span
+                  aria-hidden
+                  className="inline-block h-1.5 w-1.5 animate-pulse rounded-full bg-accent"
+                />
+                Loading…
+              </div>
+            ) : (
+              <input
+                type="text"
+                aria-label="Title"
+                value={title}
+                onChange={(event) => onTitleChange(event.target.value)}
+                placeholder={isNew ? "New note title" : "Title"}
+                disabled={!canEdit}
+                className="-mx-2 w-[calc(100%+1rem)] rounded-md border-0 bg-transparent px-2 py-0 text-[20px] font-semibold leading-7 tracking-tight text-ink outline-none transition-colors placeholder:text-ink-4 hover:bg-surface-2 focus:bg-surface-2 disabled:cursor-not-allowed disabled:bg-transparent disabled:text-ink-4"
               />
-              Loading…
-            </div>
-          ) : (
-            <input
-              type="text"
-              aria-label="Title"
-              value={title}
-              onChange={(event) => onTitleChange(event.target.value)}
-              placeholder={isNew ? "New note title" : "Title"}
-              disabled={!canEdit}
-              className="-mx-2 w-[calc(100%+1rem)] rounded-md border-0 bg-transparent px-2 py-0 text-[20px] font-semibold leading-7 tracking-tight text-ink outline-none transition-colors placeholder:text-ink-4 hover:bg-surface-2 focus:bg-surface-2 disabled:cursor-not-allowed disabled:bg-transparent disabled:text-ink-4"
-            />
-          )}
-        </div>
+            )}
+          </div>
+        )}
         <div className="flex-1 md:hidden" />
 
         <div className="flex gap-2">
@@ -198,15 +202,17 @@ export function NoteEditor({
           </div>
         ) : (
           <>
-            <input
-              type="text"
-              aria-label="Title"
-              value={title}
-              onChange={(event) => onTitleChange(event.target.value)}
-              placeholder="Title"
-              disabled={!canEdit}
-              className="w-full border-0 bg-transparent px-0 py-1 text-[22px] font-semibold tracking-tight text-ink outline-none placeholder:text-ink-4 disabled:cursor-not-allowed disabled:text-ink-4 md:hidden"
-            />
+            {!isDesktop && (
+              <input
+                type="text"
+                aria-label="Title"
+                value={title}
+                onChange={(event) => onTitleChange(event.target.value)}
+                placeholder="Title"
+                disabled={!canEdit}
+                className="w-full border-0 bg-transparent px-0 py-1 text-[22px] font-semibold tracking-tight text-ink outline-none placeholder:text-ink-4 disabled:cursor-not-allowed disabled:text-ink-4"
+              />
+            )}
 
             <label className="flex min-h-0 flex-1 flex-col">
               <div className="mb-2 flex items-center justify-between gap-3 max-md:hidden">

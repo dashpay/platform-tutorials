@@ -600,6 +600,7 @@ export function NotesWorkspace({
             className={`min-h-0 max-md:flex-1 ${selectedId === null ? "hidden md:flex" : "flex"} flex-col xl:border-l xl:border-line`}
           >
             <NoteEditor
+              isDesktop={isDesktop}
               selectedId={selectedId}
               note={selectedNote}
               title={title}
