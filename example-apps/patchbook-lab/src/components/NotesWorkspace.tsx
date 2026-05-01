@@ -405,6 +405,10 @@ export function NotesWorkspace({
     setSaving(true);
     setError(null);
     inFlightWriteRef.current = true;
+    // Snapshot what we're about to save — used for both the post-success
+    // baseline advance and the post-failure refresh.
+    const submittedTitle = title;
+    const submittedMessage = message;
     try {
       if (selectedId === "new" || selectedId === null) {
         const noteId = await createNote({
@@ -415,6 +419,12 @@ export function NotesWorkspace({
           message,
           log,
         });
+        // Advance baselines so the post-save reload doesn't see wasDirty=true
+        // and trip the conflict detector against its own write.
+        baselineTitleRef.current = submittedTitle;
+        baselineMessageRef.current = submittedMessage;
+        setBaselineTitle(submittedTitle);
+        setBaselineMessage(submittedMessage);
         await reloadNotes(noteId);
       } else {
         await updateNote({
@@ -426,12 +436,65 @@ export function NotesWorkspace({
           message,
           log,
         });
+        baselineTitleRef.current = submittedTitle;
+        baselineMessageRef.current = submittedMessage;
+        setBaselineTitle(submittedTitle);
+        setBaselineMessage(submittedMessage);
         setConflictWarning(null);
         await loadNoteDetail(selectedId, true);
         await reloadNotes(selectedId);
       }
     } catch (err) {
       setError(errorMessage(err));
+      // Save failed — chain may have moved (e.g. another window incremented
+      // the identity nonce by saving first). Refresh the note so the user
+      // sees what's actually on chain before they retry, and surface the
+      // conflict warning if the revision actually moved past what we held.
+      if (
+        selectedId !== "new" &&
+        selectedId !== null &&
+        sdk &&
+        contractId &&
+        selectedNote
+      ) {
+        try {
+          const latest = await getNote({
+            sdk,
+            contractId,
+            noteId: selectedId,
+            log,
+          });
+          if (latest && latest.revision !== selectedNote.revision) {
+            setSelectedNote(latest);
+            const latestTitle = latest.title ?? "";
+            const latestMessage = latest.message ?? "";
+            setBaselineTitle(latestTitle);
+            setBaselineMessage(latestMessage);
+            baselineTitleRef.current = latestTitle;
+            baselineMessageRef.current = latestMessage;
+            // The conflict warning is the actionable info ("your retry will
+            // overwrite"); the underlying nonce/network error is internal
+            // detail. Clear the error so the warning isn't masked.
+            setError(null);
+            // Fold the chain's content into the list/cache too.
+            const prev = notesRef.current;
+            const idx = prev.findIndex((n) => n.id === latest.id);
+            if (idx === -1 || prev[idx].revision !== latest.revision) {
+              const merged =
+                idx === -1
+                  ? [latest, ...prev]
+                  : prev.map((n, i) => (i === idx ? latest : n));
+              setNotes(merged);
+              if (identityId && contractId) {
+                saveCachedNotes(identityId, contractId, NETWORK, merged);
+              }
+            }
+            setConflictWarning(STALE_EDIT_WARNING);
+          }
+        } catch {
+          // Best effort — don't mask the original save error.
+        }
+      }
     } finally {
       inFlightWriteRef.current = false;
       setSaving(false);

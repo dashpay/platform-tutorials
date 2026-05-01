@@ -301,6 +301,180 @@ describe("NotesWorkspace", () => {
     expect(cached.notes[0].message).toBe("Fresh body preview");
   });
 
+  describe("concurrent save handling", () => {
+    const initial = {
+      id: "note-conflict",
+      ownerId: "identity-1",
+      title: "Local title",
+      message: "Local body",
+      createdAt: 1000,
+      updatedAt: 2000,
+      revision: 1,
+    };
+    const remote = {
+      ...initial,
+      title: "Remote title",
+      message: "Remote body",
+      updatedAt: 3000,
+      revision: 2,
+    };
+
+    it("surfaces a conflict warning when a failed save reveals the chain has moved", async () => {
+      mockUseSession.mockReturnValue(makeSession());
+      mockListMyNotes.mockResolvedValue([initial]);
+      mockGetNote
+        .mockResolvedValueOnce(initial) // initial detail load
+        .mockResolvedValue(remote); // post-failure refresh — chain has moved
+      mockUpdateNote.mockRejectedValue(new Error("Identity nonce is stale"));
+
+      render(<NotesWorkspace onOpenSettings={vi.fn()} />);
+
+      await waitFor(() => {
+        expect(
+          (screen.getByLabelText(/^body$/i) as HTMLTextAreaElement).value,
+        ).toBe("Local body");
+      });
+
+      fireEvent.change(screen.getByLabelText(/^body$/i), {
+        target: { value: "User edited body" },
+      });
+      fireEvent.click(screen.getByRole("button", { name: /^save$/i }));
+
+      // Conflict warning supersedes the raw nonce error — it's the actionable
+      // signal that a retry would overwrite.
+      await waitFor(() => {
+        expect(
+          screen.getByText(/this note changed on the network/i),
+        ).toBeTruthy();
+      });
+      expect(screen.queryByText(/identity nonce is stale/i)).toBeNull();
+      // User's typed input is preserved.
+      expect(
+        (screen.getByLabelText(/^body$/i) as HTMLTextAreaElement).value,
+      ).toBe("User edited body");
+    });
+
+    it("does NOT show the conflict warning when a save fails but the chain revision is unchanged", async () => {
+      mockUseSession.mockReturnValue(makeSession());
+      mockListMyNotes.mockResolvedValue([initial]);
+      // Both the initial detail load and the post-failure refresh return the
+      // same revision — failure is unrelated to a concurrent edit.
+      mockGetNote.mockResolvedValue(initial);
+      mockUpdateNote.mockRejectedValue(new Error("Network unreachable"));
+
+      render(<NotesWorkspace onOpenSettings={vi.fn()} />);
+
+      await waitFor(() => {
+        expect(
+          (screen.getByLabelText(/^body$/i) as HTMLTextAreaElement).value,
+        ).toBe("Local body");
+      });
+
+      fireEvent.change(screen.getByLabelText(/^body$/i), {
+        target: { value: "User edited body" },
+      });
+      fireEvent.click(screen.getByRole("button", { name: /^save$/i }));
+
+      await waitFor(() => {
+        expect(screen.getByText(/network unreachable/i)).toBeTruthy();
+      });
+      expect(
+        screen.queryByText(/this note changed on the network/i),
+      ).toBeNull();
+    });
+
+    it("retrying after a conflict overwrites the chain's newer revision", async () => {
+      mockUseSession.mockReturnValue(makeSession());
+      mockListMyNotes.mockResolvedValue([remote]);
+      mockGetNote
+        .mockResolvedValueOnce(initial) // initial detail load (rev=1)
+        .mockResolvedValueOnce(remote) // post-failure refresh (rev=2)
+        .mockResolvedValue(remote); // post-success reload
+      mockUpdateNote
+        .mockRejectedValueOnce(new Error("Identity nonce is stale"))
+        .mockResolvedValue(undefined);
+
+      render(<NotesWorkspace onOpenSettings={vi.fn()} />);
+
+      await waitFor(() => {
+        expect(
+          (screen.getByLabelText(/^body$/i) as HTMLTextAreaElement).value,
+        ).toBe("Local body");
+      });
+
+      fireEvent.change(screen.getByLabelText(/^body$/i), {
+        target: { value: "User wins" },
+      });
+      const saveButton = screen.getByRole("button", { name: /^save$/i });
+      fireEvent.click(saveButton);
+
+      // First click: warning surfaces.
+      await waitFor(() => {
+        expect(
+          screen.getByText(/this note changed on the network/i),
+        ).toBeTruthy();
+      });
+
+      // Retry — should overwrite.
+      fireEvent.click(saveButton);
+
+      await waitFor(() => {
+        expect(mockUpdateNote).toHaveBeenCalledTimes(2);
+      });
+      expect(mockUpdateNote).toHaveBeenLastCalledWith(
+        expect.objectContaining({
+          noteId: "note-conflict",
+          message: "User wins",
+        }),
+      );
+    });
+
+    it("does not flash the conflict warning during a normal successful save", async () => {
+      mockUseSession.mockReturnValue(makeSession());
+      const saved = {
+        ...initial,
+        message: "User edited body",
+        revision: 2,
+        updatedAt: 3000,
+      };
+      mockListMyNotes
+        .mockResolvedValueOnce([initial])
+        .mockResolvedValue([saved]);
+      mockGetNote
+        .mockResolvedValueOnce(initial) // initial detail load
+        .mockResolvedValue(saved); // post-save reload
+      mockUpdateNote.mockResolvedValue(undefined);
+
+      render(<NotesWorkspace onOpenSettings={vi.fn()} />);
+
+      await waitFor(() => {
+        expect(
+          (screen.getByLabelText(/^body$/i) as HTMLTextAreaElement).value,
+        ).toBe("Local body");
+      });
+
+      fireEvent.change(screen.getByLabelText(/^body$/i), {
+        target: { value: "User edited body" },
+      });
+      fireEvent.click(screen.getByRole("button", { name: /^save$/i }));
+
+      // Wait for save to complete.
+      await waitFor(() => {
+        expect(mockUpdateNote).toHaveBeenCalledTimes(1);
+      });
+      // Wait for the post-save reload to settle (list query called twice:
+      // once on mount, once after save).
+      await waitFor(() => {
+        expect(mockListMyNotes).toHaveBeenCalledTimes(2);
+      });
+
+      // Conflict warning must never have appeared.
+      expect(
+        screen.queryByText(/this note changed on the network/i),
+      ).toBeNull();
+    });
+  });
+
   it("surfaces query failures as a regular editor error", async () => {
     mockUseSession.mockReturnValue(makeSession());
     mockListMyNotes.mockRejectedValue(new Error("Data contract not found"));
