@@ -376,7 +376,7 @@ function EmptyState({
 }) {
   return (
     <div className="flex flex-1 flex-col px-6 py-10 text-center max-md:py-8">
-      <div className="flex flex-1 flex-col items-center justify-center gap-4">
+      <div className="flex flex-1 flex-col items-center justify-center gap-4 max-md:-translate-y-16">
         <div className="flex h-14 w-14 items-center justify-center rounded-full bg-surface-2 text-ink-3">
           {icon}
         </div>
