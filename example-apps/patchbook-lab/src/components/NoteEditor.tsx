@@ -28,6 +28,7 @@ interface NoteEditorProps {
   contractReady: boolean;
   error: string | null;
   onOpenSettings: () => void;
+  isReadOnly?: boolean;
 }
 
 export function NoteEditor({
@@ -51,6 +52,7 @@ export function NoteEditor({
   contractReady,
   error,
   onOpenSettings,
+  isReadOnly = false,
 }: NoteEditorProps) {
   const hasSelection = selectedId !== null;
   const isNew = selectedId === "new";
@@ -117,15 +119,25 @@ export function NoteEditor({
               {deleting ? "Deleting…" : "Delete"}
             </button>
           )}
-          {hasSelection && (
+          {isReadOnly ? (
             <button
               type="button"
-              onClick={onSave}
-              disabled={!canEdit || saving || !dirty || oversize}
-              className="rounded-full bg-accent px-3 py-1.5 text-[12px] font-semibold text-bg transition hover:bg-accent-dim disabled:cursor-not-allowed disabled:bg-surface-2 disabled:text-ink-4"
+              onClick={onOpenSettings}
+              className="rounded-full bg-accent px-3 py-1.5 text-[12px] font-semibold text-bg transition hover:bg-accent-dim"
             >
-              {saving ? "Saving…" : isNew ? "Create note" : "Save"}
+              Sign in to edit
             </button>
+          ) : (
+            hasSelection && (
+              <button
+                type="button"
+                onClick={onSave}
+                disabled={!canEdit || saving || !dirty || oversize}
+                className="rounded-full bg-accent px-3 py-1.5 text-[12px] font-semibold text-bg transition hover:bg-accent-dim disabled:cursor-not-allowed disabled:bg-surface-2 disabled:text-ink-4"
+              >
+                {saving ? "Saving…" : isNew ? "Create note" : "Save"}
+              </button>
+            )
           )}
         </div>
       </div>

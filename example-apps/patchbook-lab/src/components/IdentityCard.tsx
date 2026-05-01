@@ -26,7 +26,8 @@ export function IdentityCard({
   onLoginClick,
 }: IdentityCardProps) {
   const isAuthed = status === "authenticated";
-  const isConnected = status === "readonly" || isAuthed;
+  const isBrowsing = status === "browsing";
+  const isConnected = status === "readonly" || isAuthed || isBrowsing;
 
   if (!isConnected) {
     return (
@@ -66,14 +67,14 @@ export function IdentityCard({
       onClick={onLoginClick}
       className="group w-full border-t border-line pt-3.5 text-left"
     >
-      {isAuthed && (
+      {(isAuthed || isBrowsing) && (
         <>
           <div className="mb-0.5 flex items-center justify-between">
             <span className="text-[10px] font-semibold uppercase tracking-[0.12em] text-ink-4">
-              Signed in
+              {isAuthed ? "Signed in" : "Read-only"}
             </span>
             <span className="text-[10px] text-ink-4 opacity-0 transition-opacity group-hover:opacity-100">
-              Settings
+              {isAuthed ? "Settings" : "Sign in"}
             </span>
           </div>
           <div className="flex items-center gap-2">
@@ -95,10 +96,16 @@ export function IdentityCard({
         </>
       )}
 
-      <div className={`flex items-center gap-1.5 ${isAuthed ? "mt-2.5" : ""}`}>
+      <div
+        className={`flex items-center gap-1.5 ${isAuthed || isBrowsing ? "mt-2.5" : ""}`}
+      >
         <span className="conn-dot connected" />
         <span className="font-mono text-[10.5px] text-ink-3">
-          {isAuthed ? "Authenticated" : "Connected"}
+          {isAuthed
+            ? "Authenticated"
+            : isBrowsing
+              ? "Browsing (read-only)"
+              : "Connected"}
         </span>
       </div>
     </button>

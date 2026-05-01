@@ -20,11 +20,23 @@ export function LoginModal({ open, onClose }: LoginModalProps) {
   const [submitting, setSubmitting] = useState(false);
   const [showAdvanced, setShowAdvanced] = useState(false);
   const [registering, setRegistering] = useState(false);
+  const [rememberMe, setRememberMe] = useState(true);
+  const [useDifferentIdentity, setUseDifferentIdentity] = useState(false);
   const loggedIn = session.status === "authenticated";
+  const showRememberedPanel = Boolean(
+    session.rememberedIdentityId && !useDifferentIdentity,
+  );
 
   useEffect(() => {
     setContractInput(session.contractId ?? "");
   }, [session.contractId]);
+
+  useEffect(() => {
+    if (open) {
+      setRememberMe(true);
+      setUseDifferentIdentity(false);
+    }
+  }, [open]);
 
   function applyContractId() {
     session.setContractId(contractInput.trim() || null);
@@ -55,7 +67,10 @@ export function LoginModal({ open, onClose }: LoginModalProps) {
     setSubmitting(true);
     try {
       const index = Number.parseInt(identityIndex, 10);
-      await session.login(mnemonic, Number.isNaN(index) ? 0 : index);
+      await session.login(mnemonic, {
+        identityIndex: Number.isNaN(index) ? 0 : index,
+        rememberMe,
+      });
       setMnemonic("");
       onClose();
     } catch (err) {
@@ -80,42 +95,80 @@ export function LoginModal({ open, onClose }: LoginModalProps) {
             <div className="break-all rounded-md border border-line bg-bg px-3 py-2 font-mono text-[12px] text-accent">
               {session.identityId ?? "—"}
             </div>
+            <div
+              data-testid="settings-identity-actions"
+              className="mt-2 flex flex-wrap gap-3 text-[11px]"
+            >
+              <button
+                type="button"
+                onClick={() => {
+                  session.logout();
+                }}
+                className="font-medium text-accent-dim underline-offset-2 hover:text-accent hover:underline"
+              >
+                Use a different identity
+              </button>
+              {session.rememberedIdentityId && (
+                <button
+                  type="button"
+                  onClick={() => session.forgetIdentity()}
+                  className="font-medium text-ink-3 underline-offset-2 hover:text-[color:var(--color-danger)] hover:underline"
+                >
+                  Forget this device
+                </button>
+              )}
+            </div>
           </div>
 
-          <div className="flex flex-col gap-2">
-            <span className="text-[10px] font-semibold uppercase tracking-[0.12em] text-ink-4">
-              Contract ID
+          <button
+            type="button"
+            onClick={() => setShowAdvanced(!showAdvanced)}
+            className="flex items-center gap-1 self-start text-[11px] font-medium text-ink-3 transition hover:text-ink"
+          >
+            <span
+              className={`inline-block transition-transform ${showAdvanced ? "rotate-90" : ""}`}
+            >
+              ▶
             </span>
-            <input
-              type="text"
-              value={contractInput}
-              onChange={(event) => setContractInput(event.target.value)}
-              placeholder="Paste a note contract ID or register a new one"
-              className="rounded-md border border-line bg-bg px-3 py-2 font-mono text-[12px] text-ink outline-none transition focus:border-accent-dim"
-            />
-            <div className="flex flex-wrap gap-2">
-              <button
-                type="button"
-                onClick={applyContractId}
-                disabled={contractInput.trim() === (session.contractId ?? "")}
-                className="rounded-md border border-line-2 bg-transparent px-3 py-1.5 text-[12px] font-semibold text-ink-2 transition hover:border-accent-dim hover:text-ink disabled:cursor-not-allowed disabled:border-line disabled:text-ink-4"
-              >
-                Use this ID
-              </button>
-              <button
-                type="button"
-                onClick={handleRegisterContract}
-                disabled={registering || !session.sdk || !session.keyManager}
-                className="rounded-md bg-accent px-3 py-1.5 text-[12px] font-semibold text-bg transition hover:bg-accent-dim disabled:cursor-not-allowed disabled:bg-surface-2 disabled:text-ink-4"
-              >
-                {registering ? "Registering…" : "Register new"}
-              </button>
+            Advanced settings
+          </button>
+
+          {showAdvanced && (
+            <div className="flex flex-col gap-2 rounded-md border border-line bg-bg/40 p-3">
+              <span className="text-[10px] font-semibold uppercase tracking-[0.12em] text-ink-4">
+                Contract ID
+              </span>
+              <input
+                type="text"
+                value={contractInput}
+                onChange={(event) => setContractInput(event.target.value)}
+                placeholder="Paste a note contract ID or register a new one"
+                className="rounded-md border border-line bg-bg px-3 py-2 font-mono text-[12px] text-ink outline-none transition focus:border-accent-dim"
+              />
+              <div className="flex flex-wrap gap-2">
+                <button
+                  type="button"
+                  onClick={applyContractId}
+                  disabled={contractInput.trim() === (session.contractId ?? "")}
+                  className="rounded-md border border-line-2 bg-transparent px-3 py-1.5 text-[12px] font-semibold text-ink-2 transition hover:border-accent-dim hover:text-ink disabled:cursor-not-allowed disabled:border-line disabled:text-ink-4"
+                >
+                  Use this ID
+                </button>
+                <button
+                  type="button"
+                  onClick={handleRegisterContract}
+                  disabled={registering || !session.sdk || !session.keyManager}
+                  className="rounded-md bg-accent px-3 py-1.5 text-[12px] font-semibold text-bg transition hover:bg-accent-dim disabled:cursor-not-allowed disabled:bg-surface-2 disabled:text-ink-4"
+                >
+                  {registering ? "Registering…" : "Register new"}
+                </button>
+              </div>
+              <p className="text-[11px] text-ink-4">
+                Register deploys a fresh note contract to testnet and switches
+                Patchbook to it immediately.
+              </p>
             </div>
-            <p className="text-[11px] text-ink-4">
-              Register deploys a fresh note contract to testnet and switches
-              Patchbook to it immediately.
-            </p>
-          </div>
+          )}
 
           {error && (
             <OperationResultNotice tone="error" title="Error">
@@ -145,31 +198,99 @@ export function LoginModal({ open, onClose }: LoginModalProps) {
         </div>
       ) : (
         <form onSubmit={handleLogin} className="flex flex-col gap-4 py-2">
+          {showRememberedPanel && session.rememberedIdentityId && (
+            <label
+              data-testid="remembered-identity-panel"
+              className="flex flex-col gap-1"
+            >
+              <span className="text-[10px] font-semibold uppercase tracking-[0.12em] text-ink-4">
+                Identity
+              </span>
+              <input
+                type="text"
+                readOnly
+                value={session.rememberedIdentityId}
+                aria-label="Remembered identity"
+                className="break-all rounded-md border border-line bg-bg/40 px-3 py-2 font-mono text-[12px] text-accent outline-none"
+              />
+            </label>
+          )}
+
+          {useDifferentIdentity && session.rememberedIdentityId && (
+            <p
+              data-testid="different-identity-notice"
+              className="rounded-md border border-line bg-bg/40 px-3 py-2 text-[11px] text-ink-3"
+            >
+              Signing in with a different identity. The remembered identity
+              stays remembered until you sign in again or forget it.
+            </p>
+          )}
+
           <label className="flex flex-col gap-1">
             <span className="text-[10px] font-semibold uppercase tracking-[0.12em] text-ink-4">
-              Identity Mnemonic
+              {showRememberedPanel ? "Mnemonic" : "Identity Mnemonic"}
             </span>
-            <p className="text-[11px] text-ink-3">
-              Need an identity? Use the{" "}
-              <a
-                href="https://bridge.thepasta.org/"
-                target="_blank"
-                rel="noopener noreferrer"
-                className="font-medium text-accent-dim underline underline-offset-2 hover:text-accent"
-              >
-                Dash bridge
-              </a>{" "}
-              to create one for testing.
-            </p>
+            {!showRememberedPanel && (
+              <p className="text-[11px] text-ink-3">
+                Need an identity? Use the{" "}
+                <a
+                  href="https://bridge.thepasta.org/"
+                  target="_blank"
+                  rel="noopener noreferrer"
+                  className="font-medium text-accent-dim underline underline-offset-2 hover:text-accent"
+                >
+                  Dash bridge
+                </a>{" "}
+                to create one for testing.
+              </p>
+            )}
             <input
               type="password"
               autoComplete="off"
               required
               value={mnemonic}
               onChange={(event) => setMnemonic(event.target.value)}
-              placeholder="mnemonic phrase"
+              placeholder={
+                showRememberedPanel
+                  ? "Enter the mnemonic for this identity"
+                  : "mnemonic phrase"
+              }
               className="rounded-md border border-line bg-bg px-3 py-2 text-[13px] text-ink outline-none transition focus:border-accent-dim"
             />
+          </label>
+
+          {session.rememberedIdentityId && (
+            <div
+              data-testid="remembered-identity-actions"
+              className="flex flex-wrap gap-3 text-[11px]"
+            >
+              {!useDifferentIdentity && (
+                <button
+                  type="button"
+                  onClick={() => setUseDifferentIdentity(true)}
+                  className="font-medium text-accent-dim underline-offset-2 hover:text-accent hover:underline"
+                >
+                  Use a different identity
+                </button>
+              )}
+              <button
+                type="button"
+                onClick={() => session.forgetIdentity()}
+                className="font-medium text-ink-3 underline-offset-2 hover:text-[color:var(--color-danger)] hover:underline"
+              >
+                Forget this device
+              </button>
+            </div>
+          )}
+
+          <label className="flex items-start gap-2 text-[12px] text-ink-2">
+            <input
+              type="checkbox"
+              checked={rememberMe}
+              onChange={(event) => setRememberMe(event.target.checked)}
+              className="mt-0.5 h-3.5 w-3.5 accent-[color:var(--color-accent)]"
+            />
+            <span>Remember this identity on this device</span>
           </label>
 
           <button
@@ -230,7 +351,9 @@ export function LoginModal({ open, onClose }: LoginModalProps) {
           )}
 
           <p className="text-[11px] text-ink-4">
-            Your mnemonic stays in browser memory and is never sent anywhere.
+            Your mnemonic stays in browser memory and is never sent or saved.
+            Only the public identity ID is persisted, and only when “Remember
+            me” is checked.
           </p>
 
           <div className="flex gap-2 pt-1">

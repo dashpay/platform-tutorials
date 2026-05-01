@@ -63,7 +63,9 @@ function makeSession(overrides: Record<string, unknown> = {}) {
     error: null,
     identityId: null,
     contractId: null,
+    rememberedIdentityId: null,
     enterReadOnly: vi.fn().mockResolvedValue(undefined),
+    viewAsRemembered: vi.fn().mockResolvedValue(undefined),
     ...overrides,
   };
 }
@@ -77,7 +79,7 @@ afterEach(() => {
 });
 
 describe("App", () => {
-  it("auto-connects in read-only mode from idle", async () => {
+  it("auto-connects in read-only mode from idle when no identity is remembered", async () => {
     const session = makeSession();
     mockUseSession.mockReturnValue(session);
 
@@ -86,6 +88,21 @@ describe("App", () => {
     await waitFor(() => {
       expect(session.enterReadOnly).toHaveBeenCalled();
     });
+    expect(session.viewAsRemembered).not.toHaveBeenCalled();
+  });
+
+  it("boots into browsing mode when a remembered identity is present", async () => {
+    const session = makeSession({
+      rememberedIdentityId: "remembered-identity-id",
+    });
+    mockUseSession.mockReturnValue(session);
+
+    render(<App />);
+
+    await waitFor(() => {
+      expect(session.viewAsRemembered).toHaveBeenCalled();
+    });
+    expect(session.enterReadOnly).not.toHaveBeenCalled();
   });
 
   it("switches tabs and opens the settings modal", () => {

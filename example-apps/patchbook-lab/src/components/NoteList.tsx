@@ -50,14 +50,15 @@ export function NoteList({
             {notes.length} {notes.length === 1 ? "note" : "notes"}
           </div>
         </div>
-        <button
-          type="button"
-          onClick={onNew}
-          disabled={!canCreate}
-          className="rounded-full bg-accent px-3 py-1.5 text-[12px] font-semibold text-bg transition hover:bg-accent-dim disabled:cursor-not-allowed disabled:bg-surface-2 disabled:text-ink-4 max-md:hidden"
-        >
-          New note
-        </button>
+        {canCreate && (
+          <button
+            type="button"
+            onClick={onNew}
+            className="rounded-full bg-accent px-3 py-1.5 text-[12px] font-semibold text-bg transition hover:bg-accent-dim max-md:hidden"
+          >
+            New note
+          </button>
+        )}
       </div>
 
       <div className="border-b border-line px-3 py-2.5">
@@ -161,28 +162,29 @@ export function NoteList({
         )}
       </div>
 
-      <button
-        type="button"
-        onClick={onNew}
-        disabled={!canCreate}
-        aria-label="Compose note"
-        className="fixed bottom-6 right-6 z-20 flex h-14 w-14 items-center justify-center rounded-full bg-accent text-bg shadow-[0_16px_35px_-12px_rgba(0,0,0,0.45)] transition hover:bg-accent-dim disabled:cursor-not-allowed disabled:bg-surface-2 disabled:text-ink-4 md:hidden"
-      >
-        <svg
-          width="22"
-          height="22"
-          viewBox="0 0 24 24"
-          fill="none"
-          stroke="currentColor"
-          strokeWidth="2"
-          strokeLinecap="round"
-          strokeLinejoin="round"
-          aria-hidden="true"
+      {canCreate && (
+        <button
+          type="button"
+          onClick={onNew}
+          aria-label="Compose note"
+          className="fixed bottom-6 right-6 z-20 flex h-14 w-14 items-center justify-center rounded-full bg-accent text-bg shadow-[0_16px_35px_-12px_rgba(0,0,0,0.45)] transition hover:bg-accent-dim md:hidden"
         >
-          <path d="M12 20h9" />
-          <path d="M16.5 3.5a2.121 2.121 0 1 1 3 3L7 19l-4 1 1-4 12.5-12.5z" />
-        </svg>
-      </button>
+          <svg
+            width="22"
+            height="22"
+            viewBox="0 0 24 24"
+            fill="none"
+            stroke="currentColor"
+            strokeWidth="2"
+            strokeLinecap="round"
+            strokeLinejoin="round"
+            aria-hidden="true"
+          >
+            <path d="M12 20h9" />
+            <path d="M16.5 3.5a2.121 2.121 0 1 1 3 3L7 19l-4 1 1-4 12.5-12.5z" />
+          </svg>
+        </button>
+      )}
     </section>
   );
 }

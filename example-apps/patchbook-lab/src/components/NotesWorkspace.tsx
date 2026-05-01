@@ -43,6 +43,8 @@ export function NotesWorkspace({
   const [error, setError] = useState<string | null>(null);
 
   const isAuthed = status === "authenticated";
+  const isBrowsing = status === "browsing";
+  const canRead = isAuthed || isBrowsing;
   const contractReady = Boolean(contractId);
   const canMutate = Boolean(isAuthed && sdk && keyManager && contractId);
   const dirty = title !== baselineTitle || message !== baselineMessage;
@@ -66,7 +68,12 @@ export function NotesWorkspace({
 
   const reloadNotes = useCallback(
     async (preferredId?: SelectedNoteId) => {
-      if (!sdk || !contractId || !identityId || status !== "authenticated") {
+      if (
+        !sdk ||
+        !contractId ||
+        !identityId ||
+        (status !== "authenticated" && status !== "browsing")
+      ) {
         setNotes([]);
         setSelectedNote(null);
         setSelectedId(null);
@@ -257,7 +264,7 @@ export function NotesWorkspace({
 
   return (
     <div className="space-y-5 max-md:flex max-md:min-h-0 max-md:flex-1 max-md:flex-col max-md:space-y-2">
-      {!isAuthed ? (
+      {!canRead ? (
         <EmptyState
           icon={
             <svg
@@ -341,6 +348,7 @@ export function NotesWorkspace({
               canDelete={Boolean(
                 canMutate && selectedId && selectedId !== "new",
               )}
+              isReadOnly={isBrowsing}
               dirty={dirty}
               messageBytes={messageBytes}
               messageOversize={messageOversize}

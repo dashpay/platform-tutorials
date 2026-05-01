@@ -15,14 +15,25 @@ import {
 } from "../dash/contract";
 import { IdentityKeyManager } from "../dash/keyManager";
 import { errorMessage, type Logger } from "../dash/logger";
+import {
+  clearRememberedIdentityId,
+  loadRememberedIdentityId,
+  saveRememberedIdentityId,
+} from "../dash/rememberedIdentity";
 import type { DashKeyManager, DashSdk } from "../dash/types";
 
 export type SessionStatus =
   | "idle"
   | "connecting"
   | "readonly"
+  | "browsing"
   | "authenticated"
   | "error";
+
+export interface LoginOptions {
+  identityIndex?: number;
+  rememberMe?: boolean;
+}
 
 export interface SessionValue {
   status: SessionStatus;
@@ -31,10 +42,13 @@ export interface SessionValue {
   keyManager: DashKeyManager | null;
   identityId: string | null;
   contractId: string | null;
+  rememberedIdentityId: string | null;
   setContractId: (id: string | null) => void;
   log: Logger;
-  login: (mnemonic: string, identityIndex?: number) => Promise<void>;
+  login: (mnemonic: string, options?: LoginOptions) => Promise<void>;
   enterReadOnly: () => Promise<void>;
+  viewAsRemembered: () => Promise<void>;
+  forgetIdentity: () => void;
   logout: () => void;
 }
 
@@ -50,6 +64,9 @@ export function SessionProvider({ children }: { children: ReactNode }) {
   const [contractId, setContractIdState] = useState<string | null>(() =>
     loadStoredContractId(),
   );
+  const [rememberedIdentityId, setRememberedIdentityId] = useState<
+    string | null
+  >(() => loadRememberedIdentityId());
 
   const log = useCallback<Logger>((message, level = "info") => {
     const method =
@@ -81,7 +98,8 @@ export function SessionProvider({ children }: { children: ReactNode }) {
   }, [log]);
 
   const login = useCallback(
-    async (mnemonic: string, identityIndex = 0) => {
+    async (mnemonic: string, options: LoginOptions = {}) => {
+      const { identityIndex = 0, rememberMe = false } = options;
       const trimmed = mnemonic.trim();
       if (!trimmed) throw new Error("Mnemonic is required.");
       setError(null);
@@ -94,12 +112,14 @@ export function SessionProvider({ children }: { children: ReactNode }) {
           identityIndex,
         });
         setKeyManager(manager);
-        setIdentityId(manager.identityId ?? null);
+        const resolvedId = manager.identityId ?? null;
+        setIdentityId(resolvedId);
         setStatus("authenticated");
-        log(
-          `Identity resolved: ${manager.identityId ?? "(unknown)"}`,
-          "success",
-        );
+        if (rememberMe && resolvedId) {
+          saveRememberedIdentityId(resolvedId);
+          setRememberedIdentityId(resolvedId);
+        }
+        log(`Identity resolved: ${resolvedId ?? "(unknown)"}`, "success");
       } catch (err) {
         const message = errorMessage(err);
         setError(message);
@@ -127,13 +147,52 @@ export function SessionProvider({ children }: { children: ReactNode }) {
     }
   }, [sdk, connect, log]);
 
+  const viewAsRemembered = useCallback(async () => {
+    const rememberedId = loadRememberedIdentityId();
+    if (!rememberedId) {
+      await enterReadOnly();
+      return;
+    }
+    setError(null);
+    try {
+      if (!sdk) await connect();
+      setKeyManager(null);
+      setIdentityId(rememberedId);
+      setRememberedIdentityId(rememberedId);
+      setStatus("browsing");
+      log(`Browsing notes for ${rememberedId} (read-only).`);
+    } catch (err) {
+      const message = errorMessage(err);
+      setError(message);
+      setStatus("error");
+      log(`Connection failed: ${message}`, "error");
+    }
+  }, [sdk, connect, enterReadOnly, log]);
+
+  const forgetIdentity = useCallback(() => {
+    clearRememberedIdentityId();
+    setRememberedIdentityId(null);
+    if (status === "browsing") {
+      setKeyManager(null);
+      setIdentityId(null);
+      setStatus(sdk ? "readonly" : "idle");
+    }
+    log("Forgot remembered identity on this device.");
+  }, [status, sdk, log]);
+
   const logout = useCallback(() => {
     setKeyManager(null);
-    setIdentityId(null);
     setError(null);
+    if (rememberedIdentityId) {
+      setIdentityId(rememberedIdentityId);
+      setStatus(sdk ? "browsing" : "idle");
+      log("Logged out. Browsing remembered identity (read-only).");
+      return;
+    }
+    setIdentityId(null);
     setStatus(sdk ? "readonly" : "idle");
     log("Logged out.");
-  }, [sdk, log]);
+  }, [sdk, rememberedIdentityId, log]);
 
   const value = useMemo<SessionValue>(
     () => ({
@@ -143,10 +202,13 @@ export function SessionProvider({ children }: { children: ReactNode }) {
       keyManager,
       identityId,
       contractId,
+      rememberedIdentityId,
       setContractId,
       log,
       login,
       enterReadOnly,
+      viewAsRemembered,
+      forgetIdentity,
       logout,
     }),
     [
@@ -156,10 +218,13 @@ export function SessionProvider({ children }: { children: ReactNode }) {
       keyManager,
       identityId,
       contractId,
+      rememberedIdentityId,
       setContractId,
       log,
       login,
       enterReadOnly,
+      viewAsRemembered,
+      forgetIdentity,
       logout,
     ],
   );

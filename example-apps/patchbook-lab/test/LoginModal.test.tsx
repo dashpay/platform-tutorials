@@ -34,6 +34,8 @@ interface SessionOverrides {
   logout?: ReturnType<typeof vi.fn>;
   setContractId?: ReturnType<typeof vi.fn>;
   log?: ReturnType<typeof vi.fn>;
+  rememberedIdentityId?: string | null;
+  forgetIdentity?: ReturnType<typeof vi.fn>;
 }
 
 function makeSession(overrides: SessionOverrides = {}) {
@@ -44,11 +46,14 @@ function makeSession(overrides: SessionOverrides = {}) {
     keyManager: null,
     identityId: null,
     contractId: null,
+    rememberedIdentityId: null,
     log: vi.fn(),
     login: vi.fn().mockResolvedValue(undefined),
     logout: vi.fn(),
     setContractId: vi.fn(),
     enterReadOnly: vi.fn().mockResolvedValue(undefined),
+    viewAsRemembered: vi.fn().mockResolvedValue(undefined),
+    forgetIdentity: vi.fn(),
     ...overrides,
   };
 }
@@ -82,7 +87,10 @@ describe("LoginModal", () => {
     fireEvent.click(screen.getByRole("button", { name: /^login$/i }));
 
     await waitFor(() => {
-      expect(login).toHaveBeenCalledWith("test mnemonic phrase", 0);
+      expect(login).toHaveBeenCalledWith("test mnemonic phrase", {
+        identityIndex: 0,
+        rememberMe: true,
+      });
     });
     await waitFor(() => {
       expect(onClose).toHaveBeenCalled();
@@ -130,7 +138,10 @@ describe("LoginModal", () => {
     fireEvent.click(screen.getByRole("button", { name: /^login$/i }));
 
     await waitFor(() => {
-      expect(login).toHaveBeenCalledWith("phrase", 3);
+      expect(login).toHaveBeenCalledWith("phrase", {
+        identityIndex: 3,
+        rememberMe: true,
+      });
     });
   });
 
@@ -148,7 +159,6 @@ describe("LoginModal", () => {
 
     render(<LoginModal open onClose={vi.fn()} />);
 
-    expect(screen.getByText(/identity/i)).toBeTruthy();
     expect(screen.getByText("id-123456789012345678")).toBeTruthy();
 
     fireEvent.click(screen.getByRole("button", { name: /^logout$/i }));
@@ -169,6 +179,7 @@ describe("LoginModal", () => {
 
     render(<LoginModal open onClose={vi.fn()} />);
 
+    fireEvent.click(screen.getByText(/advanced settings/i));
     fireEvent.change(
       screen.getByPlaceholderText(
         /paste a note contract id or register a new one/i,
@@ -180,6 +191,199 @@ describe("LoginModal", () => {
     fireEvent.click(screen.getByRole("button", { name: /use this id/i }));
 
     expect(setContractId).toHaveBeenCalledWith("contract-123");
+  });
+
+  it("defaults the Remember-me checkbox on when no identity is remembered", () => {
+    mockUseSession.mockReturnValue(makeSession());
+
+    render(<LoginModal open onClose={vi.fn()} />);
+
+    const checkbox = screen.getByRole("checkbox", {
+      name: /remember this identity on this device/i,
+    }) as HTMLInputElement;
+    expect(checkbox.checked).toBe(true);
+  });
+
+  it("defaults the Remember-me checkbox on when an identity is already remembered", () => {
+    mockUseSession.mockReturnValue(
+      makeSession({ rememberedIdentityId: "remembered-identity-id" }),
+    );
+
+    render(<LoginModal open onClose={vi.fn()} />);
+
+    const checkbox = screen.getByRole("checkbox", {
+      name: /remember this identity on this device/i,
+    }) as HTMLInputElement;
+    expect(checkbox.checked).toBe(true);
+  });
+
+  it("renders the Remember-me checkbox above Advanced settings", () => {
+    mockUseSession.mockReturnValue(makeSession());
+
+    render(<LoginModal open onClose={vi.fn()} />);
+
+    const checkbox = screen.getByRole("checkbox", {
+      name: /remember this identity on this device/i,
+    });
+    const advanced = screen.getByRole("button", { name: /advanced settings/i });
+    expect(
+      checkbox.compareDocumentPosition(advanced) &
+        Node.DOCUMENT_POSITION_FOLLOWING,
+    ).toBeTruthy();
+  });
+
+  it("forwards rememberMe=true by default to session.login", async () => {
+    const login = vi.fn().mockResolvedValue(undefined);
+    mockUseSession.mockReturnValue(makeSession({ login }));
+
+    render(<LoginModal open onClose={vi.fn()} />);
+
+    fireEvent.change(screen.getByPlaceholderText(/mnemonic phrase/i), {
+      target: { value: "phrase" },
+    });
+    fireEvent.click(screen.getByRole("button", { name: /^login$/i }));
+
+    await waitFor(() => {
+      expect(login).toHaveBeenCalledWith("phrase", {
+        identityIndex: 0,
+        rememberMe: true,
+      });
+    });
+  });
+
+  it("forwards rememberMe=false when the user opts out", async () => {
+    const login = vi.fn().mockResolvedValue(undefined);
+    mockUseSession.mockReturnValue(makeSession({ login }));
+
+    render(<LoginModal open onClose={vi.fn()} />);
+
+    fireEvent.click(
+      screen.getByRole("checkbox", {
+        name: /remember this identity on this device/i,
+      }),
+    );
+    fireEvent.change(screen.getByPlaceholderText(/mnemonic phrase/i), {
+      target: { value: "phrase" },
+    });
+    fireEvent.click(screen.getByRole("button", { name: /^login$/i }));
+
+    await waitFor(() => {
+      expect(login).toHaveBeenCalledWith("phrase", {
+        identityIndex: 0,
+        rememberMe: false,
+      });
+    });
+  });
+
+  it("shows the remembered identity as a read-only field above the mnemonic", () => {
+    mockUseSession.mockReturnValue(
+      makeSession({
+        status: "browsing",
+        identityId: "remembered-identity-id",
+        rememberedIdentityId: "remembered-identity-id",
+      }),
+    );
+
+    render(<LoginModal open onClose={vi.fn()} />);
+
+    const identityField = screen.getByLabelText(
+      /remembered identity/i,
+    ) as HTMLInputElement;
+    expect(identityField.readOnly).toBe(true);
+    expect(identityField.value).toBe("remembered-identity-id");
+
+    const mnemonicField = screen.getByPlaceholderText(
+      /enter the mnemonic for this identity/i,
+    );
+    expect(
+      identityField.compareDocumentPosition(mnemonicField) &
+        Node.DOCUMENT_POSITION_FOLLOWING,
+    ).toBeTruthy();
+  });
+
+  it("hides the Dash bridge prompt when an identity is remembered", () => {
+    mockUseSession.mockReturnValue(
+      makeSession({ rememberedIdentityId: "remembered-identity-id" }),
+    );
+
+    render(<LoginModal open onClose={vi.fn()} />);
+
+    expect(screen.queryByText(/dash bridge/i)).toBeNull();
+  });
+
+  it("shows the Dash bridge prompt when no identity is remembered", () => {
+    mockUseSession.mockReturnValue(makeSession());
+
+    render(<LoginModal open onClose={vi.fn()} />);
+
+    expect(screen.getByText(/dash bridge/i)).toBeTruthy();
+  });
+
+  it("renders the switch/forget actions below the mnemonic field", () => {
+    mockUseSession.mockReturnValue(
+      makeSession({ rememberedIdentityId: "remembered-identity-id" }),
+    );
+
+    render(<LoginModal open onClose={vi.fn()} />);
+
+    const mnemonicField = screen.getByPlaceholderText(
+      /enter the mnemonic for this identity/i,
+    );
+    const actions = screen.getByTestId("remembered-identity-actions");
+    expect(
+      mnemonicField.compareDocumentPosition(actions) &
+        Node.DOCUMENT_POSITION_FOLLOWING,
+    ).toBeTruthy();
+  });
+
+  it("hides the panel and shows a notice when Use a different identity is clicked", () => {
+    const forgetIdentity = vi.fn();
+    mockUseSession.mockReturnValue(
+      makeSession({
+        rememberedIdentityId: "remembered-identity-id",
+        forgetIdentity,
+      }),
+    );
+
+    render(<LoginModal open onClose={vi.fn()} />);
+
+    fireEvent.click(
+      screen.getByRole("button", { name: /use a different identity/i }),
+    );
+
+    expect(screen.queryByTestId("remembered-identity-panel")).toBeNull();
+    expect(screen.getByTestId("different-identity-notice")).toBeTruthy();
+    expect(forgetIdentity).not.toHaveBeenCalled();
+
+    const checkbox = screen.getByRole("checkbox", {
+      name: /remember this identity on this device/i,
+    }) as HTMLInputElement;
+    expect(checkbox.checked).toBe(true);
+  });
+
+  it("calls forgetIdentity when Forget this device is clicked from the login form", () => {
+    const forgetIdentity = vi.fn();
+    mockUseSession.mockReturnValue(
+      makeSession({
+        rememberedIdentityId: "remembered-identity-id",
+        forgetIdentity,
+      }),
+    );
+
+    render(<LoginModal open onClose={vi.fn()} />);
+
+    fireEvent.click(
+      screen.getByRole("button", { name: /forget this device/i }),
+    );
+    expect(forgetIdentity).toHaveBeenCalled();
+  });
+
+  it("hides the remembered identity panel when no identity is remembered", () => {
+    mockUseSession.mockReturnValue(makeSession());
+
+    render(<LoginModal open onClose={vi.fn()} />);
+
+    expect(screen.queryByTestId("remembered-identity-panel")).toBeNull();
   });
 
   it("registers a new contract when the Register new button is clicked", async () => {
@@ -196,6 +400,7 @@ describe("LoginModal", () => {
 
     render(<LoginModal open onClose={vi.fn()} />);
 
+    fireEvent.click(screen.getByText(/advanced settings/i));
     fireEvent.click(screen.getByRole("button", { name: /register new/i }));
 
     await waitFor(() => {
