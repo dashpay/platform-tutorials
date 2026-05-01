@@ -11,6 +11,7 @@ import {
 interface NoteListProps {
   notes: NoteRecord[];
   loading: boolean;
+  revalidating?: boolean;
   selectedId: string | "new" | null;
   onSelect: (noteId: string) => void;
   onNew: () => void;
@@ -20,6 +21,7 @@ interface NoteListProps {
 export function NoteList({
   notes,
   loading,
+  revalidating = false,
   selectedId,
   onSelect,
   onNew,
@@ -46,8 +48,40 @@ export function NoteList({
           <div className="text-[10px] font-semibold uppercase tracking-[0.12em] text-ink-4">
             My notes
           </div>
-          <div className="mt-1 text-[13px] text-ink-3">
-            {notes.length} {notes.length === 1 ? "note" : "notes"}
+          <div className="mt-1 flex items-center gap-2 text-[13px] text-ink-3">
+            <span>
+              {notes.length} {notes.length === 1 ? "note" : "notes"}
+            </span>
+            {revalidating && (
+              <span
+                className="inline-flex items-center gap-1 text-[11px] text-ink-4"
+                role="status"
+                aria-label="Refreshing notes"
+              >
+                <svg
+                  className="h-3 w-3 animate-spin"
+                  viewBox="0 0 24 24"
+                  fill="none"
+                  aria-hidden="true"
+                >
+                  <circle
+                    cx="12"
+                    cy="12"
+                    r="10"
+                    stroke="currentColor"
+                    strokeOpacity="0.25"
+                    strokeWidth="3"
+                  />
+                  <path
+                    d="M22 12a10 10 0 0 1-10 10"
+                    stroke="currentColor"
+                    strokeWidth="3"
+                    strokeLinecap="round"
+                  />
+                </svg>
+                Refreshing…
+              </span>
+            )}
           </div>
         </div>
         {canCreate && (

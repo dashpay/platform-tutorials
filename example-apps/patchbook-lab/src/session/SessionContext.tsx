@@ -15,6 +15,7 @@ import {
 } from "../dash/contract";
 import { IdentityKeyManager } from "../dash/keyManager";
 import { errorMessage, type Logger } from "../dash/logger";
+import { clearCachedNotes } from "../dash/notesCache";
 import {
   clearRememberedIdentityId,
   loadRememberedIdentityId,
@@ -170,6 +171,7 @@ export function SessionProvider({ children }: { children: ReactNode }) {
   }, [sdk, connect, enterReadOnly, log]);
 
   const forgetIdentity = useCallback(() => {
+    if (rememberedIdentityId) clearCachedNotes(rememberedIdentityId);
     clearRememberedIdentityId();
     setRememberedIdentityId(null);
     if (status === "browsing") {
@@ -178,7 +180,7 @@ export function SessionProvider({ children }: { children: ReactNode }) {
       setStatus(sdk ? "readonly" : "idle");
     }
     log("Forgot remembered identity on this device.");
-  }, [status, sdk, log]);
+  }, [status, sdk, rememberedIdentityId, log]);
 
   const logout = useCallback(() => {
     setKeyManager(null);

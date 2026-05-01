@@ -80,6 +80,7 @@ function stubMatchMedia(isDesktop: boolean) {
 }
 
 beforeEach(() => {
+  localStorage.clear();
   mockUseSession.mockReset();
   mockListMyNotes.mockReset();
   mockGetNote.mockReset();
@@ -241,6 +242,63 @@ describe("NotesWorkspace", () => {
         expect.objectContaining({ noteId: "note-2" }),
       );
     });
+  });
+
+  it("merges fresh getNote data into the list and cache when the chain revision is newer than the cached list", async () => {
+    mockUseSession.mockReturnValue(makeSession());
+    const stale = {
+      id: "note-3",
+      ownerId: "identity-1",
+      title: "Old title",
+      message: "Old body preview",
+      createdAt: 1000,
+      updatedAt: 2000,
+      revision: 1,
+    };
+    const fresh = {
+      ...stale,
+      title: "New title",
+      message: "Fresh body preview",
+      updatedAt: 3000,
+      revision: 2,
+    };
+    // List query returns the stale revision (e.g. served from a peer that
+    // hasn't caught up). getNote returns the newer revision.
+    mockListMyNotes.mockResolvedValue([stale]);
+    mockGetNote.mockResolvedValue(fresh);
+
+    render(<NotesWorkspace onOpenSettings={vi.fn()} />);
+
+    await waitFor(() => {
+      expect(mockGetNote).toHaveBeenCalledWith(
+        expect.objectContaining({ noteId: "note-3" }),
+      );
+    });
+
+    // The editor body reflects the fresh fetch.
+    await waitFor(() => {
+      expect(
+        (screen.getByLabelText(/^body$/i) as HTMLTextAreaElement).value,
+      ).toBe("Fresh body preview");
+    });
+
+    // The list preview should also reflect the fresh content, not the stale
+    // body returned by listMyNotes.
+    await waitFor(() => {
+      expect(screen.getAllByText(/fresh body preview/i).length).toBeGreaterThan(
+        0,
+      );
+    });
+    expect(screen.queryByText(/old body preview/i)).toBeNull();
+
+    // The cache should hold the merged (fresh) revision so a cold reload
+    // would paint the up-to-date content immediately.
+    const cacheRaw = localStorage.getItem("patchbook-lab.notes.identity-1");
+    expect(cacheRaw).toBeTruthy();
+    const cached = JSON.parse(cacheRaw as string);
+    expect(cached.notes).toHaveLength(1);
+    expect(cached.notes[0].revision).toBe(2);
+    expect(cached.notes[0].message).toBe("Fresh body preview");
   });
 
   it("surfaces query failures as a regular editor error", async () => {
@@ -449,6 +507,197 @@ describe("NotesWorkspace", () => {
           expect.objectContaining({ noteId: "note-mobile" }),
         );
       });
+    });
+  });
+
+  describe("cache hydration & revalidation", () => {
+    function seedCache(notes: unknown[], identityId = "identity-1") {
+      localStorage.setItem(
+        `patchbook-lab.notes.${identityId}`,
+        JSON.stringify({
+          version: 1,
+          identityId,
+          contractId: "contract-1",
+          network: "testnet",
+          cachedAt: Date.now(),
+          notes,
+        }),
+      );
+    }
+
+    it("paints cached notes immediately, before the network revalidation resolves", async () => {
+      mockUseSession.mockReturnValue(makeSession());
+      seedCache([
+        {
+          id: "cached-1",
+          ownerId: "identity-1",
+          title: "Cached title",
+          message: "Cached body",
+          createdAt: 1000,
+          updatedAt: 2000,
+          revision: 1,
+        },
+      ]);
+      // listMyNotes never resolves during this test — we only assert that the
+      // cached content is visible synchronously.
+      let resolveList: (value: unknown[]) => void = () => {};
+      mockListMyNotes.mockImplementation(
+        () =>
+          new Promise((resolve) => {
+            resolveList = resolve;
+          }),
+      );
+      mockGetNote.mockImplementation(() => new Promise(() => {}));
+
+      render(<NotesWorkspace onOpenSettings={vi.fn()} />);
+
+      // Synchronously visible from cache (no waitFor needed).
+      expect(screen.getAllByText(/cached title/i).length).toBeGreaterThan(0);
+      expect(screen.getByText(/1 note/i)).toBeTruthy();
+      // Refreshing indicator should also be visible while revalidating.
+      expect(screen.getByLabelText(/refreshing notes/i)).toBeTruthy();
+
+      // Clean up: let the pending promise resolve so cleanup() doesn't hang.
+      resolveList([]);
+    });
+
+    it("disables save while revalidating cached data, then enables it after the chain confirms", async () => {
+      mockUseSession.mockReturnValue(makeSession());
+      const cached = {
+        id: "cached-2",
+        ownerId: "identity-1",
+        title: "Cached",
+        message: "Cached body",
+        createdAt: 1000,
+        updatedAt: 2000,
+        revision: 1,
+      };
+      seedCache([cached]);
+
+      let resolveList: (value: unknown[]) => void = () => {};
+      mockListMyNotes.mockImplementation(
+        () =>
+          new Promise((resolve) => {
+            resolveList = resolve;
+          }),
+      );
+      mockGetNote.mockResolvedValue(cached);
+
+      render(<NotesWorkspace onOpenSettings={vi.fn()} />);
+
+      // Cached note is auto-selected on desktop and the editor is shown, but
+      // the save button must be disabled because editsReady=false.
+      await waitFor(() => {
+        expect(screen.getByLabelText(/^body$/i)).toBeTruthy();
+      });
+
+      // Make the editor dirty so dirty-gating doesn't mask the editsReady gate.
+      fireEvent.change(screen.getByLabelText(/^body$/i), {
+        target: { value: "edited body" },
+      });
+      const saveButton = screen.getByRole("button", { name: /^save$/i });
+      expect(saveButton.hasAttribute("disabled")).toBe(true);
+
+      // Resolve the chain query — editsReady flips true and save becomes
+      // enabled (dirty + canMutate + editsReady all satisfied).
+      resolveList([cached]);
+      await waitFor(() => {
+        expect(saveButton.hasAttribute("disabled")).toBe(false);
+      });
+    });
+
+    it("warns the user instead of clobbering when the chain revision moves while editing", async () => {
+      mockUseSession.mockReturnValue(makeSession());
+      const initial = {
+        id: "note-conflict",
+        ownerId: "identity-1",
+        title: "Original",
+        message: "Original body",
+        createdAt: 1000,
+        updatedAt: 2000,
+        revision: 1,
+      };
+      const newerFromChain = {
+        ...initial,
+        title: "Network edit",
+        message: "Network body",
+        updatedAt: 3000,
+        revision: 2,
+      };
+      // First listMyNotes returns rev 1; second (triggered by post-edit
+      // background revalidation) returns rev 2.
+      mockListMyNotes
+        .mockResolvedValueOnce([initial])
+        .mockResolvedValueOnce([newerFromChain]);
+      mockGetNote.mockResolvedValue(initial);
+
+      render(<NotesWorkspace onOpenSettings={vi.fn()} />);
+
+      // Wait for initial load to settle so the editor reflects the cached/
+      // chain content with baselines set.
+      await waitFor(() => {
+        expect(
+          (screen.getByLabelText(/^body$/i) as HTMLTextAreaElement).value,
+        ).toBe("Original body");
+      });
+
+      // User starts editing — dirty=true, baseline still tracks "Original".
+      fireEvent.change(screen.getByLabelText(/^body$/i), {
+        target: { value: "User local edit" },
+      });
+
+      // Trigger background revalidation: ensure the document is "visible",
+      // step Date.now past the focus throttle, and dispatch visibilitychange.
+      Object.defineProperty(document, "visibilityState", {
+        configurable: true,
+        get: () => "visible",
+      });
+      Object.defineProperty(document, "hidden", {
+        configurable: true,
+        get: () => false,
+      });
+      vi.spyOn(Date, "now").mockReturnValue(Date.now() + 60_000);
+      document.dispatchEvent(new Event("visibilitychange"));
+
+      await waitFor(() => {
+        expect(mockListMyNotes).toHaveBeenCalledTimes(2);
+      });
+
+      // Conflict warning should surface; user's edit should remain.
+      await waitFor(() => {
+        expect(
+          screen.getByText(/this note changed on the network/i),
+        ).toBeTruthy();
+      });
+      expect(
+        (screen.getByLabelText(/^body$/i) as HTMLTextAreaElement).value,
+      ).toBe("User local edit");
+    });
+
+    it("keeps cached notes visible when the network revalidation fails", async () => {
+      mockUseSession.mockReturnValue(makeSession());
+      seedCache([
+        {
+          id: "cached-3",
+          ownerId: "identity-1",
+          title: "Cached only",
+          message: "Cached body",
+          createdAt: 1000,
+          updatedAt: 2000,
+          revision: 1,
+        },
+      ]);
+      mockListMyNotes.mockRejectedValue(new Error("Network unreachable"));
+      mockGetNote.mockRejectedValue(new Error("Network unreachable"));
+
+      render(<NotesWorkspace onOpenSettings={vi.fn()} />);
+
+      // Error surfaces but cached data stays visible.
+      await waitFor(() => {
+        expect(screen.getByText(/network unreachable/i)).toBeTruthy();
+      });
+      expect(screen.getAllByText(/cached only/i).length).toBeGreaterThan(0);
+      expect(screen.getByText(/1 note/i)).toBeTruthy();
     });
   });
 });

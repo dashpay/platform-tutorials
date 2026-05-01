@@ -149,6 +149,35 @@ describe("SessionProvider", () => {
     expect(ref.current.identityId).toBeNull();
   });
 
+  it("forgetIdentity also evicts the remembered identity's note cache", async () => {
+    const REMEMBERED_ID = "stored-identity-id";
+    const NOTES_KEY = `patchbook-lab.notes.${REMEMBERED_ID}`;
+    localStorage.setItem(REMEMBERED_KEY, REMEMBERED_ID);
+    localStorage.setItem(
+      NOTES_KEY,
+      JSON.stringify({
+        version: 1,
+        identityId: REMEMBERED_ID,
+        contractId: "contract-1",
+        network: "testnet",
+        cachedAt: Date.now(),
+        notes: [],
+      }),
+    );
+
+    const ref = mountSession();
+    await act(async () => {
+      await ref.current.viewAsRemembered();
+    });
+
+    act(() => {
+      ref.current.forgetIdentity();
+    });
+
+    expect(localStorage.getItem(REMEMBERED_KEY)).toBeNull();
+    expect(localStorage.getItem(NOTES_KEY)).toBeNull();
+  });
+
   it("logout retains the remembered identity and transitions to browsing", async () => {
     mockKeyManagerCreate.mockResolvedValue({
       identityId: "logged-in-identity-id",

@@ -10,6 +10,13 @@ import {
 import { createNote } from "../dash/createNote";
 import { deleteNote } from "../dash/deleteNote";
 import { errorMessage } from "../dash/logger";
+import {
+  BACKGROUND_REFRESH_MS,
+  FOCUS_REFRESH_MIN_MS,
+  loadCachedNotes,
+  notesEqualByRevision,
+  saveCachedNotes,
+} from "../dash/notesCache";
 import { getNote, listMyNotes, type NoteRecord } from "../dash/queries";
 import { updateNote } from "../dash/updateNote";
 import { byteLength, FIELD_BYTE_LIMIT } from "../lib/fieldLimits";
@@ -17,6 +24,10 @@ import { useMediaQuery } from "../lib/useMediaQuery";
 import { useSession } from "../session/useSession";
 import { NoteEditor } from "./NoteEditor";
 import { NoteList } from "./NoteList";
+
+const NETWORK = "testnet" as const;
+const STALE_EDIT_WARNING =
+  "This note changed on the network. Your unsaved edits are still here — saving will overwrite the newer version.";
 
 type SelectedNoteId = string | "new" | null;
 
@@ -41,12 +52,46 @@ export function NotesWorkspace({
   const [saving, setSaving] = useState(false);
   const [deleting, setDeleting] = useState(false);
   const [error, setError] = useState<string | null>(null);
+  const [revalidating, setRevalidating] = useState(false);
+  const [editsReady, setEditsReady] = useState(false);
+  const [conflictWarning, setConflictWarning] = useState<string | null>(null);
+  const lastRevalidatedAt = useRef(0);
+  const inFlightWriteRef = useRef(false);
+  // Mirror editor state in refs so revalidation routines can compare against
+  // the live values without participating in their dependency arrays (which
+  // would re-fire effects on every keystroke).
+  const titleRef = useRef("");
+  const messageRef = useRef("");
+  const baselineTitleRef = useRef("");
+  const baselineMessageRef = useRef("");
+  const selectedIdRef = useRef<SelectedNoteId>(null);
+  const notesRef = useRef<NoteRecord[]>([]);
+  useEffect(() => {
+    notesRef.current = notes;
+  }, [notes]);
+  useEffect(() => {
+    titleRef.current = title;
+  }, [title]);
+  useEffect(() => {
+    messageRef.current = message;
+  }, [message]);
+  useEffect(() => {
+    baselineTitleRef.current = baselineTitle;
+  }, [baselineTitle]);
+  useEffect(() => {
+    baselineMessageRef.current = baselineMessage;
+  }, [baselineMessage]);
+  useEffect(() => {
+    selectedIdRef.current = selectedId;
+  }, [selectedId]);
 
   const isAuthed = status === "authenticated";
   const isBrowsing = status === "browsing";
   const canRead = isAuthed || isBrowsing;
   const contractReady = Boolean(contractId);
-  const canMutate = Boolean(isAuthed && sdk && keyManager && contractId);
+  const canMutate = Boolean(
+    isAuthed && sdk && keyManager && contractId && editsReady,
+  );
   const dirty = title !== baselineTitle || message !== baselineMessage;
   const messageBytes = byteLength(message);
   const messageOversize = messageBytes > FIELD_BYTE_LIMIT;
@@ -81,10 +126,14 @@ export function NotesWorkspace({
         setMessage("");
         setBaselineTitle("");
         setBaselineMessage("");
+        setEditsReady(false);
         return;
       }
 
-      setListLoading(true);
+      const prevNotes = notesRef.current;
+      const hadNotes = prevNotes.length > 0;
+      if (!hadNotes) setListLoading(true);
+      setRevalidating(true);
       setError(null);
       try {
         const nextNotes = await listMyNotes({
@@ -93,7 +142,38 @@ export function NotesWorkspace({
           ownerId: identityId,
           log,
         });
-        setNotes(nextNotes);
+        lastRevalidatedAt.current = Date.now();
+        const changed = !notesEqualByRevision(prevNotes, nextNotes);
+        if (changed) {
+          setNotes(nextNotes);
+          saveCachedNotes(identityId, contractId, NETWORK, nextNotes);
+          // Reconcile the currently selected note. The list query already
+          // returned full bodies, so we don't need an extra getNote.
+          const sel = selectedIdRef.current;
+          if (typeof sel === "string" && sel !== "new") {
+            const before = prevNotes.find((n) => n.id === sel) ?? null;
+            const after = nextNotes.find((n) => n.id === sel) ?? null;
+            if (after && (!before || before.revision !== after.revision)) {
+              const nextTitle = after.title ?? "";
+              const nextMessage = after.message ?? "";
+              const wasDirty =
+                titleRef.current !== baselineTitleRef.current ||
+                messageRef.current !== baselineMessageRef.current;
+              setSelectedNote(after);
+              setBaselineTitle(nextTitle);
+              setBaselineMessage(nextMessage);
+              if (!wasDirty) {
+                setTitle(nextTitle);
+                setMessage(nextMessage);
+                setConflictWarning(null);
+              } else {
+                setConflictWarning(STALE_EDIT_WARNING);
+              }
+            } else if (after && !inFlightWriteRef.current) {
+              setSelectedNote(after);
+            }
+          }
+        }
         setSelectedId((current) => {
           if (preferredId === "new") return "new";
           if (
@@ -112,55 +192,172 @@ export function NotesWorkspace({
           if (current === "new") return current;
           return isDesktop ? (nextNotes[0]?.id ?? null) : null;
         });
+        setEditsReady(true);
       } catch (err) {
         setError(errorMessage(err));
-        setNotes([]);
+        if (!hadNotes) setNotes([]);
       } finally {
         setListLoading(false);
+        setRevalidating(false);
       }
     },
     [contractId, identityId, log, sdk, status, isDesktop],
   );
 
+  // Hydrate from cache synchronously when identity/contract changes, then kick
+  // off background revalidation. Resets edit gate so saves can't go out against
+  // possibly-stale cached state until the chain confirms it.
   useEffect(() => {
+    if (
+      !identityId ||
+      !contractId ||
+      (status !== "authenticated" && status !== "browsing")
+    ) {
+      setNotes([]);
+      setEditsReady(false);
+      lastRevalidatedAt.current = 0;
+      return;
+    }
+    const cached = loadCachedNotes(identityId, contractId, NETWORK);
+    if (cached && cached.length > 0) {
+      setNotes(cached);
+      // Sync the ref immediately so the revalidation that runs in this same
+      // turn sees `hadNotes=true` and won't wipe the list on a network error.
+      notesRef.current = cached;
+      // Auto-select the first cached note on desktop so the editor pane has
+      // something to show before listMyNotes resolves. Mobile keeps the list
+      // view as today.
+      if (isDesktop && selectedIdRef.current === null) {
+        setSelectedId(cached[0].id);
+      }
+    }
+    setEditsReady(false);
+    lastRevalidatedAt.current = 0;
     void reloadNotes();
-  }, [reloadNotes]);
+    // reloadNotes intentionally omitted — it depends on `notes` and would
+    // re-trigger this effect on every list change.
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [identityId, contractId, status]);
 
   const loadTokenRef = useRef(0);
 
   const loadNoteDetail = useCallback(
-    async (noteId: string) => {
+    async (noteId: string, hydrated: boolean) => {
       if (!sdk || !contractId) return;
       const token = ++loadTokenRef.current;
-      setDetailLoading(true);
+      if (!hydrated) setDetailLoading(true);
       try {
         const note = await getNote({ sdk, contractId, noteId, log });
         if (loadTokenRef.current !== token) return;
         setSelectedNote(note);
-        setTitle(note?.title ?? "");
-        setMessage(note?.message ?? "");
-        setBaselineTitle(note?.title ?? "");
-        setBaselineMessage(note?.message ?? "");
+        if (!note) {
+          setTitle("");
+          setMessage("");
+          setBaselineTitle("");
+          setBaselineMessage("");
+          return;
+        }
+        // Fold the fresh note back into the list (and cache) so previews,
+        // ordering, and a future cold reload reflect the newest revision.
+        const prev = notesRef.current;
+        const idx = prev.findIndex((n) => n.id === note.id);
+        if (idx === -1 || prev[idx].revision !== note.revision) {
+          const merged =
+            idx === -1
+              ? [note, ...prev]
+              : prev.map((n, i) => (i === idx ? note : n));
+          setNotes(merged);
+          if (identityId && contractId) {
+            saveCachedNotes(identityId, contractId, NETWORK, merged);
+          }
+        }
+        const nextTitle = note.title ?? "";
+        const nextMessage = note.message ?? "";
+        const priorBaselineTitle = baselineTitleRef.current;
+        const priorBaselineMessage = baselineMessageRef.current;
+        const wasDirty =
+          titleRef.current !== priorBaselineTitle ||
+          messageRef.current !== priorBaselineMessage;
+        const chainChanged =
+          nextTitle !== priorBaselineTitle ||
+          nextMessage !== priorBaselineMessage;
+        setBaselineTitle(nextTitle);
+        setBaselineMessage(nextMessage);
+        if (!wasDirty) {
+          setTitle(nextTitle);
+          setMessage(nextMessage);
+          setConflictWarning(null);
+        } else if (chainChanged) {
+          setConflictWarning(STALE_EDIT_WARNING);
+        }
       } catch (err) {
         if (loadTokenRef.current === token) setError(errorMessage(err));
       } finally {
         if (loadTokenRef.current === token) setDetailLoading(false);
       }
     },
-    [contractId, log, sdk],
+    [contractId, identityId, log, sdk],
   );
 
   useEffect(() => {
     if (selectedId === "new") {
       setSelectedNote(null);
+      setConflictWarning(null);
       return;
     }
     if (!selectedId || !sdk || !contractId) {
       setSelectedNote(null);
       return;
     }
-    void loadNoteDetail(selectedId);
+    setConflictWarning(null);
+    const cached =
+      notesRef.current.find((note) => note.id === selectedId) ?? null;
+    if (cached) {
+      setSelectedNote(cached);
+      setTitle(cached.title ?? "");
+      setMessage(cached.message ?? "");
+      setBaselineTitle(cached.title ?? "");
+      setBaselineMessage(cached.message ?? "");
+    }
+    void loadNoteDetail(selectedId, Boolean(cached));
   }, [contractId, loadNoteDetail, sdk, selectedId]);
+
+  // Background revalidation: refetch on tab focus (with throttle) and on a
+  // periodic interval while the tab is visible. Dropped if a save/delete is
+  // in flight to avoid clobbering post-write state with a pre-write list.
+  useEffect(() => {
+    if (
+      !sdk ||
+      !contractId ||
+      !identityId ||
+      (status !== "authenticated" && status !== "browsing")
+    ) {
+      return;
+    }
+
+    function maybeRefresh(throttleMs: number) {
+      if (document.hidden) return;
+      if (inFlightWriteRef.current) return;
+      if (Date.now() - lastRevalidatedAt.current < throttleMs) return;
+      void reloadNotes();
+    }
+
+    function onVisibility() {
+      if (document.visibilityState === "visible") {
+        maybeRefresh(FOCUS_REFRESH_MIN_MS);
+      }
+    }
+
+    document.addEventListener("visibilitychange", onVisibility);
+    const interval = window.setInterval(() => {
+      maybeRefresh(BACKGROUND_REFRESH_MS - 1_000);
+    }, BACKGROUND_REFRESH_MS);
+
+    return () => {
+      document.removeEventListener("visibilitychange", onVisibility);
+      window.clearInterval(interval);
+    };
+  }, [sdk, contractId, identityId, status, reloadNotes]);
 
   function confirmDiscard(): boolean {
     if (!dirty) return true;
@@ -171,6 +368,7 @@ export function NotesWorkspace({
     if (!confirmDiscard()) return;
     setSelectedId(noteId);
     setError(null);
+    setConflictWarning(null);
   }
 
   function handleBack() {
@@ -182,6 +380,7 @@ export function NotesWorkspace({
     setBaselineTitle("");
     setBaselineMessage("");
     setError(null);
+    setConflictWarning(null);
   }
 
   function handleNew() {
@@ -205,6 +404,7 @@ export function NotesWorkspace({
 
     setSaving(true);
     setError(null);
+    inFlightWriteRef.current = true;
     try {
       if (selectedId === "new" || selectedId === null) {
         const noteId = await createNote({
@@ -226,12 +426,14 @@ export function NotesWorkspace({
           message,
           log,
         });
-        await loadNoteDetail(selectedId);
+        setConflictWarning(null);
+        await loadNoteDetail(selectedId, true);
         await reloadNotes(selectedId);
       }
     } catch (err) {
       setError(errorMessage(err));
     } finally {
+      inFlightWriteRef.current = false;
       setSaving(false);
     }
   }
@@ -246,6 +448,7 @@ export function NotesWorkspace({
 
     setDeleting(true);
     setError(null);
+    inFlightWriteRef.current = true;
     try {
       await deleteNote({
         sdk,
@@ -258,6 +461,7 @@ export function NotesWorkspace({
     } catch (err) {
       setError(errorMessage(err));
     } finally {
+      inFlightWriteRef.current = false;
       setDeleting(false);
     }
   }
@@ -322,6 +526,7 @@ export function NotesWorkspace({
             <NoteList
               notes={notes}
               loading={listLoading}
+              revalidating={revalidating && notes.length > 0}
               selectedId={selectedId}
               onSelect={handleSelect}
               onNew={handleNew}
@@ -353,7 +558,7 @@ export function NotesWorkspace({
               messageBytes={messageBytes}
               messageOversize={messageOversize}
               contractReady={contractReady}
-              error={error}
+              error={error ?? conflictWarning}
               onOpenSettings={onOpenSettings}
             />
           </div>
