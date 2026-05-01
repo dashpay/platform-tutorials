@@ -1,10 +1,6 @@
 import type { NoteRecord } from "../dash/queries";
 import { FIELD_BYTE_LIMIT } from "../lib/fieldLimits";
-import {
-  formatRelativeTime,
-  formatTimestamp,
-  noteDisplayTitle,
-} from "../lib/format";
+import { formatRelativeTime, formatTimestamp } from "../lib/format";
 import { OperationResultNotice } from "./OperationResultNotice";
 
 interface NoteEditorProps {
@@ -59,8 +55,8 @@ export function NoteEditor({
   const oversize = messageOversize;
 
   return (
-    <section className="flex min-h-0 flex-1 flex-col rounded-[24px] border border-line bg-surface shadow-[0_20px_60px_-36px_rgba(0,0,0,0.45)] max-md:rounded-none max-md:border-0 max-md:shadow-none xl:h-full">
-      <div className="flex items-center justify-between gap-3 border-b border-line px-5 py-4 max-md:px-3 max-md:py-2.5">
+    <section className="flex min-h-0 flex-1 flex-col rounded-[24px] border border-line bg-surface shadow-[0_20px_60px_-36px_rgba(0,0,0,0.45)] max-md:rounded-none max-md:border-0 max-md:shadow-none xl:h-full xl:rounded-none xl:border-0 xl:bg-transparent xl:shadow-none">
+      <div className="flex h-[61px] items-center justify-between gap-3 border-b border-line px-4 py-3 max-md:h-auto max-md:px-3 max-md:py-2.5">
         {hasSelection && (
           <button
             type="button"
@@ -85,26 +81,29 @@ export function NoteEditor({
           </button>
         )}
         <div className="min-w-0 flex-1 max-md:hidden">
-          <div className="text-[10px] font-semibold uppercase tracking-[0.12em] text-ink-4">
-            {isNew ? "Draft" : "Note detail"}
-          </div>
-          <div className="mt-1 truncate text-[18px] font-semibold leading-7 tracking-tight text-ink">
-            {!hasSelection ? (
-              "Select a note"
-            ) : isNew ? (
-              "New note"
-            ) : loading ? (
-              <span className="text-ink-3">
-                <span
-                  aria-hidden
-                  className="mr-2 inline-block h-1.5 w-1.5 animate-pulse rounded-full bg-accent align-middle"
-                />
-                Loading…
-              </span>
-            ) : (
-              noteDisplayTitle({ title, message })
-            )}
-          </div>
+          {!hasSelection ? (
+            <div className="text-[14px] text-ink-4">
+              Select a note from the list
+            </div>
+          ) : loading && !note && !isNew ? (
+            <div className="inline-flex items-center gap-2 text-[14px] text-ink-4">
+              <span
+                aria-hidden
+                className="inline-block h-1.5 w-1.5 animate-pulse rounded-full bg-accent"
+              />
+              Loading…
+            </div>
+          ) : (
+            <input
+              type="text"
+              aria-label="Title"
+              value={title}
+              onChange={(event) => onTitleChange(event.target.value)}
+              placeholder={isNew ? "New note title" : "Title"}
+              disabled={!canEdit}
+              className="-mx-2 w-[calc(100%+1rem)] rounded-md border-0 bg-transparent px-2 py-0 text-[20px] font-semibold leading-7 tracking-tight text-ink outline-none transition-colors placeholder:text-ink-4 hover:bg-surface-2 focus:bg-surface-2 disabled:cursor-not-allowed disabled:bg-transparent disabled:text-ink-4"
+            />
+          )}
         </div>
         <div className="flex-1 md:hidden" />
 
@@ -199,34 +198,40 @@ export function NoteEditor({
           </div>
         ) : (
           <>
-            <label className="block">
-              <div className="mb-2 text-[10px] font-semibold uppercase tracking-[0.12em] text-ink-4 max-md:hidden">
-                Title
-              </div>
-              <input
-                type="text"
-                aria-label="Title"
-                value={title}
-                onChange={(event) => onTitleChange(event.target.value)}
-                placeholder="Title"
-                disabled={!canEdit}
-                className="w-full rounded-[18px] border border-line bg-bg px-4 py-3 text-[15px] text-ink outline-none transition focus:border-accent-dim disabled:cursor-not-allowed disabled:text-ink-4 max-md:rounded-none max-md:border-0 max-md:bg-transparent max-md:px-0 max-md:py-1 max-md:text-[22px] max-md:font-semibold"
-              />
-            </label>
+            <input
+              type="text"
+              aria-label="Title"
+              value={title}
+              onChange={(event) => onTitleChange(event.target.value)}
+              placeholder="Title"
+              disabled={!canEdit}
+              className="w-full border-0 bg-transparent px-0 py-1 text-[22px] font-semibold tracking-tight text-ink outline-none placeholder:text-ink-4 disabled:cursor-not-allowed disabled:text-ink-4 md:hidden"
+            />
 
             <label className="flex min-h-0 flex-1 flex-col">
               <div className="mb-2 flex items-center justify-between gap-3 max-md:hidden">
-                <div className="text-[10px] font-semibold uppercase tracking-[0.12em] text-ink-4">
+                <div className="text-[10px] font-semibold uppercase tracking-[0.12em] text-ink-4 shrink-0">
                   Body
                 </div>
-                <div
-                  className={`text-[11px] ${
-                    messageOversize
-                      ? "text-[color:var(--color-danger)]"
-                      : "text-ink-4"
-                  }`}
-                >
-                  {messageBytes} / {FIELD_BYTE_LIMIT} bytes
+                <div className="flex min-w-0 items-center gap-1.5 text-[11px] text-ink-4">
+                  <svg
+                    width="12"
+                    height="12"
+                    viewBox="0 0 24 24"
+                    fill="none"
+                    stroke="currentColor"
+                    strokeWidth="2"
+                    strokeLinecap="round"
+                    strokeLinejoin="round"
+                    aria-hidden="true"
+                    className="shrink-0"
+                  >
+                    <circle cx="12" cy="12" r="10" />
+                    <path d="M12 16v-4M12 8h.01" />
+                  </svg>
+                  <span className="truncate">
+                    Notes are stored publicly on Dash Platform — not encrypted.
+                  </span>
                 </div>
               </div>
               <textarea
@@ -249,7 +254,7 @@ export function NoteEditor({
               </div>
             </label>
 
-            <div className="flex items-center gap-1.5 text-[11px] text-ink-4">
+            <div className="flex items-center gap-1.5 text-[11px] text-ink-4 md:hidden">
               <svg
                 width="12"
                 height="12"
@@ -270,33 +275,37 @@ export function NoteEditor({
               </span>
             </div>
 
-            {note && (
-              <div className="grid gap-3 rounded-[18px] border border-line bg-bg/70 px-4 py-4 text-[12px] text-ink-3 max-md:hidden md:grid-cols-3">
-                <div>
-                  <div className="text-[10px] font-semibold uppercase tracking-[0.12em] text-ink-4">
-                    Created
+            <div className="flex flex-wrap items-baseline justify-between gap-x-4 gap-y-1 border-t border-line pt-3 text-[11px] text-ink-3 max-md:hidden">
+              {note && (
+                <>
+                  <div>
+                    <span className="text-ink-4">Created </span>
+                    {formatTimestamp(note.createdAt)}
                   </div>
-                  <div className="mt-1">{formatTimestamp(note.createdAt)}</div>
-                </div>
-                <div>
-                  <div className="text-[10px] font-semibold uppercase tracking-[0.12em] text-ink-4">
-                    Updated
+                  <div>
+                    <span className="text-ink-4">Updated </span>
+                    {formatTimestamp(note.updatedAt)}
+                    <span className="ml-1 text-ink-4">
+                      ({formatRelativeTime(note.updatedAt)})
+                    </span>
                   </div>
-                  <div className="mt-1">{formatTimestamp(note.updatedAt)}</div>
-                  <div className="mt-1 text-[11px] text-ink-4">
-                    {formatRelativeTime(note.updatedAt)}
+                  <div>
+                    <span className="text-ink-4">Rev </span>
+                    <span className="font-mono text-ink-2">
+                      {note.revision}
+                    </span>
                   </div>
-                </div>
-                <div>
-                  <div className="text-[10px] font-semibold uppercase tracking-[0.12em] text-ink-4">
-                    Revision
-                  </div>
-                  <div className="mt-1 font-mono text-[13px] text-ink">
-                    {note.revision}
-                  </div>
-                </div>
+                </>
+              )}
+              <div
+                className={`ml-auto ${
+                  messageOversize ? "text-[color:var(--color-danger)]" : ""
+                }`}
+              >
+                <span className="text-ink-4">Bytes </span>
+                {messageBytes} / {FIELD_BYTE_LIMIT}
               </div>
-            )}
+            </div>
 
             {canDelete && (
               <div className="mt-2 flex justify-center md:hidden">
