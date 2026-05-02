@@ -40,13 +40,31 @@ export function NotesWorkspace({
   const { status, sdk, keyManager, contractId, identityId, log } = session;
   const isDesktop = useMediaQuery("(min-width: 768px)");
 
-  const [notes, setNotes] = useState<NoteRecord[]>([]);
-  const [selectedId, setSelectedId] = useState<SelectedNoteId>(null);
-  const [title, setTitle] = useState("");
-  const [message, setMessage] = useState("");
-  const [baselineTitle, setBaselineTitle] = useState("");
-  const [baselineMessage, setBaselineMessage] = useState("");
-  const [selectedNote, setSelectedNote] = useState<NoteRecord | null>(null);
+  const initialCachedNotes =
+    identityId && contractId
+      ? (loadCachedNotes(identityId, contractId, NETWORK) ?? [])
+      : [];
+  // Seed the editor from the first cached note on desktop so the right pane
+  // paints with content on frame 1 instead of "No note selected" flashing
+  // through before the hydrate effect picks one.
+  const initialSelected =
+    isDesktop && initialCachedNotes.length > 0 ? initialCachedNotes[0] : null;
+
+  const [notes, setNotes] = useState<NoteRecord[]>(initialCachedNotes);
+  const [selectedId, setSelectedId] = useState<SelectedNoteId>(
+    initialSelected?.id ?? null,
+  );
+  const [title, setTitle] = useState(initialSelected?.title ?? "");
+  const [message, setMessage] = useState(initialSelected?.message ?? "");
+  const [baselineTitle, setBaselineTitle] = useState(
+    initialSelected?.title ?? "",
+  );
+  const [baselineMessage, setBaselineMessage] = useState(
+    initialSelected?.message ?? "",
+  );
+  const [selectedNote, setSelectedNote] = useState<NoteRecord | null>(
+    initialSelected,
+  );
   const [listLoading, setListLoading] = useState(false);
   const [detailLoading, setDetailLoading] = useState(false);
   const [saving, setSaving] = useState(false);
@@ -113,12 +131,11 @@ export function NotesWorkspace({
 
   const reloadNotes = useCallback(
     async (preferredId?: SelectedNoteId) => {
-      if (
-        !sdk ||
+      const sessionTornDown =
         !contractId ||
         !identityId ||
-        (status !== "authenticated" && status !== "browsing")
-      ) {
+        (status !== "authenticated" && status !== "browsing");
+      if (sessionTornDown) {
         setNotes([]);
         setSelectedNote(null);
         setSelectedId(null);
@@ -127,6 +144,12 @@ export function NotesWorkspace({
         setBaselineTitle("");
         setBaselineMessage("");
         setEditsReady(false);
+        return;
+      }
+      if (!sdk) {
+        // SDK is still connecting after a remembered-identity rehydrate. Keep
+        // any cached notes on screen and wait for the effect to re-run once
+        // `sdk` lands in the deps array.
         return;
       }
 
@@ -235,9 +258,10 @@ export function NotesWorkspace({
     lastRevalidatedAt.current = 0;
     void reloadNotes();
     // reloadNotes intentionally omitted — it depends on `notes` and would
-    // re-trigger this effect on every list change.
+    // re-trigger this effect on every list change. `sdk` is in the deps so the
+    // reload re-runs once a rehydrated session finishes connecting.
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [identityId, contractId, status]);
+  }, [identityId, contractId, status, sdk]);
 
   const loadTokenRef = useRef(0);
 

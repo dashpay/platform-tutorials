@@ -24,18 +24,16 @@ const screenCopy: Record<TopTab, { title: string; subtitle: string }> = {
 
 function App() {
   const session = useSession();
-  const { status, enterReadOnly, viewAsRemembered, rememberedIdentityId } =
-    session;
+  const { status, sdk, enterReadOnly, viewAsRemembered } = session;
   const [tab, setTab] = useState<TopTab>("notes");
   const [loginOpen, setLoginOpen] = useState(false);
 
   const mobileFullBleed = tab === "notes";
 
   useEffect(() => {
-    if (status !== "idle") return;
-    if (rememberedIdentityId) void viewAsRemembered();
-    else void enterReadOnly();
-  }, [enterReadOnly, viewAsRemembered, rememberedIdentityId, status]);
+    if (status === "idle") void enterReadOnly();
+    else if (status === "browsing" && !sdk) void viewAsRemembered();
+  }, [enterReadOnly, viewAsRemembered, status, sdk]);
 
   const header = useMemo(() => screenCopy[tab], [tab]);
 

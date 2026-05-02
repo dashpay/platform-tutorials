@@ -57,17 +57,22 @@ const SessionContext = createContext<SessionValue | null>(null);
 export { SessionContext };
 
 export function SessionProvider({ children }: { children: ReactNode }) {
-  const [status, setStatus] = useState<SessionStatus>("idle");
+  const initialRemembered = loadRememberedIdentityId();
+  const [status, setStatus] = useState<SessionStatus>(
+    initialRemembered ? "browsing" : "idle",
+  );
   const [error, setError] = useState<string | null>(null);
   const [sdk, setSdk] = useState<DashSdk | null>(null);
   const [keyManager, setKeyManager] = useState<DashKeyManager | null>(null);
-  const [identityId, setIdentityId] = useState<string | null>(null);
+  const [identityId, setIdentityId] = useState<string | null>(
+    initialRemembered,
+  );
   const [contractId, setContractIdState] = useState<string | null>(() =>
     loadStoredContractId(),
   );
   const [rememberedIdentityId, setRememberedIdentityId] = useState<
     string | null
-  >(() => loadRememberedIdentityId());
+  >(initialRemembered);
 
   const log = useCallback<Logger>((message, level = "info") => {
     const method =
@@ -155,12 +160,17 @@ export function SessionProvider({ children }: { children: ReactNode }) {
       return;
     }
     setError(null);
+    setKeyManager(null);
+    setIdentityId(rememberedId);
+    setRememberedIdentityId(rememberedId);
+    setStatus("browsing");
     try {
-      if (!sdk) await connect();
-      setKeyManager(null);
-      setIdentityId(rememberedId);
-      setRememberedIdentityId(rememberedId);
-      setStatus("browsing");
+      if (!sdk) {
+        log("Connecting to Dash Platform testnet…");
+        const connected = (await createClient("testnet")) as unknown as DashSdk;
+        setSdk(connected);
+        log("Connected to Dash Platform testnet.");
+      }
       log(`Browsing notes for ${rememberedId} (read-only).`);
     } catch (err) {
       const message = errorMessage(err);
@@ -168,7 +178,7 @@ export function SessionProvider({ children }: { children: ReactNode }) {
       setStatus("error");
       log(`Connection failed: ${message}`, "error");
     }
-  }, [sdk, connect, enterReadOnly, log]);
+  }, [sdk, enterReadOnly, log]);
 
   const forgetIdentity = useCallback(() => {
     if (rememberedIdentityId) clearCachedNotes(rememberedIdentityId);

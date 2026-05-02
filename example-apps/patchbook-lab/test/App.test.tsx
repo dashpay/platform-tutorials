@@ -61,6 +61,7 @@ function makeSession(overrides: Record<string, unknown> = {}) {
   return {
     status: "idle",
     error: null,
+    sdk: null,
     identityId: null,
     contractId: null,
     rememberedIdentityId: null,
@@ -91,8 +92,10 @@ describe("App", () => {
     expect(session.viewAsRemembered).not.toHaveBeenCalled();
   });
 
-  it("boots into browsing mode when a remembered identity is present", async () => {
+  it("finishes wiring up the SDK when boot starts in browsing mode without an SDK", async () => {
     const session = makeSession({
+      status: "browsing",
+      sdk: null,
       rememberedIdentityId: "remembered-identity-id",
     });
     mockUseSession.mockReturnValue(session);
@@ -102,6 +105,21 @@ describe("App", () => {
     await waitFor(() => {
       expect(session.viewAsRemembered).toHaveBeenCalled();
     });
+    expect(session.enterReadOnly).not.toHaveBeenCalled();
+  });
+
+  it("does not re-trigger viewAsRemembered once the SDK is initialized", async () => {
+    const session = makeSession({
+      status: "browsing",
+      sdk: {},
+      rememberedIdentityId: "remembered-identity-id",
+    });
+    mockUseSession.mockReturnValue(session);
+
+    render(<App />);
+
+    await Promise.resolve();
+    expect(session.viewAsRemembered).not.toHaveBeenCalled();
     expect(session.enterReadOnly).not.toHaveBeenCalled();
   });
 

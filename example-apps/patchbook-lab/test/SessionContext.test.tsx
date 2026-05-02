@@ -67,12 +67,18 @@ afterEach(() => {
 });
 
 describe("SessionProvider", () => {
-  it("loads the remembered identity ID from localStorage on mount", () => {
+  it("loads the remembered identity ID from localStorage on mount and starts in browsing mode", () => {
     localStorage.setItem(REMEMBERED_KEY, "stored-identity-id");
     const ref = mountSession();
     expect(ref.current.rememberedIdentityId).toBe("stored-identity-id");
+    expect(ref.current.status).toBe("browsing");
+    expect(ref.current.identityId).toBe("stored-identity-id");
+  });
+
+  it("starts in idle mode when no identity is remembered", () => {
+    const ref = mountSession();
+    expect(ref.current.rememberedIdentityId).toBeNull();
     expect(ref.current.status).toBe("idle");
-    expect(ref.current.identityId).toBeNull();
   });
 
   it("persists the identity ID on login when rememberMe is true", async () => {

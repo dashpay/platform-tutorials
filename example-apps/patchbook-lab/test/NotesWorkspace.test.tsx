@@ -848,6 +848,95 @@ describe("NotesWorkspace", () => {
       ).toBe("User local edit");
     });
 
+    it("keeps cached notes visible during a remembered-identity rehydrate when the SDK is still connecting", async () => {
+      // Simulates the page-load path where SessionContext has identityId +
+      // browsing status from synchronously-loaded localStorage but the SDK
+      // hasn't connected yet. reloadNotes must NOT wipe the cached list while
+      // we wait for sdk to land.
+      mockUseSession.mockReturnValue(
+        makeSession({
+          status: "browsing",
+          sdk: null,
+          keyManager: null,
+        }),
+      );
+      seedCache([
+        {
+          id: "cached-rehydrate",
+          ownerId: "identity-1",
+          title: "Survives rehydrate",
+          message: "Body",
+          createdAt: 1000,
+          updatedAt: 2000,
+          revision: 1,
+        },
+      ]);
+
+      render(<NotesWorkspace onOpenSettings={vi.fn()} />);
+
+      // Cached list paints synchronously, even though sdk is null. Without the
+      // reloadNotes-skip-when-sdk-null fix, the list would be wiped to [].
+      expect(screen.getByText("Survives rehydrate")).toBeTruthy();
+      expect(screen.getByText(/1 note/i)).toBeTruthy();
+      // listMyNotes must not have been invoked yet — sdk is still connecting.
+      expect(mockListMyNotes).not.toHaveBeenCalled();
+    });
+
+    it("seeds the editor pane from the first cached note on desktop so 'No note selected' never paints", () => {
+      mockUseSession.mockReturnValue(makeSession());
+      seedCache([
+        {
+          id: "cached-seed",
+          ownerId: "identity-1",
+          title: "Seeded title",
+          message: "Seeded body",
+          createdAt: 1000,
+          updatedAt: 2000,
+          revision: 1,
+        },
+      ]);
+      mockListMyNotes.mockImplementation(() => new Promise(() => {}));
+      mockGetNote.mockImplementation(() => new Promise(() => {}));
+
+      render(<NotesWorkspace onOpenSettings={vi.fn()} />);
+
+      // Editor pane shows the seeded note's content from the very first paint
+      // (no "No note selected" empty state in between).
+      expect(screen.queryByText(/no note selected/i)).toBeNull();
+      // Both title (input) and body (textarea) reflect the cached values from
+      // frame 1 — proves the synchronous editor seed.
+      expect(screen.getByDisplayValue("Seeded title")).toBeTruthy();
+      expect(screen.getByDisplayValue("Seeded body")).toBeTruthy();
+    });
+
+    it("does not auto-select the editor on mobile (mobile lands on the list view)", () => {
+      stubMatchMedia(false);
+      mockUseSession.mockReturnValue(makeSession());
+      seedCache([
+        {
+          id: "cached-mobile",
+          ownerId: "identity-1",
+          title: "Mobile cached",
+          message: "Mobile body",
+          createdAt: 1000,
+          updatedAt: 2000,
+          revision: 1,
+        },
+      ]);
+      mockListMyNotes.mockImplementation(() => new Promise(() => {}));
+
+      render(<NotesWorkspace onOpenSettings={vi.fn()} />);
+
+      // Cached list paints synchronously on mobile too.
+      expect(screen.getByText("Mobile cached")).toBeTruthy();
+      // Editor pane is in the DOM but in its "No note selected" state — the
+      // mobile gate is selectedId === null, so seeding must NOT have run.
+      expect(screen.getByText(/no note selected/i)).toBeTruthy();
+      // And neither editor input is populated, since selectedNote is null.
+      expect(screen.queryByDisplayValue("Mobile cached")).toBeNull();
+      expect(screen.queryByDisplayValue("Mobile body")).toBeNull();
+    });
+
     it("keeps cached notes visible when the network revalidation fails", async () => {
       mockUseSession.mockReturnValue(makeSession());
       seedCache([
