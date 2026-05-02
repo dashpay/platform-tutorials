@@ -4,10 +4,12 @@ import { act, cleanup, render } from "@testing-library/react";
 import { useContext, type ReactNode } from "react";
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 
-const { mockCreateClient, mockKeyManagerCreate } = vi.hoisted(() => ({
-  mockCreateClient: vi.fn(),
-  mockKeyManagerCreate: vi.fn(),
-}));
+const { mockCreateClient, mockKeyManagerCreate, mockRefreshContractCache } =
+  vi.hoisted(() => ({
+    mockCreateClient: vi.fn(),
+    mockKeyManagerCreate: vi.fn(),
+    mockRefreshContractCache: vi.fn(),
+  }));
 
 vi.mock("../../../setupDashClient-core.mjs", () => ({
   createClient: mockCreateClient,
@@ -15,6 +17,16 @@ vi.mock("../../../setupDashClient-core.mjs", () => ({
     create: mockKeyManagerCreate,
   },
 }));
+
+vi.mock("../src/dash/contract", async () => {
+  const actual = await vi.importActual<typeof import("../src/dash/contract")>(
+    "../src/dash/contract",
+  );
+  return {
+    ...actual,
+    refreshContractCache: mockRefreshContractCache,
+  };
+});
 
 vi.mock("sonner", () => ({
   toast: {
@@ -55,6 +67,7 @@ beforeEach(() => {
   localStorage.clear();
   mockCreateClient.mockReset();
   mockKeyManagerCreate.mockReset();
+  mockRefreshContractCache.mockReset();
   mockCreateClient.mockResolvedValue({ documents: {} });
 });
 
@@ -200,6 +213,40 @@ describe("SessionProvider", () => {
     expect(ref.current.identityId).toBe("logged-in-identity-id");
     expect(ref.current.keyManager).toBeNull();
     expect(localStorage.getItem(REMEMBERED_KEY)).toBe("logged-in-identity-id");
+  });
+
+  it("setContractId evicts the previous contract from the SDK cache when the ID changes", async () => {
+    localStorage.setItem("patchbook-lab.contractId", "old-contract-id");
+    const ref = mountSession();
+    await act(async () => {
+      await ref.current.viewAsRemembered();
+    });
+    mockRefreshContractCache.mockClear();
+
+    act(() => {
+      ref.current.setContractId("new-contract-id");
+    });
+
+    expect(mockRefreshContractCache).toHaveBeenCalledTimes(1);
+    expect(mockRefreshContractCache).toHaveBeenCalledWith({
+      sdk: expect.anything(),
+      contractId: "old-contract-id",
+    });
+  });
+
+  it("setContractId does not evict when the new ID equals the current ID", async () => {
+    localStorage.setItem("patchbook-lab.contractId", "same-contract-id");
+    const ref = mountSession();
+    await act(async () => {
+      await ref.current.viewAsRemembered();
+    });
+    mockRefreshContractCache.mockClear();
+
+    act(() => {
+      ref.current.setContractId("same-contract-id");
+    });
+
+    expect(mockRefreshContractCache).not.toHaveBeenCalled();
   });
 
   it("logout falls back to readonly when no identity is remembered", async () => {

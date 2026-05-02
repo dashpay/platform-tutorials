@@ -1,20 +1,8 @@
 // @vitest-environment jsdom
 
-import { afterEach, describe, expect, it, vi } from "vitest";
-
-const { mockRefreshContractCache } = vi.hoisted(() => ({
-  mockRefreshContractCache: vi.fn(),
-}));
-
-vi.mock("../src/dash/contract", () => ({
-  refreshContractCache: mockRefreshContractCache,
-}));
+import { describe, expect, it, vi } from "vitest";
 
 import { getNote, listMyNotes, normalizeNotes } from "../src/dash/queries";
-
-afterEach(() => {
-  mockRefreshContractCache.mockReset();
-});
 
 function makeSdk(result: unknown) {
   return {
@@ -86,10 +74,6 @@ describe("listMyNotes", () => {
       ownerId: "owner-1",
     });
 
-    expect(mockRefreshContractCache).toHaveBeenCalledWith({
-      sdk,
-      contractId: "contract-1",
-    });
     expect(sdk.documents.query).toHaveBeenCalledWith({
       dataContractId: "contract-1",
       documentTypeName: "note",
@@ -125,10 +109,6 @@ describe("getNote", () => {
       noteId: "note-7",
     });
 
-    expect(mockRefreshContractCache).toHaveBeenCalledWith({
-      sdk,
-      contractId: "contract-1",
-    });
     expect(sdk.documents.get).toHaveBeenCalledWith(
       "contract-1",
       "note",

@@ -1,4 +1,3 @@
-import { refreshContractCache } from "./contract";
 import type { Logger } from "./logger";
 import type {
   DashDocumentLike,
@@ -95,7 +94,6 @@ export async function listMyNotes({
   log?: Logger;
 }): Promise<NoteRecord[]> {
   log?.("Loading your notes…");
-  await refreshContractCache({ sdk, contractId });
   const results = await sdk.documents.query({
     dataContractId: contractId,
     documentTypeName: "note",
@@ -124,7 +122,6 @@ export async function getNote({
   log?: Logger;
 }): Promise<NoteRecord | null> {
   log?.(`Loading note ${noteId}…`);
-  await refreshContractCache({ sdk, contractId });
   const result = await sdk.documents.get(contractId, "note", noteId);
   return normalizeSingleNote(noteId, result);
 }

@@ -10,6 +10,7 @@ import {
 import {
   clearStoredContractId,
   loadStoredContractId,
+  refreshContractCache,
   saveContractId,
 } from "../dash/contract";
 import { errorMessage, type Logger } from "../dash/logger";
@@ -101,16 +102,27 @@ export function SessionProvider({ children }: { children: ReactNode }) {
     if (level === "error") toast.error(message);
   }, []);
 
-  const setContractId = useCallback((id: string | null) => {
-    const trimmed = id?.trim() ?? "";
-    if (trimmed) {
-      saveContractId(trimmed);
-      setContractIdState(trimmed);
-      return;
-    }
-    clearStoredContractId();
-    setContractIdState(loadStoredContractId());
-  }, []);
+  const setContractId = useCallback(
+    (id: string | null) => {
+      const trimmed = id?.trim() ?? "";
+      // Evict the SDK's cached schema for the contract we're leaving so the
+      // next query refetches against the new ID. queries.ts trusts the cache
+      // for normal note operations; this is the one place it can become
+      // stale (user pastes a different ID or registers a fresh contract).
+      const previousId = contractId;
+      if (sdk && previousId && previousId !== trimmed) {
+        void refreshContractCache({ sdk, contractId: previousId });
+      }
+      if (trimmed) {
+        saveContractId(trimmed);
+        setContractIdState(trimmed);
+        return;
+      }
+      clearStoredContractId();
+      setContractIdState(loadStoredContractId());
+    },
+    [sdk, contractId],
+  );
 
   const connect = useCallback(async () => {
     setStatus("connecting");
