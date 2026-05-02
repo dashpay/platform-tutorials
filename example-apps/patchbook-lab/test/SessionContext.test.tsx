@@ -9,11 +9,8 @@ const { mockCreateClient, mockKeyManagerCreate } = vi.hoisted(() => ({
   mockKeyManagerCreate: vi.fn(),
 }));
 
-vi.mock("../src/dash/client", () => ({
+vi.mock("../../../setupDashClient-core.mjs", () => ({
   createClient: mockCreateClient,
-}));
-
-vi.mock("../src/dash/keyManager", () => ({
   IdentityKeyManager: {
     create: mockKeyManagerCreate,
   },
