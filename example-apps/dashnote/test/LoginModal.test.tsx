@@ -27,6 +27,7 @@ vi.mock("../src/dash/contract", () => ({
 
 interface SessionOverrides {
   status?: string;
+  dpnsName?: string | null;
   contractId?: string | null;
   identityId?: string | null;
   sdk?: unknown;
@@ -48,6 +49,7 @@ function makeSession(overrides: SessionOverrides = {}) {
     identityId: null,
     contractId: null,
     rememberedIdentityId: null,
+    dpnsName: null,
     log: vi.fn(),
     login: vi.fn().mockResolvedValue(undefined),
     logout: vi.fn(),
@@ -462,6 +464,66 @@ describe("LoginModal", () => {
         }) as HTMLInputElement
       ).checked,
     ).toBe(true);
+  });
+
+  it("remembered panel shows the cached DPNS name as a ✓ name.dash caption", () => {
+    mockUseSession.mockReturnValue(
+      makeSession({
+        rememberedIdentityId: "remembered-identity-id",
+        dpnsName: "alice",
+      }),
+    );
+
+    render(<LoginModal open onClose={vi.fn()} />);
+
+    const panel = screen.getByTestId("remembered-identity-panel");
+    expect(within(panel).getByText("✓ alice.dash")).toBeTruthy();
+  });
+
+  it("remembered panel omits the DPNS caption when no name is cached", () => {
+    mockUseSession.mockReturnValue(
+      makeSession({
+        rememberedIdentityId: "remembered-identity-id",
+        dpnsName: null,
+      }),
+    );
+
+    render(<LoginModal open onClose={vi.fn()} />);
+
+    const panel = screen.getByTestId("remembered-identity-panel");
+    expect(within(panel).queryByText(/\.dash$/)).toBeNull();
+  });
+
+  it("settings panel shows the DPNS name as a ✓ name.dash caption under the identity", () => {
+    mockUseSession.mockReturnValue(
+      makeSession({
+        status: "authenticated",
+        identityId: "id-1",
+        dpnsName: "alice",
+        keyManager: { getAuth: vi.fn() },
+      }),
+    );
+
+    render(<LoginModal open onClose={vi.fn()} />);
+
+    const block = screen.getByTestId("settings-identity-block");
+    expect(within(block).getByText("✓ alice.dash")).toBeTruthy();
+  });
+
+  it("settings panel omits the DPNS caption when no name is set", () => {
+    mockUseSession.mockReturnValue(
+      makeSession({
+        status: "authenticated",
+        identityId: "id-1",
+        dpnsName: null,
+        keyManager: { getAuth: vi.fn() },
+      }),
+    );
+
+    render(<LoginModal open onClose={vi.fn()} />);
+
+    const block = screen.getByTestId("settings-identity-block");
+    expect(within(block).queryByText(/\.dash$/)).toBeNull();
   });
 
   it("settings: Use a different identity link calls session.logout", () => {

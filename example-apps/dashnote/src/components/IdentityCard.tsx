@@ -4,6 +4,7 @@ import { truncateId } from "../lib/format";
 interface IdentityCardProps {
   status: SessionStatus;
   identityId: string | null;
+  dpnsName: string | null;
   contractId: string | null;
   onLoginClick: () => void;
 }
@@ -22,6 +23,7 @@ function avatarGradient(seed: string | null): string {
 export function IdentityCard({
   status,
   identityId,
+  dpnsName,
   contractId,
   onLoginClick,
 }: IdentityCardProps) {
@@ -84,12 +86,18 @@ export function IdentityCard({
             />
             <div className="min-w-0">
               <div className="truncate text-[12px] font-medium text-ink transition-colors group-hover:text-accent">
-                {identityId ? truncateId(identityId, 6) : "Identity"}
+                {dpnsName
+                  ? `@${dpnsName}`
+                  : identityId
+                    ? truncateId(identityId, 6)
+                    : "Identity"}
               </div>
               <div className="truncate font-mono text-[10px] text-ink-4">
-                {contractId
-                  ? `contract ${truncateId(contractId, 6)}`
-                  : "No contract"}
+                {dpnsName && identityId
+                  ? truncateId(identityId, 6)
+                  : contractId
+                    ? `contract ${truncateId(contractId, 6)}`
+                    : "No contract"}
               </div>
             </div>
           </div>

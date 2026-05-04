@@ -11,6 +11,7 @@ interface AppShellProps {
   onTabChange: (tab: TopTab) => void;
   status: SessionStatus;
   identityId: string | null;
+  dpnsName: string | null;
   contractId: string | null;
   onLoginOpen: () => void;
   children: ReactNode;
@@ -77,6 +78,7 @@ export function AppShell({
   onTabChange,
   status,
   identityId,
+  dpnsName,
   contractId,
   onLoginOpen,
   children,
@@ -188,6 +190,7 @@ export function AppShell({
           <IdentityCard
             status={status}
             identityId={identityId}
+            dpnsName={dpnsName}
             contractId={contractId}
             onLoginClick={() => {
               onLoginOpen();

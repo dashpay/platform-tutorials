@@ -4,12 +4,17 @@ import { act, cleanup, render } from "@testing-library/react";
 import { useContext, type ReactNode } from "react";
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 
-const { mockCreateClient, mockKeyManagerCreate, mockRefreshContractCache } =
-  vi.hoisted(() => ({
-    mockCreateClient: vi.fn(),
-    mockKeyManagerCreate: vi.fn(),
-    mockRefreshContractCache: vi.fn(),
-  }));
+const {
+  mockCreateClient,
+  mockKeyManagerCreate,
+  mockRefreshContractCache,
+  mockDpnsUsername,
+} = vi.hoisted(() => ({
+  mockCreateClient: vi.fn(),
+  mockKeyManagerCreate: vi.fn(),
+  mockRefreshContractCache: vi.fn(),
+  mockDpnsUsername: vi.fn(),
+}));
 
 vi.mock("../../../setupDashClient-core.mjs", () => ({
   createClient: mockCreateClient,
@@ -41,7 +46,7 @@ import {
   type SessionValue,
 } from "../src/session/SessionContext";
 
-const REMEMBERED_KEY = "dashnote.lastIdentityId";
+const REMEMBERED_KEY = "dashnote.lastIdentity";
 
 function Harness({ onValue }: { onValue: (value: SessionValue) => void }) {
   const value = useContext(SessionContext);
@@ -68,7 +73,12 @@ beforeEach(() => {
   mockCreateClient.mockReset();
   mockKeyManagerCreate.mockReset();
   mockRefreshContractCache.mockReset();
-  mockCreateClient.mockResolvedValue({ documents: {} });
+  mockDpnsUsername.mockReset();
+  mockDpnsUsername.mockResolvedValue(null);
+  mockCreateClient.mockResolvedValue({
+    documents: {},
+    dpns: { username: mockDpnsUsername },
+  });
 });
 
 afterEach(() => {
@@ -78,7 +88,10 @@ afterEach(() => {
 
 describe("SessionProvider", () => {
   it("loads the remembered identity ID from localStorage on mount and starts in browsing mode", () => {
-    localStorage.setItem(REMEMBERED_KEY, "stored-identity-id");
+    localStorage.setItem(
+      REMEMBERED_KEY,
+      JSON.stringify({ id: "stored-identity-id" }),
+    );
     const ref = mountSession();
     expect(ref.current.rememberedIdentityId).toBe("stored-identity-id");
     expect(ref.current.status).toBe("browsing");
@@ -101,10 +114,32 @@ describe("SessionProvider", () => {
       await ref.current.login("test mnemonic", { rememberMe: true });
     });
 
-    expect(localStorage.getItem(REMEMBERED_KEY)).toBe("logged-in-identity-id");
+    expect(JSON.parse(localStorage.getItem(REMEMBERED_KEY) ?? "null")).toEqual({
+      id: "logged-in-identity-id",
+      name: null,
+    });
     expect(ref.current.rememberedIdentityId).toBe("logged-in-identity-id");
     expect(ref.current.status).toBe("authenticated");
     expect(ref.current.identityId).toBe("logged-in-identity-id");
+    expect(ref.current.dpnsName).toBeNull();
+  });
+
+  it("persists the resolved DPNS name alongside the identity on login", async () => {
+    mockKeyManagerCreate.mockResolvedValue({
+      identityId: "logged-in-identity-id",
+    });
+    mockDpnsUsername.mockResolvedValue("alice.dash");
+    const ref = mountSession();
+
+    await act(async () => {
+      await ref.current.login("test mnemonic", { rememberMe: true });
+    });
+
+    expect(JSON.parse(localStorage.getItem(REMEMBERED_KEY) ?? "null")).toEqual({
+      id: "logged-in-identity-id",
+      name: "alice",
+    });
+    expect(ref.current.dpnsName).toBe("alice");
   });
 
   it("does not persist on login when rememberMe is false", async () => {
@@ -122,8 +157,55 @@ describe("SessionProvider", () => {
     expect(ref.current.status).toBe("authenticated");
   });
 
+  it("hydrates dpnsName from the remembered identity record on mount", () => {
+    localStorage.setItem(
+      REMEMBERED_KEY,
+      JSON.stringify({ id: "stored-identity-id", name: "alice" }),
+    );
+    const ref = mountSession();
+    expect(ref.current.dpnsName).toBe("alice");
+  });
+
+  it("viewAsRemembered skips the DPNS lookup when a name is already cached", async () => {
+    localStorage.setItem(
+      REMEMBERED_KEY,
+      JSON.stringify({ id: "stored-identity-id", name: "alice" }),
+    );
+    const ref = mountSession();
+
+    await act(async () => {
+      await ref.current.viewAsRemembered();
+    });
+
+    expect(mockDpnsUsername).not.toHaveBeenCalled();
+    expect(ref.current.dpnsName).toBe("alice");
+  });
+
+  it("viewAsRemembered resolves and persists the DPNS name when none is cached", async () => {
+    localStorage.setItem(
+      REMEMBERED_KEY,
+      JSON.stringify({ id: "stored-identity-id" }),
+    );
+    mockDpnsUsername.mockResolvedValue("alice.dash");
+    const ref = mountSession();
+
+    await act(async () => {
+      await ref.current.viewAsRemembered();
+    });
+
+    expect(mockDpnsUsername).toHaveBeenCalledWith("stored-identity-id");
+    expect(ref.current.dpnsName).toBe("alice");
+    expect(JSON.parse(localStorage.getItem(REMEMBERED_KEY) ?? "null")).toEqual({
+      id: "stored-identity-id",
+      name: "alice",
+    });
+  });
+
   it("viewAsRemembered enters browsing mode using the stored identity", async () => {
-    localStorage.setItem(REMEMBERED_KEY, "stored-identity-id");
+    localStorage.setItem(
+      REMEMBERED_KEY,
+      JSON.stringify({ id: "stored-identity-id" }),
+    );
     const ref = mountSession();
 
     await act(async () => {
@@ -147,7 +229,10 @@ describe("SessionProvider", () => {
   });
 
   it("forgetIdentity clears storage and drops browsing back to readonly", async () => {
-    localStorage.setItem(REMEMBERED_KEY, "stored-identity-id");
+    localStorage.setItem(
+      REMEMBERED_KEY,
+      JSON.stringify({ id: "stored-identity-id" }),
+    );
     const ref = mountSession();
 
     await act(async () => {
@@ -168,7 +253,7 @@ describe("SessionProvider", () => {
   it("forgetIdentity also evicts the remembered identity's note cache", async () => {
     const REMEMBERED_ID = "stored-identity-id";
     const NOTES_KEY = `dashnote.notes.${REMEMBERED_ID}`;
-    localStorage.setItem(REMEMBERED_KEY, REMEMBERED_ID);
+    localStorage.setItem(REMEMBERED_KEY, JSON.stringify({ id: REMEMBERED_ID }));
     localStorage.setItem(
       NOTES_KEY,
       JSON.stringify({
@@ -212,7 +297,9 @@ describe("SessionProvider", () => {
     expect(ref.current.status).toBe("browsing");
     expect(ref.current.identityId).toBe("logged-in-identity-id");
     expect(ref.current.keyManager).toBeNull();
-    expect(localStorage.getItem(REMEMBERED_KEY)).toBe("logged-in-identity-id");
+    expect(
+      JSON.parse(localStorage.getItem(REMEMBERED_KEY) ?? "null"),
+    ).toMatchObject({ id: "logged-in-identity-id" });
   });
 
   it("setContractId evicts the previous contract from the SDK cache when the ID changes", async () => {
@@ -265,5 +352,60 @@ describe("SessionProvider", () => {
 
     expect(ref.current.status).toBe("readonly");
     expect(ref.current.identityId).toBeNull();
+  });
+
+  it("logout clears dpnsName when no identity is remembered", async () => {
+    mockKeyManagerCreate.mockResolvedValue({
+      identityId: "logged-in-identity-id",
+    });
+    mockDpnsUsername.mockResolvedValue("alice.dash");
+    const ref = mountSession();
+
+    await act(async () => {
+      await ref.current.login("mnemonic");
+    });
+    expect(ref.current.dpnsName).toBe("alice");
+
+    act(() => {
+      ref.current.logout();
+    });
+
+    expect(ref.current.dpnsName).toBeNull();
+  });
+
+  it("forgetIdentity clears the cached dpnsName", async () => {
+    localStorage.setItem(
+      REMEMBERED_KEY,
+      JSON.stringify({ id: "stored-identity-id", name: "alice" }),
+    );
+    const ref = mountSession();
+    expect(ref.current.dpnsName).toBe("alice");
+
+    act(() => {
+      ref.current.forgetIdentity();
+    });
+
+    expect(ref.current.dpnsName).toBeNull();
+  });
+
+  it("enterReadOnly clears any prior dpnsName because readonly has no identity", async () => {
+    mockKeyManagerCreate.mockResolvedValue({
+      identityId: "logged-in-identity-id",
+    });
+    mockDpnsUsername.mockResolvedValue("alice.dash");
+    const ref = mountSession();
+
+    await act(async () => {
+      await ref.current.login("mnemonic");
+    });
+    expect(ref.current.dpnsName).toBe("alice");
+
+    await act(async () => {
+      await ref.current.enterReadOnly();
+    });
+
+    expect(ref.current.dpnsName).toBeNull();
+    expect(ref.current.identityId).toBeNull();
+    expect(ref.current.status).toBe("readonly");
   });
 });

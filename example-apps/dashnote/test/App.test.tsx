@@ -65,6 +65,7 @@ function makeSession(overrides: Record<string, unknown> = {}) {
     identityId: null,
     contractId: null,
     rememberedIdentityId: null,
+    dpnsName: null,
     enterReadOnly: vi.fn().mockResolvedValue(undefined),
     viewAsRemembered: vi.fn().mockResolvedValue(undefined),
     ...overrides,

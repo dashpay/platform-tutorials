@@ -88,13 +88,18 @@ export function LoginModal({ open, onClose }: LoginModalProps) {
     >
       {loggedIn ? (
         <div className="flex flex-col gap-4 py-2">
-          <div>
+          <div data-testid="settings-identity-block">
             <div className="mb-1 text-[10px] font-semibold uppercase tracking-[0.12em] text-ink-4">
               Identity
             </div>
             <div className="break-all rounded-md border border-line bg-bg px-3 py-2 font-mono text-[12px] text-accent">
               {session.identityId ?? "—"}
             </div>
+            {session.dpnsName && (
+              <div className="mt-1 text-[10px] text-ink-4">
+                ✓ {session.dpnsName}.dash
+              </div>
+            )}
             <div
               data-testid="settings-identity-actions"
               className="mt-2 flex flex-wrap gap-3 text-[11px]"
@@ -213,6 +218,11 @@ export function LoginModal({ open, onClose }: LoginModalProps) {
                 aria-label="Remembered identity"
                 className="break-all rounded-md border border-line bg-bg/40 px-3 py-2 font-mono text-[12px] text-accent outline-none"
               />
+              {session.dpnsName && (
+                <span className="text-[10px] text-ink-4">
+                  ✓ {session.dpnsName}.dash
+                </span>
+              )}
             </label>
           )}
 

@@ -3,12 +3,12 @@
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 
 import {
-  clearRememberedIdentityId,
-  loadRememberedIdentityId,
-  saveRememberedIdentityId,
+  clearRememberedIdentity,
+  loadRememberedIdentity,
+  saveRememberedIdentity,
 } from "../src/lib/rememberedIdentity";
 
-const KEY = "dashnote.lastIdentityId";
+const KEY = "dashnote.lastIdentity";
 
 beforeEach(() => {
   localStorage.clear();
@@ -20,40 +20,63 @@ afterEach(() => {
 
 describe("rememberedIdentity storage", () => {
   it("returns null when nothing is stored", () => {
-    expect(loadRememberedIdentityId()).toBeNull();
+    expect(loadRememberedIdentity()).toBeNull();
   });
 
   it("persists an identity ID and reads it back", () => {
-    saveRememberedIdentityId("identity-abc");
-    expect(localStorage.getItem(KEY)).toBe("identity-abc");
-    expect(loadRememberedIdentityId()).toBe("identity-abc");
+    saveRememberedIdentity({ id: "identity-abc" });
+    expect(JSON.parse(localStorage.getItem(KEY) ?? "null")).toEqual({
+      id: "identity-abc",
+    });
+    expect(loadRememberedIdentity()).toEqual({
+      id: "identity-abc",
+      name: null,
+    });
   });
 
-  it("clears the stored identity ID", () => {
-    localStorage.setItem(KEY, "identity-abc");
-    clearRememberedIdentityId();
+  it("persists an identity ID with its DPNS name", () => {
+    saveRememberedIdentity({ id: "identity-abc", name: "alice" });
+    expect(loadRememberedIdentity()).toEqual({
+      id: "identity-abc",
+      name: "alice",
+    });
+  });
+
+  it("clears the stored identity", () => {
+    localStorage.setItem(KEY, JSON.stringify({ id: "identity-abc" }));
+    clearRememberedIdentity();
     expect(localStorage.getItem(KEY)).toBeNull();
-    expect(loadRememberedIdentityId()).toBeNull();
+    expect(loadRememberedIdentity()).toBeNull();
+  });
+
+  it("returns null when the stored value is not valid JSON", () => {
+    localStorage.setItem(KEY, "not-json");
+    expect(loadRememberedIdentity()).toBeNull();
+  });
+
+  it("returns null when the stored record is missing an id", () => {
+    localStorage.setItem(KEY, JSON.stringify({ name: "alice" }));
+    expect(loadRememberedIdentity()).toBeNull();
   });
 
   it("returns null when localStorage access throws", () => {
     vi.spyOn(Storage.prototype, "getItem").mockImplementation(() => {
       throw new Error("SecurityError");
     });
-    expect(loadRememberedIdentityId()).toBeNull();
+    expect(loadRememberedIdentity()).toBeNull();
   });
 
   it("swallows errors when saving fails", () => {
     vi.spyOn(Storage.prototype, "setItem").mockImplementation(() => {
       throw new Error("QuotaExceeded");
     });
-    expect(() => saveRememberedIdentityId("anything")).not.toThrow();
+    expect(() => saveRememberedIdentity({ id: "anything" })).not.toThrow();
   });
 
   it("swallows errors when clearing fails", () => {
     vi.spyOn(Storage.prototype, "removeItem").mockImplementation(() => {
       throw new Error("SecurityError");
     });
-    expect(() => clearRememberedIdentityId()).not.toThrow();
+    expect(() => clearRememberedIdentity()).not.toThrow();
   });
 });

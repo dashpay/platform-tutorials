@@ -45,6 +45,7 @@ function App() {
         onTabChange={setTab}
         status={session.status}
         identityId={session.identityId}
+        dpnsName={session.dpnsName}
         contractId={session.contractId}
         onLoginOpen={() => setLoginOpen(true)}
         mobileFullBleed={mobileFullBleed}

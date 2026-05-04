@@ -13,13 +13,14 @@ import {
   refreshContractCache,
   saveContractId,
 } from "../dash/contract";
+import { resolveDpnsName } from "../dash/resolveDpnsName";
 import type { DashKeyManager, DashSdk } from "../dash/types";
 import { errorMessage, type Logger } from "../lib/logger";
 import { clearCachedNotes } from "../lib/notesCache";
 import {
-  clearRememberedIdentityId,
-  loadRememberedIdentityId,
-  saveRememberedIdentityId,
+  clearRememberedIdentity,
+  loadRememberedIdentity,
+  saveRememberedIdentity,
 } from "../lib/rememberedIdentity";
 
 // The SDK + IdentityKeyManager pull in @dashevo/evo-sdk (and its ~8MB WASM
@@ -64,6 +65,7 @@ export interface SessionValue {
   identityId: string | null;
   contractId: string | null;
   rememberedIdentityId: string | null;
+  dpnsName: string | null;
   setContractId: (id: string | null) => void;
   log: Logger;
   login: (mnemonic: string, options?: LoginOptions) => Promise<void>;
@@ -77,7 +79,7 @@ const SessionContext = createContext<SessionValue | null>(null);
 export { SessionContext };
 
 export function SessionProvider({ children }: { children: ReactNode }) {
-  const initialRemembered = loadRememberedIdentityId();
+  const initialRemembered = loadRememberedIdentity();
   const [status, setStatus] = useState<SessionStatus>(
     initialRemembered ? "browsing" : "idle",
   );
@@ -85,14 +87,17 @@ export function SessionProvider({ children }: { children: ReactNode }) {
   const [sdk, setSdk] = useState<DashSdk | null>(null);
   const [keyManager, setKeyManager] = useState<DashKeyManager | null>(null);
   const [identityId, setIdentityId] = useState<string | null>(
-    initialRemembered,
+    initialRemembered?.id ?? null,
   );
   const [contractId, setContractIdState] = useState<string | null>(() =>
     loadStoredContractId(),
   );
   const [rememberedIdentityId, setRememberedIdentityId] = useState<
     string | null
-  >(initialRemembered);
+  >(initialRemembered?.id ?? null);
+  const [dpnsName, setDpnsName] = useState<string | null>(
+    initialRemembered?.name ?? null,
+  );
 
   const log = useCallback<Logger>((message, level = "info") => {
     const method =
@@ -154,11 +159,20 @@ export function SessionProvider({ children }: { children: ReactNode }) {
         const resolvedId = manager.identityId ?? null;
         setIdentityId(resolvedId);
         setStatus("authenticated");
+        log(`Identity resolved: ${resolvedId ?? "(unknown)"}`, "success");
+
+        // Resolve the DPNS name after auth so we can persist it alongside
+        // the identity ID — DPNS bindings are permanent, so what we save
+        // here is correct for every future load.
+        let resolvedName: string | null = null;
+        if (resolvedId) {
+          resolvedName = await resolveDpnsName(connected, resolvedId);
+          setDpnsName(resolvedName);
+        }
         if (rememberMe && resolvedId) {
-          saveRememberedIdentityId(resolvedId);
+          saveRememberedIdentity({ id: resolvedId, name: resolvedName });
           setRememberedIdentityId(resolvedId);
         }
-        log(`Identity resolved: ${resolvedId ?? "(unknown)"}`, "success");
       } catch (err) {
         const message = errorMessage(err);
         setError(message);
@@ -176,6 +190,7 @@ export function SessionProvider({ children }: { children: ReactNode }) {
       if (!sdk) await connect();
       setKeyManager(null);
       setIdentityId(null);
+      setDpnsName(null);
       setStatus("readonly");
       log("Read-only mode enabled.");
     } catch (err) {
@@ -187,25 +202,39 @@ export function SessionProvider({ children }: { children: ReactNode }) {
   }, [sdk, connect, log]);
 
   const viewAsRemembered = useCallback(async () => {
-    const rememberedId = loadRememberedIdentityId();
-    if (!rememberedId) {
+    const remembered = loadRememberedIdentity();
+    if (!remembered) {
       await enterReadOnly();
       return;
     }
     setError(null);
     setKeyManager(null);
-    setIdentityId(rememberedId);
-    setRememberedIdentityId(rememberedId);
+    setIdentityId(remembered.id);
+    setRememberedIdentityId(remembered.id);
+    setDpnsName(remembered.name ?? null);
     setStatus("browsing");
     try {
-      if (!sdk) {
+      let connected = sdk;
+      if (!connected) {
         log("Connecting to Dash Platform testnet…");
         const { createClient } = await loadSdkModule();
-        const connected = (await createClient("testnet")) as unknown as DashSdk;
+        connected = (await createClient("testnet")) as unknown as DashSdk;
         setSdk(connected);
         log("Connected to Dash Platform testnet.");
       }
-      log(`Browsing notes for ${rememberedId} (read-only).`);
+      log(`Browsing notes for ${remembered.id} (read-only).`);
+
+      // DPNS (name, identityId) bindings are permanent, so a cached name
+      // never needs revalidation. Only resolve when we don't have one yet
+      // (e.g. the identity registered a name after we last saved, or this
+      // record predates the dpnsName field).
+      if (!remembered.name) {
+        const fresh = await resolveDpnsName(connected, remembered.id);
+        if (fresh) {
+          setDpnsName(fresh);
+          saveRememberedIdentity({ id: remembered.id, name: fresh });
+        }
+      }
     } catch (err) {
       const message = errorMessage(err);
       setError(message);
@@ -216,8 +245,9 @@ export function SessionProvider({ children }: { children: ReactNode }) {
 
   const forgetIdentity = useCallback(() => {
     if (rememberedIdentityId) clearCachedNotes(rememberedIdentityId);
-    clearRememberedIdentityId();
+    clearRememberedIdentity();
     setRememberedIdentityId(null);
+    setDpnsName(null);
     if (status === "browsing") {
       setKeyManager(null);
       setIdentityId(null);
@@ -236,6 +266,7 @@ export function SessionProvider({ children }: { children: ReactNode }) {
       return;
     }
     setIdentityId(null);
+    setDpnsName(null);
     setStatus(sdk ? "readonly" : "idle");
     log("Logged out.");
   }, [sdk, rememberedIdentityId, log]);
@@ -249,6 +280,7 @@ export function SessionProvider({ children }: { children: ReactNode }) {
       identityId,
       contractId,
       rememberedIdentityId,
+      dpnsName,
       setContractId,
       log,
       login,
@@ -265,6 +297,7 @@ export function SessionProvider({ children }: { children: ReactNode }) {
       identityId,
       contractId,
       rememberedIdentityId,
+      dpnsName,
       setContractId,
       log,
       login,
