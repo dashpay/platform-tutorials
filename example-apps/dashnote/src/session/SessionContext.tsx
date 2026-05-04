@@ -13,14 +13,14 @@ import {
   refreshContractCache,
   saveContractId,
 } from "../dash/contract";
-import { errorMessage, type Logger } from "../dash/logger";
-import { clearCachedNotes } from "../dash/notesCache";
+import type { DashKeyManager, DashSdk } from "../dash/types";
+import { errorMessage, type Logger } from "../lib/logger";
+import { clearCachedNotes } from "../lib/notesCache";
 import {
   clearRememberedIdentityId,
   loadRememberedIdentityId,
   saveRememberedIdentityId,
-} from "../dash/rememberedIdentity";
-import type { DashKeyManager, DashSdk } from "../dash/types";
+} from "../lib/rememberedIdentity";
 
 // The SDK + IdentityKeyManager pull in @dashevo/evo-sdk (and its ~8MB WASM
 // bundle), so we load them lazily on first use to keep the app shell off

@@ -6,7 +6,7 @@ import {
   clearRememberedIdentityId,
   loadRememberedIdentityId,
   saveRememberedIdentityId,
-} from "../src/dash/rememberedIdentity";
+} from "../src/lib/rememberedIdentity";
 
 const KEY = "dashnote.lastIdentityId";
 

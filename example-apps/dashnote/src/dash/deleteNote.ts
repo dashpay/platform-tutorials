@@ -1,4 +1,9 @@
-import type { Logger } from "./logger";
+/**
+ * Delete a note document.
+ *
+ * SDK method: sdk.documents.delete({ document, identityKey, signer })
+ */
+import type { Logger } from "../lib/logger";
 import type { DashKeyManager, DashSdk } from "./types";
 
 export interface DeleteNoteParams {

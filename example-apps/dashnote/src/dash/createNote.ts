@@ -1,6 +1,11 @@
+/**
+ * Create a new note document.
+ *
+ * SDK method: sdk.documents.create({ document, identityKey, signer })
+ */
 import { Document } from "@dashevo/evo-sdk";
 
-import type { Logger } from "./logger";
+import type { Logger } from "../lib/logger";
 import type { DashKeyManager, DashSdk } from "./types";
 
 export interface CreateNoteParams {

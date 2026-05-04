@@ -1,7 +1,7 @@
 import { useEffect, useState, type FormEvent } from "react";
 
 import { registerContract } from "../dash/contract";
-import { errorMessage } from "../dash/logger";
+import { errorMessage } from "../lib/logger";
 import { useSession } from "../session/useSession";
 import { Modal } from "./Modal";
 import { OperationResultNotice } from "./OperationResultNotice";

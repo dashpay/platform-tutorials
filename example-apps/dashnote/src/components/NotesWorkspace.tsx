@@ -9,18 +9,18 @@ import {
 
 import { createNote } from "../dash/createNote";
 import { deleteNote } from "../dash/deleteNote";
-import { errorMessage } from "../dash/logger";
+import { getNote, listMyNotes, type NoteRecord } from "../dash/queries";
+import { updateNote } from "../dash/updateNote";
+import { useMediaQuery } from "../hooks/useMediaQuery";
+import { byteLength, FIELD_BYTE_LIMIT } from "../lib/fieldLimits";
+import { errorMessage } from "../lib/logger";
 import {
   BACKGROUND_REFRESH_MS,
   FOCUS_REFRESH_MIN_MS,
   loadCachedNotes,
   notesEqualByRevision,
   saveCachedNotes,
-} from "../dash/notesCache";
-import { getNote, listMyNotes, type NoteRecord } from "../dash/queries";
-import { updateNote } from "../dash/updateNote";
-import { byteLength, FIELD_BYTE_LIMIT } from "../lib/fieldLimits";
-import { useMediaQuery } from "../lib/useMediaQuery";
+} from "../lib/notesCache";
 import { useSession } from "../session/useSession";
 import { NoteEditor } from "./NoteEditor";
 import { NoteList } from "./NoteList";

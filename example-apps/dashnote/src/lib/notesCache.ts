@@ -3,7 +3,7 @@
 // background revalidation against Platform completes. Keyed by identity so
 // switching identities never mixes data. Invalidated when the contract or
 // network changes.
-import type { NoteRecord } from "./queries";
+import type { NoteRecord } from "../dash/queries";
 
 const STORAGE_PREFIX = "dashnote.notes.";
 const SCHEMA_VERSION = 1;

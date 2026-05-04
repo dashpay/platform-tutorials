@@ -1,6 +1,13 @@
+/**
+ * Note data contract: schema definition + registration.
+ *
+ * SDK methods:
+ *   sdk.contracts.publish({ dataContract, identityKey, signer })
+ *   sdk.identities.nonce(identityId)
+ */
 import { DataContract, Identifier } from "@dashevo/evo-sdk";
 
-import type { Logger } from "./logger";
+import type { Logger } from "../lib/logger";
 import type { DashKeyManager, DashSdk } from "./types";
 
 export const NOTE_SCHEMAS = {

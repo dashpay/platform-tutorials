@@ -1,6 +1,14 @@
+/**
+ * Update an existing note. Fetches the current document to bump its revision,
+ * then submits a replace state transition.
+ *
+ * SDK methods:
+ *   sdk.documents.get(contractId, documentTypeName, documentId)
+ *   sdk.documents.replace({ document, identityKey, signer })
+ */
 import { Document } from "@dashevo/evo-sdk";
 
-import type { Logger } from "./logger";
+import type { Logger } from "../lib/logger";
 import type { DashKeyManager, DashSdk } from "./types";
 
 export interface UpdateNoteParams {

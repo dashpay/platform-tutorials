@@ -7,7 +7,7 @@ import {
   loadCachedNotes,
   notesEqualByRevision,
   saveCachedNotes,
-} from "../src/dash/notesCache";
+} from "../src/lib/notesCache";
 import type { NoteRecord } from "../src/dash/queries";
 
 const KEY = (id: string) => `dashnote.notes.${id}`;

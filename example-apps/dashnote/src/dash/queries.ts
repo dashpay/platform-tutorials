@@ -1,4 +1,11 @@
-import type { Logger } from "./logger";
+/**
+ * Read-side queries against the note contract.
+ *
+ * SDK methods:
+ *   sdk.documents.query({ dataContractId, documentTypeName, where, orderBy, limit })
+ *   sdk.documents.get(contractId, documentTypeName, documentId)
+ */
+import type { Logger } from "../lib/logger";
 import type {
   DashDocumentLike,
   DashNoteQueryDocument,
