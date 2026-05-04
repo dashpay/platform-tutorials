@@ -16,6 +16,7 @@
   --color-accent: oklch(71% 0.15 72);
   --color-accent-dim: oklch(62% 0.13 72);
   --color-danger: oklch(67% 0.19 26);
+  --color-warning: oklch(78% 0.13 75);
 
   --font-sans: "Manrope", system-ui, -apple-system, "Segoe UI", sans-serif;
   --font-mono:
@@ -44,6 +45,7 @@
   --color-accent: oklch(60% 0.14 72);
   --color-accent-dim: oklch(54% 0.12 72);
   --color-danger: oklch(58% 0.2 26);
+  --color-warning: oklch(68% 0.16 70);
 }
 
 html,

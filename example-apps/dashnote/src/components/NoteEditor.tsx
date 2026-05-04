@@ -1,6 +1,6 @@
 import type { NoteRecord } from "../dash/queries";
 import { FIELD_BYTE_LIMIT } from "../lib/fieldLimits";
-import { formatRelativeTime, formatTimestamp } from "../lib/format";
+import { formatTimestamp } from "../lib/format";
 import { OperationResultNotice } from "./OperationResultNotice";
 
 interface NoteEditorProps {
@@ -211,15 +211,11 @@ export function NoteEditor({
                 rows={16}
                 className="w-full min-h-0 flex-1 border-0 bg-transparent px-0 py-1 text-[15px] leading-6 text-ink outline-none placeholder:text-ink-4 disabled:cursor-not-allowed disabled:text-ink-4 md:min-h-[340px] xl:min-h-0"
               />
-              <div
-                className={`mt-1 text-right text-[11px] md:hidden ${
-                  messageOversize
-                    ? "text-[color:var(--color-danger)]"
-                    : "text-ink-4"
-                }`}
-              >
-                {messageBytes} / {FIELD_BYTE_LIMIT} bytes
-              </div>
+              {(messageBytes / FIELD_BYTE_LIMIT >= 0.75 || messageOversize) && (
+                <div className="mt-2 md:hidden">
+                  <FillBar bytes={messageBytes} limit={FIELD_BYTE_LIMIT} />
+                </div>
+              )}
             </label>
 
             <div className="flex items-center gap-1.5 text-[11px] text-ink-4 md:hidden">
@@ -247,32 +243,26 @@ export function NoteEditor({
               {note && (
                 <>
                   <div>
+                    <span className="text-ink-4">Revision </span>
+                    <span className="font-mono text-ink-2">
+                      {note.revision}
+                    </span>
+                  </div>
+                  <div>
                     <span className="text-ink-4">Created </span>
                     {formatTimestamp(note.createdAt)}
                   </div>
                   <div>
                     <span className="text-ink-4">Updated </span>
                     {formatTimestamp(note.updatedAt)}
-                    <span className="ml-1 text-ink-4">
-                      ({formatRelativeTime(note.updatedAt)})
-                    </span>
-                  </div>
-                  <div>
-                    <span className="text-ink-4">Rev </span>
-                    <span className="font-mono text-ink-2">
-                      {note.revision}
-                    </span>
                   </div>
                 </>
               )}
-              <div
-                className={`ml-auto ${
-                  messageOversize ? "text-[color:var(--color-danger)]" : ""
-                }`}
-              >
-                <span className="text-ink-4">Bytes </span>
-                {messageBytes} / {FIELD_BYTE_LIMIT}
-              </div>
+              {(messageBytes / FIELD_BYTE_LIMIT >= 0.75 || messageOversize) && (
+                <div className="w-[140px]">
+                  <FillBar bytes={messageBytes} limit={FIELD_BYTE_LIMIT} />
+                </div>
+              )}
             </div>
 
             {canDelete && (
@@ -306,5 +296,34 @@ export function NoteEditor({
         )}
       </div>
     </section>
+  );
+}
+
+function FillBar({ bytes, limit }: { bytes: number; limit: number }) {
+  const pct = Math.min(100, (bytes / limit) * 100);
+  const over = bytes > limit;
+  const near = !over && pct >= 90;
+  const fill = over
+    ? "bg-[color:var(--color-danger)]"
+    : near
+      ? "bg-[color:var(--color-warning)]"
+      : "bg-accent";
+  const tooltip = over
+    ? `${bytes} / ${limit} bytes — over limit`
+    : `${bytes} / ${limit} bytes`;
+  return (
+    <div
+      role="progressbar"
+      aria-valuenow={bytes}
+      aria-valuemax={limit}
+      aria-valuetext={tooltip}
+      title={tooltip}
+      className="h-[3px] w-full overflow-hidden rounded-full bg-surface-2"
+    >
+      <div
+        className={`h-full rounded-full transition-[width,background-color] ${fill}`}
+        style={{ width: `${pct}%` }}
+      />
+    </div>
   );
 }
