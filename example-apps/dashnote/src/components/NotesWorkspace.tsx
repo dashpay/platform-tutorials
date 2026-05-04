@@ -606,7 +606,7 @@ export function NotesWorkspace({
           onAction={onOpenSettings}
         />
       ) : (
-        <div className="gap-5 max-md:flex max-md:min-h-0 max-md:flex-1 max-md:flex-col xl:grid xl:h-[calc(100vh-220px)] xl:min-h-[520px] xl:grid-cols-[340px_minmax(0,1fr)] xl:gap-0 xl:overflow-hidden xl:rounded-[24px] xl:border xl:border-line xl:bg-surface xl:shadow-[0_20px_60px_-36px_rgba(0,0,0,0.45)]">
+        <div className="gap-5 max-md:flex max-md:min-h-0 max-md:flex-1 max-md:flex-col md:grid md:h-[calc(100vh-220px)] md:min-h-[520px] md:grid-cols-[260px_minmax(0,1fr)] md:gap-0 md:overflow-hidden md:rounded-[24px] md:border md:border-line md:bg-surface md:shadow-[0_20px_60px_-36px_rgba(0,0,0,0.45)] lg:grid-cols-[340px_minmax(0,1fr)]">
           <div
             className={`min-h-0 max-md:flex-1 ${selectedId !== null ? "hidden md:flex" : "flex"} flex-col`}
           >
@@ -621,7 +621,7 @@ export function NotesWorkspace({
             />
           </div>
           <div
-            className={`min-h-0 max-md:flex-1 ${selectedId === null ? "hidden md:flex" : "flex"} flex-col xl:border-l xl:border-line`}
+            className={`min-h-0 max-md:flex-1 ${selectedId === null ? "hidden md:flex" : "flex"} flex-col md:border-l md:border-line`}
           >
             <NoteEditor
               isDesktop={isDesktop}

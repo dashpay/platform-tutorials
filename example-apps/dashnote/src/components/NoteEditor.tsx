@@ -57,7 +57,7 @@ export function NoteEditor({
   const oversize = messageOversize;
 
   return (
-    <section className="flex min-h-0 flex-1 flex-col rounded-[24px] border border-line bg-surface shadow-[0_20px_60px_-36px_rgba(0,0,0,0.45)] max-md:rounded-none max-md:border-0 max-md:shadow-none xl:h-full xl:rounded-none xl:border-0 xl:bg-transparent xl:shadow-none">
+    <section className="flex min-h-0 flex-1 flex-col rounded-[24px] border border-line bg-surface shadow-[0_20px_60px_-36px_rgba(0,0,0,0.45)] max-md:rounded-none max-md:border-0 max-md:shadow-none md:h-full md:rounded-none md:border-0 md:bg-transparent md:shadow-none">
       <div className="flex h-[61px] items-center justify-between gap-3 border-b border-line px-4 py-3 max-md:h-auto max-md:px-3 max-md:py-2.5">
         {hasSelection && (
           <button
