@@ -1,6 +1,6 @@
 {
-  "name": "patchbook-lab",
-  "displayName": "Patchbook",
+  "name": "dashnote",
+  "displayName": "Dashnote",
   "description": "Personal notes on Dash Platform testnet with editable note documents, timestamps, and revision metadata.",
   "private": true,
   "version": "0.0.0",

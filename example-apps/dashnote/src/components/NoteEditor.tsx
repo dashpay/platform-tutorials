@@ -156,7 +156,7 @@ export function NoteEditor({
           <OperationResultNotice title="No contract selected">
             <div className="space-y-3">
               <div>
-                Open Settings to paste a contract ID or register a new Patchbook
+                Open Settings to paste a contract ID or register a new Dashnote
                 contract before creating notes.
               </div>
               <button

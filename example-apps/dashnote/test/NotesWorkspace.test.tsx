@@ -293,7 +293,7 @@ describe("NotesWorkspace", () => {
 
     // The cache should hold the merged (fresh) revision so a cold reload
     // would paint the up-to-date content immediately.
-    const cacheRaw = localStorage.getItem("patchbook-lab.notes.identity-1");
+    const cacheRaw = localStorage.getItem("dashnote.notes.identity-1");
     expect(cacheRaw).toBeTruthy();
     const cached = JSON.parse(cacheRaw as string);
     expect(cached.notes).toHaveLength(1);
@@ -687,7 +687,7 @@ describe("NotesWorkspace", () => {
   describe("cache hydration & revalidation", () => {
     function seedCache(notes: unknown[], identityId = "identity-1") {
       localStorage.setItem(
-        `patchbook-lab.notes.${identityId}`,
+        `dashnote.notes.${identityId}`,
         JSON.stringify({
           version: 1,
           identityId,

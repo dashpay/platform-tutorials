@@ -10,7 +10,7 @@ import {
 } from "../src/dash/notesCache";
 import type { NoteRecord } from "../src/dash/queries";
 
-const KEY = (id: string) => `patchbook-lab.notes.${id}`;
+const KEY = (id: string) => `dashnote.notes.${id}`;
 
 const ID = "identity-abc";
 const CONTRACT = "contract-1";

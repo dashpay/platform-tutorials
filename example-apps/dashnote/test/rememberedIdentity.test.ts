@@ -8,7 +8,7 @@ import {
   saveRememberedIdentityId,
 } from "../src/dash/rememberedIdentity";
 
-const KEY = "patchbook-lab.lastIdentityId";
+const KEY = "dashnote.lastIdentityId";
 
 beforeEach(() => {
   localStorage.clear();

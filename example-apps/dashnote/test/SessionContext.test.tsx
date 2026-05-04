@@ -41,7 +41,7 @@ import {
   type SessionValue,
 } from "../src/session/SessionContext";
 
-const REMEMBERED_KEY = "patchbook-lab.lastIdentityId";
+const REMEMBERED_KEY = "dashnote.lastIdentityId";
 
 function Harness({ onValue }: { onValue: (value: SessionValue) => void }) {
   const value = useContext(SessionContext);
@@ -167,7 +167,7 @@ describe("SessionProvider", () => {
 
   it("forgetIdentity also evicts the remembered identity's note cache", async () => {
     const REMEMBERED_ID = "stored-identity-id";
-    const NOTES_KEY = `patchbook-lab.notes.${REMEMBERED_ID}`;
+    const NOTES_KEY = `dashnote.notes.${REMEMBERED_ID}`;
     localStorage.setItem(REMEMBERED_KEY, REMEMBERED_ID);
     localStorage.setItem(
       NOTES_KEY,
@@ -216,7 +216,7 @@ describe("SessionProvider", () => {
   });
 
   it("setContractId evicts the previous contract from the SDK cache when the ID changes", async () => {
-    localStorage.setItem("patchbook-lab.contractId", "old-contract-id");
+    localStorage.setItem("dashnote.contractId", "old-contract-id");
     const ref = mountSession();
     await act(async () => {
       await ref.current.viewAsRemembered();
@@ -235,7 +235,7 @@ describe("SessionProvider", () => {
   });
 
   it("setContractId does not evict when the new ID equals the current ID", async () => {
-    localStorage.setItem("patchbook-lab.contractId", "same-contract-id");
+    localStorage.setItem("dashnote.contractId", "same-contract-id");
     const ref = mountSession();
     await act(async () => {
       await ref.current.viewAsRemembered();

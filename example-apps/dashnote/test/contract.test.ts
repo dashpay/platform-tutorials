@@ -99,7 +99,7 @@ describe("loadStoredContractId", () => {
   });
 
   it("returns the stored value when present", () => {
-    localStorage.setItem("patchbook-lab.contractId", "stored-contract");
+    localStorage.setItem("dashnote.contractId", "stored-contract");
     expect(loadStoredContractId()).toBe("stored-contract");
   });
 });
@@ -162,9 +162,7 @@ describe("registerContract", () => {
       documentsMutableContractDefault: true,
       documentsCanBeDeletedContractDefault: true,
     });
-    expect(localStorage.getItem("patchbook-lab.contractId")).toBe(
-      "new-contract-id",
-    );
-    expect(log).toHaveBeenCalledWith("Registering Patchbook note contract…");
+    expect(localStorage.getItem("dashnote.contractId")).toBe("new-contract-id");
+    expect(log).toHaveBeenCalledWith("Registering Dashnote note contract…");
   });
 });

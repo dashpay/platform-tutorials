@@ -1,6 +1,6 @@
-# Patchbook — Dash Platform Notes Lab
+# Dashnote — Dash Platform Notes
 
-`Patchbook` is a React + TypeScript + Vite example app for personal notes on Dash Platform testnet.
+`Dashnote` is a React + TypeScript + Vite example app for personal notes on Dash Platform testnet.
 
 The app stays close to the tutorial `note` contract shape, but extends it with an optional `title`, a required `message`, and required Platform timestamps. Notes are editable, deletable, and shown in a calm two-pane notebook UI.
 
@@ -32,10 +32,10 @@ npm run lint
 
 ## Contract and Settings flow
 
-- Patchbook does not ship with a bundled default contract ID.
+- Dashnote does not ship with a bundled default contract ID.
 - After login, Settings can:
   - paste and reuse an existing note contract ID
-  - register a fresh Patchbook note contract on testnet
+  - register a fresh Dashnote note contract on testnet
   - switch the app to that contract immediately
 
 ## Platform operations

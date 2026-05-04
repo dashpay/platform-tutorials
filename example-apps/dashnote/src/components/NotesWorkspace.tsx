@@ -574,7 +574,7 @@ export function NotesWorkspace({
             </svg>
           }
           title="Sign in to see your notes"
-          description="Patchbook stores notes against your testnet identity. Log in with a Dash Platform identity to create, edit, and review your notes."
+          description="Dashnote stores notes against your testnet identity. Log in with a Dash Platform identity to create, edit, and review your notes."
           actionLabel="Log in"
           onAction={onOpenSettings}
           secondaryHref="https://bridge.thepasta.org/"
@@ -601,7 +601,7 @@ export function NotesWorkspace({
             </svg>
           }
           title="Register or select a contract"
-          description="Open Settings to register a Patchbook note contract or paste a contract ID before creating notes."
+          description="Open Settings to register a Dashnote note contract or paste a contract ID before creating notes."
           actionLabel="Open Settings"
           onAction={onOpenSettings}
         />

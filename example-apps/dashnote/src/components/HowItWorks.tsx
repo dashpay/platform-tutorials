@@ -10,8 +10,8 @@ export function HowItWorks() {
         </h2>
         <div className="mt-4 space-y-3 text-[13px] leading-6 text-ink-2">
           <p>
-            Patchbook keeps the tutorial document type name as <code>note</code>
-            , then adds an optional <code>title</code> plus a required{" "}
+            Dashnote keeps the tutorial document type name as <code>note</code>,
+            then adds an optional <code>title</code> plus a required{" "}
             <code>message</code>.
           </p>
           <p>

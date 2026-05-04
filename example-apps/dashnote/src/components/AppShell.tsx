@@ -124,7 +124,7 @@ export function AppShell({
       <div className="sticky top-0 z-30 flex items-center justify-between border-b border-line bg-bg/95 px-3.5 py-2.5 backdrop-blur md:hidden">
         <div className="flex items-center gap-2.5">
           <LogoAvatar />
-          <div className="text-[13px] font-semibold text-ink">Patchbook</div>
+          <div className="text-[13px] font-semibold text-ink">Dashnote</div>
         </div>
         <div className="flex items-center gap-1">
           <ThemeToggle />
@@ -167,9 +167,9 @@ export function AppShell({
         <div className="flex items-center gap-3">
           <LogoAvatar />
           <div>
-            <div className="text-[13px] font-semibold text-ink">Patchbook</div>
+            <div className="text-[13px] font-semibold text-ink">Dashnote</div>
             <div className="text-[10px] font-semibold uppercase tracking-[0.1em] text-ink-4">
-              Personal Notes Lab
+              Duly Noted
             </div>
           </div>
           <div className="ml-auto">
@@ -180,7 +180,7 @@ export function AppShell({
         {nav}
 
         <div className="rounded-2xl border border-line bg-surface px-4 py-4 text-[12px] leading-5 text-ink-3 shadow-[0_12px_40px_-28px_rgba(0,0,0,0.45)]">
-          Notes are mutable documents on Dash Platform. Patchbook shows the
+          Notes are mutable documents on Dash Platform. Dashnote shows the
           current note state plus created, updated, and revision metadata.
         </div>
 

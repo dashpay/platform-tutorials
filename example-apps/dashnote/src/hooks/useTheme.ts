@@ -2,7 +2,7 @@ import { useCallback, useSyncExternalStore } from "react";
 
 export type Theme = "light" | "dark";
 
-const STORAGE_KEY = "patchbook-lab.theme";
+const STORAGE_KEY = "dashnote.theme";
 
 export function getInitialTheme(): Theme {
   if (typeof window === "undefined") return "dark";

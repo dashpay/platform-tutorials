@@ -165,7 +165,7 @@ export function LoginModal({ open, onClose }: LoginModalProps) {
               </div>
               <p className="text-[11px] text-ink-4">
                 Register deploys a fresh note contract to testnet and switches
-                Patchbook to it immediately.
+                Dashnote to it immediately.
               </p>
             </div>
           )}
@@ -329,7 +329,7 @@ export function LoginModal({ open, onClose }: LoginModalProps) {
                   type="text"
                   value={contractInput}
                   onChange={(event) => setContractInput(event.target.value)}
-                  placeholder="Paste a Patchbook note contract ID to reuse"
+                  placeholder="Paste a Dashnote note contract ID to reuse"
                   className="rounded-md border border-line bg-bg px-3 py-2 font-mono text-[12px] text-ink outline-none transition focus:border-accent-dim"
                 />
                 <button

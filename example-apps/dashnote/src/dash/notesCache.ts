@@ -5,7 +5,7 @@
 // network changes.
 import type { NoteRecord } from "./queries";
 
-const STORAGE_PREFIX = "patchbook-lab.notes.";
+const STORAGE_PREFIX = "dashnote.notes.";
 const SCHEMA_VERSION = 1;
 
 export const BACKGROUND_REFRESH_MS = 30_000;

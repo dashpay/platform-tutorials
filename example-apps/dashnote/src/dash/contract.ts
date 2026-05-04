@@ -35,7 +35,7 @@ export const NOTE_SCHEMAS = {
   },
 } as const;
 
-const STORAGE_KEY = "patchbook-lab.contractId";
+const STORAGE_KEY = "dashnote.contractId";
 
 /**
  * Default contract ID baked into the tutorial so the notebook UI works on a
@@ -88,7 +88,7 @@ export async function registerContract({
   keyManager: DashKeyManager;
   log?: Logger;
 }): Promise<string> {
-  log?.("Registering Patchbook note contract…");
+  log?.("Registering Dashnote note contract…");
   const { identity, identityKey, signer } = await keyManager.getAuth();
   const identityNonce = await sdk.identities.nonce(identity.id.toString());
   const dataContract = new DataContract({
@@ -125,7 +125,7 @@ export async function registerContract({
   }
 
   saveContractId(contractId);
-  log?.(`Patchbook contract registered: ${contractId}`, "success");
+  log?.(`Dashnote contract registered: ${contractId}`, "success");
   return contractId;
 }
 

@@ -16,7 +16,7 @@ const screenCopy: Record<TopTab, { title: string; subtitle: string }> = {
       "Create, edit, and review note metadata with a simple two-pane notebook UI.",
   },
   "how-it-works": {
-    title: "How Patchbook works",
+    title: "How Dashnote works",
     subtitle:
       "See how the note contract, mutation helpers, and notebook UI line up with the tutorials.",
   },
