@@ -70,14 +70,16 @@ body {
   background-attachment: fixed;
 }
 
-button,
-input,
-textarea {
-  font: inherit;
-}
+@layer base {
+  button,
+  input,
+  textarea {
+    font: inherit;
+  }
 
-textarea {
-  field-sizing: content;
+  textarea {
+    field-sizing: content;
+  }
 }
 
 code {

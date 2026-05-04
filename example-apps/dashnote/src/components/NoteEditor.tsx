@@ -96,17 +96,7 @@ export function NoteEditor({
                 />
                 Loading…
               </div>
-            ) : (
-              <input
-                type="text"
-                aria-label="Title"
-                value={title}
-                onChange={(event) => onTitleChange(event.target.value)}
-                placeholder={isNew ? "New note title" : "Title"}
-                disabled={!canEdit}
-                className="-mx-2 w-[calc(100%+1rem)] rounded-md border-0 bg-transparent px-2 py-0 text-[20px] font-semibold leading-7 tracking-tight text-ink outline-none transition-colors placeholder:text-ink-4 hover:bg-surface-2 focus:bg-surface-2 disabled:cursor-not-allowed disabled:bg-transparent disabled:text-ink-4"
-              />
-            )}
+            ) : null}
           </div>
         )}
         <div className="flex-1 md:hidden" />
@@ -202,52 +192,24 @@ export function NoteEditor({
           </div>
         ) : (
           <>
-            {!isDesktop && (
+            <label className="flex min-h-0 flex-1 flex-col">
               <input
                 type="text"
                 aria-label="Title"
                 value={title}
                 onChange={(event) => onTitleChange(event.target.value)}
-                placeholder="Title"
+                placeholder={isNew ? "New note title" : "Title"}
                 disabled={!canEdit}
-                className="w-full border-0 bg-transparent px-0 py-1 text-[22px] font-semibold tracking-tight text-ink outline-none placeholder:text-ink-4 disabled:cursor-not-allowed disabled:text-ink-4"
+                className="w-full border-0 bg-transparent px-0 pt-0 pb-1 text-[28px] font-semibold leading-tight tracking-tight text-ink outline-none placeholder:text-ink-4 disabled:cursor-not-allowed disabled:text-ink-4"
               />
-            )}
-
-            <label className="flex min-h-0 flex-1 flex-col">
-              <div className="mb-2 flex items-center justify-between gap-3 max-md:hidden">
-                <div className="text-[10px] font-semibold uppercase tracking-[0.12em] text-ink-4 shrink-0">
-                  Body
-                </div>
-                <div className="flex min-w-0 items-center gap-1.5 text-[11px] text-ink-4">
-                  <svg
-                    width="12"
-                    height="12"
-                    viewBox="0 0 24 24"
-                    fill="none"
-                    stroke="currentColor"
-                    strokeWidth="2"
-                    strokeLinecap="round"
-                    strokeLinejoin="round"
-                    aria-hidden="true"
-                    className="shrink-0"
-                  >
-                    <circle cx="12" cy="12" r="10" />
-                    <path d="M12 16v-4M12 8h.01" />
-                  </svg>
-                  <span className="truncate">
-                    Notes are stored publicly on Dash Platform — not encrypted.
-                  </span>
-                </div>
-              </div>
               <textarea
                 aria-label="Body"
                 value={message}
                 onChange={(event) => onMessageChange(event.target.value)}
-                placeholder="Write a note. If you leave the title blank, the first non-empty line becomes the visible label."
+                placeholder="Start writing…"
                 disabled={!canEdit}
                 rows={16}
-                className="w-full min-h-0 flex-1 rounded-[18px] border border-line bg-bg px-4 py-3 text-[14px] leading-6 text-ink outline-none transition focus:border-accent-dim disabled:cursor-not-allowed disabled:text-ink-4 max-md:rounded-none max-md:border-0 max-md:bg-transparent max-md:px-0 max-md:py-1 max-md:text-[15px] max-md:leading-6 md:min-h-[340px] xl:min-h-0"
+                className="w-full min-h-0 flex-1 border-0 bg-transparent px-0 py-1 text-[15px] leading-6 text-ink outline-none placeholder:text-ink-4 disabled:cursor-not-allowed disabled:text-ink-4 md:min-h-[340px] xl:min-h-0"
               />
               <div
                 className={`mt-1 text-right text-[11px] md:hidden ${

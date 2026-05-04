@@ -95,7 +95,7 @@ export function NoteList({
         )}
       </div>
 
-      <div className="border-b border-line px-3 py-2.5">
+      <div className="px-3 py-2.5">
         <label className="relative block">
           <span className="sr-only">Search notes</span>
           <svg
