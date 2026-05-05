@@ -146,37 +146,22 @@
       return sdk;
     }
 
-    // List the latest notes across the whole contract. The contract's only
-    // indices are byOwnerUpdated / byOwnerCreated (both compound on $ownerId),
-    // so a true "newest across all owners" sort has no index to satisfy. We
-    // issue a bare query (no where, no orderBy) and re-sort client-side by
-    // $updatedAt desc. Same approach as listAllCards in dashmint-lite.
-    async function listRecent(sdk, limit = DEFAULT_LIMIT) {
-      const results = await sdk.documents.query({
-        dataContractId: CONTRACT_ID,
-        documentTypeName: DOC_TYPE,
-        limit,
-      });
+    // List notes from the contract. With no ownerId, issues a bare query (no
+    // where/orderBy) since the contract's only indices are byOwnerUpdated /
+    // byOwnerCreated, both compound on $ownerId — there is no index that
+    // satisfies "newest across all owners". Same approach as listAllCards in
+    // dashmint-lite. With an ownerId, uses the byOwnerUpdated index. Result
+    // is always sorted client-side newest-first by $updatedAt.
+    async function listNotes(sdk, ownerId, limit = DEFAULT_LIMIT) {
+      const trimmed = ownerId?.trim() ?? '';
+      const query = { dataContractId: CONTRACT_ID, documentTypeName: DOC_TYPE, limit };
+      if (trimmed) {
+        query.where = [['$ownerId', '==', trimmed]];
+        query.orderBy = [['$ownerId', 'asc'], ['$updatedAt', 'asc']];
+      }
+      const results = await sdk.documents.query(query);
       return normalizeNotes(results).sort(
-        (a, b) => (b.updatedAt ?? 0) - (a.updatedAt ?? 0),
-      );
-    }
-
-    // List notes owned by a single identity. The byOwnerUpdated index requires
-    // $ownerId to lead the orderBy, so we sort newest-first client-side.
-    // Mirrors listMyNotes in src/dash/queries.ts in the React app.
-    async function listByOwner(sdk, ownerId, limit = DEFAULT_LIMIT) {
-      const trimmed = ownerId.trim();
-      if (!trimmed) return [];
-      const results = await sdk.documents.query({
-        dataContractId: CONTRACT_ID,
-        documentTypeName: DOC_TYPE,
-        where: [['$ownerId', '==', trimmed]],
-        orderBy: [['$ownerId', 'asc'], ['$updatedAt', 'asc']],
-        limit,
-      });
-      return normalizeNotes(results).sort(
-        (a, b) => (b.updatedAt ?? 0) - (a.updatedAt ?? 0),
+        (a, b) => (b.updatedAtIso ?? '').localeCompare(a.updatedAtIso ?? ''),
       );
     }
 
@@ -205,41 +190,31 @@
       // Some result shapes wrap the document; .toJSON() unwraps it. Fallback to
       // treating `doc` itself as the data when toJSON isn't present.
       const data = (doc && typeof doc.toJSON === 'function') ? doc.toJSON() : doc;
-      const createdAt = toTs(data.$createdAt);
-      const updatedAt = toTs(data.$updatedAt);
-      const revision = toRev(data.$revision ?? doc?.revision);
       return {
         id: String(id ?? data.$id ?? data.id ?? ''),
         ownerId: data.$ownerId ? String(data.$ownerId) : null,
         title: typeof data.title === 'string' ? data.title : null,
         message: typeof data.message === 'string' ? data.message : '',
-        createdAt,
-        createdAtIso: createdAt ? new Date(createdAt).toISOString() : null,
-        updatedAt,
-        updatedAtIso: updatedAt ? new Date(updatedAt).toISOString() : null,
-        revision,
+        createdAtIso: toIso(data.$createdAt),
+        updatedAtIso: toIso(data.$updatedAt),
+        revision: toNum(data.$revision ?? doc?.revision, 0),
       };
     }
 
-    // $createdAt / $updatedAt arrive as number, bigint, or numeric string.
-    function toTs(value) {
+    // $createdAt / $updatedAt / $revision arrive as number, bigint, or numeric string.
+    function toNum(value, fallback) {
       if (typeof value === 'number' && Number.isFinite(value)) return value;
       if (typeof value === 'bigint') return Number(value);
       if (typeof value === 'string' && value) {
         const n = Number(value);
-        return Number.isFinite(n) ? n : null;
+        if (Number.isFinite(n)) return n;
       }
-      return null;
+      return fallback;
     }
 
-    function toRev(value) {
-      if (typeof value === 'number' && Number.isFinite(value)) return value;
-      if (typeof value === 'bigint') return Number(value);
-      if (typeof value === 'string' && value) {
-        const n = Number(value);
-        return Number.isFinite(n) ? n : 0;
-      }
-      return 0;
+    function toIso(value) {
+      const n = toNum(value, null);
+      return n != null ? new Date(n).toISOString() : null;
     }
 
     // ============================================================================
@@ -280,16 +255,10 @@
 
     // Truncate an id to head…tail for compact display while keeping the full
     // value on the element via data-id (for copy) and title (for hover).
-    function shortId(id) {
-      if (!id) return '';
-      const s = String(id);
-      return s.length > 16 ? `${s.slice(0, 6)}…${s.slice(-6)}` : s;
-    }
-
     function copyIdSpan(fullId) {
       const span = document.createElement('span');
       span.className = 'copy-id';
-      span.textContent = shortId(fullId);
+      span.textContent = fullId.length > 16 ? `${fullId.slice(0, 6)}…${fullId.slice(-6)}` : fullId;
       span.dataset.id = fullId;
       span.title = fullId;
       return span;
@@ -304,7 +273,7 @@
       }
       // One-line muted footer: timestamp · rev (if >1) · doc-id [· owner]
       const footer = makeDiv('footer');
-      const isEdited = n.updatedAt != null && n.createdAt != null && n.updatedAt !== n.createdAt;
+      const isEdited = n.updatedAtIso != null && n.createdAtIso != null && n.updatedAtIso !== n.createdAtIso;
       const tsLabel = isEdited ? 'Updated' : 'Created';
       const tsValue = fmtDate(isEdited ? n.updatedAtIso : n.createdAtIso);
       if (tsValue) footer.append(`${tsLabel} ${tsValue}`);
@@ -351,9 +320,7 @@
       const owner = ownerInput.value.trim();
       recentResultEl.replaceChildren(statusLine('Querying…'));
       try {
-        const notes = owner
-          ? await listByOwner(sdk, owner, DEFAULT_LIMIT)
-          : await listRecent(sdk, DEFAULT_LIMIT);
+        const notes = await listNotes(sdk, owner, DEFAULT_LIMIT);
         if (notes.length === 0) {
           const msg = owner
             ? `No notes found for owner "${owner}".`
