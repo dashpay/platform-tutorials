@@ -13,8 +13,10 @@ import {
   refreshContractCache,
   saveContractId,
 } from "../dash/contract";
+import { loginWithPrivateKey } from "../dash/loginWithPrivateKey";
 import { resolveDpnsName } from "../dash/resolveDpnsName";
 import type { DashKeyManager, DashSdk } from "../dash/types";
+import { detectSecretShape } from "../lib/detectSecretShape";
 import { errorMessage, type Logger } from "../lib/logger";
 import { clearCachedNotes } from "../lib/notesCache";
 import {
@@ -22,6 +24,7 @@ import {
   loadRememberedIdentity,
   saveRememberedIdentity,
 } from "../lib/rememberedIdentity";
+import { keyManagerFromKey } from "./keyManagerFromKey";
 
 // The SDK + IdentityKeyManager pull in @dashevo/evo-sdk (and its ~8MB WASM
 // bundle), so we load them lazily on first use to keep the app shell off
@@ -141,23 +144,44 @@ export function SessionProvider({ children }: { children: ReactNode }) {
   }, [log]);
 
   const login = useCallback(
-    async (mnemonic: string, options: LoginOptions = {}) => {
+    async (secret: string, options: LoginOptions = {}) => {
       const { identityIndex = 0, rememberMe = false } = options;
-      const trimmed = mnemonic.trim();
-      if (!trimmed) throw new Error("Mnemonic is required.");
+      const trimmed = secret.trim();
+      if (!trimmed) throw new Error("Secret is required.");
+      // Snapshot session state so a failed login can restore the user's
+      // prior context instead of clobbering it. Without this, mistyping a
+      // key while in browsing/authenticated mode silently logs the user out.
+      const priorStatus = status;
+      const priorKeyManager = keyManager;
+      const priorIdentityId = identityId;
+      const priorDpnsName = dpnsName;
       setError(null);
       try {
         const connected = sdk ?? (await connect());
-        const { IdentityKeyManager } = await loadSdkModule();
-        const manager = await IdentityKeyManager.create({
-          sdk: connected as never,
-          mnemonic: trimmed,
-          network: "testnet",
-          identityIndex,
-        });
-        setKeyManager(manager);
-        const resolvedId = manager.identityId ?? null;
-        setIdentityId(resolvedId);
+
+        // Detect whether the user pasted a mnemonic or a WIF private key
+        // and dispatch accordingly. identityIndex only applies to mnemonic
+        // input (DIP-13 derivation); a single WIF identifies one key
+        // directly so the index is irrelevant in that path.
+        const shape = detectSecretShape(trimmed);
+
+        let resolvedKeyManager: DashKeyManager;
+        if (shape === "mnemonic") {
+          const { IdentityKeyManager } = await loadSdkModule();
+          resolvedKeyManager = (await IdentityKeyManager.create({
+            sdk: connected as never,
+            mnemonic: trimmed,
+            network: "testnet",
+            identityIndex,
+          })) as unknown as DashKeyManager;
+        } else {
+          const auth = await loginWithPrivateKey(connected, trimmed);
+          resolvedKeyManager = keyManagerFromKey(auth.identityId, auth);
+        }
+
+        setKeyManager(resolvedKeyManager);
+        const resolvedId = resolvedKeyManager.identityId ?? null;
+        setIdentityId(resolvedId ?? null);
         setStatus("authenticated");
         log(`Identity resolved: ${resolvedId ?? "(unknown)"}`, "success");
 
@@ -184,12 +208,26 @@ export function SessionProvider({ children }: { children: ReactNode }) {
       } catch (err) {
         const message = errorMessage(err);
         setError(message);
-        setStatus("error");
+        // Restore prior session state. If a remembered identity exists,
+        // prefer landing in browsing mode so a failed key-swap still shows
+        // the remembered identity panel instead of the logged-out form.
+        const remembered = loadRememberedIdentity();
+        if (remembered) {
+          setKeyManager(null);
+          setIdentityId(remembered.id);
+          setDpnsName(remembered.name ?? null);
+          setStatus("browsing");
+        } else {
+          setKeyManager(priorKeyManager);
+          setIdentityId(priorIdentityId);
+          setDpnsName(priorDpnsName);
+          setStatus(priorStatus);
+        }
         log(`Login failed: ${message}`, "error");
         throw err;
       }
     },
-    [sdk, connect, log],
+    [sdk, status, keyManager, identityId, dpnsName, connect, log],
   );
 
   const enterReadOnly = useCallback(async () => {

@@ -296,7 +296,7 @@ describe("LoginModal", () => {
     expect(identityField.value).toBe("remembered-identity-id");
 
     const mnemonicField = screen.getByPlaceholderText(
-      /enter the mnemonic for this identity/i,
+      /enter the mnemonic phrase or private key for this identity/i,
     );
     expect(
       identityField.compareDocumentPosition(mnemonicField) &
@@ -330,7 +330,7 @@ describe("LoginModal", () => {
     render(<LoginModal open onClose={vi.fn()} />);
 
     const mnemonicField = screen.getByPlaceholderText(
-      /enter the mnemonic for this identity/i,
+      /enter the mnemonic phrase or private key for this identity/i,
     );
     const actions = screen.getByTestId("remembered-identity-actions");
     expect(
@@ -654,6 +654,49 @@ describe("LoginModal", () => {
     });
     await waitFor(() => {
       expect(setContractId).toHaveBeenCalledWith("new-contract-id");
+    });
+  });
+
+  it("shows the identity-index field for mnemonic input under Advanced settings", () => {
+    mockUseSession.mockReturnValue(makeSession());
+    render(<LoginModal open onClose={vi.fn()} />);
+
+    fireEvent.change(screen.getByPlaceholderText(/mnemonic phrase/i), {
+      target: { value: "abandon abandon abandon" },
+    });
+    fireEvent.click(screen.getByText(/advanced settings/i));
+
+    expect(screen.queryByRole("spinbutton")).not.toBeNull();
+  });
+
+  it("hides the identity-index field when the input parses as a WIF", () => {
+    mockUseSession.mockReturnValue(makeSession());
+    render(<LoginModal open onClose={vi.fn()} />);
+
+    fireEvent.change(screen.getByPlaceholderText(/mnemonic phrase/i), {
+      target: { value: "cVHcfvcWNc7DvqaPCwM6Z3DqZ" },
+    });
+    fireEvent.click(screen.getByText(/advanced settings/i));
+
+    expect(screen.queryByRole("spinbutton")).toBeNull();
+  });
+
+  it("forwards a WIF input verbatim to session.login", async () => {
+    const login = vi.fn().mockResolvedValue(undefined);
+    mockUseSession.mockReturnValue(makeSession({ login }));
+
+    render(<LoginModal open onClose={vi.fn()} />);
+
+    fireEvent.change(screen.getByPlaceholderText(/mnemonic phrase/i), {
+      target: { value: "cVHcfvcWNc7DvqaPCwM6Z3DqZ" },
+    });
+    fireEvent.click(screen.getByRole("button", { name: /^login$/i }));
+
+    await waitFor(() => {
+      expect(login).toHaveBeenCalledWith("cVHcfvcWNc7DvqaPCwM6Z3DqZ", {
+        identityIndex: 0,
+        rememberMe: true,
+      });
     });
   });
 });
