@@ -75,6 +75,9 @@ export function NotesWorkspace({
   const [conflictWarning, setConflictWarning] = useState<string | null>(null);
   const lastRevalidatedAt = useRef(0);
   const inFlightWriteRef = useRef(false);
+  // Monotonic token so a late listMyNotes() response from a previous
+  // identity/contract/session can't clobber state for the current one.
+  const reloadTokenRef = useRef(0);
   // Mirror editor state in refs so revalidation routines can compare against
   // the live values without participating in their dependency arrays (which
   // would re-fire effects on every keystroke).
@@ -158,6 +161,10 @@ export function NotesWorkspace({
       if (!hadNotes) setListLoading(true);
       setRevalidating(true);
       setError(null);
+      reloadTokenRef.current += 1;
+      const myToken = reloadTokenRef.current;
+      const startedIdentityId = identityId;
+      const startedContractId = contractId;
       try {
         const nextNotes = await listMyNotes({
           sdk,
@@ -165,6 +172,14 @@ export function NotesWorkspace({
           ownerId: identityId,
           log,
         });
+        // Bail if a newer reload started, or session keys changed under us.
+        if (
+          reloadTokenRef.current !== myToken ||
+          startedIdentityId !== identityId ||
+          startedContractId !== contractId
+        ) {
+          return;
+        }
         lastRevalidatedAt.current = Date.now();
         const changed = !notesEqualByRevision(prevNotes, nextNotes);
         if (changed) {
@@ -217,11 +232,14 @@ export function NotesWorkspace({
         });
         setEditsReady(true);
       } catch (err) {
+        if (reloadTokenRef.current !== myToken) return;
         setError(errorMessage(err));
         if (!hadNotes) setNotes([]);
       } finally {
-        setListLoading(false);
-        setRevalidating(false);
+        if (reloadTokenRef.current === myToken) {
+          setListLoading(false);
+          setRevalidating(false);
+        }
       }
     },
     [contractId, identityId, log, sdk, status, isDesktop],

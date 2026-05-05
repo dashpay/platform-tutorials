@@ -22,8 +22,19 @@ interface CachedWorkspace {
   notes: NoteRecord[];
 }
 
-function storageKey(identityId: string): string {
-  return `${STORAGE_PREFIX}${identityId}`;
+function storageKey(
+  identityId: string,
+  contractId: string,
+  network: Network,
+): string {
+  return `${STORAGE_PREFIX}${identityId}.${contractId}.${network}`;
+}
+
+// Prefix for every cache entry belonging to a single identity, regardless
+// of which contract/network it was scoped to. Used by clearCachedNotes
+// when the caller doesn't know (or care about) the contract+network.
+function identityPrefix(identityId: string): string {
+  return `${STORAGE_PREFIX}${identityId}.`;
 }
 
 export function loadCachedNotes(
@@ -32,8 +43,9 @@ export function loadCachedNotes(
   network: Network,
 ): NoteRecord[] | null {
   if (!identityId || !contractId) return null;
+  const key = storageKey(identityId, contractId, network);
   try {
-    const raw = localStorage.getItem(storageKey(identityId));
+    const raw = localStorage.getItem(key);
     if (!raw) return null;
     const parsed = JSON.parse(raw) as Partial<CachedWorkspace>;
     if (
@@ -43,13 +55,13 @@ export function loadCachedNotes(
       parsed.network !== network ||
       !Array.isArray(parsed.notes)
     ) {
-      localStorage.removeItem(storageKey(identityId));
+      localStorage.removeItem(key);
       return null;
     }
     return parsed.notes as NoteRecord[];
   } catch {
     try {
-      localStorage.removeItem(storageKey(identityId));
+      localStorage.removeItem(key);
     } catch {
       // ignore
     }
@@ -73,16 +85,28 @@ export function saveCachedNotes(
     notes,
   };
   try {
-    localStorage.setItem(storageKey(identityId), JSON.stringify(payload));
+    localStorage.setItem(
+      storageKey(identityId, contractId, network),
+      JSON.stringify(payload),
+    );
   } catch {
     // ignore — quota or disabled storage
   }
 }
 
+// Clears every cached workspace for `identityId` across all contract/network
+// combinations. Forget-identity / logout flows don't know which combos the
+// user has visited, so we sweep by prefix.
 export function clearCachedNotes(identityId: string): void {
   if (!identityId) return;
   try {
-    localStorage.removeItem(storageKey(identityId));
+    const prefix = identityPrefix(identityId);
+    const toRemove: string[] = [];
+    for (let i = 0; i < localStorage.length; i += 1) {
+      const k = localStorage.key(i);
+      if (k && k.startsWith(prefix)) toRemove.push(k);
+    }
+    toRemove.forEach((k) => localStorage.removeItem(k));
   } catch {
     // ignore
   }

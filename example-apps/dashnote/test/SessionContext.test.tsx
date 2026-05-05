@@ -9,11 +9,17 @@ const {
   mockKeyManagerCreate,
   mockRefreshContractCache,
   mockDpnsUsername,
+  mockResolveDpnsName,
+  mockToastError,
+  mockToastSuccess,
 } = vi.hoisted(() => ({
   mockCreateClient: vi.fn(),
   mockKeyManagerCreate: vi.fn(),
   mockRefreshContractCache: vi.fn(),
   mockDpnsUsername: vi.fn(),
+  mockResolveDpnsName: vi.fn(),
+  mockToastError: vi.fn(),
+  mockToastSuccess: vi.fn(),
 }));
 
 vi.mock("../../../setupDashClient-core.mjs", () => ({
@@ -21,6 +27,14 @@ vi.mock("../../../setupDashClient-core.mjs", () => ({
   IdentityKeyManager: {
     create: mockKeyManagerCreate,
   },
+}));
+
+// Default resolver delegates to the real implementation (which calls
+// sdk.dpns.username — already mocked via mockDpnsUsername). Specific tests
+// override this to make resolveDpnsName itself throw, exercising the outer
+// try/catch in SessionContext.
+vi.mock("../src/dash/resolveDpnsName", () => ({
+  resolveDpnsName: mockResolveDpnsName,
 }));
 
 vi.mock("../src/dash/contract", async () => {
@@ -35,8 +49,8 @@ vi.mock("../src/dash/contract", async () => {
 
 vi.mock("sonner", () => ({
   toast: {
-    success: vi.fn(),
-    error: vi.fn(),
+    success: mockToastSuccess,
+    error: mockToastError,
   },
 }));
 
@@ -78,6 +92,17 @@ beforeEach(() => {
   mockCreateClient.mockResolvedValue({
     documents: {},
     dpns: { username: mockDpnsUsername },
+  });
+  // Default behavior mirrors the real resolveDpnsName: forward to
+  // sdk.dpns.username, strip the .dash suffix, and return null on null/empty.
+  // Tests that need the resolver to throw outright override this.
+  mockToastError.mockReset();
+  mockToastSuccess.mockReset();
+  mockResolveDpnsName.mockReset();
+  mockResolveDpnsName.mockImplementation(async (sdk, identityId) => {
+    const result = await sdk.dpns.username(identityId);
+    if (typeof result !== "string" || result.length === 0) return null;
+    return result.endsWith(".dash") ? result.slice(0, -5) : result;
   });
 });
 
@@ -155,6 +180,57 @@ describe("SessionProvider", () => {
     expect(localStorage.getItem(REMEMBERED_KEY)).toBeNull();
     expect(ref.current.rememberedIdentityId).toBeNull();
     expect(ref.current.status).toBe("authenticated");
+  });
+
+  it("clears a previously remembered identity when login uses rememberMe: false", async () => {
+    // Pre-seed a remembered identity from an earlier session, then log in
+    // with the box unchecked. The new identity must NOT be persisted, and
+    // the previously-remembered identity must be wiped — otherwise logout
+    // falls back to the wrong identity.
+    localStorage.setItem(
+      REMEMBERED_KEY,
+      JSON.stringify({ id: "previously-remembered-id", name: "alice" }),
+    );
+    mockKeyManagerCreate.mockResolvedValue({
+      identityId: "newly-logged-in-id",
+    });
+    const ref = mountSession();
+    expect(ref.current.rememberedIdentityId).toBe("previously-remembered-id");
+
+    await act(async () => {
+      await ref.current.login("test mnemonic", { rememberMe: false });
+    });
+
+    expect(localStorage.getItem(REMEMBERED_KEY)).toBeNull();
+    expect(ref.current.rememberedIdentityId).toBeNull();
+    expect(ref.current.status).toBe("authenticated");
+    expect(ref.current.identityId).toBe("newly-logged-in-id");
+  });
+
+  it("completes login when DPNS resolution rejects (caption is optional)", async () => {
+    mockKeyManagerCreate.mockResolvedValue({
+      identityId: "logged-in-identity-id",
+    });
+    // Make resolveDpnsName itself throw, escaping its internal try/catch
+    // (e.g., a future refactor removes the swallow, or sdk.dpns is missing).
+    // The session must still reach authenticated state with dpnsName=null.
+    mockResolveDpnsName.mockRejectedValue(new Error("DPNS service down"));
+    const ref = mountSession();
+
+    await act(async () => {
+      await ref.current.login("test mnemonic", { rememberMe: true });
+    });
+
+    expect(ref.current.status).toBe("authenticated");
+    expect(ref.current.error).toBeNull();
+    expect(ref.current.dpnsName).toBeNull();
+    // Identity is still persisted — just without the optional name caption.
+    expect(JSON.parse(localStorage.getItem(REMEMBERED_KEY) ?? "null")).toEqual({
+      id: "logged-in-identity-id",
+      name: null,
+    });
+    // No error toast: a missing name is not a session failure.
+    expect(mockToastError).not.toHaveBeenCalled();
   });
 
   it("hydrates dpnsName from the remembered identity record on mount", () => {
@@ -252,7 +328,7 @@ describe("SessionProvider", () => {
 
   it("forgetIdentity also evicts the remembered identity's note cache", async () => {
     const REMEMBERED_ID = "stored-identity-id";
-    const NOTES_KEY = `dashnote.notes.${REMEMBERED_ID}`;
+    const NOTES_KEY = `dashnote.notes.${REMEMBERED_ID}.contract-1.testnet`;
     localStorage.setItem(REMEMBERED_KEY, JSON.stringify({ id: REMEMBERED_ID }));
     localStorage.setItem(
       NOTES_KEY,

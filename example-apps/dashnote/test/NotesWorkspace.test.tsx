@@ -293,7 +293,9 @@ describe("NotesWorkspace", () => {
 
     // The cache should hold the merged (fresh) revision so a cold reload
     // would paint the up-to-date content immediately.
-    const cacheRaw = localStorage.getItem("dashnote.notes.identity-1");
+    const cacheRaw = localStorage.getItem(
+      "dashnote.notes.identity-1.contract-1.testnet",
+    );
     expect(cacheRaw).toBeTruthy();
     const cached = JSON.parse(cacheRaw as string);
     expect(cached.notes).toHaveLength(1);
@@ -687,7 +689,7 @@ describe("NotesWorkspace", () => {
   describe("cache hydration & revalidation", () => {
     function seedCache(notes: unknown[], identityId = "identity-1") {
       localStorage.setItem(
-        `dashnote.notes.${identityId}`,
+        `dashnote.notes.${identityId}.contract-1.testnet`,
         JSON.stringify({
           version: 1,
           identityId,
@@ -935,6 +937,85 @@ describe("NotesWorkspace", () => {
       // And neither editor input is populated, since selectedNote is null.
       expect(screen.queryByDisplayValue("Mobile cached")).toBeNull();
       expect(screen.queryByDisplayValue("Mobile body")).toBeNull();
+    });
+
+    it("ignores a late listMyNotes response from a previous identity/contract", async () => {
+      // Scenario: workspace is mounted for identity-1 + contract-1, and
+      // listMyNotes is in flight. Before it resolves, the user switches to
+      // identity-2 + contract-2 (re-render with a new session). The first
+      // request finally resolves with notes for the *previous* session — it
+      // must be ignored, both for state (no stale notes painted) and for
+      // cache writes (no notes saved under the previous identity/contract).
+      mockUseSession.mockReturnValue(makeSession());
+
+      // First call: hold open so we can resolve it after the switch.
+      let resolveFirst: (value: unknown[]) => void = () => {};
+      // Second call: also hold open so we can assert against the *old*
+      // response specifically without the new one painting first.
+      let resolveSecond: (value: unknown[]) => void = () => {};
+      mockListMyNotes
+        .mockImplementationOnce(
+          () =>
+            new Promise((resolve) => {
+              resolveFirst = resolve;
+            }),
+        )
+        .mockImplementationOnce(
+          () =>
+            new Promise((resolve) => {
+              resolveSecond = resolve;
+            }),
+        );
+      mockGetNote.mockImplementation(() => new Promise(() => {}));
+
+      const { rerender } = render(<NotesWorkspace onOpenSettings={vi.fn()} />);
+
+      // Switch to a new identity+contract while the first listMyNotes is
+      // still pending. Re-rendering with a fresh session value triggers the
+      // hydrate effect, which kicks off a new reloadNotes (and bumps the
+      // reload token).
+      mockUseSession.mockReturnValue(
+        makeSession({ identityId: "identity-2", contractId: "contract-2" }),
+      );
+      rerender(<NotesWorkspace onOpenSettings={vi.fn()} />);
+
+      // Wait until the post-rerender hydrate effect has actually issued its
+      // own listMyNotes call. This proves the new reload token is in place
+      // before we resolve the stale request — otherwise the test could pass
+      // by microtask-timing accident rather than by the guard's logic.
+      await waitFor(() => {
+        expect(mockListMyNotes).toHaveBeenCalledTimes(2);
+      });
+
+      // Now resolve the *stale* first request with notes that belong to the
+      // previous session. The guard inside reloadNotes should drop them.
+      const staleNote = {
+        id: "stale-1",
+        ownerId: "identity-1",
+        title: "Stale title from old session",
+        message: "should not appear",
+        createdAt: 1000,
+        updatedAt: 2000,
+        revision: 1,
+      };
+      resolveFirst([staleNote]);
+
+      // Poll the invariant directly — `waitFor` retries until microtasks
+      // queued by resolveFirst() have settled. If the guard is missing,
+      // this fails (cache write happens synchronously in the await
+      // continuation); if it's working, the cache stays null.
+      await waitFor(() => {
+        expect(
+          localStorage.getItem("dashnote.notes.identity-1.contract-1.testnet"),
+        ).toBeNull();
+      });
+      expect(screen.queryByText(/stale title from old session/i)).toBeNull();
+      expect(
+        localStorage.getItem("dashnote.notes.identity-2.contract-2.testnet"),
+      ).toBeNull();
+
+      // Clean up: let the second pending promise resolve so cleanup() doesn't hang.
+      resolveSecond([]);
     });
 
     it("keeps cached notes visible when the network revalidation fails", async () => {

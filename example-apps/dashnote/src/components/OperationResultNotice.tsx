@@ -25,7 +25,7 @@ export function OperationResultNotice({
   return (
     <div
       role={tone === "error" ? "alert" : "status"}
-      aria-live="polite"
+      aria-live={tone === "error" ? "assertive" : "polite"}
       className={`rounded-lg border px-4 py-3 max-md:rounded-none max-md:border-0 max-md:bg-transparent max-md:px-4 max-md:py-3 ${toneClass[tone]}`}
     >
       <div className="text-[10px] font-semibold uppercase tracking-[0.12em]">

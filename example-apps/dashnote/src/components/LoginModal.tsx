@@ -35,6 +35,8 @@ export function LoginModal({ open, onClose }: LoginModalProps) {
     if (open) {
       setRememberMe(true);
       setUseDifferentIdentity(false);
+      setError(null);
+      setMnemonic("");
     }
   }, [open]);
 

@@ -133,7 +133,8 @@ export function AppShell({
           <button
             type="button"
             onClick={() => setDrawerOpen(!drawerOpen)}
-            aria-label="Open menu"
+            aria-label={drawerOpen ? "Close menu" : "Open menu"}
+            title={drawerOpen ? "Close menu" : "Open menu"}
             aria-expanded={drawerOpen}
             className="flex h-8 w-8 items-center justify-center rounded-md text-ink-3 hover:text-ink"
           >

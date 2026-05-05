@@ -10,7 +10,11 @@ import {
 } from "../src/lib/notesCache";
 import type { NoteRecord } from "../src/dash/queries";
 
-const KEY = (id: string) => `dashnote.notes.${id}`;
+const KEY = (
+  id: string,
+  contractId: string = CONTRACT,
+  network: string = "testnet",
+) => `dashnote.notes.${id}.${contractId}.${network}`;
 
 const ID = "identity-abc";
 const CONTRACT = "contract-1";
@@ -48,27 +52,52 @@ describe("notesCache load/save/clear", () => {
     expect(loaded).toEqual(notes);
   });
 
-  it("clears entries by identity", () => {
+  it("clears every contract+network slot for an identity in one call", () => {
+    // Seed three slots under the same identity across different contract/
+    // network combinations, plus an unrelated identity that must survive.
     saveCachedNotes(ID, CONTRACT, "testnet", [note({ id: "a", revision: 1 })]);
+    saveCachedNotes(ID, "contract-2", "testnet", [
+      note({ id: "b", revision: 1 }),
+    ]);
+    saveCachedNotes(ID, CONTRACT, "mainnet", [note({ id: "c", revision: 1 })]);
+    saveCachedNotes("other-identity", CONTRACT, "testnet", [
+      note({ id: "d", revision: 1 }),
+    ]);
+
     clearCachedNotes(ID);
-    expect(localStorage.getItem(KEY(ID))).toBeNull();
+
     expect(loadCachedNotes(ID, CONTRACT, "testnet")).toBeNull();
+    expect(loadCachedNotes(ID, "contract-2", "testnet")).toBeNull();
+    expect(loadCachedNotes(ID, CONTRACT, "mainnet")).toBeNull();
+    expect(localStorage.getItem(KEY(ID, CONTRACT))).toBeNull();
+    expect(localStorage.getItem(KEY(ID, "contract-2"))).toBeNull();
+    expect(localStorage.getItem(KEY(ID, CONTRACT, "mainnet"))).toBeNull();
+    // Unrelated identity must not be swept.
+    expect(
+      loadCachedNotes("other-identity", CONTRACT, "testnet"),
+    ).not.toBeNull();
   });
 
-  it("invalidates when the contract changes (and removes the stale entry)", () => {
+  it("isolates entries per contract (different contract gets its own slot)", () => {
     saveCachedNotes(ID, CONTRACT, "testnet", [note({ id: "a", revision: 1 })]);
+    // A different contract has its own entry; the original contract's
+    // cache stays intact.
     expect(loadCachedNotes(ID, "different-contract", "testnet")).toBeNull();
-    expect(localStorage.getItem(KEY(ID))).toBeNull();
+    expect(localStorage.getItem(KEY(ID, CONTRACT))).not.toBeNull();
   });
 
-  it("invalidates when the network changes", () => {
+  it("isolates entries per network (different network gets its own slot)", () => {
     saveCachedNotes(ID, CONTRACT, "testnet", [note({ id: "a", revision: 1 })]);
     expect(loadCachedNotes(ID, CONTRACT, "mainnet")).toBeNull();
+    // Original network's slot is untouched.
+    expect(loadCachedNotes(ID, CONTRACT, "testnet")).not.toBeNull();
   });
 
-  it("invalidates when the cached identity ID does not match the requested one", () => {
-    // Manually plant a payload under one key but with a different identityId
-    // inside — represents a corrupt or migrated cache.
+  it("rejects hand-corrupted payloads where the embedded identityId disagrees with the key", () => {
+    // Defense-in-depth: the storage key already encodes identityId, so the
+    // only way to hit this branch is by hand-planting a payload whose
+    // internal `identityId` field disagrees with the one in the key. We
+    // still want to reject it rather than serve mismatched notes.
     localStorage.setItem(
       KEY(ID),
       JSON.stringify({

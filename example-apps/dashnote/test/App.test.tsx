@@ -7,6 +7,7 @@ import {
   screen,
   waitFor,
 } from "@testing-library/react";
+import type { ReactNode } from "react";
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 
 import App from "../src/App";
@@ -37,7 +38,7 @@ vi.mock("../src/components/AppShell", () => ({
     onLoginOpen,
     onTabChange,
   }: {
-    children: React.ReactNode;
+    children: ReactNode;
     onLoginOpen: () => void;
     onTabChange: (tab: "notes" | "how-it-works") => void;
   }) => (

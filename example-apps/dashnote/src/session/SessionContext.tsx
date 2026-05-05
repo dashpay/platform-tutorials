@@ -163,15 +163,23 @@ export function SessionProvider({ children }: { children: ReactNode }) {
 
         // Resolve the DPNS name after auth so we can persist it alongside
         // the identity ID — DPNS bindings are permanent, so what we save
-        // here is correct for every future load.
+        // here is correct for every future load. A naming-service failure
+        // shouldn't kill an otherwise-valid session: caption is optional.
         let resolvedName: string | null = null;
         if (resolvedId) {
-          resolvedName = await resolveDpnsName(connected, resolvedId);
+          try {
+            resolvedName = await resolveDpnsName(connected, resolvedId);
+          } catch (dpnsErr) {
+            log(`DPNS lookup failed: ${errorMessage(dpnsErr)}`, "info");
+          }
           setDpnsName(resolvedName);
         }
         if (rememberMe && resolvedId) {
           saveRememberedIdentity({ id: resolvedId, name: resolvedName });
           setRememberedIdentityId(resolvedId);
+        } else {
+          clearRememberedIdentity();
+          setRememberedIdentityId(null);
         }
       } catch (err) {
         const message = errorMessage(err);
@@ -229,10 +237,14 @@ export function SessionProvider({ children }: { children: ReactNode }) {
       // (e.g. the identity registered a name after we last saved, or this
       // record predates the dpnsName field).
       if (!remembered.name) {
-        const fresh = await resolveDpnsName(connected, remembered.id);
-        if (fresh) {
-          setDpnsName(fresh);
-          saveRememberedIdentity({ id: remembered.id, name: fresh });
+        try {
+          const fresh = await resolveDpnsName(connected, remembered.id);
+          if (fresh) {
+            setDpnsName(fresh);
+            saveRememberedIdentity({ id: remembered.id, name: fresh });
+          }
+        } catch (dpnsErr) {
+          log(`DPNS lookup failed: ${errorMessage(dpnsErr)}`, "info");
         }
       }
     } catch (err) {
