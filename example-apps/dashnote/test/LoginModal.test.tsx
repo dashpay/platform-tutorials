@@ -12,10 +12,13 @@ import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 
 import { LoginModal } from "../src/components/LoginModal";
 
-const { mockUseSession, mockRegisterContract } = vi.hoisted(() => ({
-  mockUseSession: vi.fn(),
-  mockRegisterContract: vi.fn(),
-}));
+const { mockUseSession, mockRegisterContract, mockUseWifPreview } = vi.hoisted(
+  () => ({
+    mockUseSession: vi.fn(),
+    mockRegisterContract: vi.fn(),
+    mockUseWifPreview: vi.fn(),
+  }),
+);
 
 vi.mock("../src/session/useSession", () => ({
   useSession: mockUseSession,
@@ -23,6 +26,14 @@ vi.mock("../src/session/useSession", () => ({
 
 vi.mock("../src/dash/contract", () => ({
   registerContract: mockRegisterContract,
+}));
+
+// Mocked so LoginModal's preview-rendering branches can be exercised
+// independently of the hook's debounce/network/cache logic (which has its
+// own test file). Each test sets the return value to the state it cares
+// about. Default: idle.
+vi.mock("../src/hooks/useWifPreview", () => ({
+  useWifPreview: mockUseWifPreview,
 }));
 
 interface SessionOverrides {
@@ -64,6 +75,8 @@ function makeSession(overrides: SessionOverrides = {}) {
 beforeEach(() => {
   mockUseSession.mockReset();
   mockRegisterContract.mockReset();
+  mockUseWifPreview.mockReset();
+  mockUseWifPreview.mockReturnValue({ status: "idle" });
 });
 
 afterEach(() => {
@@ -697,6 +710,145 @@ describe("LoginModal", () => {
         identityIndex: 0,
         rememberMe: true,
       });
+    });
+  });
+
+  describe("WIF eager-preview rendering", () => {
+    // The preview region only mounts when the secret is detected as WIF
+    // shape (no whitespace). Each test types a WIF-shaped string and lets
+    // the mocked useWifPreview return the state under test.
+    const SAMPLE_WIF = "cVHcfvcWNc7DvqaPCwM6Z3DqZ";
+
+    function renderWithSecret(state: {
+      status: string;
+      identityId?: string;
+      dpnsName?: string | null;
+      purposeName?: string;
+      securityLevelName?: string;
+    }) {
+      mockUseSession.mockReturnValue(makeSession());
+      mockUseWifPreview.mockReturnValue(state);
+      const view = render(<LoginModal open onClose={vi.fn()} />);
+      fireEvent.change(view.getByPlaceholderText(/mnemonic phrase/i), {
+        target: { value: SAMPLE_WIF },
+      });
+      return view;
+    }
+
+    it("hides the preview region when state is idle", () => {
+      renderWithSecret({ status: "idle" });
+      expect(screen.queryByTestId("wif-preview")).toBeNull();
+    });
+
+    it("shows 'Checking…' while resolving", () => {
+      renderWithSecret({ status: "checking" });
+      expect(screen.getByTestId("wif-preview").textContent).toMatch(
+        /checking/i,
+      );
+    });
+
+    it("prefers DPNS name over truncated ID on the resolved state", () => {
+      renderWithSecret({
+        status: "resolved",
+        identityId: "abcdef0123456789xyz",
+        dpnsName: "alice",
+      });
+      const text = screen.getByTestId("wif-preview").textContent ?? "";
+      expect(text).toContain("alice.dash");
+      expect(text).not.toContain("abcdef01");
+    });
+
+    it("falls back to a truncated identity ID when DPNS name is null", () => {
+      renderWithSecret({
+        status: "resolved",
+        identityId: "abcdefghijklmnopqrstuvwx",
+        dpnsName: null,
+      });
+      const text = screen.getByTestId("wif-preview").textContent ?? "";
+      // First 8 chars + last 4 chars, with an ellipsis in between.
+      expect(text).toContain("abcdefgh");
+      expect(text).toContain("uvwx");
+    });
+
+    it("labels MASTER auth keys distinctly from purpose mismatches", () => {
+      renderWithSecret({
+        status: "wrong-purpose",
+        identityId: "id-master",
+        dpnsName: null,
+        purposeName: "AUTHENTICATION",
+        securityLevelName: "MASTER",
+      });
+      const text = screen.getByTestId("wif-preview").textContent ?? "";
+      expect(text).toMatch(/MASTER authentication/);
+      // Must not call it just "AUTHENTICATION key" — that would be confusing
+      // (every auth key is an "authentication" key).
+      expect(text).not.toMatch(/this is a AUTHENTICATION key/);
+    });
+
+    it("uses purposeName directly for non-AUTHENTICATION purposes", () => {
+      renderWithSecret({
+        status: "wrong-purpose",
+        identityId: "id-transfer",
+        dpnsName: null,
+        purposeName: "TRANSFER",
+        // Using a level name that does NOT appear in the static suffix
+        // ("HIGH or CRITICAL authentication key instead") so we can verify
+        // the conditional doesn't insert it for non-AUTHENTICATION purposes.
+        securityLevelName: "MEDIUM",
+      });
+      const text = screen.getByTestId("wif-preview").textContent ?? "";
+      expect(text).toMatch(/this is a TRANSFER key/);
+      // securityLevelName is only relevant for AUTHENTICATION + non-HIGH/CRITICAL;
+      // for TRANSFER it must not appear.
+      expect(text).not.toContain("MEDIUM");
+    });
+
+    it("disables the Login button when preview is wrong-purpose", () => {
+      renderWithSecret({
+        status: "wrong-purpose",
+        identityId: "id-x",
+        dpnsName: null,
+        purposeName: "TRANSFER",
+        securityLevelName: "CRITICAL",
+      });
+      const button = screen.getByRole("button", {
+        name: /^login$/i,
+      }) as HTMLButtonElement;
+      expect(button.disabled).toBe(true);
+    });
+
+    it("disables the Login button when preview is key-disabled", () => {
+      renderWithSecret({
+        status: "key-disabled",
+        identityId: "id-y",
+        dpnsName: null,
+      });
+      const button = screen.getByRole("button", {
+        name: /^login$/i,
+      }) as HTMLButtonElement;
+      expect(button.disabled).toBe(true);
+    });
+
+    it("leaves the Login button enabled while preview is checking", () => {
+      // We don't want to block submission on a debounce — the user should
+      // be able to hit Enter immediately after pasting.
+      renderWithSecret({ status: "checking" });
+      const button = screen.getByRole("button", {
+        name: /^login$/i,
+      }) as HTMLButtonElement;
+      expect(button.disabled).toBe(false);
+    });
+
+    it("does not render the preview when input looks like a mnemonic", () => {
+      mockUseSession.mockReturnValue(makeSession());
+      // Even if the hook were to return a non-idle state, the gate in
+      // LoginModal hides the preview region for mnemonic-shaped input.
+      mockUseWifPreview.mockReturnValue({ status: "checking" });
+      render(<LoginModal open onClose={vi.fn()} />);
+      fireEvent.change(screen.getByPlaceholderText(/mnemonic phrase/i), {
+        target: { value: "two words here" },
+      });
+      expect(screen.queryByTestId("wif-preview")).toBeNull();
     });
   });
 });

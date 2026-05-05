@@ -17,14 +17,20 @@ export class UnknownIdentityError extends Error {
 export class WrongKeyPurposeError extends Error {
   identityId: string;
   purposeName: string;
+  securityLevelName: string;
 
-  constructor(identityId: string, purposeName: string) {
+  constructor(
+    identityId: string,
+    purposeName: string,
+    securityLevelName: string,
+  ) {
     super(
       `Found identity ${identityId}, but this key can't sign document or contract operations. Paste a HIGH or CRITICAL authentication key instead.`,
     );
     this.name = "WrongKeyPurposeError";
     this.identityId = identityId;
     this.purposeName = purposeName;
+    this.securityLevelName = securityLevelName;
   }
 }
 
@@ -125,25 +131,42 @@ const PURPOSE_NAMES: Record<number, string> = {
   [Purpose.TRANSFER as unknown as number]: "TRANSFER",
 };
 
+const SECURITY_LEVEL_NAMES: Record<number, string> = {
+  [SecurityLevel.MASTER as unknown as number]: "MASTER",
+  [SecurityLevel.CRITICAL as unknown as number]: "CRITICAL",
+  [SecurityLevel.HIGH as unknown as number]: "HIGH",
+  [SecurityLevel.MEDIUM as unknown as number]: "MEDIUM",
+};
+
 function purposeName(purpose: number): string {
   return PURPOSE_NAMES[purpose] ?? `PURPOSE_${purpose}`;
 }
 
+function securityLevelName(level: number): string {
+  return SECURITY_LEVEL_NAMES[level] ?? `LEVEL_${level}`;
+}
+
+interface ResolvedWifIdentity {
+  identity: IdentityLike;
+  identityId: string;
+  matched: IdentityJsonKey;
+  identityKey: unknown;
+}
+
 /**
- * Look up an identity from a WIF private key and prepare a one-key signer
- * for auth-purpose operations.
+ * Resolve which identity a WIF private key belongs to and which key on that
+ * identity it matches, without building a signer. Performs every check the
+ * full login does (WIF parse, identity lookup, key-purpose / disabled / level
+ * validation) and throws the same error types — this is the shared core for
+ * both eager preview and the actual login.
  *
- * Steps:
- *   1. Parse the WIF (throws InvalidPrivateKeyError on bad input).
- *   2. Hash the public key and ask the SDK for the owning identity.
- *   3. Find which key on the identity matched, and verify it is an
- *      AUTHENTICATION key at MASTER/HIGH/CRITICAL level and not disabled.
- *   4. Build an IdentitySigner loaded with just this WIF.
+ * The signer construction is split out so the preview path can avoid touching
+ * the WASM signer until the user commits to logging in.
  */
-export async function loginWithPrivateKey(
+export async function resolveIdentityFromWif(
   sdk: DashSdk,
   wif: string,
-): Promise<DashAuth & { identityId: string }> {
+): Promise<ResolvedWifIdentity> {
   let privateKey: PrivateKey;
   try {
     privateKey = PrivateKey.fromWIF(wif);
@@ -206,18 +229,36 @@ export async function loginWithPrivateKey(
     purposeValue === (Purpose.AUTHENTICATION as unknown as number);
   const isAuthLevel = AUTH_SECURITY_LEVELS.has(securityLevelValue);
   if (!isAuthPurpose || !isAuthLevel) {
-    throw new WrongKeyPurposeError(identityId, purposeName(purposeValue));
+    throw new WrongKeyPurposeError(
+      identityId,
+      purposeName(purposeValue),
+      securityLevelName(securityLevelValue),
+    );
   }
 
   const identityKey = identity.getPublicKeyById?.(matched.id);
+  return { identity, identityId, matched, identityKey };
+}
+
+/**
+ * Look up an identity from a WIF private key and prepare a one-key signer
+ * for auth-purpose operations.
+ *
+ * Thin wrapper around `resolveIdentityFromWif` that adds signer construction.
+ */
+export async function loginWithPrivateKey(
+  sdk: DashSdk,
+  wif: string,
+): Promise<DashAuth & { identityId: string }> {
+  const resolved = await resolveIdentityFromWif(sdk, wif);
   const signer = new IdentitySigner();
   signer.addKeyFromWif(wif);
 
   return {
-    identity: identity as never,
-    identityKey: identityKey as never,
+    identity: resolved.identity as never,
+    identityKey: resolved.identityKey as never,
     signer,
-    identityId,
+    identityId: resolved.identityId,
   };
 }
 

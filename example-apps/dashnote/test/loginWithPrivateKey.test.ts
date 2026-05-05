@@ -31,6 +31,7 @@ import {
   KeyDisabledError,
   InvalidPrivateKeyError,
   loginWithPrivateKey,
+  resolveIdentityFromWif,
   UnknownIdentityError,
   WrongKeyPurposeError,
 } from "../src/dash/loginWithPrivateKey";
@@ -124,6 +125,36 @@ describe("loginWithPrivateKey", () => {
     await promise.catch((err: WrongKeyPurposeError) => {
       expect(err.identityId).toBe(identityId);
       expect(err.purposeName).toBe("TRANSFER");
+      expect(err.securityLevelName).toBe("CRITICAL");
+    });
+  });
+
+  it("labels MASTER auth keys with securityLevelName=MASTER on the error", async () => {
+    // Eager preview UI uses securityLevelName to differentiate "AUTHENTICATION
+    // + MASTER" (MASTER auth key) from "TRANSFER" / "ENCRYPTION" purposes —
+    // both throw WrongKeyPurposeError but read very differently to the user.
+    setupValidWifMocks();
+    const identity = {
+      id: "identity-master",
+      toJSON: () => ({
+        publicKeys: [
+          {
+            id: 0,
+            purpose: 0, // AUTHENTICATION
+            securityLevel: 0, // MASTER
+            data: ourPubKeyBase64,
+          },
+        ],
+      }),
+      getPublicKeyById: vi.fn(),
+    };
+    const sdk = makeSdk(vi.fn().mockResolvedValue(identity));
+
+    const promise = loginWithPrivateKey(sdk, "valid-wif-stub");
+    await expect(promise).rejects.toBeInstanceOf(WrongKeyPurposeError);
+    await promise.catch((err: WrongKeyPurposeError) => {
+      expect(err.purposeName).toBe("AUTHENTICATION");
+      expect(err.securityLevelName).toBe("MASTER");
     });
   });
 
@@ -283,6 +314,77 @@ describe("loginWithPrivateKey", () => {
 
     const result = await loginWithPrivateKey(sdk, "valid-wif-stub");
     expect(result.identityId).toBe("identity-hex");
+  });
+
+  describe("resolveIdentityFromWif", () => {
+    // The eager preview path uses resolveIdentityFromWif so it can validate
+    // the WIF + key purpose without touching the WASM signer. The contract:
+    // same checks, same errors, no signer side effects.
+    it("returns identity + matched key without invoking the signer", async () => {
+      setupValidWifMocks();
+      const identityKey = { mock: "identity-public-key" };
+      const getPublicKeyById = vi.fn().mockReturnValue(identityKey);
+      const identity = {
+        id: "identity-resolve",
+        toJSON: () => ({
+          publicKeys: [
+            {
+              id: 1,
+              purpose: 0, // AUTHENTICATION
+              securityLevel: 2, // HIGH
+              data: ourPubKeyBase64,
+            },
+          ],
+        }),
+        getPublicKeyById,
+      };
+      const sdk = makeSdk(vi.fn().mockResolvedValue(identity));
+
+      const result = await resolveIdentityFromWif(sdk, "valid-wif-stub");
+
+      expect(result.identityId).toBe("identity-resolve");
+      expect(result.identity).toBe(identity);
+      expect(result.identityKey).toBe(identityKey);
+      expect(result.matched.id).toBe(1);
+      // No signer construction in the preview path.
+      expect(mockSignerAddKeyFromWif).not.toHaveBeenCalled();
+    });
+
+    it("throws the same WrongKeyPurposeError as loginWithPrivateKey", async () => {
+      setupValidWifMocks();
+      const identity = {
+        id: "identity-resolve-wrong",
+        toJSON: () => ({
+          publicKeys: [
+            {
+              id: 1,
+              purpose: 2, // TRANSFER
+              securityLevel: 1,
+              data: ourPubKeyBase64,
+            },
+          ],
+        }),
+        getPublicKeyById: vi.fn(),
+      };
+      const sdk = makeSdk(vi.fn().mockResolvedValue(identity));
+
+      await expect(
+        resolveIdentityFromWif(sdk, "valid-wif-stub"),
+      ).rejects.toBeInstanceOf(WrongKeyPurposeError);
+      expect(mockSignerAddKeyFromWif).not.toHaveBeenCalled();
+    });
+
+    it("throws InvalidPrivateKeyError for unparseable WIFs", async () => {
+      mockFromWIF.mockImplementation(() => {
+        throw new Error("bad checksum");
+      });
+      const sdk = makeSdk(vi.fn());
+
+      await expect(
+        resolveIdentityFromWif(sdk, "not-a-key"),
+      ).rejects.toBeInstanceOf(InvalidPrivateKeyError);
+      expect(mockSignerAddKeyFromWif).not.toHaveBeenCalled();
+    });
   });
 
   describe("security level gate", () => {
