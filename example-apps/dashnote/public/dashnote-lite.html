@@ -1,0 +1,394 @@
+<!--
+  DashNote Lite — single-file, read-only personal-notes browser on Dash Platform testnet.
+
+  What it does
+  ------------
+  - Recent notes: list the latest notes from the note data contract on testnet.
+  - Filter by owner: narrow the list to a single identity's notes.
+  - Get by ID: fetch a single note document by its $id.
+
+  How it works
+  ------------
+  - The "note" data contract on testnet stores: optional title, required message,
+    plus Platform-managed $createdAt / $updatedAt / $revision. Reads need no
+    identity or signing — just connect to testnet.
+  - Writes (create, update, delete, contract registration) are NOT implemented
+    here. Use the React app at example-apps/dashnote/ or the Node tutorials in
+    2-Contracts-and-Documents/ for those.
+
+  Why single-file
+  ---------------
+  - No build step. Open it directly in a browser or host as a static file.
+  - SDK comes from esm.sh (CDN-served ES module).
+
+  Gotcha worth knowing
+  --------------------
+  - The note contract is registered with keepsHistory: false because
+    keepsHistory: true triggers dashpay/platform#3165 — sdk.contracts.fetch()
+    returns undefined and breaks sdk.documents.query. Notes are mutable, so what
+    you see is the latest revision; older bodies are not reconstructable from
+    the network.
+-->
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>DashNote Lite</title>
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+  <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600&display=swap" rel="stylesheet">
+  <style>
+    body { font-family: 'Inter', -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif; margin: 0; line-height: 1.4; background: #fcfcfd; color: #1a1f2e; }
+    .shell { display: grid; grid-template-columns: 208px 1fr; min-height: 100vh; }
+    aside { border-right: 1px solid #e5e7eb; padding: 18px 14px; display: flex; flex-direction: column; }
+    aside h1 { font-size: 13px; font-weight: 600; letter-spacing: -0.01em; margin: 0 0 1rem; }
+    section h2 { font-size: 1.25rem; font-weight: 600; letter-spacing: -0.01em; margin-top: 0; }
+    nav button { display: block; width: 100%; text-align: left; padding: 0.4rem 0.6rem; margin-bottom: 0.25rem; border: none; border-left: 3px solid transparent; background: none; cursor: pointer; font: inherit; }
+    nav button.active { border-left-color: #008de4; color: #008de4; font-weight: 500; }
+    main { padding: 1rem 1.5rem; max-width: 760px; }
+    .panel { display: none; }
+    .panel.active { display: block; }
+    .muted { color: #6b7280; }
+    section { border: 1px solid #e5e7eb; border-radius: 8px; padding: 1.25rem 1.5rem; margin: 1rem 0; background: #f4f5f9; box-shadow: 0 1px 2px rgba(0, 0, 0, 0.04); }
+    input[type="text"] { width: 100%; padding: 0.4rem; box-sizing: border-box; font-family: inherit; }
+    .controls { display: flex; flex-wrap: wrap; align-items: center; gap: 0.5rem; margin-top: 0.5rem; }
+    .controls input[type="text"] { flex: 1 1 280px; min-width: 0; }
+    button.action { padding: 0.4rem 0.9rem; cursor: pointer; }
+    button:disabled { cursor: not-allowed; opacity: 0.6; }
+    .hash { font-family: ui-monospace, SFMono-Regular, Menlo, monospace; font-size: 0.85rem; }
+    .note { border: 1px solid #e5e7eb; border-radius: 8px; margin: 0.5rem 0; background: #fff; padding: 0.6rem 0.85rem 0.7rem; }
+    .note .title { font-weight: 600; margin-bottom: 0.3rem; font-size: 0.95rem; }
+    .note .body { font-size: 0.88rem; white-space: pre-wrap; word-wrap: break-word; margin: 0.3rem 0 0.4rem; color: #1f2937; }
+    .note .footer { font-size: 0.75rem; color: #6b7280; margin-top: 0.25rem; }
+    .note .copy-id { font-family: ui-monospace, SFMono-Regular, Menlo, monospace; cursor: pointer; border-bottom: 1px dotted #9ca3af; }
+    .note .copy-id:hover { color: #1a1f2e; }
+    .note .copy-id.copied { color: #047857; border-bottom-color: #047857; }
+    .summary-line { font-size: 0.8rem; color: #6b7280; margin: 0.5rem 0 0.25rem; }
+    .status-line { padding: 0.5rem 0.75rem; border: 1px solid #e5e7eb; border-radius: 4px; background: #f5f5f5; font-size: 0.85rem; margin-top: 0.5rem; }
+    .status-line.miss { border-color: #f0c987; background: #fff8e1; }
+    .status-line.err { border-color: #e8a09a; background: #fdecea; color: #b42318; }
+    #status { font-size: 0.75rem; color: #6b7280; margin-top: auto; padding-top: 0.75rem; border-top: 1px solid #e5e7eb; }
+    @media (max-width: 600px) {
+      .shell { grid-template-columns: 1fr; }
+      aside { border-right: none; border-bottom: 1px solid #e5e7eb; }
+    }
+  </style>
+</head>
+<body>
+  <div class="shell">
+    <aside>
+      <h1>DashNote Lite</h1>
+      <div class="muted" style="font-size: 0.65rem; text-transform: uppercase; letter-spacing: 0.1em; margin-top: -0.75rem; margin-bottom: 1rem;">Testnet</div>
+      <!-- Sidebar nav: data-tab maps to panel id below -->
+      <nav>
+        <button class="nav-btn active" data-tab="recent" type="button">Recent notes</button>
+        <button class="nav-btn" data-tab="by-id" type="button">Get by ID</button>
+      </nav>
+      <div id="status">Connecting…</div>
+    </aside>
+
+    <main>
+      <!-- Each panel matches a sidebar nav button via id="panel-<tab>" -->
+      <section class="panel active" id="panel-recent">
+        <h2>Recent notes</h2>
+        <p class="muted">The latest notes on the contract. Optionally filter by an owner identity ID.</p>
+        <div class="controls">
+          <input type="text" id="owner-input" placeholder="Filter by owner identity ID (optional)" disabled>
+          <button class="action" id="recent-btn" disabled>Refresh</button>
+        </div>
+        <div id="recent-result"></div>
+      </section>
+
+      <section class="panel" id="panel-by-id">
+        <h2>Get note by ID</h2>
+        <p class="muted">Fetch a single note document by its <code>$id</code>.</p>
+        <input type="text" id="note-id-input" placeholder="Note document ID" disabled>
+        <div style="margin-top: 0.5rem;">
+          <button class="action" id="by-id-btn" disabled>Fetch</button>
+        </div>
+        <div id="by-id-result"></div>
+      </section>
+
+      <p class="muted" style="font-size: 0.8rem;">
+        Contract: <span class="hash" id="contract-id"></span>
+      </p>
+    </main>
+  </div>
+
+  <script type="module">
+    // ============================================================================
+    // DASH PLATFORM SDK
+    // ----------------------------------------------------------------------------
+    // Everything in this section is the SDK surface this demo touches: the import,
+    // the contract identifier, the connection, and the two read queries. The rest
+    // of the file (DOM wiring, render helpers) is plumbing.
+    // ============================================================================
+
+    // Pull the Evo SDK from esm.sh — no bundler needed. esm.sh resolves the npm
+    // package and serves it as a browser-native ES module. Pinned to the same
+    // version the React app at ../package.json depends on so both UIs behave
+    // identically against the same testnet contract.
+    import { EvoSDK } from 'https://esm.sh/@dashevo/evo-sdk@3.1.0-dev.1';
+
+    // The "note" data contract is already published on testnet by the React app.
+    // Anyone querying with the same contract id hits the same documents.
+    const CONTRACT_ID = '8d6heK6CoskLBi6Rs7cChRG9RuckcZqZst28BdviBe8y';
+    const DOC_TYPE = 'note';
+    const DEFAULT_LIMIT = 100;
+
+    // Connect to testnet. testnetTrusted() uses the SDK's bundled list of trusted
+    // nodes — no node URL or config needed. connect() does the gRPC handshake
+    // + initial sync. No identity or signing is required for read-only queries.
+    async function connectSdk() {
+      const sdk = EvoSDK.testnetTrusted();
+      await sdk.connect();
+      return sdk;
+    }
+
+    // List notes from the contract. With no ownerId, issues a bare query (no
+    // where/orderBy) since the contract's only indices are byOwnerUpdated /
+    // byOwnerCreated, both compound on $ownerId — there is no index that
+    // satisfies "newest across all owners". Same approach as listAllCards in
+    // dashmint-lite. With an ownerId, uses the byOwnerUpdated index. Result
+    // is always sorted client-side newest-first by $updatedAt.
+    async function listNotes(sdk, ownerId, limit = DEFAULT_LIMIT) {
+      const trimmed = ownerId?.trim() ?? '';
+      const query = { dataContractId: CONTRACT_ID, documentTypeName: DOC_TYPE, limit };
+      if (trimmed) {
+        query.where = [['$ownerId', '==', trimmed]];
+        query.orderBy = [['$ownerId', 'asc'], ['$updatedAt', 'asc']];
+      }
+      const results = await sdk.documents.query(query);
+      return normalizeNotes(results).sort(
+        (a, b) => (b.updatedAtIso ?? '').localeCompare(a.updatedAtIso ?? ''),
+      );
+    }
+
+    // Fetch a single note by document id.
+    async function getById(sdk, noteId) {
+      const trimmed = noteId.trim();
+      if (!trimmed) return null;
+      const result = await sdk.documents.get(CONTRACT_ID, DOC_TYPE, trimmed);
+      if (!result) return null;
+      return toNote(trimmed, result);
+    }
+
+    // sdk.documents.query() can return an array, a Map, or a plain object
+    // depending on SDK version. Flatten all three shapes to NoteRecord[].
+    function normalizeNotes(results) {
+      if (!results) return [];
+      if (Array.isArray(results)) return results.filter(Boolean).map((d) => toNote(null, d));
+      const entries = results instanceof Map ? Object.fromEntries(results) : results;
+      return Object.entries(entries)
+        .filter(([, d]) => Boolean(d))
+        .map(([id, d]) => toNote(id, d));
+    }
+
+    // Map a raw document into a shape the UI can render.
+    function toNote(id, doc) {
+      // Some result shapes wrap the document; .toJSON() unwraps it. Fallback to
+      // treating `doc` itself as the data when toJSON isn't present.
+      const data = (doc && typeof doc.toJSON === 'function') ? doc.toJSON() : doc;
+      return {
+        id: String(id ?? data.$id ?? data.id ?? ''),
+        ownerId: data.$ownerId ? String(data.$ownerId) : null,
+        title: typeof data.title === 'string' ? data.title : null,
+        message: typeof data.message === 'string' ? data.message : '',
+        createdAtIso: toIso(data.$createdAt),
+        updatedAtIso: toIso(data.$updatedAt),
+        revision: toNum(data.$revision ?? doc?.revision, 0),
+      };
+    }
+
+    // $createdAt / $updatedAt / $revision arrive as number, bigint, or numeric string.
+    function toNum(value, fallback) {
+      if (typeof value === 'number' && Number.isFinite(value)) return value;
+      if (typeof value === 'bigint') return Number(value);
+      if (typeof value === 'string' && value) {
+        const n = Number(value);
+        if (Number.isFinite(n)) return n;
+      }
+      return fallback;
+    }
+
+    function toIso(value) {
+      const n = toNum(value, null);
+      return n != null ? new Date(n).toISOString() : null;
+    }
+
+    // ============================================================================
+    // UI: DOM refs, sidebar tabs, event handlers
+    // ============================================================================
+
+    const $ = (id) => document.getElementById(id);
+    $('contract-id').textContent = CONTRACT_ID;
+
+    const statusEl = $('status');
+    const ownerInput = $('owner-input');
+    const recentBtn = $('recent-btn');
+    const recentResultEl = $('recent-result');
+    const noteIdInput = $('note-id-input');
+    const byIdBtn = $('by-id-btn');
+    const byIdResultEl = $('by-id-result');
+
+    function makeDiv(className, text) {
+      const div = document.createElement('div');
+      div.className = className;
+      if (text != null) div.textContent = text;
+      return div;
+    }
+    const statusLine = (text, kind) => makeDiv('status-line' + (kind ? ' ' + kind : ''), text);
+    const summaryLine = (text) => makeDiv('summary-line', text);
+
+    // Fallback title: first non-empty line of the message, trimmed and truncated.
+    function fallbackTitle(message) {
+      if (!message) return '(untitled)';
+      const line = message.split(/\r?\n/).map((s) => s.trim()).find((s) => s.length > 0);
+      if (!line) return '(untitled)';
+      return line.length > 80 ? line.slice(0, 77) + '…' : line;
+    }
+
+    function fmtDate(iso) {
+      return iso ? iso.slice(0, 19).replace('T', ' ') + 'Z' : null;
+    }
+
+    // Truncate an id to head…tail for compact display while keeping the full
+    // value on the element via data-id (for copy) and title (for hover).
+    function copyIdSpan(fullId) {
+      const span = document.createElement('span');
+      span.className = 'copy-id';
+      span.textContent = fullId.length > 16 ? `${fullId.slice(0, 6)}…${fullId.slice(-6)}` : fullId;
+      span.dataset.id = fullId;
+      span.title = fullId;
+      return span;
+    }
+
+    function noteCard(n, { includeOwner = true } = {}) {
+      const card = makeDiv('note');
+      const titleText = (n.title && n.title.trim()) || fallbackTitle(n.message);
+      card.appendChild(makeDiv('title', titleText));
+      if (n.message) {
+        card.appendChild(makeDiv('body', n.message));
+      }
+      // One-line muted footer: timestamp · rev (if >1) · doc-id [· owner]
+      const footer = makeDiv('footer');
+      const isEdited = n.updatedAtIso != null && n.createdAtIso != null && n.updatedAtIso !== n.createdAtIso;
+      const tsLabel = isEdited ? 'Updated' : 'Created';
+      const tsValue = fmtDate(isEdited ? n.updatedAtIso : n.createdAtIso);
+      if (tsValue) footer.append(`${tsLabel} ${tsValue}`);
+      if (n.revision > 1) {
+        if (footer.childNodes.length) footer.append(' · ');
+        footer.append(`rev ${n.revision}`);
+      }
+      if (n.id) {
+        if (footer.childNodes.length) footer.append(' · Note ID: ');
+        footer.append(copyIdSpan(n.id));
+      }
+      if (includeOwner && n.ownerId) {
+        if (footer.childNodes.length) footer.append(' · Owner: ');
+        footer.append(copyIdSpan(n.ownerId));
+      }
+      card.appendChild(footer);
+      return card;
+    }
+
+    async function copyId(span) {
+      const id = span.dataset.id;
+      if (!id || !navigator.clipboard) return;
+      try { await navigator.clipboard.writeText(id); } catch { return; }
+      const original = span.textContent;
+      span.textContent = 'Copied!';
+      span.classList.add('copied');
+      setTimeout(() => { span.textContent = original; span.classList.remove('copied'); }, 1000);
+    }
+
+    // Sidebar tab switching: toggle .active on the clicked nav button and the
+    // matching panel (panel id is "panel-<data-tab>").
+    document.querySelectorAll('.nav-btn').forEach((btn) => {
+      btn.addEventListener('click', () => {
+        const tab = btn.dataset.tab;
+        document.querySelectorAll('.nav-btn').forEach((b) => b.classList.toggle('active', b === btn));
+        document.querySelectorAll('.panel').forEach((p) => p.classList.toggle('active', p.id === `panel-${tab}`));
+      });
+    });
+
+    let sdk;
+
+    async function loadRecent() {
+      recentBtn.disabled = true;
+      const owner = ownerInput.value.trim();
+      recentResultEl.replaceChildren(statusLine('Querying…'));
+      try {
+        const notes = await listNotes(sdk, owner, DEFAULT_LIMIT);
+        if (notes.length === 0) {
+          const msg = owner
+            ? `No notes found for owner "${owner}".`
+            : 'No notes found in this contract.';
+          recentResultEl.replaceChildren(statusLine(msg, 'miss'));
+        } else {
+          const label = owner ? 'note(s) for owner' : 'recent note(s)';
+          recentResultEl.replaceChildren(
+            summaryLine(`${notes.length} ${label} (newest first)`),
+            ...notes.map((n) => noteCard(n, { includeOwner: !owner })),
+          );
+        }
+      } catch (err) {
+        recentResultEl.replaceChildren(statusLine('Error: ' + (err?.message ?? err), 'err'));
+      } finally {
+        recentBtn.disabled = false;
+      }
+    }
+
+    async function runById() {
+      const value = noteIdInput.value;
+      if (!value.trim()) {
+        byIdResultEl.replaceChildren(statusLine('Enter a note document ID.', 'miss'));
+        return;
+      }
+      byIdBtn.disabled = true;
+      byIdResultEl.replaceChildren(statusLine('Querying…'));
+      try {
+        const note = await getById(sdk, value);
+        if (note) {
+          byIdResultEl.replaceChildren(noteCard(note));
+        } else {
+          byIdResultEl.replaceChildren(statusLine('No note found for that ID.', 'miss'));
+        }
+      } catch (err) {
+        byIdResultEl.replaceChildren(statusLine('Error: ' + (err?.message ?? err), 'err'));
+      } finally {
+        byIdBtn.disabled = false;
+      }
+    }
+
+    // Connect on page load, enable the inputs, then auto-run the recent query.
+    try {
+      sdk = await connectSdk();
+      statusEl.textContent = 'Connected to testnet';
+      ownerInput.disabled = false;
+      recentBtn.disabled = false;
+      noteIdInput.disabled = false;
+      byIdBtn.disabled = false;
+      await loadRecent();
+    } catch (err) {
+      statusEl.textContent = 'Connection failed';
+      recentResultEl.replaceChildren(statusLine('Connection failed: ' + (err?.message ?? err), 'err'));
+      throw err;
+    }
+
+    // Delegated copy: any .copy-id span inside either result panel triggers copy.
+    for (const el of [recentResultEl, byIdResultEl]) {
+      el.addEventListener('click', (e) => {
+        const span = e.target.closest('.copy-id');
+        if (span) copyId(span);
+      });
+    }
+
+    recentBtn.addEventListener('click', loadRecent);
+    ownerInput.addEventListener('keydown', (e) => { if (e.key === 'Enter') loadRecent(); });
+    byIdBtn.addEventListener('click', runById);
+    noteIdInput.addEventListener('keydown', (e) => { if (e.key === 'Enter') runById(); });
+  </script>
+</body>
+</html>
