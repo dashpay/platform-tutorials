@@ -309,7 +309,7 @@ describe("LoginModal", () => {
     expect(identityField.value).toBe("remembered-identity-id");
 
     const mnemonicField = screen.getByPlaceholderText(
-      /enter the mnemonic phrase or private key for this identity/i,
+      /mnemonic phrase or wif private key/i,
     );
     expect(
       identityField.compareDocumentPosition(mnemonicField) &
@@ -343,7 +343,7 @@ describe("LoginModal", () => {
     render(<LoginModal open onClose={vi.fn()} />);
 
     const mnemonicField = screen.getByPlaceholderText(
-      /enter the mnemonic phrase or private key for this identity/i,
+      /mnemonic phrase or wif private key/i,
     );
     const actions = screen.getByTestId("remembered-identity-actions");
     expect(

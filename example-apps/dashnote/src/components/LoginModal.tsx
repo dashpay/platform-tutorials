@@ -253,12 +253,13 @@ export function LoginModal({ open, onClose }: LoginModalProps) {
 
           <label className="flex flex-col gap-1">
             <span className="text-[10px] font-semibold uppercase tracking-[0.12em] text-ink-4">
-              {showRememberedPanel ? "Secret" : "Identity Secret"}
+              {showRememberedPanel
+                ? "Mnemonic or Private Key"
+                : "Identity Mnemonic or Private Key"}
             </span>
             {!showRememberedPanel && (
               <p className="text-[11px] text-ink-3">
-                Paste a recovery phrase or a WIF private key. Need an identity?
-                Use the{" "}
+                Need an identity? Use the{" "}
                 <a
                   href="https://bridge.thepasta.org/"
                   target="_blank"
@@ -276,11 +277,7 @@ export function LoginModal({ open, onClose }: LoginModalProps) {
               required
               value={secret}
               onChange={(event) => setSecret(event.target.value)}
-              placeholder={
-                showRememberedPanel
-                  ? "Enter the mnemonic phrase or private key for this identity"
-                  : "mnemonic phrase or private key (WIF)"
-              }
+              placeholder="Mnemonic phrase or WIF private key (high/critical)"
               className="rounded-md border border-line bg-bg px-3 py-2 text-[13px] text-ink outline-none transition focus:border-accent-dim"
             />
             {isWifInput && wifPreview.status !== "idle" && (
@@ -426,9 +423,8 @@ export function LoginModal({ open, onClose }: LoginModalProps) {
           )}
 
           <p className="text-[11px] text-ink-4">
-            Your secret stays in browser memory and is never sent or saved. Only
-            the public identity ID is persisted, and only when “Remember me” is
-            checked.
+            Your secret never leaves this browser. Only the public identity ID
+            is stored when this identity is remembered on this device.
           </p>
 
           <div className="flex gap-2 pt-1">
