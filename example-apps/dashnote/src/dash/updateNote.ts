@@ -7,22 +7,8 @@
  *   sdk.documents.replace({ document, identityKey, signer })
  */
 import type { Logger } from "../lib/logger";
+import { loadSdkModule } from "./sdkModule";
 import type { DashKeyManager, DashSdk } from "./types";
-
-// Defer the @dashevo/evo-sdk value import so it doesn't anchor the SDK chunk
-// to the entry graph via NotesWorkspace's static import of this file. Cached
-// after first call; cleared on failure so a transient chunk fetch can retry.
-type SdkModule = typeof import("@dashevo/evo-sdk");
-let sdkModulePromise: Promise<SdkModule> | null = null;
-function loadSdkModule(): Promise<SdkModule> {
-  if (!sdkModulePromise) {
-    sdkModulePromise = import("@dashevo/evo-sdk").catch((err) => {
-      sdkModulePromise = null;
-      throw err;
-    });
-  }
-  return sdkModulePromise;
-}
 
 export interface UpdateNoteParams {
   sdk: DashSdk;

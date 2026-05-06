@@ -6,24 +6,8 @@
  *   sdk.identities.nonce(identityId)
  */
 import type { Logger } from "../lib/logger";
+import { loadSdkModule } from "./sdkModule";
 import type { DashKeyManager, DashSdk } from "./types";
-
-// Defer the @dashevo/evo-sdk value import so it doesn't anchor the SDK chunk
-// to the entry graph via SessionContext + LoginModal's static imports of this
-// file. Synchronous exports below (NOTE_SCHEMAS, loadStoredContractId, etc.)
-// don't touch the SDK and stay sync because SessionContext calls them during
-// initial render. Cached after first call; cleared on failure for retry.
-type SdkModule = typeof import("@dashevo/evo-sdk");
-let sdkModulePromise: Promise<SdkModule> | null = null;
-function loadSdkModule(): Promise<SdkModule> {
-  if (!sdkModulePromise) {
-    sdkModulePromise = import("@dashevo/evo-sdk").catch((err) => {
-      sdkModulePromise = null;
-      throw err;
-    });
-  }
-  return sdkModulePromise;
-}
 
 export const NOTE_SCHEMAS = {
   note: {
