@@ -596,7 +596,7 @@ describe("SessionProvider", () => {
     );
   });
 
-  it("failed switch-identity from authenticated falls back to browsing the remembered identity", async () => {
+  it("failed switch-identity from authenticated keeps the active session", async () => {
     // First, authenticate so a real keyManager + remembered identity exist.
     mockKeyManagerCreate.mockResolvedValueOnce({
       identityId: "logged-in-id",
@@ -606,10 +606,12 @@ describe("SessionProvider", () => {
       await ref.current.login("test mnemonic", { rememberMe: true });
     });
     expect(ref.current.status).toBe("authenticated");
-    expect(ref.current.keyManager).not.toBeNull();
+    const priorKeyManager = ref.current.keyManager;
+    expect(priorKeyManager).not.toBeNull();
 
     // Now attempt to switch with a wrong-purpose WIF. The active session
-    // should drop, but a remembered identity exists, so we land in browsing.
+    // must NOT drop — typing a bad secret while signed in should never log
+    // the user out, even if a remembered identity is present in storage.
     mockLoginWithPrivateKey.mockRejectedValueOnce(
       new Error("Found identity Y, but this is a transfer key."),
     );
@@ -617,9 +619,9 @@ describe("SessionProvider", () => {
       await ref.current.login("cVHcfvcWNc7DvqaPCwM6Z3").catch(() => undefined);
     });
 
-    expect(ref.current.status).toBe("browsing");
+    expect(ref.current.status).toBe("authenticated");
     expect(ref.current.identityId).toBe("logged-in-id");
-    expect(ref.current.keyManager).toBeNull();
+    expect(ref.current.keyManager).toBe(priorKeyManager);
     expect(ref.current.error).toMatch(/transfer key/);
     expect(mockToastError).toHaveBeenCalledWith(
       expect.stringContaining("transfer key"),

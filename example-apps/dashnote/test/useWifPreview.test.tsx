@@ -58,7 +58,6 @@ vi.mock("../src/dash/resolveDpnsName", () => ({
 }));
 
 import {
-  _resetWifPreviewCacheForTests,
   useWifPreview,
   type WifPreviewState,
 } from "../src/hooks/useWifPreview";
@@ -94,7 +93,6 @@ beforeEach(() => {
   vi.useFakeTimers();
   mockResolveIdentityFromWif.mockReset();
   mockResolveDpnsName.mockReset();
-  _resetWifPreviewCacheForTests();
 });
 
 afterEach(() => {
@@ -263,62 +261,31 @@ describe("useWifPreview", () => {
     expect(states.at(-1)?.status).toBe("resolved");
   });
 
-  it("caches stable outcomes — re-rendering the same WIF skips the network", async () => {
+  it("does not retain results across remount — secret state is component-local", async () => {
+    // The hook intentionally does not cache resolved outcomes across mounts;
+    // every fresh mount that re-passes the WIF performs the network call
+    // again. This bounds raw-WIF retention to the form's lifetime.
     mockResolveIdentityFromWif.mockResolvedValue({
-      identityId: "id-cache",
+      identityId: "id-fresh",
       identity: {},
       matched: { id: 1, purpose: 0, securityLevel: 2 },
       identityKey: {},
     });
     mockResolveDpnsName.mockResolvedValue(null);
 
-    const states: WifPreviewState[] = [];
     const { unmount } = render(
-      <Harness secret={VALID_WIF} onState={(s) => states.push(s)} />,
+      <Harness secret={VALID_WIF} onState={() => {}} />,
     );
     await flushDebounce();
     expect(mockResolveIdentityFromWif).toHaveBeenCalledTimes(1);
     unmount();
 
-    // Second mount with the same WIF must not re-query — the cache returns
-    // the prior outcome synchronously.
-    const states2: WifPreviewState[] = [];
-    render(<Harness secret={VALID_WIF} onState={(s) => states2.push(s)} />);
-    expect(mockResolveIdentityFromWif).toHaveBeenCalledTimes(1);
-    expect(states2.at(-1)?.status).toBe("resolved");
-  });
-
-  it("does NOT cache idle outcomes — silent failures retry on next render", async () => {
-    mockResolveIdentityFromWif.mockRejectedValueOnce(
-      new UnknownIdentityError(),
-    );
-
-    const states: WifPreviewState[] = [];
-    const { unmount } = render(
-      <Harness secret={VALID_WIF} onState={(s) => states.push(s)} />,
-    );
-    await flushDebounce();
-    expect(states.at(-1)?.status).toBe("idle");
-    unmount();
-
-    // Now the WIF resolves successfully — the previous idle result must not
-    // have been cached, so this run should hit the network again.
-    mockResolveIdentityFromWif.mockResolvedValueOnce({
-      identityId: "id-retry",
-      identity: {},
-      matched: { id: 1, purpose: 0, securityLevel: 2 },
-      identityKey: {},
-    });
-    mockResolveDpnsName.mockResolvedValue(null);
-
-    const states2: WifPreviewState[] = [];
-    render(<Harness secret={VALID_WIF} onState={(s) => states2.push(s)} />);
+    render(<Harness secret={VALID_WIF} onState={() => {}} />);
     await flushDebounce();
     expect(mockResolveIdentityFromWif).toHaveBeenCalledTimes(2);
-    expect(states2.at(-1)?.status).toBe("resolved");
   });
 
-  it("trims whitespace before gating + caching (paste with surrounding spaces)", async () => {
+  it("trims whitespace before gating; passes the trimmed WIF to the resolver", async () => {
     mockResolveIdentityFromWif.mockResolvedValue({
       identityId: "id-trim",
       identity: {},
@@ -328,18 +295,13 @@ describe("useWifPreview", () => {
     mockResolveDpnsName.mockResolvedValue(null);
 
     const states: WifPreviewState[] = [];
-    const { unmount } = render(
+    render(
       <Harness secret={`  ${VALID_WIF}\n`} onState={(s) => states.push(s)} />,
     );
     await flushDebounce();
     expect(mockResolveIdentityFromWif).toHaveBeenCalledTimes(1);
     // Resolver was called with the trimmed WIF, not the padded input.
     expect(mockResolveIdentityFromWif).toHaveBeenCalledWith(sdk, VALID_WIF);
-    unmount();
-
-    // Re-rendering with the bare WIF must hit the cache (same key after trim).
-    render(<Harness secret={VALID_WIF} onState={(s) => states.push(s)} />);
-    expect(mockResolveIdentityFromWif).toHaveBeenCalledTimes(1);
     expect(states.at(-1)?.status).toBe("resolved");
   });
 

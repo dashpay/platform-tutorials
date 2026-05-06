@@ -213,11 +213,19 @@ export function SessionProvider({ children }: { children: ReactNode }) {
       } catch (err) {
         const message = errorMessage(err);
         setError(message);
-        // Restore prior session state. If a remembered identity exists,
-        // prefer landing in browsing mode so a failed key-swap still shows
-        // the remembered identity panel instead of the logged-out form.
+        // Restore prior session state. If the user was already authenticated
+        // (e.g. they opened Settings and pasted a bad secret), keep them
+        // logged in — a typo shouldn't demote an active session. Otherwise,
+        // prefer landing in browsing mode if a remembered identity exists,
+        // so a failed key-swap still shows the remembered identity panel
+        // instead of the logged-out form.
         const remembered = loadRememberedIdentity();
-        if (remembered) {
+        if (priorStatus === "authenticated" && priorKeyManager) {
+          setKeyManager(priorKeyManager);
+          setIdentityId(priorIdentityId);
+          setDpnsName(priorDpnsName);
+          setStatus(priorStatus);
+        } else if (remembered) {
           setKeyManager(null);
           setIdentityId(remembered.id);
           setDpnsName(remembered.name ?? null);

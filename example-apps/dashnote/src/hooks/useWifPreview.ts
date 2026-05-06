@@ -39,22 +39,6 @@ const IDLE: WifPreviewState = { status: "idle" };
 const CHECKING: WifPreviewState = { status: "checking" };
 const DEBOUNCE_MS = 400;
 
-interface Resolved {
-  wif: string;
-  state: WifPreviewState;
-}
-
-// Module-scoped cache: a WIF that resolved to a given identity (or to an
-// actionable error) yields the same answer on every future paste, so survive
-// modal close/reopen. Idle outcomes (UnknownIdentity / network blips) are
-// not cached — see the resolver below.
-const previewCache = new Map<string, WifPreviewState>();
-
-/** Test-only: reset the module-scoped preview cache between tests. */
-export function _resetWifPreviewCacheForTests(): void {
-  previewCache.clear();
-}
-
 /**
  * Eagerly resolves a pasted WIF to its owning identity (and DPNS name) so
  * the user gets pre-submit confirmation and "wrong key type" feedback before
@@ -66,8 +50,11 @@ export function _resetWifPreviewCacheForTests(): void {
  * committed to login yet, so we don't surface UnknownIdentityError or network
  * failures as UI errors. The actual login path will surface them on submit.
  *
- * Results are cached per WIF for the lifetime of the hook so re-typing the
- * same key doesn't re-query.
+ * Resolution state is component-local: changing the WIF cancels any in-flight
+ * resolver and clears the prior result. We do NOT cache resolved outcomes
+ * across renders — keeping a Map of pasted secrets keyed by raw WIF would
+ * extend secret retention beyond the form lifecycle for no real UX win
+ * (re-pasting the exact same WIF is rare).
  */
 export function useWifPreview(
   sdk: DashSdk | null,
@@ -76,24 +63,27 @@ export function useWifPreview(
 ): WifPreviewState {
   const trimmed = secret.trim();
   const gateOk = enabled && Boolean(sdk) && looksLikeWif(trimmed);
-  const cached = gateOk ? previewCache.get(trimmed) : undefined;
 
-  // The resolver tags its result with the WIF that produced it; the render
-  // path ignores stale results from a previous WIF. This avoids any setState
-  // in the effect body or cleanup.
-  const [resolved, setResolved] = useState<Resolved | null>(null);
+  // The resolver tags its result with the WIF that produced it; if `trimmed`
+  // changes between scheduling and rendering, we ignore the stale result at
+  // the bottom of this hook. This avoids any setState in the effect body.
+  // Note: `wif` here is component-local state — it lives only as long as the
+  // input does, matching the lifetime of `secret` in the parent component.
+  const [resolved, setResolved] = useState<{
+    wif: string;
+    state: WifPreviewState;
+  } | null>(null);
 
   useEffect(() => {
-    if (!gateOk || cached) {
-      return;
-    }
+    if (!gateOk) return;
     let cancelled = false;
     const timer = window.setTimeout(async () => {
       if (cancelled) return;
-      const mod = await loadLoginModule();
-      if (cancelled) return;
-      let next: WifPreviewState;
+      let next: WifPreviewState = IDLE;
+      let mod: LoginModule | null = null;
       try {
+        mod = await loadLoginModule();
+        if (cancelled) return;
         const result = await mod.resolveIdentityFromWif(sdk!, trimmed);
         let dpns: string | null = null;
         try {
@@ -107,9 +97,13 @@ export function useWifPreview(
           dpnsName: dpns,
         };
       } catch (err) {
+        // mod is null only if loadLoginModule itself rejected (chunk fetch
+        // failure / offline). Treat that as an idle outcome — same silent
+        // policy we apply to UnknownIdentity and network blips.
         if (
-          err instanceof mod.WrongKeyPurposeError ||
-          err instanceof mod.KeyDisabledError
+          mod &&
+          (err instanceof mod.WrongKeyPurposeError ||
+            err instanceof mod.KeyDisabledError)
         ) {
           // We have an identity ID — resolve its DPNS name so the warning
           // can show the user-friendly handle instead of a truncated ID.
@@ -134,18 +128,13 @@ export function useWifPreview(
               dpnsName: dpns,
             };
           }
-        } else if (err instanceof mod.UnknownIdentityError) {
-          next = IDLE;
         } else {
+          // UnknownIdentityError, network failure, import failure, or any
+          // other unexpected error — stay silent until the user submits.
           next = IDLE;
         }
       }
       if (cancelled) return;
-      // Only cache stable outcomes — silent "idle" results from transient
-      // network errors should be retryable on the next keystroke.
-      if (next.status !== "idle") {
-        previewCache.set(trimmed, next);
-      }
       setResolved({ wif: trimmed, state: next });
     }, DEBOUNCE_MS);
 
@@ -153,10 +142,9 @@ export function useWifPreview(
       cancelled = true;
       window.clearTimeout(timer);
     };
-  }, [sdk, trimmed, gateOk, cached]);
+  }, [sdk, trimmed, gateOk]);
 
   if (!gateOk) return IDLE;
-  if (cached) return cached;
   if (resolved && resolved.wif === trimmed) return resolved.state;
   return CHECKING;
 }
