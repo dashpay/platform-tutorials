@@ -11,6 +11,7 @@ import { OperationResultNotice } from "./components/OperationResultNotice";
 import { VerifyPanel } from "./components/VerifyPanel";
 import type { TopTab } from "./components/Tabs";
 import { useSession } from "./session/useSession";
+import { useTheme } from "./hooks/useTheme";
 
 const screenCopy: Record<TopTab, { title: string; subtitle: string }> = {
   anchor: {
@@ -35,6 +36,7 @@ const screenCopy: Record<TopTab, { title: string; subtitle: string }> = {
 
 function App() {
   const session = useSession();
+  const { theme } = useTheme();
   const { status, enterReadOnly } = session;
   const [tab, setTab] = useState<TopTab>("anchor");
   const [loginOpen, setLoginOpen] = useState(false);
@@ -57,7 +59,7 @@ function App() {
 
   return (
     <>
-      <Toaster position="bottom-center" />
+      <Toaster position="bottom-center" theme={theme} richColors />
       <AppShell
         tab={tab}
         onTabChange={setTab}
