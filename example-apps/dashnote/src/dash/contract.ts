@@ -5,10 +5,25 @@
  *   sdk.contracts.publish({ dataContract, identityKey, signer })
  *   sdk.identities.nonce(identityId)
  */
-import { DataContract, Identifier } from "@dashevo/evo-sdk";
-
 import type { Logger } from "../lib/logger";
 import type { DashKeyManager, DashSdk } from "./types";
+
+// Defer the @dashevo/evo-sdk value import so it doesn't anchor the SDK chunk
+// to the entry graph via SessionContext + LoginModal's static imports of this
+// file. Synchronous exports below (NOTE_SCHEMAS, loadStoredContractId, etc.)
+// don't touch the SDK and stay sync because SessionContext calls them during
+// initial render. Cached after first call; cleared on failure for retry.
+type SdkModule = typeof import("@dashevo/evo-sdk");
+let sdkModulePromise: Promise<SdkModule> | null = null;
+function loadSdkModule(): Promise<SdkModule> {
+  if (!sdkModulePromise) {
+    sdkModulePromise = import("@dashevo/evo-sdk").catch((err) => {
+      sdkModulePromise = null;
+      throw err;
+    });
+  }
+  return sdkModulePromise;
+}
 
 export const NOTE_SCHEMAS = {
   note: {
@@ -78,6 +93,7 @@ export async function refreshContractCache({
   if (!contractId || typeof sdk.getWasmSdkConnected !== "function") return;
   const wasm = await sdk.getWasmSdkConnected();
   if (!wasm || typeof wasm.removeCachedContract !== "function") return;
+  const { Identifier } = await loadSdkModule();
   const identifier = new Identifier(contractId);
   try {
     wasm.removeCachedContract(identifier);
@@ -98,6 +114,7 @@ export async function registerContract({
   log?.("Registering Dashnote note contract…");
   const { identity, identityKey, signer } = await keyManager.getAuth();
   const identityNonce = await sdk.identities.nonce(identity.id.toString());
+  const { DataContract } = await loadSdkModule();
   const dataContract = new DataContract({
     ownerId: identity.id,
     identityNonce: (identityNonce || 0n) + 1n,
