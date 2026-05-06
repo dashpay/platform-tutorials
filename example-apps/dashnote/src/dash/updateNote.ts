@@ -6,9 +6,8 @@
  *   sdk.documents.get(contractId, documentTypeName, documentId)
  *   sdk.documents.replace({ document, identityKey, signer })
  */
-import { Document } from "@dashevo/evo-sdk";
-
 import type { Logger } from "../lib/logger";
+import { loadSdkModule } from "./sdkModule";
 import type { DashKeyManager, DashSdk } from "./types";
 
 export interface UpdateNoteParams {
@@ -37,6 +36,7 @@ export async function updateNote({
     throw new Error(`Note ${noteId} not found.`);
   }
 
+  const { Document } = await loadSdkModule();
   const revision = BigInt(existingDoc.revision ?? 0) + 1n;
   const trimmedTitle = title?.trim();
   const document = new Document({

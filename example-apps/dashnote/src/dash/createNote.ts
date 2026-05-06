@@ -3,9 +3,8 @@
  *
  * SDK method: sdk.documents.create({ document, identityKey, signer })
  */
-import { Document } from "@dashevo/evo-sdk";
-
 import type { Logger } from "../lib/logger";
+import { loadSdkModule } from "./sdkModule";
 import type { DashKeyManager, DashSdk } from "./types";
 
 export interface CreateNoteParams {
@@ -27,6 +26,7 @@ export async function createNote({
 }: CreateNoteParams): Promise<string> {
   log?.("Creating note…");
   const { identity, identityKey, signer } = await keyManager.getAuth();
+  const { Document } = await loadSdkModule();
   const trimmedTitle = title?.trim();
   const document = new Document({
     properties: {

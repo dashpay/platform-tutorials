@@ -5,9 +5,8 @@
  *   sdk.contracts.publish({ dataContract, identityKey, signer })
  *   sdk.identities.nonce(identityId)
  */
-import { DataContract, Identifier } from "@dashevo/evo-sdk";
-
 import type { Logger } from "../lib/logger";
+import { loadSdkModule } from "./sdkModule";
 import type { DashKeyManager, DashSdk } from "./types";
 
 export const NOTE_SCHEMAS = {
@@ -78,6 +77,7 @@ export async function refreshContractCache({
   if (!contractId || typeof sdk.getWasmSdkConnected !== "function") return;
   const wasm = await sdk.getWasmSdkConnected();
   if (!wasm || typeof wasm.removeCachedContract !== "function") return;
+  const { Identifier } = await loadSdkModule();
   const identifier = new Identifier(contractId);
   try {
     wasm.removeCachedContract(identifier);
@@ -98,6 +98,7 @@ export async function registerContract({
   log?.("Registering Dashnote note contract…");
   const { identity, identityKey, signer } = await keyManager.getAuth();
   const identityNonce = await sdk.identities.nonce(identity.id.toString());
+  const { DataContract } = await loadSdkModule();
   const dataContract = new DataContract({
     ownerId: identity.id,
     identityNonce: (identityNonce || 0n) + 1n,
