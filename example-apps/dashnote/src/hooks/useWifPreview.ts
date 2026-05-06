@@ -1,14 +1,26 @@
 import { useEffect, useState } from "react";
 
-import {
-  KeyDisabledError,
-  resolveIdentityFromWif,
-  UnknownIdentityError,
-  WrongKeyPurposeError,
-} from "../dash/loginWithPrivateKey";
 import { resolveDpnsName } from "../dash/resolveDpnsName";
 import type { DashSdk } from "../dash/types";
 import { looksLikeWif } from "../lib/detectSecretShape";
+
+// loginWithPrivateKey transitively imports @dashevo/evo-sdk (~8MB WASM).
+// Pulling it in statically here would defeat SessionContext's lazy-load and
+// drag the SDK chunk into the app shell. Defer to the post-debounce callback,
+// where we've already committed to a network call.
+type LoginModule = typeof import("../dash/loginWithPrivateKey");
+let loginModulePromise: Promise<LoginModule> | null = null;
+function loadLoginModule(): Promise<LoginModule> {
+  if (!loginModulePromise) {
+    loginModulePromise = import("../dash/loginWithPrivateKey").catch((err) => {
+      // Clear the cache on failure so a subsequent attempt can retry the
+      // chunk fetch instead of awaiting a permanently-rejected promise.
+      loginModulePromise = null;
+      throw err;
+    });
+  }
+  return loginModulePromise;
+}
 
 export type WifPreviewState =
   | { status: "idle" }
@@ -78,9 +90,11 @@ export function useWifPreview(
     let cancelled = false;
     const timer = window.setTimeout(async () => {
       if (cancelled) return;
+      const mod = await loadLoginModule();
+      if (cancelled) return;
       let next: WifPreviewState;
       try {
-        const result = await resolveIdentityFromWif(sdk!, trimmed);
+        const result = await mod.resolveIdentityFromWif(sdk!, trimmed);
         let dpns: string | null = null;
         try {
           dpns = await resolveDpnsName(sdk!, result.identityId);
@@ -94,8 +108,8 @@ export function useWifPreview(
         };
       } catch (err) {
         if (
-          err instanceof WrongKeyPurposeError ||
-          err instanceof KeyDisabledError
+          err instanceof mod.WrongKeyPurposeError ||
+          err instanceof mod.KeyDisabledError
         ) {
           // We have an identity ID — resolve its DPNS name so the warning
           // can show the user-friendly handle instead of a truncated ID.
@@ -105,7 +119,7 @@ export function useWifPreview(
           } catch {
             dpns = null;
           }
-          if (err instanceof WrongKeyPurposeError) {
+          if (err instanceof mod.WrongKeyPurposeError) {
             next = {
               status: "wrong-purpose",
               identityId: err.identityId,
@@ -120,7 +134,7 @@ export function useWifPreview(
               dpnsName: dpns,
             };
           }
-        } else if (err instanceof UnknownIdentityError) {
+        } else if (err instanceof mod.UnknownIdentityError) {
           next = IDLE;
         } else {
           next = IDLE;

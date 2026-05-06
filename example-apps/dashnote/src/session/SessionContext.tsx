@@ -13,7 +13,6 @@ import {
   refreshContractCache,
   saveContractId,
 } from "../dash/contract";
-import { loginWithPrivateKey } from "../dash/loginWithPrivateKey";
 import { resolveDpnsName } from "../dash/resolveDpnsName";
 import type { DashKeyManager, DashSdk } from "../dash/types";
 import { detectSecretShape } from "../lib/detectSecretShape";
@@ -71,7 +70,7 @@ export interface SessionValue {
   dpnsName: string | null;
   setContractId: (id: string | null) => void;
   log: Logger;
-  login: (mnemonic: string, options?: LoginOptions) => Promise<void>;
+  login: (secret: string, options?: LoginOptions) => Promise<void>;
   enterReadOnly: () => Promise<void>;
   viewAsRemembered: () => Promise<void>;
   forgetIdentity: () => void;
@@ -175,6 +174,12 @@ export function SessionProvider({ children }: { children: ReactNode }) {
             identityIndex,
           })) as unknown as DashKeyManager;
         } else {
+          // Dynamic import keeps loginWithPrivateKey (and its transitive
+          // @dashevo/evo-sdk dependency) out of the app shell. The mnemonic
+          // branch already pays the SDK fetch via loadSdkModule(); for WIF
+          // we fetch this module on first use here.
+          const { loginWithPrivateKey } =
+            await import("../dash/loginWithPrivateKey");
           const auth = await loginWithPrivateKey(connected, trimmed);
           resolvedKeyManager = keyManagerFromKey(auth.identityId, auth);
         }
