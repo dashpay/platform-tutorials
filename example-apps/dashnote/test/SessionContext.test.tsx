@@ -10,6 +10,7 @@ const {
   mockRefreshContractCache,
   mockDpnsUsername,
   mockResolveDpnsName,
+  mockLoginWithPrivateKey,
   mockToastError,
   mockToastSuccess,
 } = vi.hoisted(() => ({
@@ -18,6 +19,7 @@ const {
   mockRefreshContractCache: vi.fn(),
   mockDpnsUsername: vi.fn(),
   mockResolveDpnsName: vi.fn(),
+  mockLoginWithPrivateKey: vi.fn(),
   mockToastError: vi.fn(),
   mockToastSuccess: vi.fn(),
 }));
@@ -27,6 +29,14 @@ vi.mock("../../../setupDashClient-core.mjs", () => ({
   IdentityKeyManager: {
     create: mockKeyManagerCreate,
   },
+}));
+
+vi.mock("../src/dash/loginWithPrivateKey", () => ({
+  loginWithPrivateKey: mockLoginWithPrivateKey,
+  UnknownIdentityError: class UnknownIdentityError extends Error {},
+  WrongKeyPurposeError: class WrongKeyPurposeError extends Error {},
+  KeyDisabledError: class KeyDisabledError extends Error {},
+  InvalidPrivateKeyError: class InvalidPrivateKeyError extends Error {},
 }));
 
 // Default resolver delegates to the real implementation (which calls
@@ -99,6 +109,7 @@ beforeEach(() => {
   mockToastError.mockReset();
   mockToastSuccess.mockReset();
   mockResolveDpnsName.mockReset();
+  mockLoginWithPrivateKey.mockReset();
   mockResolveDpnsName.mockImplementation(async (sdk, identityId) => {
     const result = await sdk.dpns.username(identityId);
     if (typeof result !== "string" || result.length === 0) return null;
@@ -362,7 +373,7 @@ describe("SessionProvider", () => {
     const ref = mountSession();
 
     await act(async () => {
-      await ref.current.login("mnemonic", { rememberMe: true });
+      await ref.current.login("test mnemonic", { rememberMe: true });
     });
     expect(ref.current.status).toBe("authenticated");
 
@@ -419,7 +430,7 @@ describe("SessionProvider", () => {
     const ref = mountSession();
 
     await act(async () => {
-      await ref.current.login("mnemonic");
+      await ref.current.login("test mnemonic");
     });
 
     act(() => {
@@ -438,7 +449,7 @@ describe("SessionProvider", () => {
     const ref = mountSession();
 
     await act(async () => {
-      await ref.current.login("mnemonic");
+      await ref.current.login("test mnemonic");
     });
     expect(ref.current.dpnsName).toBe("alice");
 
@@ -472,7 +483,7 @@ describe("SessionProvider", () => {
     const ref = mountSession();
 
     await act(async () => {
-      await ref.current.login("mnemonic");
+      await ref.current.login("test mnemonic");
     });
     expect(ref.current.dpnsName).toBe("alice");
 
@@ -483,5 +494,157 @@ describe("SessionProvider", () => {
     expect(ref.current.dpnsName).toBeNull();
     expect(ref.current.identityId).toBeNull();
     expect(ref.current.status).toBe("readonly");
+  });
+
+  it("dispatches a WIF input to loginWithPrivateKey, not IdentityKeyManager", async () => {
+    mockLoginWithPrivateKey.mockResolvedValue({
+      identityId: "wif-identity-id",
+      identity: { id: "wif-identity-id" },
+      identityKey: { mock: "key" },
+      signer: { mock: "signer" },
+    });
+    const ref = mountSession();
+
+    await act(async () => {
+      await ref.current.login("cVHcfvcWNc7DvqaPCwM6Z3", { rememberMe: true });
+    });
+
+    expect(mockLoginWithPrivateKey).toHaveBeenCalledTimes(1);
+    expect(mockKeyManagerCreate).not.toHaveBeenCalled();
+    expect(ref.current.status).toBe("authenticated");
+    expect(ref.current.identityId).toBe("wif-identity-id");
+    expect(ref.current.keyManager?.identityId).toBe("wif-identity-id");
+  });
+
+  it("failed WIF login from idle returns to idle without clobbering identity state", async () => {
+    mockLoginWithPrivateKey.mockRejectedValue(
+      new Error("Found identity X, but this is a transfer key."),
+    );
+    const ref = mountSession();
+    expect(ref.current.status).toBe("idle");
+
+    await act(async () => {
+      await ref.current.login("cVHcfvcWNc7DvqaPCwM6Z3").catch(() => undefined);
+    });
+
+    expect(ref.current.status).toBe("idle");
+    expect(ref.current.keyManager).toBeNull();
+    expect(ref.current.identityId).toBeNull();
+    expect(ref.current.error).toMatch(/transfer key/);
+    // Assert the precise message reaches the toast — guards against a
+    // future refactor swallowing it into a generic "Login failed".
+    expect(mockToastError).toHaveBeenCalledWith(
+      expect.stringContaining("transfer key"),
+    );
+  });
+
+  it("failed login from authenticated without rememberMe restores authenticated state", async () => {
+    // Locks in the snapshot/restore branch for the case where no
+    // remembered identity exists. Without the snapshot/restore, a failed
+    // key-swap from an authenticated session would log the user out.
+    mockKeyManagerCreate.mockResolvedValueOnce({
+      identityId: "logged-in-id",
+    });
+    const ref = mountSession();
+    await act(async () => {
+      await ref.current.login("test mnemonic", { rememberMe: false });
+    });
+    expect(ref.current.status).toBe("authenticated");
+    const priorKeyManager = ref.current.keyManager;
+    expect(priorKeyManager).not.toBeNull();
+    expect(ref.current.rememberedIdentityId).toBeNull();
+
+    mockLoginWithPrivateKey.mockRejectedValueOnce(
+      new Error("Found identity Y, but this is a transfer key."),
+    );
+    await act(async () => {
+      await ref.current.login("cVHcfvcWNc7DvqaPCwM6Z3").catch(() => undefined);
+    });
+
+    expect(ref.current.status).toBe("authenticated");
+    expect(ref.current.identityId).toBe("logged-in-id");
+    expect(ref.current.keyManager).toBe(priorKeyManager);
+    expect(ref.current.rememberedIdentityId).toBeNull();
+    expect(ref.current.error).toMatch(/transfer key/);
+  });
+
+  it("failed WIF login from browsing keeps the remembered identity panel intact", async () => {
+    // Reproduces the screenshot bug: a wrong-purpose key while browsing
+    // a remembered identity should NOT log the user out.
+    localStorage.setItem(
+      REMEMBERED_KEY,
+      JSON.stringify({ id: "remembered-id", name: "alice" }),
+    );
+    mockLoginWithPrivateKey.mockRejectedValue(
+      new Error("Found identity X, but this is a transfer key."),
+    );
+    const ref = mountSession();
+    expect(ref.current.status).toBe("browsing");
+
+    await act(async () => {
+      await ref.current.login("cVHcfvcWNc7DvqaPCwM6Z3").catch(() => undefined);
+    });
+
+    expect(ref.current.status).toBe("browsing");
+    expect(ref.current.identityId).toBe("remembered-id");
+    expect(ref.current.dpnsName).toBe("alice");
+    expect(ref.current.rememberedIdentityId).toBe("remembered-id");
+    expect(ref.current.keyManager).toBeNull();
+    expect(ref.current.error).toMatch(/transfer key/);
+    expect(mockToastError).toHaveBeenCalledWith(
+      expect.stringContaining("transfer key"),
+    );
+  });
+
+  it("failed switch-identity from authenticated keeps the active session", async () => {
+    // First, authenticate so a real keyManager + remembered identity exist.
+    mockKeyManagerCreate.mockResolvedValueOnce({
+      identityId: "logged-in-id",
+    });
+    const ref = mountSession();
+    await act(async () => {
+      await ref.current.login("test mnemonic", { rememberMe: true });
+    });
+    expect(ref.current.status).toBe("authenticated");
+    const priorKeyManager = ref.current.keyManager;
+    expect(priorKeyManager).not.toBeNull();
+
+    // Now attempt to switch with a wrong-purpose WIF. The active session
+    // must NOT drop — typing a bad secret while signed in should never log
+    // the user out, even if a remembered identity is present in storage.
+    mockLoginWithPrivateKey.mockRejectedValueOnce(
+      new Error("Found identity Y, but this is a transfer key."),
+    );
+    await act(async () => {
+      await ref.current.login("cVHcfvcWNc7DvqaPCwM6Z3").catch(() => undefined);
+    });
+
+    expect(ref.current.status).toBe("authenticated");
+    expect(ref.current.identityId).toBe("logged-in-id");
+    expect(ref.current.keyManager).toBe(priorKeyManager);
+    expect(ref.current.error).toMatch(/transfer key/);
+    expect(mockToastError).toHaveBeenCalledWith(
+      expect.stringContaining("transfer key"),
+    );
+  });
+
+  it("failed mnemonic login from idle restores idle state (not just the WIF path)", async () => {
+    mockKeyManagerCreate.mockRejectedValue(new Error("Bad mnemonic checksum."));
+    const ref = mountSession();
+    expect(ref.current.status).toBe("idle");
+
+    await act(async () => {
+      await ref.current
+        .login("not a real mnemonic phrase")
+        .catch(() => undefined);
+    });
+
+    expect(ref.current.status).toBe("idle");
+    expect(ref.current.keyManager).toBeNull();
+    expect(ref.current.identityId).toBeNull();
+    expect(ref.current.error).toMatch(/checksum/);
+    expect(mockToastError).toHaveBeenCalledWith(
+      expect.stringContaining("checksum"),
+    );
   });
 });

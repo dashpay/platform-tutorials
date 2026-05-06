@@ -73,6 +73,9 @@ export interface DashSdk {
   };
   identities: {
     nonce(identityId: string): Promise<bigint | null | undefined>;
+    byPublicKeyHash(
+      publicKeyHash: Uint8Array,
+    ): Promise<Identity | null | undefined>;
   };
   dpns: {
     username(identityId: string): Promise<string | null | undefined>;

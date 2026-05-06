@@ -1,6 +1,8 @@
-import { useEffect, useState, type FormEvent } from "react";
+import { useEffect, useMemo, useState, type FormEvent } from "react";
 
 import { registerContract } from "../dash/contract";
+import { useWifPreview } from "../hooks/useWifPreview";
+import { detectSecretShape } from "../lib/detectSecretShape";
 import { errorMessage } from "../lib/logger";
 import { useSession } from "../session/useSession";
 import { Modal } from "./Modal";
@@ -13,7 +15,7 @@ export interface LoginModalProps {
 
 export function LoginModal({ open, onClose }: LoginModalProps) {
   const session = useSession();
-  const [mnemonic, setMnemonic] = useState("");
+  const [secret, setSecret] = useState("");
   const [identityIndex, setIdentityIndex] = useState("0");
   const [contractInput, setContractInput] = useState(session.contractId ?? "");
   const [error, setError] = useState<string | null>(null);
@@ -26,6 +28,17 @@ export function LoginModal({ open, onClose }: LoginModalProps) {
   const showRememberedPanel = Boolean(
     session.rememberedIdentityId && !useDifferentIdentity,
   );
+  // Detect what the user pasted so we can hide the identity-index field for
+  // single-key WIF input (where DIP-13 derivation doesn't apply).
+  const secretShape = useMemo(
+    () => (secret.trim() ? detectSecretShape(secret) : null),
+    [secret],
+  );
+  const isWifInput = secretShape === "wif";
+  const wifPreview = useWifPreview(session.sdk, secret, isWifInput);
+  const previewBlocksLogin =
+    wifPreview.status === "wrong-purpose" ||
+    wifPreview.status === "key-disabled";
 
   useEffect(() => {
     setContractInput(session.contractId ?? "");
@@ -36,7 +49,7 @@ export function LoginModal({ open, onClose }: LoginModalProps) {
       setRememberMe(true);
       setUseDifferentIdentity(false);
       setError(null);
-      setMnemonic("");
+      setSecret("");
     }
   }, [open]);
 
@@ -69,11 +82,11 @@ export function LoginModal({ open, onClose }: LoginModalProps) {
     setSubmitting(true);
     try {
       const index = Number.parseInt(identityIndex, 10);
-      await session.login(mnemonic, {
+      await session.login(secret, {
         identityIndex: Number.isNaN(index) ? 0 : index,
         rememberMe,
       });
-      setMnemonic("");
+      setSecret("");
       onClose();
     } catch (err) {
       setError(errorMessage(err));
@@ -240,7 +253,9 @@ export function LoginModal({ open, onClose }: LoginModalProps) {
 
           <label className="flex flex-col gap-1">
             <span className="text-[10px] font-semibold uppercase tracking-[0.12em] text-ink-4">
-              {showRememberedPanel ? "Mnemonic" : "Identity Mnemonic"}
+              {showRememberedPanel
+                ? "Mnemonic or Private Key"
+                : "Identity Mnemonic or Private Key"}
             </span>
             {!showRememberedPanel && (
               <p className="text-[11px] text-ink-3">
@@ -260,15 +275,58 @@ export function LoginModal({ open, onClose }: LoginModalProps) {
               type="password"
               autoComplete="off"
               required
-              value={mnemonic}
-              onChange={(event) => setMnemonic(event.target.value)}
-              placeholder={
-                showRememberedPanel
-                  ? "Enter the mnemonic for this identity"
-                  : "mnemonic phrase"
-              }
+              value={secret}
+              onChange={(event) => setSecret(event.target.value)}
+              placeholder="Mnemonic phrase or WIF private key (high/critical)"
               className="rounded-md border border-line bg-bg px-3 py-2 text-[13px] text-ink outline-none transition focus:border-accent-dim"
             />
+            {isWifInput && wifPreview.status !== "idle" && (
+              <div
+                data-testid="wif-preview"
+                aria-live="polite"
+                className="mt-1 min-h-[1.5em] text-[11px]"
+              >
+                {wifPreview.status === "checking" && (
+                  <span className="text-ink-4">Checking…</span>
+                )}
+                {wifPreview.status === "resolved" && (
+                  <span className="text-ink-3">
+                    ✓ Identity{" "}
+                    <span className="font-mono text-accent">
+                      {wifPreview.dpnsName
+                        ? `${wifPreview.dpnsName}.dash`
+                        : `${wifPreview.identityId.slice(0, 8)}…${wifPreview.identityId.slice(-4)}`}
+                    </span>
+                  </span>
+                )}
+                {wifPreview.status === "wrong-purpose" && (
+                  <span className="text-[color:var(--color-danger)]">
+                    Found identity{" "}
+                    <span className="font-mono">
+                      {wifPreview.dpnsName
+                        ? `${wifPreview.dpnsName}.dash`
+                        : `${wifPreview.identityId.slice(0, 8)}…${wifPreview.identityId.slice(-4)}`}
+                    </span>
+                    , but this is a{" "}
+                    {wifPreview.purposeName === "AUTHENTICATION"
+                      ? `${wifPreview.securityLevelName} authentication`
+                      : wifPreview.purposeName}{" "}
+                    key — paste a HIGH or CRITICAL authentication key instead.
+                  </span>
+                )}
+                {wifPreview.status === "key-disabled" && (
+                  <span className="text-[color:var(--color-danger)]">
+                    The matching key on identity{" "}
+                    <span className="font-mono">
+                      {wifPreview.dpnsName
+                        ? `${wifPreview.dpnsName}.dash`
+                        : `${wifPreview.identityId.slice(0, 8)}…${wifPreview.identityId.slice(-4)}`}
+                    </span>{" "}
+                    has been disabled.
+                  </span>
+                )}
+              </div>
+            )}
           </label>
 
           {session.rememberedIdentityId && (
@@ -320,18 +378,20 @@ export function LoginModal({ open, onClose }: LoginModalProps) {
 
           {showAdvanced && (
             <div className="flex flex-col gap-4 rounded-md border border-line bg-bg/40 p-3">
-              <label className="flex flex-col gap-1">
-                <span className="text-[10px] font-semibold uppercase tracking-[0.12em] text-ink-4">
-                  Identity index
-                </span>
-                <input
-                  type="number"
-                  min={0}
-                  value={identityIndex}
-                  onChange={(event) => setIdentityIndex(event.target.value)}
-                  className="w-24 rounded-md border border-line bg-bg px-3 py-2 text-[13px] text-ink outline-none transition focus:border-accent-dim"
-                />
-              </label>
+              {!isWifInput && (
+                <label className="flex flex-col gap-1">
+                  <span className="text-[10px] font-semibold uppercase tracking-[0.12em] text-ink-4">
+                    Identity index
+                  </span>
+                  <input
+                    type="number"
+                    min={0}
+                    value={identityIndex}
+                    onChange={(event) => setIdentityIndex(event.target.value)}
+                    className="w-24 rounded-md border border-line bg-bg px-3 py-2 text-[13px] text-ink outline-none transition focus:border-accent-dim"
+                  />
+                </label>
+              )}
 
               <div className="flex flex-col gap-2">
                 <span className="text-[10px] font-semibold uppercase tracking-[0.12em] text-ink-4">
@@ -363,15 +423,14 @@ export function LoginModal({ open, onClose }: LoginModalProps) {
           )}
 
           <p className="text-[11px] text-ink-4">
-            Your mnemonic stays in browser memory and is never sent or saved.
-            Only the public identity ID is persisted, and only when “Remember
-            me” is checked.
+            Your secret never leaves this browser. Only the public identity ID
+            is stored when this identity is remembered on this device.
           </p>
 
           <div className="flex gap-2 pt-1">
             <button
               type="submit"
-              disabled={submitting || !mnemonic.trim()}
+              disabled={submitting || !secret.trim() || previewBlocksLogin}
               className="flex-1 rounded-md bg-accent px-4 py-2 text-[13px] font-semibold text-bg transition hover:bg-accent-dim disabled:cursor-not-allowed disabled:bg-surface-2 disabled:text-ink-4"
             >
               {submitting ? "Connecting…" : "Login"}
