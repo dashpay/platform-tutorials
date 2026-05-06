@@ -11,9 +11,10 @@ const toneClass: Record<
   string
 > = {
   info: "border-line bg-surface text-ink-2",
-  success: "border-[oklch(38%_0.08_150)] bg-[oklch(24%_0.03_150)] text-ink",
+  success:
+    "border-[var(--color-success-border)] bg-[var(--color-success-bg)] text-[var(--color-success-fg)]",
   error:
-    "border-[oklch(30%_0.08_25)] bg-[oklch(22%_0.04_25)] text-[oklch(84%_0.08_25)]",
+    "border-[var(--color-error-border)] bg-[var(--color-error-bg)] text-[var(--color-error-fg)]",
 };
 
 export function OperationResultNotice({

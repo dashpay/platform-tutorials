@@ -17,6 +17,13 @@
   --color-accent-dim: #016fbd;
   --color-danger: oklch(68% 0.2 25);
 
+  --color-success-bg: oklch(24% 0.03 150);
+  --color-success-border: oklch(38% 0.08 150);
+  --color-success-fg: oklch(96% 0.008 90);
+  --color-error-bg: oklch(22% 0.04 25);
+  --color-error-border: oklch(30% 0.08 25);
+  --color-error-fg: oklch(84% 0.08 25);
+
   --font-sans:
     "Inter", system-ui, -apple-system, "Segoe UI", Roboto, sans-serif;
   --font-mono:
@@ -43,6 +50,13 @@
   --color-ink-4: oklch(62% 0.012 260);
 
   --color-danger: oklch(55% 0.22 25);
+
+  --color-success-bg: oklch(95% 0.04 150);
+  --color-success-border: oklch(75% 0.12 150);
+  --color-success-fg: oklch(28% 0.08 150);
+  --color-error-bg: oklch(96% 0.03 25);
+  --color-error-border: oklch(78% 0.14 25);
+  --color-error-fg: oklch(35% 0.15 25);
 }
 
 html,
