@@ -1,4 +1,9 @@
 export async function hashFile(file: File): Promise<Uint8Array> {
+  if (typeof crypto === "undefined" || !crypto.subtle) {
+    throw new Error(
+      "SHA-256 hashing requires a secure context. Open this app over HTTPS or via http://localhost — the browser disables crypto.subtle on plain http:// origins.",
+    );
+  }
   const buffer =
     typeof file.arrayBuffer === "function"
       ? await file.arrayBuffer()

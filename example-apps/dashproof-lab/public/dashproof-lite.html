@@ -217,6 +217,11 @@
     // SHA-256 via WebCrypto. Runs entirely in the browser; the file never
     // leaves the page.
     async function hashFile(file) {
+      if (typeof crypto === 'undefined' || !crypto.subtle) {
+        throw new Error(
+          'SHA-256 hashing requires a secure context. Open this page over HTTPS or via http://localhost — the browser disables crypto.subtle on plain http:// origins.',
+        );
+      }
       const buf = await file.arrayBuffer();
       return new Uint8Array(await crypto.subtle.digest('SHA-256', buf));
     }
