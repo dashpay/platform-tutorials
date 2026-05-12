@@ -21,14 +21,14 @@ interface AppFixture {
 export { base as rawTest };
 
 export const test = base.extend<AppFixture>({
-  page: async ({ page }, use) => {
+  page: async ({ page }, provide) => {
     await page.goto("/");
     // Wait until the SDK has connected (sidebar shows "Connected") so any
     // Collection query the spec triggers has a live SDK to talk to.
     await expect(page.getByText("Connected").first()).toBeVisible({
       timeout: 60_000,
     });
-    await use(page);
+    await provide(page);
   },
 });
 

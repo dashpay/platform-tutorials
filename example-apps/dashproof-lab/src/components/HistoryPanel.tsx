@@ -53,6 +53,27 @@ export function HistoryPanel({
   const [errorState, setErrorState] = useState<string | null>(null);
   const [toast, setToast] = useState<string | null>(null);
   const toastTimer = useRef<ReturnType<typeof setTimeout> | null>(null);
+  const [prevRequestToken, setPrevRequestToken] = useState<number | undefined>(
+    undefined,
+  );
+
+  // Reset state in response to a new parent-issued request (monotonic
+  // requestToken). React docs recommend doing this during render rather than
+  // in an effect — see https://react.dev/learn/you-might-not-need-an-effect.
+  // The sentinel-undefined initial value ensures the reset fires on first
+  // render too (the parent mounts this panel fresh with the token already
+  // bumped).
+  if (prevRequestToken !== requestToken) {
+    setPrevRequestToken(requestToken);
+    const trimmed = requestedChainId?.trim();
+    if (trimmed) {
+      setMode("chain");
+      setChainInput(trimmed);
+      setActiveChainId(trimmed);
+      setAnchors([]);
+      setErrorState(null);
+    }
+  }
 
   const effectiveMode = session.status === "authenticated" ? mode : "chain";
   const canQueryOwner =
@@ -78,16 +99,6 @@ export function HistoryPanel({
     },
     [],
   );
-
-  useEffect(() => {
-    const trimmed = requestedChainId?.trim();
-    if (!trimmed) return;
-    setMode("chain");
-    setChainInput(trimmed);
-    setActiveChainId(trimmed);
-    setAnchors([]);
-    setErrorState(null);
-  }, [requestedChainId, requestToken]);
 
   useEffect(() => {
     if (canQueryOwner) {
