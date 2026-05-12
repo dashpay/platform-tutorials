@@ -3,11 +3,21 @@
 // which would make this regression test useless. Node 20+ provides a working
 // global File backed by Undici's Blob implementation.
 
-import { describe, expect, it } from "vitest";
+import { afterEach, describe, expect, it } from "vitest";
 
 import { bytesToHex, hashFile } from "../src/lib/hash";
 
 describe("hashFile", () => {
+  const originalSubtle = globalThis.crypto?.subtle;
+  afterEach(() => {
+    if (globalThis.crypto) {
+      Object.defineProperty(globalThis.crypto, "subtle", {
+        configurable: true,
+        value: originalSubtle,
+      });
+    }
+  });
+
   it("hashes binary (non-UTF-8) bytes correctly", async () => {
     // 0xFF 0xFE is invalid UTF-8 — a TextEncoder-based fallback would
     // corrupt these bytes into the U+FFFD replacement character before
@@ -28,6 +38,17 @@ describe("hashFile", () => {
     const digest = await hashFile(file);
     expect(bytesToHex(digest)).toBe(
       "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855",
+    );
+  });
+
+  it("throws a clear Secure Context error when crypto.subtle is missing", async () => {
+    Object.defineProperty(globalThis.crypto, "subtle", {
+      configurable: true,
+      value: undefined,
+    });
+    const file = new File([Uint8Array.from([0x00])], "x.bin");
+    await expect(hashFile(file)).rejects.toThrow(
+      "SHA-256 hashing requires a secure context. Open this app over HTTPS or via http://localhost — the browser disables crypto.subtle on plain http:// origins.",
     );
   });
 });
