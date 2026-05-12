@@ -125,6 +125,96 @@ describe("HistoryPanel", () => {
     expect(chainSections).toHaveLength(1);
   });
 
+  it("loads the parent-requested chainId when requestToken bumps", async () => {
+    // Regression for the render-time prop-reset that replaced the previous
+    // setState-in-useEffect. Parent dispatches a new chainId by bumping
+    // requestToken; the panel should switch to chain mode, populate the
+    // input, and load that chain.
+    mockUseSession.mockReturnValue({
+      status: "readonly",
+      sdk: {},
+      identityId: null,
+      log: vi.fn(),
+    });
+    mockListAnchorsByChain.mockResolvedValue([
+      {
+        id: "anchor-req",
+        ownerId: "owner-x",
+        createdAt: 1710000000000,
+        entryHash: Uint8Array.from([3]),
+        entryHashHex: "03",
+        chainId: "requested-chain",
+        filename: "requested.txt",
+      },
+    ]);
+
+    const { rerender } = render(
+      <HistoryPanel contractId="contract-1" refreshKey={0} requestToken={0} />,
+    );
+
+    rerender(
+      <HistoryPanel
+        contractId="contract-1"
+        refreshKey={0}
+        requestedChainId="requested-chain"
+        requestToken={1}
+      />,
+    );
+
+    await waitFor(() => {
+      expect(mockListAnchorsByChain).toHaveBeenCalledWith(
+        expect.objectContaining({ chainId: "requested-chain" }),
+      );
+    });
+    await screen.findByText("requested.txt");
+    expect(screen.getByDisplayValue("requested-chain")).toBeTruthy();
+  });
+
+  it("does not re-fire the parent-requested reset when requestToken is unchanged", async () => {
+    // The render-time guard (prevRequestToken !== requestToken) must
+    // fire-once-per-token; otherwise unrelated re-renders would clobber any
+    // edit the user made to the chain input after the initial dispatch.
+    mockUseSession.mockReturnValue({
+      status: "readonly",
+      sdk: {},
+      identityId: null,
+      log: vi.fn(),
+    });
+    mockListAnchorsByChain.mockResolvedValue([]);
+
+    const { rerender } = render(
+      <HistoryPanel
+        contractId="contract-1"
+        refreshKey={0}
+        requestedChainId="requested-chain"
+        requestToken={1}
+      />,
+    );
+
+    await waitFor(() => {
+      expect(screen.getByDisplayValue("requested-chain")).toBeTruthy();
+    });
+
+    // User edits the chain input after the parent's dispatch.
+    fireEvent.change(screen.getByPlaceholderText("invoice-2026-04"), {
+      target: { value: "user-edited" },
+    });
+    expect(screen.getByDisplayValue("user-edited")).toBeTruthy();
+
+    // Unrelated re-render with the same requestToken — must NOT reset the
+    // input back to requestedChainId.
+    rerender(
+      <HistoryPanel
+        contractId="contract-1"
+        refreshKey={1}
+        requestedChainId="requested-chain"
+        requestToken={1}
+      />,
+    );
+
+    expect(screen.getByDisplayValue("user-edited")).toBeTruthy();
+  });
+
   it("loads chain history in read-only mode", async () => {
     mockUseSession.mockReturnValue({
       status: "readonly",
