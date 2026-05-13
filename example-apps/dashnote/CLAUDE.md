@@ -12,6 +12,8 @@ React + TypeScript + Vite app for personal notes on Dash Platform testnet. Notes
 - `npm run build` — typecheck (`tsc -b`) then bundle
 - `npm run lint` — ESLint
 - `npm run test` — Vitest suite in [test/](test/)
+- `npm run test:e2e` — Playwright suite in [test/e2e/](test/e2e/) (auto-boots Vite on :5181)
+- `npm run test:e2e:ui` — Playwright with the interactive UI runner
 - `npm run format` / `format:check` — Prettier
 - `npm run preview` — serve production build locally
 
@@ -26,6 +28,7 @@ React + TypeScript + Vite app for personal notes on Dash Platform testnet. Notes
 - **[src/dash/types.ts](src/dash/types.ts)** — shared SDK types (`DashSdk`, `DashKeyManager`, query result shapes) used across every dash helper.
 - **[public/dashnote-lite.html](public/dashnote-lite.html)** — single-file zero-build companion. Read-only Recent notes (with optional owner filter) + Get-by-ID only, loads `@dashevo/evo-sdk` from `esm.sh`, and ships alongside the React app at `<...>/dashnote/dashnote-lite.html` (Vite copies `public/*` into `dist/`). Intentionally self-contained as a learning reference — don't import app code into it.
 - **[test/](test/)** — Vitest + Testing Library. All test files live in this flat directory and are named after the subject under test (e.g. `NotesWorkspace.test.tsx`, `SessionContext.test.tsx`, `notesCache.test.ts`) — they are **not** co-located next to source files, and the directory is **not** mirrored against `src/`. Default Vitest env is `node`; component tests opt into DOM with a `// @vitest-environment jsdom` pragma at the top of the file.
+- **[test/e2e/](test/e2e/)** — Playwright specs plus shared `fixtures.ts`. Driven by [playwright.config.ts](playwright.config.ts), which loads `PLATFORM_MNEMONIC` from `../../.env` (repo root, with optional `dashnote/.env` override) and auto-starts `npx vite` on port 5181. The suite runs against real testnet — no SDK mocks. Two projects (`chromium-desktop` using `Desktop Chrome` and `chromium-mobile` using `Pixel 7`) so every spec exercises both layouts; viewport-only flows are guarded inline with `test.skip(testInfo.project.name !== "chromium-mobile", …)` rather than living in a dedicated file. Auth-gated specs sit in `test.describe.configure({ mode: "serial" })` and `test.skip` cleanly when `PLATFORM_MNEMONIC` is unset (via the `HAS_MNEMONIC` flag from `fixtures.ts`).
 
 ## Note contract
 
