@@ -81,7 +81,7 @@ describe("SettingsPanel", () => {
     mockUseSession.mockReturnValue(
       makeSession({ identityId: "id-abc", dpnsName: "alice" }),
     );
-    render(<SettingsPanel />);
+    render(<SettingsPanel onOpenLogin={vi.fn()} />);
     const block = screen.getByTestId("settings-identity-block");
     expect(within(block).getByText("id-abc")).toBeTruthy();
     expect(within(block).getByText("✓ alice.dash")).toBeTruthy();
@@ -91,29 +91,32 @@ describe("SettingsPanel", () => {
     mockUseSession.mockReturnValue(
       makeSession({ identityId: "id-abc", dpnsName: null }),
     );
-    render(<SettingsPanel />);
+    render(<SettingsPanel onOpenLogin={vi.fn()} />);
     const block = screen.getByTestId("settings-identity-block");
     expect(within(block).queryByText(/\.dash$/)).toBeNull();
   });
 
   it("renders the network indicator as testnet", () => {
     mockUseSession.mockReturnValue(makeSession());
-    render(<SettingsPanel />);
+    render(<SettingsPanel onOpenLogin={vi.fn()} />);
     expect(screen.getByText("testnet")).toBeTruthy();
   });
 
-  it("shows an empty state when not signed in or browsing", () => {
+  it("shows an empty state with a Sign in button when not signed in or browsing", () => {
     mockUseSession.mockReturnValue(
       makeSession({ status: "readonly", identityId: null, keyManager: null }),
     );
-    render(<SettingsPanel />);
+    const onOpenLogin = vi.fn();
+    render(<SettingsPanel onOpenLogin={onOpenLogin} />);
     expect(screen.getByText(/sign in to view/i)).toBeTruthy();
     expect(screen.queryByTestId("settings-identity-block")).toBeNull();
+    fireEvent.click(screen.getByRole("button", { name: /^sign in$/i }));
+    expect(onOpenLogin).toHaveBeenCalled();
   });
 
   it("hides the danger zone when nothing is remembered", () => {
     mockUseSession.mockReturnValue(makeSession({ rememberedIdentityId: null }));
-    render(<SettingsPanel />);
+    render(<SettingsPanel onOpenLogin={vi.fn()} />);
     expect(
       screen.queryByRole("button", { name: /forget this device/i }),
     ).toBeNull();
@@ -127,7 +130,7 @@ describe("SettingsPanel", () => {
         forgetIdentity,
       }),
     );
-    render(<SettingsPanel />);
+    render(<SettingsPanel onOpenLogin={vi.fn()} />);
     fireEvent.click(
       screen.getByRole("button", { name: /forget this device/i }),
     );
@@ -141,7 +144,7 @@ describe("SettingsPanel", () => {
       value: { writeText },
     });
     mockUseSession.mockReturnValue(makeSession({ identityId: "id-xyz" }));
-    render(<SettingsPanel />);
+    render(<SettingsPanel onOpenLogin={vi.fn()} />);
     fireEvent.click(screen.getByRole("button", { name: /copy identity id/i }));
     await waitFor(() => {
       expect(writeText).toHaveBeenCalledWith("id-xyz");
@@ -153,7 +156,7 @@ describe("SettingsPanel", () => {
     mockUseSession.mockReturnValue(
       makeSession({ contractId: "old", setContractId }),
     );
-    render(<SettingsPanel />);
+    render(<SettingsPanel onOpenLogin={vi.fn()} />);
     const input = screen.getByPlaceholderText(/paste a note contract id/i);
     fireEvent.change(input, { target: { value: " new-contract " } });
     fireEvent.click(screen.getByRole("button", { name: /use this id/i }));
@@ -169,7 +172,7 @@ describe("SettingsPanel", () => {
     mockUseSession.mockReturnValue(
       makeSession({ setContractId, sdk, keyManager, log }),
     );
-    render(<SettingsPanel />);
+    render(<SettingsPanel onOpenLogin={vi.fn()} />);
     fireEvent.click(
       screen.getByRole("button", { name: /register a fresh contract/i }),
     );
@@ -197,7 +200,7 @@ describe("SettingsPanel", () => {
         }),
     );
     mockUseSession.mockReturnValue(makeSession({ setContractId: vi.fn() }));
-    render(<SettingsPanel />);
+    render(<SettingsPanel onOpenLogin={vi.fn()} />);
     const button = screen.getByRole("button", {
       name: /register a fresh contract/i,
     });
@@ -214,7 +217,7 @@ describe("SettingsPanel", () => {
     const setContractId = vi.fn();
     mockRegisterContract.mockRejectedValue(new Error("Network down"));
     mockUseSession.mockReturnValue(makeSession({ setContractId }));
-    render(<SettingsPanel />);
+    render(<SettingsPanel onOpenLogin={vi.fn()} />);
     fireEvent.click(
       screen.getByRole("button", { name: /register a fresh contract/i }),
     );
@@ -224,7 +227,7 @@ describe("SettingsPanel", () => {
 
   it("invokes clearCachedNotes with the current identity ID", () => {
     mockUseSession.mockReturnValue(makeSession({ identityId: "id-cache" }));
-    render(<SettingsPanel />);
+    render(<SettingsPanel onOpenLogin={vi.fn()} />);
     fireEvent.click(
       screen.getByRole("button", {
         name: /clear local cache for this device/i,

@@ -113,7 +113,7 @@ describe("NotesWorkspace", () => {
     );
 
     expect(screen.getByText(/sign in to see your notes/i)).toBeTruthy();
-    const loginButton = screen.getByRole("button", { name: /^log in$/i });
+    const loginButton = screen.getByRole("button", { name: /^sign in$/i });
     fireEvent.click(loginButton);
     expect(onOpenLogin).toHaveBeenCalled();
     expect(screen.queryByRole("button", { name: /new note/i })).toBeNull();

@@ -594,8 +594,8 @@ export function NotesWorkspace({
             </svg>
           }
           title="Sign in to see your notes"
-          description="Dashnote stores notes against your testnet identity. Log in with a Dash Platform identity to create, edit, and review your notes."
-          actionLabel="Log in"
+          description="Dashnote stores notes against your testnet identity. Sign in with a Dash Platform identity to create, edit, and review your notes."
+          actionLabel="Sign in"
           onAction={onOpenLogin}
           secondaryHref="https://bridge.thepasta.org/"
           secondaryLabel="Need an identity? Create one on Dash Bridge"

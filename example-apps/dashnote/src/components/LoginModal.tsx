@@ -65,7 +65,7 @@ export function LoginModal({ open, onClose }: LoginModalProps) {
   }
 
   return (
-    <Modal open={open} onClose={onClose} title="Login">
+    <Modal open={open} onClose={onClose} title="Sign in">
       <form onSubmit={handleLogin} className="flex flex-col gap-4 py-2">
         {showRememberedPanel && session.rememberedIdentityId && (
           <label
@@ -254,7 +254,7 @@ export function LoginModal({ open, onClose }: LoginModalProps) {
             disabled={submitting || !secret.trim() || previewBlocksLogin}
             className="flex-1 rounded-md bg-accent px-4 py-2 text-[13px] font-semibold text-bg transition hover:bg-accent-dim disabled:cursor-not-allowed disabled:bg-surface-2 disabled:text-ink-4"
           >
-            {submitting ? "Connecting…" : "Login"}
+            {submitting ? "Connecting…" : "Sign in"}
           </button>
           <button
             type="button"

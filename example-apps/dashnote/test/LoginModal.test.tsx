@@ -99,7 +99,7 @@ describe("LoginModal", () => {
 
     expect(onClose).not.toHaveBeenCalled();
     expect(screen.getByPlaceholderText(/mnemonic phrase/i)).toBeTruthy();
-    expect(screen.getByRole("button", { name: /^login$/i })).toBeTruthy();
+    expect(screen.getByRole("button", { name: /^sign in$/i })).toBeTruthy();
   });
 
   it("submits the mnemonic via session.login and closes on success", async () => {
@@ -112,7 +112,7 @@ describe("LoginModal", () => {
     fireEvent.change(screen.getByPlaceholderText(/mnemonic phrase/i), {
       target: { value: "test mnemonic phrase" },
     });
-    fireEvent.click(screen.getByRole("button", { name: /^login$/i }));
+    fireEvent.click(screen.getByRole("button", { name: /^sign in$/i }));
 
     await waitFor(() => {
       expect(login).toHaveBeenCalledWith("test mnemonic phrase", {
@@ -134,7 +134,7 @@ describe("LoginModal", () => {
     fireEvent.change(screen.getByPlaceholderText(/mnemonic phrase/i), {
       target: { value: "garbage" },
     });
-    fireEvent.click(screen.getByRole("button", { name: /^login$/i }));
+    fireEvent.click(screen.getByRole("button", { name: /^sign in$/i }));
 
     expect(await screen.findByText("Bad mnemonic")).toBeTruthy();
   });
@@ -145,7 +145,7 @@ describe("LoginModal", () => {
     render(<LoginModal open onClose={vi.fn()} />);
 
     const button = screen.getByRole("button", {
-      name: /^login$/i,
+      name: /^sign in$/i,
     }) as HTMLButtonElement;
     expect(button.disabled).toBe(true);
   });
@@ -160,7 +160,7 @@ describe("LoginModal", () => {
     });
 
     const button = screen.getByRole("button", {
-      name: /^login$/i,
+      name: /^sign in$/i,
     }) as HTMLButtonElement;
     expect(button.disabled).toBe(true);
   });
@@ -182,7 +182,7 @@ describe("LoginModal", () => {
     fireEvent.change(screen.getByPlaceholderText(/mnemonic phrase/i), {
       target: { value: "phrase" },
     });
-    fireEvent.click(screen.getByRole("button", { name: /^login$/i }));
+    fireEvent.click(screen.getByRole("button", { name: /^sign in$/i }));
 
     const connectingButton = (await screen.findByRole("button", {
       name: /connecting/i,
@@ -210,7 +210,7 @@ describe("LoginModal", () => {
     fireEvent.change(screen.getByPlaceholderText(/mnemonic phrase/i), {
       target: { value: "phrase" },
     });
-    fireEvent.click(screen.getByRole("button", { name: /^login$/i }));
+    fireEvent.click(screen.getByRole("button", { name: /^sign in$/i }));
 
     await waitFor(() => {
       expect(login).toHaveBeenCalledWith("phrase", {
@@ -255,7 +255,7 @@ describe("LoginModal", () => {
     fireEvent.change(screen.getByPlaceholderText(/mnemonic phrase/i), {
       target: { value: "phrase" },
     });
-    fireEvent.click(screen.getByRole("button", { name: /^login$/i }));
+    fireEvent.click(screen.getByRole("button", { name: /^sign in$/i }));
 
     await waitFor(() => {
       expect(login).toHaveBeenCalledWith("phrase", {
@@ -313,7 +313,7 @@ describe("LoginModal", () => {
     fireEvent.change(screen.getByPlaceholderText(/mnemonic phrase/i), {
       target: { value: "phrase" },
     });
-    fireEvent.click(screen.getByRole("button", { name: /^login$/i }));
+    fireEvent.click(screen.getByRole("button", { name: /^sign in$/i }));
 
     await waitFor(() => {
       expect(login).toHaveBeenCalledWith("phrase", {
@@ -337,7 +337,7 @@ describe("LoginModal", () => {
     fireEvent.change(screen.getByPlaceholderText(/mnemonic phrase/i), {
       target: { value: "phrase" },
     });
-    fireEvent.click(screen.getByRole("button", { name: /^login$/i }));
+    fireEvent.click(screen.getByRole("button", { name: /^sign in$/i }));
 
     await waitFor(() => {
       expect(login).toHaveBeenCalledWith("phrase", {
@@ -470,7 +470,7 @@ describe("LoginModal", () => {
       screen.getByPlaceholderText(/mnemonic phrase/i) as HTMLInputElement,
       { target: { value: "fresh mnemonic" } },
     );
-    fireEvent.click(screen.getByRole("button", { name: /^login$/i }));
+    fireEvent.click(screen.getByRole("button", { name: /^sign in$/i }));
 
     await waitFor(() => {
       expect(login).toHaveBeenCalledWith("fresh mnemonic", {
@@ -581,7 +581,7 @@ describe("LoginModal", () => {
     fireEvent.change(screen.getByPlaceholderText(/mnemonic phrase/i), {
       target: { value: "cVHcfvcWNc7DvqaPCwM6Z3DqZ" },
     });
-    fireEvent.click(screen.getByRole("button", { name: /^login$/i }));
+    fireEvent.click(screen.getByRole("button", { name: /^sign in$/i }));
 
     await waitFor(() => {
       expect(login).toHaveBeenCalledWith("cVHcfvcWNc7DvqaPCwM6Z3DqZ", {
@@ -690,7 +690,7 @@ describe("LoginModal", () => {
         securityLevelName: "CRITICAL",
       });
       const button = screen.getByRole("button", {
-        name: /^login$/i,
+        name: /^sign in$/i,
       }) as HTMLButtonElement;
       expect(button.disabled).toBe(true);
     });
@@ -702,7 +702,7 @@ describe("LoginModal", () => {
         dpnsName: null,
       });
       const button = screen.getByRole("button", {
-        name: /^login$/i,
+        name: /^sign in$/i,
       }) as HTMLButtonElement;
       expect(button.disabled).toBe(true);
     });
@@ -712,7 +712,7 @@ describe("LoginModal", () => {
       // be able to hit Enter immediately after pasting.
       renderWithSecret({ status: "checking" });
       const button = screen.getByRole("button", {
-        name: /^login$/i,
+        name: /^sign in$/i,
       }) as HTMLButtonElement;
       expect(button.disabled).toBe(false);
     });

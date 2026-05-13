@@ -93,7 +93,9 @@ test("Switch identity from the IdentityCard menu re-opens the login form", async
   const dialog = page.getByRole("dialog");
   await expect(dialog).toBeVisible();
   await expect(dialog.getByPlaceholder(/mnemonic phrase|wif/i)).toBeVisible();
-  await expect(dialog.getByRole("button", { name: /^Login$/ })).toBeDisabled();
+  await expect(
+    dialog.getByRole("button", { name: /^Sign in$/ }),
+  ).toBeDisabled();
 });
 
 test("Settings tab is reachable from both the IdentityCard menu and the sidebar NavButton", async ({
