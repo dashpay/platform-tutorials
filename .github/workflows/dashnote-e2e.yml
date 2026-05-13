@@ -1,0 +1,153 @@
+name: Dashnote E2E
+
+on:
+  push:
+    branches: [main]
+    paths:
+      - 'example-apps/dashnote/**'
+      - '.github/workflows/dashnote-e2e.yml'
+  pull_request:
+    branches: [main]
+    paths:
+      - 'example-apps/dashnote/**'
+      - '.github/workflows/dashnote-e2e.yml'
+  workflow_dispatch:
+    inputs:
+      test_suite:
+        description: 'Which specs to run'
+        type: choice
+        options:
+          - read-only
+          - read-write
+          - all
+        default: read-only
+
+permissions:
+  contents: read
+
+concurrency:
+  group: dashnote-e2e-${{ github.workflow }}-${{ github.ref }}
+  cancel-in-progress: true
+
+jobs:
+  e2e-read-only:
+    name: e2e (read-only — smoke + settings)
+    runs-on: ubuntu-latest
+    timeout-minutes: 20
+    if: >
+      github.event_name != 'workflow_dispatch' ||
+      inputs.test_suite == 'read-only' ||
+      inputs.test_suite == 'all'
+    defaults:
+      run:
+        working-directory: example-apps/dashnote
+    steps:
+      - uses: actions/checkout@de0fac2e4500dabe0009e67214ff5f5447ce83dd # v6.0.2
+      - uses: actions/setup-node@53b83947a5a98c8d113130e565377fae1a50d02f # v6.3.0
+        with:
+          node-version: '20'
+
+      - name: Install dashnote dependencies
+        run: npm ci
+
+      - name: Resolve Playwright version
+        id: playwright-version
+        run: echo "version=$(node -p "require('./package.json').devDependencies['@playwright/test']")" >> "$GITHUB_OUTPUT"
+
+      - name: Cache Playwright browsers
+        uses: actions/cache@v4
+        id: playwright-cache
+        with:
+          path: ~/.cache/ms-playwright
+          key: playwright-${{ runner.os }}-${{ steps.playwright-version.outputs.version }}
+
+      - name: Install Playwright browsers
+        if: steps.playwright-cache.outputs.cache-hit != 'true'
+        run: npx playwright install --with-deps chromium
+
+      - name: Install browser system deps (cache hit)
+        if: steps.playwright-cache.outputs.cache-hit == 'true'
+        run: npx playwright install-deps chromium
+
+      - name: Run read-only specs
+        env:
+          PLATFORM_MNEMONIC: ${{ secrets.PLATFORM_MNEMONIC }}
+        run: npx playwright test smoke.spec.ts settings.spec.ts
+
+      - name: Upload Playwright report on failure
+        if: failure()
+        uses: actions/upload-artifact@v4
+        with:
+          name: playwright-report-read-only
+          path: example-apps/dashnote/playwright-report/
+          retention-days: 14
+
+      - name: Upload Playwright traces on failure
+        if: failure()
+        uses: actions/upload-artifact@v4
+        with:
+          name: playwright-test-results-read-only
+          path: example-apps/dashnote/test-results/
+          retention-days: 14
+
+  e2e-read-write:
+    name: e2e (read-write — auth + notes)
+    runs-on: ubuntu-latest
+    timeout-minutes: 60
+    if: >
+      github.event_name == 'workflow_dispatch' &&
+      (inputs.test_suite == 'read-write' || inputs.test_suite == 'all')
+    concurrency:
+      group: dashnote-e2e-read-write
+      cancel-in-progress: false
+    defaults:
+      run:
+        working-directory: example-apps/dashnote
+    steps:
+      - uses: actions/checkout@de0fac2e4500dabe0009e67214ff5f5447ce83dd # v6.0.2
+      - uses: actions/setup-node@53b83947a5a98c8d113130e565377fae1a50d02f # v6.3.0
+        with:
+          node-version: '20'
+
+      - name: Install dashnote dependencies
+        run: npm ci
+
+      - name: Resolve Playwright version
+        id: playwright-version
+        run: echo "version=$(node -p "require('./package.json').devDependencies['@playwright/test']")" >> "$GITHUB_OUTPUT"
+
+      - name: Cache Playwright browsers
+        uses: actions/cache@v4
+        id: playwright-cache
+        with:
+          path: ~/.cache/ms-playwright
+          key: playwright-${{ runner.os }}-${{ steps.playwright-version.outputs.version }}
+
+      - name: Install Playwright browsers
+        if: steps.playwright-cache.outputs.cache-hit != 'true'
+        run: npx playwright install --with-deps chromium
+
+      - name: Install browser system deps (cache hit)
+        if: steps.playwright-cache.outputs.cache-hit == 'true'
+        run: npx playwright install-deps chromium
+
+      - name: Run read-write specs
+        env:
+          PLATFORM_MNEMONIC: ${{ secrets.PLATFORM_MNEMONIC }}
+        run: npx playwright test auth.spec.ts notes.spec.ts
+
+      - name: Upload Playwright report on failure
+        if: failure()
+        uses: actions/upload-artifact@v4
+        with:
+          name: playwright-report-read-write
+          path: example-apps/dashnote/playwright-report/
+          retention-days: 14
+
+      - name: Upload Playwright traces on failure
+        if: failure()
+        uses: actions/upload-artifact@v4
+        with:
+          name: playwright-test-results-read-write
+          path: example-apps/dashnote/test-results/
+          retention-days: 14
