@@ -332,9 +332,9 @@ export async function seedSearchFixtures(page: Page) {
   // cached entries — either way, the DOM now reflects truth and an
   // `existing.count() === 0` check won't false-negative against a
   // fixture that exists on-network but hasn't rendered yet.
-  await expect(
-    page.getByRole("status", { name: /loading notes/i }),
-  ).toBeHidden({ timeout: 60_000 });
+  await expect(page.getByRole("status", { name: /loading notes/i })).toBeHidden(
+    { timeout: 60_000 },
+  );
   for (const title of [SEARCH_FIXTURE_ALPHA, SEARCH_FIXTURE_BETA]) {
     const existing = page.locator("button", { hasText: title });
     if ((await existing.count()) > 0) continue;
