@@ -185,6 +185,31 @@ describe("SettingsPanel", () => {
     });
   });
 
+  it("rejects concurrent register clicks before React disables the button", async () => {
+    // Hold the first call open so a second invocation can race past
+    // setRegistering(true). The ref guard inside the hook must short-circuit
+    // the second call so the SDK only sees one publish.
+    let resolveFirst: ((value: string) => void) | undefined;
+    mockRegisterContract.mockImplementation(
+      () =>
+        new Promise<string>((resolve) => {
+          resolveFirst = resolve;
+        }),
+    );
+    mockUseSession.mockReturnValue(makeSession({ setContractId: vi.fn() }));
+    render(<SettingsPanel />);
+    const button = screen.getByRole("button", {
+      name: /register a fresh contract/i,
+    });
+    fireEvent.click(button);
+    fireEvent.click(button);
+    expect(mockRegisterContract).toHaveBeenCalledTimes(1);
+    resolveFirst?.("only-id");
+    await waitFor(() => {
+      expect(mockRegisterContract).toHaveBeenCalledTimes(1);
+    });
+  });
+
   it("surfaces a registration failure without switching contracts", async () => {
     const setContractId = vi.fn();
     mockRegisterContract.mockRejectedValue(new Error("Network down"));
