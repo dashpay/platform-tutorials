@@ -139,3 +139,186 @@ export async function loginViaModal(
     timeout: 60_000,
   });
 }
+
+/**
+ * Recognizable title prefix for every transient note an e2e test creates.
+ * The cleanup helper uses this to scope its deletes so it never touches a
+ * manually-created note on the same identity.
+ *
+ * `[e2e-fixture]` titles (a *different* prefix) are reused across runs as
+ * deterministic search/list fixtures and are intentionally NOT cleaned up.
+ */
+export const E2E_TITLE_PREFIX = "[e2e]";
+export const E2E_FIXTURE_PREFIX = "[e2e-fixture]";
+export const SEARCH_FIXTURE_ALPHA = `${E2E_FIXTURE_PREFIX} alpha`;
+export const SEARCH_FIXTURE_BETA = `${E2E_FIXTURE_PREFIX} beta`;
+
+/**
+ * Generate a unique e2e-prefixed title.
+ */
+export function e2eTitle(suffix = ""): string {
+  const stamp = Date.now().toString(36);
+  const rand = Math.random().toString(36).slice(2, 7);
+  return `${E2E_TITLE_PREFIX} ${stamp}-${rand}${suffix ? ` ${suffix}` : ""}`;
+}
+
+/**
+ * Ensure the notes list pane is visible. On desktop the list and editor
+ * are always side-by-side, so this is a no-op. On mobile the list is
+ * hidden behind `display: none` whenever a note is selected — tapping
+ * "Back to notes" returns to the list view.
+ */
+export async function returnToList(page: Page) {
+  if (!isMobile(page)) return;
+  const back = page.getByRole("button", { name: /back to notes/i });
+  if (await back.isVisible().catch(() => false)) {
+    await back.click();
+  }
+  // List view shows the Search input; wait for it to render.
+  await expect(page.getByPlaceholder("Search")).toBeVisible({
+    timeout: 30_000,
+  });
+}
+
+/**
+ * Click the "New note" entry point (mobile FAB vs desktop inline button)
+ * and wait for the editor to be ready for input.
+ */
+export async function startNewNote(page: Page) {
+  if (isMobile(page)) {
+    // The mobile FAB lives inside the NoteList pane, which is hidden
+    // whenever a note is selected. Hop back to the list first.
+    await returnToList(page);
+    await page.getByRole("button", { name: /compose note/i }).click();
+  } else {
+    await page.getByRole("button", { name: /^new note$/i }).click();
+  }
+  // Editor pane reveals the Title/Body inputs once selectedId === "new".
+  await expect(page.getByLabel("Title")).toBeVisible();
+}
+
+/**
+ * Create a note via the editor: opens the New-note draft, fills title +
+ * body, clicks the create/save button, waits until the list contains an
+ * item with the given title.
+ */
+export async function createNoteViaEditor(
+  page: Page,
+  { title, message }: { title: string; message: string },
+) {
+  await startNewNote(page);
+  await page.getByLabel("Title").fill(title);
+  await page.getByLabel("Body").fill(message);
+  // The save button reads "Create note" for new drafts.
+  await page.getByRole("button", { name: /^create note$/i }).click();
+  // Post-save, the editor advances baselines, so the Save button flips
+  // from enabled ("Create note") to disabled (label becomes "Save" and
+  // dirty=false). That's a viewport-agnostic signal — much more reliable
+  // than asserting list-item visibility, which on mobile is hidden
+  // because the list pane gets `display: none` when a note is selected.
+  await expect(page.getByRole("button", { name: /^save$/i })).toBeDisabled({
+    timeout: 60_000,
+  });
+}
+
+/**
+ * Delete a note by title via the UI. Selects the note in the list, hits
+ * Delete, and accepts the confirm() prompt automatically. The list
+ * background revalidation reflects the deletion within ~60s.
+ */
+export async function deleteNoteByTitle(page: Page, title: string) {
+  // On mobile the list is hidden when a note is selected; surface it
+  // first so the target button is clickable.
+  await returnToList(page);
+  const item = page.locator("button", { hasText: title }).first();
+  if (!(await item.isVisible().catch(() => false))) return;
+  await item.click();
+  // Title input should populate once the detail loads.
+  await expect(page.getByLabel("Title")).toHaveValue(title, {
+    timeout: 30_000,
+  });
+
+  // window.confirm("Delete this note permanently?") — auto-accept.
+  const dialogHandler = (dialog: import("@playwright/test").Dialog) => {
+    void dialog.accept();
+  };
+  page.once("dialog", dialogHandler);
+
+  // Desktop renders the "Delete" button in the editor header; mobile
+  // renders "Delete note" near the bottom. Match either label.
+  await page
+    .getByRole("button", { name: /^delete( note)?$/i })
+    .first()
+    .click();
+
+  // Item leaves the list after reloadNotes resolves.
+  await expect(page.locator("button", { hasText: title })).toHaveCount(0, {
+    timeout: 60_000,
+  });
+}
+
+/**
+ * Best-effort cleanup: delete every note whose title begins with the
+ * transient e2e prefix. The `[e2e-fixture]` deterministic-seed notes
+ * are deliberately preserved across runs.
+ *
+ * Implementation note: list buttons render the title and the message
+ * preview as adjacent divs, which `textContent` concatenates without
+ * whitespace. Rather than parse that back out, we open each candidate
+ * and read the canonical title from the editor's Title input.
+ */
+export async function cleanupE2eNotes(page: Page) {
+  let safety = 20;
+  while (safety > 0) {
+    safety -= 1;
+    // On mobile, if the previous action left the editor open the list pane
+    // is `display: none` and candidate lookups would silently return 0.
+    // Force the list to be visible before counting.
+    await returnToList(page);
+    const candidates = page.locator("button", { hasText: E2E_TITLE_PREFIX });
+    const total = await candidates.count();
+    if (total === 0) return;
+
+    // Iterate the visible list and pick the first non-fixture entry. Open
+    // each candidate just long enough to read its canonical title from the
+    // editor's Title input; the list buttons render title + preview as
+    // concatenated text, which is unreliable to parse.
+    let targetTitle: string | null = null;
+    for (let i = 0; i < total; i += 1) {
+      await candidates.nth(i).click();
+      let canonical = "";
+      try {
+        canonical = await page
+          .getByLabel("Title")
+          .inputValue({ timeout: 5_000 });
+      } catch {
+        continue;
+      }
+      if (
+        canonical.startsWith(E2E_TITLE_PREFIX) &&
+        !canonical.startsWith(E2E_FIXTURE_PREFIX)
+      ) {
+        targetTitle = canonical;
+        break;
+      }
+    }
+    if (!targetTitle) return;
+    await deleteNoteByTitle(page, targetTitle);
+  }
+}
+
+/**
+ * Ensure the two deterministic search fixtures exist for the current
+ * identity + contract. Created once and re-used across runs to avoid
+ * writing 2 throw-away notes per search test.
+ */
+export async function seedSearchFixtures(page: Page) {
+  for (const title of [SEARCH_FIXTURE_ALPHA, SEARCH_FIXTURE_BETA]) {
+    const existing = page.locator("button", { hasText: title });
+    if ((await existing.count()) > 0) continue;
+    await createNoteViaEditor(page, {
+      title,
+      message: `Deterministic e2e search fixture for "${title}".`,
+    });
+  }
+}
