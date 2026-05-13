@@ -80,43 +80,6 @@ test("forget-this-device via the Settings panel drops back to readonly", async (
   ).toBeHidden();
 });
 
-test("forget-this-device via the LoginModal also clears the remembered identity", async ({
-  page,
-}) => {
-  await loginViaModal(page, { rememberMe: true });
-
-  // Log out so the modal can be opened with the rememberedIdentity panel
-  // visible. Logout-without-forget keeps the hint, dropping to browsing.
-  await openIdentityMenu(page);
-  await page.getByRole("menuitem", { name: /^log out$/i }).click();
-  await expect(
-    page.getByText("Browsing (read-only)", { exact: true }),
-  ).toBeVisible({ timeout: 30_000 });
-
-  // Open the login modal — the "Forget this device" button is rendered
-  // beside "Use a different identity" when rememberedIdentityId is set.
-  // The IdentityCard in browsing state is a button with aria-haspopup="menu"
-  // (the "Switch identity" menuitem opens the login modal).
-  await openIdentityMenu(page);
-  await page.getByRole("menuitem", { name: /switch identity/i }).click();
-
-  const dialog = page.getByRole("dialog");
-  await expect(dialog).toBeVisible();
-  await dialog.getByRole("button", { name: /forget this device/i }).click();
-
-  // The form re-renders without the remembered panel.
-  await expect(
-    dialog.locator('[data-testid="remembered-identity-panel"]'),
-  ).toBeHidden();
-
-  // Close and reload — readonly state confirms the hint is gone.
-  await dialog.getByRole("button", { name: /^cancel$/i }).click();
-  await page.reload();
-  await expect(
-    page.getByText("Browsing (read-only)", { exact: true }),
-  ).toBeHidden();
-});
-
 test("Switch identity from the IdentityCard menu re-opens the login form", async ({
   page,
 }) => {

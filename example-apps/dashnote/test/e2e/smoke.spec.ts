@@ -108,14 +108,27 @@ test.describe("login modal", () => {
     await expect(dialog.locator('input[type="number"]')).toBeVisible();
   });
 
-  test("Advanced settings exposes a contract-ID field", async ({ page }) => {
+  test("Advanced settings disclosure is hidden when input parses as a WIF", async ({
+    page,
+  }) => {
+    // WIF input has no DIP-13 derivation, so identity-index is irrelevant
+    // and the whole Advanced disclosure should disappear.
     await (await navButton(page, /login$/i)).click();
     const dialog = page.getByRole("dialog");
-    await dialog.getByRole("button", { name: /advanced settings/i }).click();
-    await expect(dialog.getByText(/contract id/i).first()).toBeVisible();
+
+    // Mnemonic-shaped input first → disclosure renders.
+    await dialog.getByPlaceholder(/mnemonic phrase|wif/i).fill("word word");
     await expect(
-      dialog.getByPlaceholder(/dashnote note contract id/i),
+      dialog.getByRole("button", { name: /advanced settings/i }),
     ).toBeVisible();
+
+    // Switch to WIF-shaped input → disclosure disappears.
+    await dialog
+      .getByPlaceholder(/mnemonic phrase|wif/i)
+      .fill("cVHcfvcWNc7DvqaPCwM6Z3DqZ");
+    await expect(
+      dialog.getByRole("button", { name: /advanced settings/i }),
+    ).toBeHidden();
   });
 });
 

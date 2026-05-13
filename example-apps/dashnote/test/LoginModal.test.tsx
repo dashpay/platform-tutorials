@@ -150,6 +150,98 @@ describe("LoginModal", () => {
     expect(button.disabled).toBe(true);
   });
 
+  it("keeps the login button disabled for a whitespace-only secret", () => {
+    mockUseSession.mockReturnValue(makeSession());
+
+    render(<LoginModal open onClose={vi.fn()} />);
+
+    fireEvent.change(screen.getByPlaceholderText(/mnemonic phrase/i), {
+      target: { value: "   \t  " },
+    });
+
+    const button = screen.getByRole("button", {
+      name: /^login$/i,
+    }) as HTMLButtonElement;
+    expect(button.disabled).toBe(true);
+  });
+
+  it("disables the login button while a login is in flight", async () => {
+    // Resolve manually so we can observe the in-flight state. The label
+    // also flips to "Connecting…" while submitting is true.
+    let resolveLogin: (() => void) | undefined;
+    const login = vi.fn(
+      () =>
+        new Promise<void>((resolve) => {
+          resolveLogin = () => resolve();
+        }),
+    );
+    mockUseSession.mockReturnValue(makeSession({ login }));
+
+    render(<LoginModal open onClose={vi.fn()} />);
+
+    fireEvent.change(screen.getByPlaceholderText(/mnemonic phrase/i), {
+      target: { value: "phrase" },
+    });
+    fireEvent.click(screen.getByRole("button", { name: /^login$/i }));
+
+    const connectingButton = (await screen.findByRole("button", {
+      name: /connecting/i,
+    })) as HTMLButtonElement;
+    expect(connectingButton.disabled).toBe(true);
+
+    resolveLogin?.();
+    await waitFor(() => {
+      expect(login).toHaveBeenCalled();
+    });
+  });
+
+  it("falls back to identityIndex=0 when the index field is non-numeric", async () => {
+    // Number.parseInt("abc", 10) is NaN; the handler must coerce that to 0
+    // rather than passing NaN through to session.login.
+    const login = vi.fn().mockResolvedValue(undefined);
+    mockUseSession.mockReturnValue(makeSession({ login }));
+
+    render(<LoginModal open onClose={vi.fn()} />);
+
+    fireEvent.click(screen.getByText(/advanced settings/i));
+    fireEvent.change(screen.getByRole("spinbutton"), {
+      target: { value: "abc" },
+    });
+    fireEvent.change(screen.getByPlaceholderText(/mnemonic phrase/i), {
+      target: { value: "phrase" },
+    });
+    fireEvent.click(screen.getByRole("button", { name: /^login$/i }));
+
+    await waitFor(() => {
+      expect(login).toHaveBeenCalledWith("phrase", {
+        identityIndex: 0,
+        rememberMe: true,
+      });
+    });
+  });
+
+  it("preserves identityIndex and showAdvanced across modal reopens", () => {
+    // The open-effect resets secret/rememberMe/useDifferentIdentity/error,
+    // but NOT identityIndex or showAdvanced — verify that contract so a
+    // future refactor doesn't quietly change it.
+    mockUseSession.mockReturnValue(makeSession());
+
+    const { rerender } = render(<LoginModal open onClose={vi.fn()} />);
+
+    fireEvent.click(screen.getByText(/advanced settings/i));
+    fireEvent.change(screen.getByRole("spinbutton"), {
+      target: { value: "7" },
+    });
+
+    rerender(<LoginModal open={false} onClose={vi.fn()} />);
+    rerender(<LoginModal open onClose={vi.fn()} />);
+
+    // Disclosure is still open, value still 7.
+    expect((screen.getByRole("spinbutton") as HTMLInputElement).value).toBe(
+      "7",
+    );
+  });
+
   it("uses identity index from advanced settings", async () => {
     const login = vi.fn().mockResolvedValue(undefined);
     mockUseSession.mockReturnValue(makeSession({ login }));
@@ -341,23 +433,6 @@ describe("LoginModal", () => {
     expect(checkbox.checked).toBe(true);
   });
 
-  it("calls forgetIdentity when Forget this device is clicked from the login form", () => {
-    const forgetIdentity = vi.fn();
-    mockUseSession.mockReturnValue(
-      makeSession({
-        rememberedIdentityId: "remembered-identity-id",
-        forgetIdentity,
-      }),
-    );
-
-    render(<LoginModal open onClose={vi.fn()} />);
-
-    fireEvent.click(
-      screen.getByRole("button", { name: /forget this device/i }),
-    );
-    expect(forgetIdentity).toHaveBeenCalled();
-  });
-
   it("hides the remembered identity panel when no identity is remembered", () => {
     mockUseSession.mockReturnValue(makeSession());
 
@@ -483,15 +558,17 @@ describe("LoginModal", () => {
     expect(screen.queryByRole("spinbutton")).not.toBeNull();
   });
 
-  it("hides the identity-index field when the input parses as a WIF", () => {
+  it("hides the Advanced settings disclosure when the input parses as a WIF", () => {
+    // WIF input has no DIP-13 derivation, so the only knob inside Advanced
+    // (Identity index) is irrelevant — the disclosure itself disappears.
     mockUseSession.mockReturnValue(makeSession());
     render(<LoginModal open onClose={vi.fn()} />);
 
     fireEvent.change(screen.getByPlaceholderText(/mnemonic phrase/i), {
       target: { value: "cVHcfvcWNc7DvqaPCwM6Z3DqZ" },
     });
-    fireEvent.click(screen.getByText(/advanced settings/i));
 
+    expect(screen.queryByText(/advanced settings/i)).toBeNull();
     expect(screen.queryByRole("spinbutton")).toBeNull();
   });
 
