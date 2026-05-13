@@ -2,9 +2,11 @@
  * Shared Playwright fixtures for dashnote E2E tests.
  *
  * Runs against real Dash Platform testnet — no SDK mocks. The base `page`
- * fixture navigates to `/` and waits until the IdentityCard reports a live
- * SDK connection (`Connected`, `Authenticated`, or `Browsing (read-only)`)
- * so spec bodies always have a usable SDK.
+ * fixture navigates to `/` and waits for the IdentityCard's connected dot
+ * (`.conn-dot.connected`) to appear so spec bodies always have a usable
+ * SDK. We anchor on the dot rather than the text label because the
+ * readonly card paints "Connected" twice (eyebrow + status line) which
+ * would trip Playwright's strict-mode matchers.
  *
  * The sidebar is rendered as `<aside aria-label="Main navigation">`, not a
  * `<nav>` landmark — scope nav-button lookups through `navButton(page, …)`
@@ -58,7 +60,9 @@ function isMobile(page: Page): boolean {
 export async function navButton(page: Page, label: RegExp | string) {
   if (isMobile(page)) {
     // Hamburger button carries aria-expanded="true|false" reflecting drawerOpen.
-    const hamburger = page.locator('button[aria-expanded][aria-label*="menu" i]');
+    const hamburger = page.locator(
+      'button[aria-expanded][aria-label*="menu" i]',
+    );
     if ((await hamburger.getAttribute("aria-expanded")) !== "true") {
       await hamburger.click();
       await expect(hamburger).toHaveAttribute("aria-expanded", "true");
@@ -67,6 +71,34 @@ export async function navButton(page: Page, label: RegExp | string) {
   return page
     .locator('aside[aria-label="Main navigation"]')
     .getByRole("button", { name: label });
+}
+
+/**
+ * Open the IdentityCard menu (the popover with Settings / Switch identity
+ * / Log out items). Only available when the session is `authenticated` or
+ * `browsing` — caller is responsible for being in that state.
+ *
+ * On mobile the sidebar is off-canvas; opens the drawer transparently
+ * via the hamburger first.
+ */
+export async function openIdentityMenu(page: Page) {
+  if (isMobile(page)) {
+    const hamburger = page.locator(
+      'button[aria-expanded][aria-label*="menu" i]',
+    );
+    if ((await hamburger.getAttribute("aria-expanded")) !== "true") {
+      await hamburger.click();
+      await expect(hamburger).toHaveAttribute("aria-expanded", "true");
+    }
+  }
+  // The IdentityCard menu trigger is the button with aria-haspopup="menu".
+  // (The hamburger uses aria-haspopup absent; readonly card is a plain
+  // button; only the authenticated/browsing IdentityCard exposes the menu.)
+  const trigger = page
+    .locator('aside[aria-label="Main navigation"]')
+    .locator('button[aria-haspopup="menu"]');
+  await trigger.click();
+  await expect(page.getByRole("menu")).toBeVisible();
 }
 
 /**
