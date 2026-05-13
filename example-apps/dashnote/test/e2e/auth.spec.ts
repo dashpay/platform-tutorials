@@ -5,7 +5,7 @@ import {
   loginViaModal,
   navButton,
   openIdentityMenu,
-  type Page,
+  openSettingsTab,
 } from "./fixtures";
 
 test.skip(!HAS_MNEMONIC, "PLATFORM_MNEMONIC not set — skipping auth specs");
@@ -29,17 +29,6 @@ test.beforeEach(async ({ page }) => {
     timeout: 60_000,
   });
 });
-
-async function openSettingsTab(page: Page) {
-  // SettingsPanel renders when tab === "settings". Reachable both via
-  // the sidebar "Settings" NavButton and via the IdentityCard menu;
-  // use the menu so we exercise that path too.
-  await openIdentityMenu(page);
-  await page.getByRole("menuitem", { name: /^settings$/i }).click();
-  await expect(
-    page.getByRole("heading", { name: /^Settings$/, level: 1 }),
-  ).toBeVisible();
-}
 
 test("login with a mnemonic, then logout via the IdentityCard menu", async ({
   page,

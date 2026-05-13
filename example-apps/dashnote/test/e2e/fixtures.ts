@@ -141,6 +141,19 @@ export async function loginViaModal(
 }
 
 /**
+ * Open the Settings panel via the IdentityCard menu's "Settings" item.
+ * Caller must already be in an authenticated or browsing session — the
+ * IdentityCard menu trigger is only present in those states.
+ */
+export async function openSettingsTab(page: Page) {
+  await openIdentityMenu(page);
+  await page.getByRole("menuitem", { name: /^settings$/i }).click();
+  await expect(
+    page.getByRole("heading", { name: /^Settings$/, level: 1 }),
+  ).toBeVisible();
+}
+
+/**
  * Recognizable title prefix for every transient note an e2e test creates.
  * The cleanup helper uses this to scope its deletes so it never touches a
  * manually-created note on the same identity.
