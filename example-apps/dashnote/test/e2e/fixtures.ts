@@ -268,18 +268,18 @@ export async function deleteNoteByTitle(page: Page, title: string) {
     timeout: 30_000,
   });
 
-  // window.confirm("Delete this note permanently?") — auto-accept.
-  const dialogHandler = (dialog: import("@playwright/test").Dialog) => {
-    void dialog.accept();
-  };
-  page.once("dialog", dialogHandler);
-
   // Desktop renders the "Delete" button in the editor header; mobile
   // renders "Delete note" near the bottom. Match either label.
   await page
     .getByRole("button", { name: /^delete( note)?$/i })
     .first()
     .click();
+
+  // DeleteNoteModal opens for confirmation; scope to its dialog so we
+  // don't accidentally re-match the editor's Delete trigger.
+  const confirmDialog = page.getByRole("dialog");
+  await expect(confirmDialog).toBeVisible();
+  await confirmDialog.getByRole("button", { name: /^delete$/i }).click();
 
   // Item leaves the list after reloadNotes resolves.
   await expect(page.locator("button", { hasText: title })).toHaveCount(0, {
