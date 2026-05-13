@@ -38,8 +38,10 @@ test("login with a mnemonic, then logout via the IdentityCard menu", async ({
   await openIdentityMenu(page);
   await page.getByRole("menuitem", { name: /^log out$/i }).click();
 
-  // No remembered identity → session drops back to readonly → IdentityCard
-  // eyebrow shows "Connected" (the readonly card).
+  // No remembered identity → session drops back to readonly. The readonly
+  // IdentityCard paints "Connected" twice: once as the eyebrow label
+  // above the card, and once as the inline status text next to the
+  // connection dot — hence count=2, not 1.
   await expect(
     page.locator('aside[aria-label="Main navigation"]').getByText("Connected"),
   ).toHaveCount(2, { timeout: 30_000 });
