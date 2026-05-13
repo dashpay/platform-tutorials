@@ -32,8 +32,10 @@ const STALE_EDIT_WARNING =
 type SelectedNoteId = string | "new" | null;
 
 export function NotesWorkspace({
+  onOpenLogin,
   onOpenSettings,
 }: {
+  onOpenLogin: () => void;
   onOpenSettings: () => void;
 }) {
   const session = useSession();
@@ -594,7 +596,7 @@ export function NotesWorkspace({
           title="Sign in to see your notes"
           description="Dashnote stores notes against your testnet identity. Log in with a Dash Platform identity to create, edit, and review your notes."
           actionLabel="Log in"
-          onAction={onOpenSettings}
+          onAction={onOpenLogin}
           secondaryHref="https://bridge.thepasta.org/"
           secondaryLabel="Need an identity? Create one on Dash Bridge"
           footnote="Notes are not private. They are stored publicly on Dash Platform."
@@ -665,6 +667,7 @@ export function NotesWorkspace({
               messageOversize={messageOversize}
               contractReady={contractReady}
               error={error ?? conflictWarning}
+              onOpenLogin={onOpenLogin}
               onOpenSettings={onOpenSettings}
             />
           </div>

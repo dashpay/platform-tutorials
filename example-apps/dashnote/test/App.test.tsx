@@ -40,7 +40,7 @@ vi.mock("../src/components/AppShell", () => ({
   }: {
     children: ReactNode;
     onLoginOpen: () => void;
-    onTabChange: (tab: "notes" | "how-it-works") => void;
+    onTabChange: (tab: "notes" | "how-it-works" | "settings") => void;
   }) => (
     <div>
       <button type="button" onClick={onLoginOpen}>
@@ -48,6 +48,9 @@ vi.mock("../src/components/AppShell", () => ({
       </button>
       <button type="button" onClick={() => onTabChange("how-it-works")}>
         How it works tab
+      </button>
+      <button type="button" onClick={() => onTabChange("settings")}>
+        Settings tab
       </button>
       {children}
     </div>
@@ -136,5 +139,23 @@ describe("App", () => {
 
     fireEvent.click(screen.getByRole("button", { name: /open settings/i }));
     expect(screen.getByText("login:true")).toBeTruthy();
+  });
+
+  it("renders SettingsPanel when the settings tab is selected", () => {
+    mockUseSession.mockReturnValue(
+      makeSession({
+        status: "authenticated",
+        identityId: "id-app-settings",
+        contractId: "contract-app-settings",
+        sdk: { documents: {} },
+      }),
+    );
+
+    render(<App />);
+    expect(screen.queryByTestId("settings-identity-block")).toBeNull();
+
+    fireEvent.click(screen.getByRole("button", { name: /settings tab/i }));
+    expect(screen.getByTestId("settings-identity-block")).toBeTruthy();
+    expect(screen.getByText("id-app-settings")).toBeTruthy();
   });
 });

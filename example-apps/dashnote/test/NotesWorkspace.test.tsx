@@ -107,13 +107,15 @@ describe("NotesWorkspace", () => {
       }),
     );
 
-    const onOpenSettings = vi.fn();
-    render(<NotesWorkspace onOpenSettings={onOpenSettings} />);
+    const onOpenLogin = vi.fn();
+    render(
+      <NotesWorkspace onOpenLogin={onOpenLogin} onOpenSettings={vi.fn()} />,
+    );
 
     expect(screen.getByText(/sign in to see your notes/i)).toBeTruthy();
     const loginButton = screen.getByRole("button", { name: /^log in$/i });
     fireEvent.click(loginButton);
-    expect(onOpenSettings).toHaveBeenCalled();
+    expect(onOpenLogin).toHaveBeenCalled();
     expect(screen.queryByRole("button", { name: /new note/i })).toBeNull();
 
     const bridgeLink = screen.getByRole("link", { name: /dash bridge/i });
@@ -146,7 +148,7 @@ describe("NotesWorkspace", () => {
     });
     mockCreateNote.mockResolvedValue("note-1");
 
-    render(<NotesWorkspace onOpenSettings={vi.fn()} />);
+    render(<NotesWorkspace onOpenLogin={vi.fn()} onOpenSettings={vi.fn()} />);
 
     await waitFor(() => {
       expect(mockListMyNotes).toHaveBeenCalledTimes(1);
@@ -176,7 +178,7 @@ describe("NotesWorkspace", () => {
     mockUseSession.mockReturnValue(makeSession());
     mockListMyNotes.mockResolvedValue([]);
 
-    render(<NotesWorkspace onOpenSettings={vi.fn()} />);
+    render(<NotesWorkspace onOpenLogin={vi.fn()} onOpenSettings={vi.fn()} />);
 
     await waitFor(() => {
       expect(mockListMyNotes).toHaveBeenCalledTimes(1);
@@ -202,7 +204,7 @@ describe("NotesWorkspace", () => {
     mockUpdateNote.mockResolvedValue(undefined);
     mockDeleteNote.mockResolvedValue(undefined);
 
-    render(<NotesWorkspace onOpenSettings={vi.fn()} />);
+    render(<NotesWorkspace onOpenLogin={vi.fn()} onOpenSettings={vi.fn()} />);
 
     await waitFor(() => {
       expect(mockGetNote).toHaveBeenCalledWith(
@@ -267,7 +269,7 @@ describe("NotesWorkspace", () => {
     mockListMyNotes.mockResolvedValue([stale]);
     mockGetNote.mockResolvedValue(fresh);
 
-    render(<NotesWorkspace onOpenSettings={vi.fn()} />);
+    render(<NotesWorkspace onOpenLogin={vi.fn()} onOpenSettings={vi.fn()} />);
 
     await waitFor(() => {
       expect(mockGetNote).toHaveBeenCalledWith(
@@ -329,7 +331,7 @@ describe("NotesWorkspace", () => {
         .mockResolvedValue(remote); // post-failure refresh — chain has moved
       mockUpdateNote.mockRejectedValue(new Error("Identity nonce is stale"));
 
-      render(<NotesWorkspace onOpenSettings={vi.fn()} />);
+      render(<NotesWorkspace onOpenLogin={vi.fn()} onOpenSettings={vi.fn()} />);
 
       await waitFor(() => {
         expect(
@@ -364,7 +366,7 @@ describe("NotesWorkspace", () => {
       mockGetNote.mockResolvedValue(initial);
       mockUpdateNote.mockRejectedValue(new Error("Network unreachable"));
 
-      render(<NotesWorkspace onOpenSettings={vi.fn()} />);
+      render(<NotesWorkspace onOpenLogin={vi.fn()} onOpenSettings={vi.fn()} />);
 
       await waitFor(() => {
         expect(
@@ -396,7 +398,7 @@ describe("NotesWorkspace", () => {
         .mockRejectedValueOnce(new Error("Identity nonce is stale"))
         .mockResolvedValue(undefined);
 
-      render(<NotesWorkspace onOpenSettings={vi.fn()} />);
+      render(<NotesWorkspace onOpenLogin={vi.fn()} onOpenSettings={vi.fn()} />);
 
       await waitFor(() => {
         expect(
@@ -447,7 +449,7 @@ describe("NotesWorkspace", () => {
         .mockResolvedValue(saved); // post-save reload
       mockUpdateNote.mockResolvedValue(undefined);
 
-      render(<NotesWorkspace onOpenSettings={vi.fn()} />);
+      render(<NotesWorkspace onOpenLogin={vi.fn()} onOpenSettings={vi.fn()} />);
 
       await waitFor(() => {
         expect(
@@ -481,7 +483,7 @@ describe("NotesWorkspace", () => {
     mockUseSession.mockReturnValue(makeSession());
     mockListMyNotes.mockRejectedValue(new Error("Data contract not found"));
 
-    render(<NotesWorkspace onOpenSettings={vi.fn()} />);
+    render(<NotesWorkspace onOpenLogin={vi.fn()} onOpenSettings={vi.fn()} />);
 
     await waitFor(() => {
       expect(screen.getByText(/editor error/i)).toBeTruthy();
@@ -493,7 +495,9 @@ describe("NotesWorkspace", () => {
     mockUseSession.mockReturnValue(makeSession({ contractId: null }));
     const onOpenSettings = vi.fn();
 
-    render(<NotesWorkspace onOpenSettings={onOpenSettings} />);
+    render(
+      <NotesWorkspace onOpenLogin={vi.fn()} onOpenSettings={onOpenSettings} />,
+    );
 
     expect(screen.getByText(/register or select a contract/i)).toBeTruthy();
     fireEvent.click(screen.getByRole("button", { name: /open settings/i }));
@@ -541,7 +545,7 @@ describe("NotesWorkspace", () => {
     mockListMyNotes.mockResolvedValue(notes);
     mockGetNote.mockResolvedValue(notes[0]);
 
-    render(<NotesWorkspace onOpenSettings={vi.fn()} />);
+    render(<NotesWorkspace onOpenLogin={vi.fn()} onOpenSettings={vi.fn()} />);
 
     await waitFor(() => {
       expect(screen.getByText("Grocery list")).toBeTruthy();
@@ -582,7 +586,7 @@ describe("NotesWorkspace", () => {
       mockListMyNotes.mockResolvedValue([noteFixture]);
       mockGetNote.mockResolvedValue(noteFixture);
 
-      render(<NotesWorkspace onOpenSettings={vi.fn()} />);
+      render(<NotesWorkspace onOpenLogin={vi.fn()} onOpenSettings={vi.fn()} />);
 
       await waitFor(() => {
         expect(mockListMyNotes).toHaveBeenCalledTimes(1);
@@ -598,7 +602,7 @@ describe("NotesWorkspace", () => {
       mockUseSession.mockReturnValue(makeSession());
       mockListMyNotes.mockResolvedValue([]);
 
-      render(<NotesWorkspace onOpenSettings={vi.fn()} />);
+      render(<NotesWorkspace onOpenLogin={vi.fn()} onOpenSettings={vi.fn()} />);
 
       await waitFor(() => {
         expect(mockListMyNotes).toHaveBeenCalledTimes(1);
@@ -619,7 +623,7 @@ describe("NotesWorkspace", () => {
       mockListMyNotes.mockResolvedValue([noteFixture]);
       mockGetNote.mockResolvedValue(noteFixture);
 
-      render(<NotesWorkspace onOpenSettings={vi.fn()} />);
+      render(<NotesWorkspace onOpenLogin={vi.fn()} onOpenSettings={vi.fn()} />);
 
       await waitFor(() => {
         expect(screen.getByText(/phone note/i)).toBeTruthy();
@@ -641,7 +645,7 @@ describe("NotesWorkspace", () => {
       mockListMyNotes.mockResolvedValue([noteFixture]);
       mockGetNote.mockResolvedValue(noteFixture);
 
-      render(<NotesWorkspace onOpenSettings={vi.fn()} />);
+      render(<NotesWorkspace onOpenLogin={vi.fn()} onOpenSettings={vi.fn()} />);
 
       await waitFor(() => {
         expect(screen.getByText(/phone note/i)).toBeTruthy();
@@ -666,7 +670,7 @@ describe("NotesWorkspace", () => {
       mockGetNote.mockResolvedValue(noteFixture);
       mockDeleteNote.mockResolvedValue(undefined);
 
-      render(<NotesWorkspace onOpenSettings={vi.fn()} />);
+      render(<NotesWorkspace onOpenLogin={vi.fn()} onOpenSettings={vi.fn()} />);
 
       await waitFor(() => {
         expect(screen.getByText(/phone note/i)).toBeTruthy();
@@ -725,7 +729,7 @@ describe("NotesWorkspace", () => {
       );
       mockGetNote.mockImplementation(() => new Promise(() => {}));
 
-      render(<NotesWorkspace onOpenSettings={vi.fn()} />);
+      render(<NotesWorkspace onOpenLogin={vi.fn()} onOpenSettings={vi.fn()} />);
 
       // Synchronously visible from cache (no waitFor needed).
       expect(screen.getAllByText(/cached title/i).length).toBeGreaterThan(0);
@@ -759,7 +763,7 @@ describe("NotesWorkspace", () => {
       );
       mockGetNote.mockResolvedValue(cached);
 
-      render(<NotesWorkspace onOpenSettings={vi.fn()} />);
+      render(<NotesWorkspace onOpenLogin={vi.fn()} onOpenSettings={vi.fn()} />);
 
       // Cached note is auto-selected on desktop and the editor is shown, but
       // the save button must be disabled because editsReady=false.
@@ -807,7 +811,7 @@ describe("NotesWorkspace", () => {
         .mockResolvedValueOnce([newerFromChain]);
       mockGetNote.mockResolvedValue(initial);
 
-      render(<NotesWorkspace onOpenSettings={vi.fn()} />);
+      render(<NotesWorkspace onOpenLogin={vi.fn()} onOpenSettings={vi.fn()} />);
 
       // Wait for initial load to settle so the editor reflects the cached/
       // chain content with baselines set.
@@ -874,7 +878,7 @@ describe("NotesWorkspace", () => {
         },
       ]);
 
-      render(<NotesWorkspace onOpenSettings={vi.fn()} />);
+      render(<NotesWorkspace onOpenLogin={vi.fn()} onOpenSettings={vi.fn()} />);
 
       // Cached list paints synchronously, even though sdk is null. Without the
       // reloadNotes-skip-when-sdk-null fix, the list would be wiped to [].
@@ -900,7 +904,7 @@ describe("NotesWorkspace", () => {
       mockListMyNotes.mockImplementation(() => new Promise(() => {}));
       mockGetNote.mockImplementation(() => new Promise(() => {}));
 
-      render(<NotesWorkspace onOpenSettings={vi.fn()} />);
+      render(<NotesWorkspace onOpenLogin={vi.fn()} onOpenSettings={vi.fn()} />);
 
       // Editor pane shows the seeded note's content from the very first paint
       // (no "No note selected" empty state in between).
@@ -927,7 +931,7 @@ describe("NotesWorkspace", () => {
       ]);
       mockListMyNotes.mockImplementation(() => new Promise(() => {}));
 
-      render(<NotesWorkspace onOpenSettings={vi.fn()} />);
+      render(<NotesWorkspace onOpenLogin={vi.fn()} onOpenSettings={vi.fn()} />);
 
       // Cached list paints synchronously on mobile too.
       expect(screen.getByText("Mobile cached")).toBeTruthy();
@@ -968,7 +972,9 @@ describe("NotesWorkspace", () => {
         );
       mockGetNote.mockImplementation(() => new Promise(() => {}));
 
-      const { rerender } = render(<NotesWorkspace onOpenSettings={vi.fn()} />);
+      const { rerender } = render(
+        <NotesWorkspace onOpenLogin={vi.fn()} onOpenSettings={vi.fn()} />,
+      );
 
       // Switch to a new identity+contract while the first listMyNotes is
       // still pending. Re-rendering with a fresh session value triggers the
@@ -977,7 +983,9 @@ describe("NotesWorkspace", () => {
       mockUseSession.mockReturnValue(
         makeSession({ identityId: "identity-2", contractId: "contract-2" }),
       );
-      rerender(<NotesWorkspace onOpenSettings={vi.fn()} />);
+      rerender(
+        <NotesWorkspace onOpenLogin={vi.fn()} onOpenSettings={vi.fn()} />,
+      );
 
       // Wait until the post-rerender hydrate effect has actually issued its
       // own listMyNotes call. This proves the new reload token is in place
@@ -1034,7 +1042,7 @@ describe("NotesWorkspace", () => {
       mockListMyNotes.mockRejectedValue(new Error("Network unreachable"));
       mockGetNote.mockRejectedValue(new Error("Network unreachable"));
 
-      render(<NotesWorkspace onOpenSettings={vi.fn()} />);
+      render(<NotesWorkspace onOpenLogin={vi.fn()} onOpenSettings={vi.fn()} />);
 
       // Error surfaces but cached data stays visible.
       await waitFor(() => {

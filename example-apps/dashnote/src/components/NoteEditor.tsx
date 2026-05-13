@@ -23,6 +23,7 @@ interface NoteEditorProps {
   messageOversize: boolean;
   contractReady: boolean;
   error: string | null;
+  onOpenLogin: () => void;
   onOpenSettings: () => void;
   isReadOnly?: boolean;
   isDesktop: boolean;
@@ -48,6 +49,7 @@ export function NoteEditor({
   messageOversize,
   contractReady,
   error,
+  onOpenLogin,
   onOpenSettings,
   isReadOnly = false,
   isDesktop,
@@ -115,7 +117,7 @@ export function NoteEditor({
           {isReadOnly ? (
             <button
               type="button"
-              onClick={onOpenSettings}
+              onClick={onOpenLogin}
               className="rounded-full bg-accent px-3 py-1.5 text-[12px] font-semibold text-bg transition hover:bg-accent-dim"
             >
               Sign in to edit

@@ -12,20 +12,13 @@ import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 
 import { LoginModal } from "../src/components/LoginModal";
 
-const { mockUseSession, mockRegisterContract, mockUseWifPreview } = vi.hoisted(
-  () => ({
-    mockUseSession: vi.fn(),
-    mockRegisterContract: vi.fn(),
-    mockUseWifPreview: vi.fn(),
-  }),
-);
+const { mockUseSession, mockUseWifPreview } = vi.hoisted(() => ({
+  mockUseSession: vi.fn(),
+  mockUseWifPreview: vi.fn(),
+}));
 
 vi.mock("../src/session/useSession", () => ({
   useSession: mockUseSession,
-}));
-
-vi.mock("../src/dash/contract", () => ({
-  registerContract: mockRegisterContract,
 }));
 
 // Mocked so LoginModal's preview-rendering branches can be exercised
@@ -74,7 +67,6 @@ function makeSession(overrides: SessionOverrides = {}) {
 
 beforeEach(() => {
   mockUseSession.mockReset();
-  mockRegisterContract.mockReset();
   mockUseWifPreview.mockReset();
   mockUseWifPreview.mockReturnValue({ status: "idle" });
 });
@@ -88,6 +80,26 @@ describe("LoginModal", () => {
     mockUseSession.mockReturnValue(makeSession());
     const { container } = render(<LoginModal open={false} onClose={vi.fn()} />);
     expect(container.firstChild).toBeNull();
+  });
+
+  // Regression: an earlier auto-close effect dismissed the modal whenever it
+  // was opened while session.status === "authenticated", which broke the
+  // Switch-identity flow (the modal would flash and vanish).
+  it("stays open when opened in an authenticated session (Switch identity)", () => {
+    const onClose = vi.fn();
+    mockUseSession.mockReturnValue(
+      makeSession({
+        status: "authenticated",
+        identityId: "id-already-signed-in",
+        keyManager: { getAuth: vi.fn() },
+      }),
+    );
+
+    render(<LoginModal open onClose={onClose} />);
+
+    expect(onClose).not.toHaveBeenCalled();
+    expect(screen.getByPlaceholderText(/mnemonic phrase/i)).toBeTruthy();
+    expect(screen.getByRole("button", { name: /^login$/i })).toBeTruthy();
   });
 
   it("submits the mnemonic via session.login and closes on success", async () => {
@@ -159,54 +171,6 @@ describe("LoginModal", () => {
         rememberMe: true,
       });
     });
-  });
-
-  it("shows the settings view with logout when authenticated", () => {
-    const logout = vi.fn();
-    mockUseSession.mockReturnValue(
-      makeSession({
-        status: "authenticated",
-        identityId: "id-123456789012345678",
-        contractId: "contract-abc",
-        keyManager: { getAuth: vi.fn() },
-        logout,
-      }),
-    );
-
-    render(<LoginModal open onClose={vi.fn()} />);
-
-    expect(screen.getByText("id-123456789012345678")).toBeTruthy();
-
-    fireEvent.click(screen.getByRole("button", { name: /^logout$/i }));
-    expect(logout).toHaveBeenCalled();
-  });
-
-  it("applies a pasted contract ID immediately without validation", () => {
-    const setContractId = vi.fn();
-    mockUseSession.mockReturnValue(
-      makeSession({
-        status: "authenticated",
-        identityId: "id-1",
-        contractId: null,
-        keyManager: { getAuth: vi.fn() },
-        setContractId,
-      }),
-    );
-
-    render(<LoginModal open onClose={vi.fn()} />);
-
-    fireEvent.click(screen.getByText(/advanced settings/i));
-    fireEvent.change(
-      screen.getByPlaceholderText(
-        /paste a note contract id or register a new one/i,
-      ),
-      {
-        target: { value: " contract-123 " },
-      },
-    );
-    fireEvent.click(screen.getByRole("button", { name: /use this id/i }));
-
-    expect(setContractId).toHaveBeenCalledWith("contract-123");
   });
 
   it("defaults the Remember-me checkbox on when no identity is remembered", () => {
@@ -505,169 +469,6 @@ describe("LoginModal", () => {
 
     const panel = screen.getByTestId("remembered-identity-panel");
     expect(within(panel).queryByText(/\.dash$/)).toBeNull();
-  });
-
-  it("settings panel shows the DPNS name as a ✓ name.dash caption under the identity", () => {
-    mockUseSession.mockReturnValue(
-      makeSession({
-        status: "authenticated",
-        identityId: "id-1",
-        dpnsName: "alice",
-        keyManager: { getAuth: vi.fn() },
-      }),
-    );
-
-    render(<LoginModal open onClose={vi.fn()} />);
-
-    const block = screen.getByTestId("settings-identity-block");
-    expect(within(block).getByText("✓ alice.dash")).toBeTruthy();
-  });
-
-  it("settings panel omits the DPNS caption when no name is set", () => {
-    mockUseSession.mockReturnValue(
-      makeSession({
-        status: "authenticated",
-        identityId: "id-1",
-        dpnsName: null,
-        keyManager: { getAuth: vi.fn() },
-      }),
-    );
-
-    render(<LoginModal open onClose={vi.fn()} />);
-
-    const block = screen.getByTestId("settings-identity-block");
-    expect(within(block).queryByText(/\.dash$/)).toBeNull();
-  });
-
-  it("settings: Use a different identity link calls session.logout", () => {
-    const logout = vi.fn();
-    mockUseSession.mockReturnValue(
-      makeSession({
-        status: "authenticated",
-        identityId: "id-1",
-        keyManager: { getAuth: vi.fn() },
-        logout,
-      }),
-    );
-
-    render(<LoginModal open onClose={vi.fn()} />);
-
-    const actions = screen.getByTestId("settings-identity-actions");
-    fireEvent.click(
-      within(actions).getByRole("button", {
-        name: /use a different identity/i,
-      }),
-    );
-    expect(logout).toHaveBeenCalled();
-  });
-
-  it("settings: Forget this device link calls session.forgetIdentity when remembered", () => {
-    const forgetIdentity = vi.fn();
-    mockUseSession.mockReturnValue(
-      makeSession({
-        status: "authenticated",
-        identityId: "id-1",
-        rememberedIdentityId: "id-1",
-        keyManager: { getAuth: vi.fn() },
-        forgetIdentity,
-      }),
-    );
-
-    render(<LoginModal open onClose={vi.fn()} />);
-
-    const actions = screen.getByTestId("settings-identity-actions");
-    fireEvent.click(
-      within(actions).getByRole("button", { name: /forget this device/i }),
-    );
-    expect(forgetIdentity).toHaveBeenCalled();
-  });
-
-  it("settings: Forget this device link is hidden when nothing is remembered", () => {
-    mockUseSession.mockReturnValue(
-      makeSession({
-        status: "authenticated",
-        identityId: "id-1",
-        rememberedIdentityId: null,
-        keyManager: { getAuth: vi.fn() },
-      }),
-    );
-
-    render(<LoginModal open onClose={vi.fn()} />);
-
-    const actions = screen.getByTestId("settings-identity-actions");
-    expect(
-      within(actions).queryByRole("button", { name: /forget this device/i }),
-    ).toBeNull();
-  });
-
-  it("settings: Close button calls onClose without logging out", () => {
-    const onClose = vi.fn();
-    const logout = vi.fn();
-    mockUseSession.mockReturnValue(
-      makeSession({
-        status: "authenticated",
-        identityId: "id-1",
-        keyManager: { getAuth: vi.fn() },
-        logout,
-      }),
-    );
-
-    render(<LoginModal open onClose={onClose} />);
-
-    const closeButtons = screen.getAllByRole("button", {
-      name: /^close$/i,
-    });
-    const inlineClose = closeButtons.find(
-      (button) => button.textContent === "Close",
-    );
-    expect(inlineClose).toBeDefined();
-    fireEvent.click(inlineClose!);
-    expect(onClose).toHaveBeenCalled();
-    expect(logout).not.toHaveBeenCalled();
-  });
-
-  it("settings: Logout button also calls onClose", () => {
-    const onClose = vi.fn();
-    const logout = vi.fn();
-    mockUseSession.mockReturnValue(
-      makeSession({
-        status: "authenticated",
-        identityId: "id-1",
-        keyManager: { getAuth: vi.fn() },
-        logout,
-      }),
-    );
-
-    render(<LoginModal open onClose={onClose} />);
-
-    fireEvent.click(screen.getByRole("button", { name: /^logout$/i }));
-    expect(logout).toHaveBeenCalled();
-    expect(onClose).toHaveBeenCalled();
-  });
-
-  it("registers a new contract when the Register new button is clicked", async () => {
-    const setContractId = vi.fn();
-    mockRegisterContract.mockResolvedValue("new-contract-id");
-    mockUseSession.mockReturnValue(
-      makeSession({
-        status: "authenticated",
-        identityId: "id-1",
-        keyManager: { getAuth: vi.fn() },
-        setContractId,
-      }),
-    );
-
-    render(<LoginModal open onClose={vi.fn()} />);
-
-    fireEvent.click(screen.getByText(/advanced settings/i));
-    fireEvent.click(screen.getByRole("button", { name: /register new/i }));
-
-    await waitFor(() => {
-      expect(mockRegisterContract).toHaveBeenCalled();
-    });
-    await waitFor(() => {
-      expect(setContractId).toHaveBeenCalledWith("new-contract-id");
-    });
   });
 
   it("shows the identity-index field for mnemonic input under Advanced settings", () => {

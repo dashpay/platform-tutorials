@@ -1,1 +1,1 @@
-export type TopTab = "notes" | "how-it-works";
+export type TopTab = "notes" | "how-it-works" | "settings";

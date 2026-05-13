@@ -6,6 +6,7 @@ import { HowItWorks } from "./components/HowItWorks";
 import { LoginModal } from "./components/LoginModal";
 import { NotesWorkspace } from "./components/NotesWorkspace";
 import { OperationResultNotice } from "./components/OperationResultNotice";
+import { SettingsPanel } from "./components/SettingsPanel";
 import type { TopTab } from "./components/Tabs";
 import { useSession } from "./session/useSession";
 
@@ -19,6 +20,11 @@ const screenCopy: Record<TopTab, { title: string; subtitle: string }> = {
     title: "How Dashnote works",
     subtitle:
       "See how the note contract, mutation helpers, and notebook UI line up with the tutorials.",
+  },
+  settings: {
+    title: "Settings",
+    subtitle:
+      "Manage your identity, contract, and local data for this browser.",
   },
 };
 
@@ -86,9 +92,13 @@ function App() {
           )}
 
           {tab === "notes" && (
-            <NotesWorkspace onOpenSettings={() => setLoginOpen(true)} />
+            <NotesWorkspace
+              onOpenLogin={() => setLoginOpen(true)}
+              onOpenSettings={() => setTab("settings")}
+            />
           )}
           {tab === "how-it-works" && <HowItWorks />}
+          {tab === "settings" && <SettingsPanel />}
         </div>
       </AppShell>
 
