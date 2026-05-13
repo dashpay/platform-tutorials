@@ -107,6 +107,15 @@ export function AppShell({
           closeDrawer();
         }}
       />
+      <NavButton
+        label="Settings"
+        glyph="⚙"
+        active={tab === "settings"}
+        onClick={() => {
+          onTabChange("settings");
+          closeDrawer();
+        }}
+      />
       {status !== "authenticated" && (
         <NavButton
           label="Login"
@@ -195,6 +204,10 @@ export function AppShell({
             contractId={contractId}
             onLoginClick={() => {
               onLoginOpen();
+              closeDrawer();
+            }}
+            onOpenSettings={() => {
+              onTabChange("settings");
               closeDrawer();
             }}
           />
