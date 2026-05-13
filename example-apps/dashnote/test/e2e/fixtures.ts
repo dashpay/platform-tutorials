@@ -313,6 +313,15 @@ export async function cleanupE2eNotes(page: Page) {
  * writing 2 throw-away notes per search test.
  */
 export async function seedSearchFixtures(page: Page) {
+  // The NoteList renders a `role="status" aria-label="Loading notes"`
+  // spinner while the initial query is in flight. Waiting for it to be
+  // hidden means either the load resolved or the list already had
+  // cached entries — either way, the DOM now reflects truth and an
+  // `existing.count() === 0` check won't false-negative against a
+  // fixture that exists on-network but hasn't rendered yet.
+  await expect(
+    page.getByRole("status", { name: /loading notes/i }),
+  ).toBeHidden({ timeout: 60_000 });
   for (const title of [SEARCH_FIXTURE_ALPHA, SEARCH_FIXTURE_BETA]) {
     const existing = page.locator("button", { hasText: title });
     if ((await existing.count()) > 0) continue;
