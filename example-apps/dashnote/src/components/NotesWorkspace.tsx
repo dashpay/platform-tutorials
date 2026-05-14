@@ -14,7 +14,7 @@ import { updateNote } from "../dash/updateNote";
 import { DeleteNoteModal } from "./DeleteNoteModal";
 import { useMediaQuery } from "../hooks/useMediaQuery";
 import { byteLength, FIELD_BYTE_LIMIT } from "../lib/fieldLimits";
-import { errorMessage } from "../lib/logger";
+import { errorMessage, normalizeLogOptions, type Logger } from "../lib/logger";
 import {
   BACKGROUND_REFRESH_MS,
   FOCUS_REFRESH_MIN_MS,
@@ -31,6 +31,16 @@ const STALE_EDIT_WARNING =
   "This note changed on the network. Your unsaved edits are still here — saving will overwrite the newer version.";
 
 type SelectedNoteId = string | "new" | null;
+
+// Wrap the session logger so `info` rows from src/dash/* helpers (which only
+// pass a string) pick up the activity-panel `detail` for the operation. The
+// helpers stay terse; presentation lives here in the caller.
+function withDetail(log: Logger, detail: string): Logger {
+  return (message, levelOrOptions) => {
+    const opts = normalizeLogOptions(levelOrOptions);
+    log(message, { ...opts, detail: opts.detail ?? detail });
+  };
+}
 
 export function NotesWorkspace({
   onOpenLogin,
@@ -469,7 +479,11 @@ export function NotesWorkspace({
           contractId,
           title,
           message,
-          log,
+          log: withDetail(log, "documents.create"),
+        });
+        log("Note created.", {
+          level: "success",
+          detail: `id ${noteId.slice(0, 8)}…`,
         });
         // Advance baselines so the post-save reload doesn't see wasDirty=true
         // and trip the conflict detector against its own write.
@@ -479,14 +493,18 @@ export function NotesWorkspace({
         setBaselineMessage(submittedMessage);
         await reloadNotes(noteId);
       } else {
-        await updateNote({
+        const newRevision = await updateNote({
           sdk,
           keyManager,
           contractId,
           noteId: selectedId,
           title,
           message,
-          log,
+          log: withDetail(log, "documents.get → replace"),
+        });
+        log("Note saved.", {
+          level: "success",
+          detail: `rev ${newRevision.toString()}`,
         });
         baselineTitleRef.current = submittedTitle;
         baselineMessageRef.current = submittedMessage;
@@ -575,7 +593,11 @@ export function NotesWorkspace({
         keyManager,
         contractId,
         noteId: selectedId,
-        log,
+        log: withDetail(log, "documents.delete"),
+      });
+      log("Note deleted.", {
+        level: "success",
+        detail: `id ${selectedId.slice(0, 8)}…`,
       });
       setDeleteRequested(false);
       await reloadNotes();

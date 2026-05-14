@@ -21,10 +21,7 @@ export async function deleteNote({
   noteId,
   log,
 }: DeleteNoteParams): Promise<void> {
-  log?.(`Deleting note ${noteId.slice(0, 8)}…`, {
-    level: "info",
-    detail: "documents.delete",
-  });
+  log?.(`Deleting note ${noteId}…`);
   const { identity, identityKey, signer } = await keyManager.getAuth();
   await sdk.documents.delete({
     document: {
@@ -36,8 +33,5 @@ export async function deleteNote({
     identityKey,
     signer,
   });
-  log?.("Note deleted.", {
-    level: "success",
-    detail: `id ${noteId.slice(0, 8)}…`,
-  });
+  log?.("Note deleted.", "success");
 }

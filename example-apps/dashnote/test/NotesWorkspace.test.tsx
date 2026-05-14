@@ -258,7 +258,7 @@ describe("NotesWorkspace", () => {
     const updated = { ...note, title: "Edited", updatedAt: 3000, revision: 3 };
     mockListMyNotes.mockResolvedValue([note]);
     mockGetNote.mockResolvedValueOnce(note).mockResolvedValueOnce(updated);
-    mockUpdateNote.mockResolvedValue(undefined);
+    mockUpdateNote.mockResolvedValue(3n);
     mockDeleteNote.mockResolvedValue(undefined);
 
     render(<NotesWorkspace onOpenLogin={vi.fn()} onOpenSettings={vi.fn()} />);
@@ -457,7 +457,7 @@ describe("NotesWorkspace", () => {
         .mockResolvedValue(remote); // post-success reload
       mockUpdateNote
         .mockRejectedValueOnce(new Error("Identity nonce is stale"))
-        .mockResolvedValue(undefined);
+        .mockResolvedValue(3n);
 
       render(<NotesWorkspace onOpenLogin={vi.fn()} onOpenSettings={vi.fn()} />);
 
@@ -508,7 +508,7 @@ describe("NotesWorkspace", () => {
       mockGetNote
         .mockResolvedValueOnce(initial) // initial detail load
         .mockResolvedValue(saved); // post-save reload
-      mockUpdateNote.mockResolvedValue(undefined);
+      mockUpdateNote.mockResolvedValue(2n);
 
       render(<NotesWorkspace onOpenLogin={vi.fn()} onOpenSettings={vi.fn()} />);
 

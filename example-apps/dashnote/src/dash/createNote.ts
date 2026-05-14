@@ -24,7 +24,7 @@ export async function createNote({
   message,
   log,
 }: CreateNoteParams): Promise<string> {
-  log?.("Creating note…", { level: "info", detail: "documents.create" });
+  log?.("Creating note…");
   const { identity, identityKey, signer } = await keyManager.getAuth();
   const { Document } = await loadSdkModule();
   const trimmedTitle = title?.trim();
@@ -52,9 +52,6 @@ export async function createNote({
   if (!noteId) {
     throw new Error("Created note returned no ID.");
   }
-  log?.("Note created.", {
-    level: "success",
-    detail: `id ${noteId.slice(0, 8)}…`,
-  });
+  log?.("Note created.", "success");
   return noteId;
 }

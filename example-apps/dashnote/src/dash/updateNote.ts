@@ -28,11 +28,8 @@ export async function updateNote({
   title,
   message,
   log,
-}: UpdateNoteParams): Promise<void> {
-  log?.(`Saving note ${noteId.slice(0, 8)}…`, {
-    level: "info",
-    detail: "documents.get → replace",
-  });
+}: UpdateNoteParams): Promise<bigint> {
+  log?.(`Saving note ${noteId}…`);
   const { identity, identityKey, signer } = await keyManager.getAuth();
   const existingDoc = await sdk.documents.get(contractId, "note", noteId);
   if (!existingDoc) {
@@ -59,8 +56,6 @@ export async function updateNote({
     identityKey,
     signer,
   });
-  log?.("Note saved.", {
-    level: "success",
-    detail: `rev ${revision.toString()}`,
-  });
+  log?.("Note saved.", "success");
+  return revision;
 }
