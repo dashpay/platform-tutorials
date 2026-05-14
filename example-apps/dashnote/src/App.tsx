@@ -77,9 +77,6 @@ function App() {
           />
         ) : (
           <header className="rounded-[28px] border border-line bg-surface px-5 py-5 shadow-[0_20px_60px_-36px_rgba(0,0,0,0.45)] max-md:rounded-none max-md:border-0 max-md:bg-transparent max-md:px-4 max-md:py-4 max-md:shadow-none">
-            <div className="text-[10px] font-semibold uppercase tracking-[0.14em] text-ink-4">
-              Dash Platform Notes Tutorial
-            </div>
             <h1 className="mt-2 text-[28px] font-semibold leading-[1.05] tracking-tight text-ink">
               {header.title}
             </h1>
