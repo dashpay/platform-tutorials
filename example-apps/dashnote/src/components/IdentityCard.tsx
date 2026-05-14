@@ -71,16 +71,7 @@ export function IdentityCard({
         >
           Sign in
         </button>
-        <div className="mt-2.5 flex items-center gap-1.5">
-          <span
-            className={`conn-dot ${
-              status === "connecting"
-                ? "connecting"
-                : status === "error"
-                  ? "error"
-                  : ""
-            }`}
-          />
+        <div className="mt-2.5">
           <span className="font-mono text-[10.5px] text-ink-3">
             {status === "connecting"
               ? "Connecting..."
@@ -105,14 +96,13 @@ export function IdentityCard({
       >
         <div className="flex items-center justify-between">
           <span className="text-[10px] font-semibold uppercase tracking-[0.12em] text-ink-4">
-            Connected
+            Guest
           </span>
           <span className="text-[10px] text-ink-4 opacity-0 transition-opacity group-hover:opacity-100">
             Sign in
           </span>
         </div>
-        <div className="mt-2.5 flex items-center gap-1.5">
-          <span className="conn-dot connected" />
+        <div className="mt-2.5">
           <span className="font-mono text-[10.5px] text-ink-3">Connected</span>
         </div>
       </button>
@@ -132,19 +122,19 @@ export function IdentityCard({
           <>
             <div className="mb-0.5 flex items-center justify-between">
               <span className="text-[10px] font-semibold uppercase tracking-[0.12em] text-ink-4">
-                {isAuthed ? "Signed in" : "Read-only"}
+                {isAuthed ? "Signed in" : "Remembered"}
               </span>
               <span className="text-[10px] text-ink-4 opacity-0 transition-opacity group-hover:opacity-100">
                 Menu
               </span>
             </div>
-            <div className="flex items-center gap-2">
+            <div className="flex items-center gap-2.5">
               <div
-                className="h-5 w-5 shrink-0 rounded-full"
+                className="h-7 w-7 shrink-0 rounded-full"
                 style={{ background: avatarGradient(identityId) }}
               />
               <div className="min-w-0">
-                <div className="truncate text-[12px] font-medium text-ink transition-colors group-hover:text-accent">
+                <div className="truncate text-[12px] font-semibold text-ink transition-colors group-hover:text-accent">
                   {dpnsName
                     ? `@${dpnsName}`
                     : identityId
@@ -163,10 +153,9 @@ export function IdentityCard({
           </>
         )}
 
-        <div className="mt-2.5 flex items-center gap-1.5">
-          <span className="conn-dot connected" />
+        <div className="mt-2.5">
           <span className="font-mono text-[10.5px] text-ink-3">
-            {isAuthed ? "Authenticated" : "Browsing (read-only)"}
+            {isAuthed ? "Full access" : "Read-only access"}
           </span>
         </div>
       </button>

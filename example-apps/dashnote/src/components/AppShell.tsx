@@ -21,12 +21,28 @@ interface AppShellProps {
 function LogoAvatar() {
   return (
     <div
-      className="h-[28px] w-[28px] shrink-0 rounded-[9px] border border-black/10 shadow-[inset_0_1px_0_rgba(255,255,255,0.45)]"
+      className="flex h-[28px] w-[28px] shrink-0 items-center justify-center rounded-[9px] border border-black/10 shadow-[inset_0_1px_0_rgba(255,255,255,0.45)]"
       style={{
         background:
           "linear-gradient(135deg, oklch(94% 0.04 95), oklch(88% 0.05 85))",
       }}
-    />
+    >
+      <svg
+        width="16"
+        height="16"
+        viewBox="0 0 24 24"
+        fill="none"
+        stroke="oklch(35% 0.05 65)"
+        strokeWidth="2.2"
+        strokeLinecap="round"
+        strokeLinejoin="round"
+        aria-hidden="true"
+      >
+        <path d="M14 3v4a1 1 0 0 0 1 1h4" />
+        <path d="M17 21H7a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h7l5 5v11a2 2 0 0 1-2 2z" />
+        <path d="M9 9h1M9 13h6M9 17h6" />
+      </svg>
+    </div>
   );
 }
 

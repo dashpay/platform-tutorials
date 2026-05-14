@@ -85,7 +85,7 @@ const OPS = [
     op: "Update a note",
     file: "updateNote.ts",
     sdk: "documents.get → replace",
-    },
+  },
   { op: "Delete a note", file: "deleteNote.ts", sdk: "documents.delete" },
   { op: "List my notes", file: "queries.ts", sdk: "documents.query" },
   { op: "Register a contract", file: "contract.ts", sdk: "contracts.publish" },
@@ -194,8 +194,8 @@ export function HowItWorks() {
             <div className={SECTION_LABEL}>Platform operations</div>
             <p className={SECTION_INTRO}>
               Each row links to a one-file helper in <code>src/dash/</code>.
-              Read these as the canonical example of each SDK call. Every
-              update is a full document replacement with an incremented{" "}
+              Read these as the canonical example of each SDK call. Every update
+              is a full document replacement with an incremented{" "}
               <code>$revision</code>, so the UI can show that alongside the
               Platform-provided <code>$createdAt</code> and{" "}
               <code>$updatedAt</code> timestamps.

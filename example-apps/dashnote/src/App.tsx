@@ -88,7 +88,9 @@ function App() {
 
         <div
           className={`${
-            tab === "notes" || tab === "how-it-works" ? "mt-4 max-md:mt-0" : "mt-6"
+            tab === "notes" || tab === "how-it-works"
+              ? "mt-4 max-md:mt-0"
+              : "mt-6"
           } ${mobileFullBleed ? "max-md:flex max-md:min-h-0 max-md:flex-1 max-md:flex-col" : ""}`}
         >
           {session.error && (
