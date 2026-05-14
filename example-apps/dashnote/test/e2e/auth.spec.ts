@@ -62,9 +62,13 @@ test("remember-me persists the identity hint across reloads", async ({
 
   await page.reload();
   // A fresh load drops the keyManager, so the remembered identity boots
-  // into "browsing" (read-only) rather than authenticated.
+  // into "browsing" (signed-out with identity hint) rather than
+  // authenticated. The IdentityCard renders the "Read-only access"
+  // subtitle under a "Signed out" eyebrow.
   await expect(
-    page.getByText("Read-only access", { exact: true }),
+    page
+      .locator('aside[aria-label="Main navigation"]')
+      .getByText("Read-only access", { exact: true }),
   ).toBeVisible({ timeout: 30_000 });
 });
 
@@ -86,7 +90,9 @@ test("forget-this-device via the Settings panel drops back to readonly", async (
       .getByText("Connected", { exact: true }),
   ).toBeVisible({ timeout: 30_000 });
   await expect(
-    page.getByText("Read-only access", { exact: true }),
+    page
+      .locator('aside[aria-label="Main navigation"]')
+      .getByText("Read-only access", { exact: true }),
   ).toBeHidden();
 });
 

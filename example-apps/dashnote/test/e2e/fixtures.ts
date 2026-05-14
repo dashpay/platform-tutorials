@@ -109,9 +109,9 @@ export async function openIdentityMenu(page: Page) {
  *
  * The entry point depends on session state: in `idle/connecting/readonly`
  * the sidebar exposes a "Sign in" NavButton; in `browsing` (remembered
- * identity after reload) the sidebar entry is hidden and the modal is
- * reached via the IdentityCard menu instead. We detect which surface
- * exists and use whichever one is visible.
+ * identity after reload) the sidebar entry is hidden and the IdentityCard
+ * itself opens the modal on click. We detect which surface exists and use
+ * whichever one is visible.
  *
  * Defaults to `rememberMe: false` (the modal's default is true) so tests
  * start from a clean localStorage; opt in explicitly when exercising the
@@ -129,13 +129,19 @@ export async function loginViaModal(
   }
 
   const browsing = await page
+    .locator('aside[aria-label="Main navigation"]')
     .getByText("Read-only access", { exact: true })
     .isVisible()
     .catch(() => false);
 
   if (browsing) {
-    await openIdentityMenu(page);
-    await page.getByRole("menuitem", { name: /^sign in$/i }).click();
+    // In browsing mode the IdentityCard is itself the click target; no
+    // menu opens. The card is the only sidebar button containing the
+    // "Read-only access" subtitle, so use that as the selector.
+    await page
+      .locator('aside[aria-label="Main navigation"]')
+      .locator("button", { hasText: "Read-only access" })
+      .click();
   } else {
     await (await navButton(page, /sign in$/i)).click();
   }
@@ -152,9 +158,11 @@ export async function loginViaModal(
   await dialog.getByRole("button", { name: /^Sign in$/ }).click();
 
   await expect(dialog).toBeHidden({ timeout: 60_000 });
-  await expect(page.getByText("Full access", { exact: true })).toBeVisible({
-    timeout: 60_000,
-  });
+  await expect(
+    page
+      .locator('aside[aria-label="Main navigation"]')
+      .getByText("Full access", { exact: true }),
+  ).toBeVisible({ timeout: 60_000 });
 }
 
 /**
