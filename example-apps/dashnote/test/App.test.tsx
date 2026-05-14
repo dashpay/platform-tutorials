@@ -61,6 +61,31 @@ vi.mock("../src/components/LoginModal", () => ({
   LoginModal: ({ open }: { open: boolean }) => <div>login:{String(open)}</div>,
 }));
 
+vi.mock("../src/components/ActivityPanel", () => ({
+  ActivityPanel: ({ open }: { open: boolean }) => (
+    <div>activity:{String(open)}</div>
+  ),
+}));
+
+vi.mock("../src/components/NotesToolbar", () => ({
+  NotesToolbar: ({
+    title,
+    onOpenActivity,
+  }: {
+    title: string;
+    onOpenActivity?: () => void;
+  }) => (
+    <div>
+      toolbar:{title}
+      {onOpenActivity && (
+        <button type="button" onClick={onOpenActivity}>
+          Open activity
+        </button>
+      )}
+    </div>
+  ),
+}));
+
 function makeSession(overrides: Record<string, unknown> = {}) {
   return {
     status: "idle",
@@ -139,6 +164,23 @@ describe("App", () => {
 
     fireEvent.click(screen.getByRole("button", { name: /open settings/i }));
     expect(screen.getByText("login:true")).toBeTruthy();
+  });
+
+  it("opens the activity panel via ⌘L hotkey and toolbar button", () => {
+    mockUseSession.mockReturnValue(makeSession({ status: "readonly" }));
+
+    render(<App />);
+    expect(screen.getByText("activity:false")).toBeTruthy();
+
+    fireEvent.keyDown(window, { key: "l", metaKey: true });
+    expect(screen.getByText("activity:true")).toBeTruthy();
+
+    // Toggling again closes it.
+    fireEvent.keyDown(window, { key: "l", metaKey: true });
+    expect(screen.getByText("activity:false")).toBeTruthy();
+
+    fireEvent.click(screen.getByRole("button", { name: /open activity/i }));
+    expect(screen.getByText("activity:true")).toBeTruthy();
   });
 
   it("renders SettingsPanel when the settings tab is selected", () => {

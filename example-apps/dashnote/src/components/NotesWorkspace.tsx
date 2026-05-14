@@ -634,7 +634,7 @@ export function NotesWorkspace({
           onAction={onOpenSettings}
         />
       ) : (
-        <div className="gap-5 max-md:flex max-md:min-h-0 max-md:flex-1 max-md:flex-col md:grid md:h-[calc(100vh-220px)] md:min-h-[520px] md:grid-cols-[260px_minmax(0,1fr)] md:gap-0 md:overflow-hidden md:rounded-[24px] md:border md:border-line md:bg-surface md:shadow-[0_20px_60px_-36px_rgba(0,0,0,0.45)] lg:grid-cols-[340px_minmax(0,1fr)]">
+        <div className="gap-5 max-md:flex max-md:min-h-0 max-md:flex-1 max-md:flex-col md:grid md:h-[calc(100vh-175px)] md:min-h-[520px] md:grid-cols-[260px_minmax(0,1fr)] md:gap-0 md:overflow-hidden md:rounded-[24px] md:border md:border-line md:bg-surface md:shadow-[0_20px_60px_-36px_rgba(0,0,0,0.45)] lg:grid-cols-[340px_minmax(0,1fr)]">
           <div
             className={`min-h-0 max-md:flex-1 ${selectedId !== null ? "hidden md:flex" : "flex"} flex-col`}
           >
@@ -674,7 +674,9 @@ export function NotesWorkspace({
               messageBytes={messageBytes}
               messageOversize={messageOversize}
               contractReady={contractReady}
-              error={error ?? conflictWarning}
+              contractId={contractId}
+              error={error}
+              conflictWarning={conflictWarning}
               onOpenLogin={onOpenLogin}
               onOpenSettings={onOpenSettings}
             />
