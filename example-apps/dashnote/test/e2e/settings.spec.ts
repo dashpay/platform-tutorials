@@ -24,9 +24,11 @@ test.describe("settings (readonly)", () => {
       }
     });
     await page.reload();
-    await expect(page.locator(".conn-dot.connected").first()).toBeVisible({
-      timeout: 60_000,
-    });
+    await expect(
+      page
+        .locator('aside[aria-label="Main navigation"]')
+        .getByText("Connected", { exact: true }),
+    ).toBeVisible({ timeout: 60_000 });
 
     // In readonly mode the IdentityCard menu trigger is absent, so reach
     // the Settings tab via the sidebar nav button instead.
@@ -52,9 +54,11 @@ test.describe("settings (authenticated)", () => {
       }
     });
     await page.reload();
-    await expect(page.locator(".conn-dot.connected").first()).toBeVisible({
-      timeout: 60_000,
-    });
+    await expect(
+      page
+        .locator('aside[aria-label="Main navigation"]')
+        .getByText("Connected", { exact: true }),
+    ).toBeVisible({ timeout: 60_000 });
     await loginViaModal(page);
   });
 

@@ -2,11 +2,10 @@
  * Shared Playwright fixtures for dashnote E2E tests.
  *
  * Runs against real Dash Platform testnet — no SDK mocks. The base `page`
- * fixture navigates to `/` and waits for the IdentityCard's connected dot
- * (`.conn-dot.connected`) to appear so spec bodies always have a usable
- * SDK. We anchor on the dot rather than the text label because the
- * readonly card paints "Connected" twice (eyebrow + status line) which
- * would trip Playwright's strict-mode matchers.
+ * fixture navigates to `/` and waits for the IdentityCard to paint its
+ * readonly subtitle text "Connected" so spec bodies always have a usable
+ * SDK. The eyebrow above that subtitle reads "Guest" (not "Connected"),
+ * so the subtitle is uniquely identifiable inside the sidebar.
  *
  * The sidebar is rendered as `<aside aria-label="Main navigation">`, not a
  * `<nav>` landmark — scope nav-button lookups through `navButton(page, …)`
@@ -30,14 +29,15 @@ export { base as rawTest };
 export const test = base.extend<AppFixture>({
   page: async ({ page }, provide) => {
     await page.goto("/");
-    // The IdentityCard renders a `<span class="conn-dot connected">` once
-    // createClient() resolves, regardless of session.status (readonly /
-    // authenticated / browsing). Anchor the wait on the dot itself so we
-    // don't have to disambiguate between the duplicated "Connected" /
-    // eyebrow labels that the readonly card paints.
-    await expect(page.locator(".conn-dot.connected").first()).toBeVisible({
-      timeout: 60_000,
-    });
+    // The readonly IdentityCard renders the text "Connected" as its
+    // subtitle once createClient() resolves. The eyebrow above it reads
+    // "Guest", so the subtitle is uniquely identifiable inside the
+    // sidebar — anchor the boot wait on it.
+    await expect(
+      page
+        .locator('aside[aria-label="Main navigation"]')
+        .getByText("Connected", { exact: true }),
+    ).toBeVisible({ timeout: 60_000 });
     await provide(page);
   },
 });
@@ -105,7 +105,7 @@ export async function openIdentityMenu(page: Page) {
 
 /**
  * Open the LoginModal, fill the mnemonic from PLATFORM_MNEMONIC, submit,
- * and wait for the IdentityCard to report `Authenticated`.
+ * and wait for the IdentityCard to report `Full access`.
  *
  * The entry point depends on session state: in `idle/connecting/readonly`
  * the sidebar exposes a "Sign in" NavButton; in `browsing` (remembered
@@ -129,7 +129,7 @@ export async function loginViaModal(
   }
 
   const browsing = await page
-    .getByText("Browsing (read-only)", { exact: true })
+    .getByText("Read-only access", { exact: true })
     .isVisible()
     .catch(() => false);
 
@@ -152,7 +152,7 @@ export async function loginViaModal(
   await dialog.getByRole("button", { name: /^Sign in$/ }).click();
 
   await expect(dialog).toBeHidden({ timeout: 60_000 });
-  await expect(page.getByText("Authenticated", { exact: true })).toBeVisible({
+  await expect(page.getByText("Full access", { exact: true })).toBeVisible({
     timeout: 60_000,
   });
 }

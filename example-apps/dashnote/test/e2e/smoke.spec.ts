@@ -7,10 +7,14 @@ test.describe("boot", () => {
   test("SDK connects and the IdentityCard reports a live connection", async ({
     page,
   }) => {
-    // The base fixture already waits for the connected dot. This test
-    // re-asserts the same locator so failures here flag a regression in
-    // the connection gate itself, not a downstream selector.
-    await expect(page.locator(".conn-dot.connected").first()).toBeVisible();
+    // The base fixture already waits for the readonly subtitle to paint
+    // "Connected". This test re-asserts that signal so failures here
+    // flag a regression in the connection gate itself.
+    await expect(
+      page
+        .locator('aside[aria-label="Main navigation"]')
+        .getByText("Connected", { exact: true }),
+    ).toBeVisible();
   });
 
   test("page title is Dashnote", async ({ page }) => {
@@ -29,7 +33,7 @@ test.describe("tab navigation", () => {
 
     await (await navButton(page, /how it works/i)).click();
     await expect(
-      page.getByRole("heading", { name: /How Dashnote works/i }),
+      page.getByRole("heading", { name: /walkthrough of every sdk call/i }),
     ).toBeVisible();
 
     await (await navButton(page, /notes$/i)).click();

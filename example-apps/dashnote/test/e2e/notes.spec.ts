@@ -27,9 +27,11 @@ test.beforeEach(async ({ page }) => {
     }
   });
   await page.reload();
-  await expect(page.locator(".conn-dot.connected").first()).toBeVisible({
-    timeout: 60_000,
-  });
+  await expect(
+    page
+      .locator('aside[aria-label="Main navigation"]')
+      .getByText("Connected", { exact: true }),
+  ).toBeVisible({ timeout: 60_000 });
   await loginViaModal(page);
 });
 
@@ -194,9 +196,11 @@ test("two contexts can sequentially save the same note without conflict", async 
   try {
     for (const p of [page1, page2]) {
       await p.goto("/");
-      await expect(p.locator(".conn-dot.connected").first()).toBeVisible({
-        timeout: 60_000,
-      });
+      await expect(
+        p
+          .locator('aside[aria-label="Main navigation"]')
+          .getByText("Connected", { exact: true }),
+      ).toBeVisible({ timeout: 60_000 });
       await loginViaModal(p, { rememberMe: true });
     }
 
@@ -208,11 +212,13 @@ test("two contexts can sequentially save the same note without conflict", async 
 
     // Page2 needs to see the note created by page1. Reload to bypass
     // the 30s background refresh and re-login (rememberMe means the
-    // login form pre-fills with the remembered identity hint).
+    // login form pre-fills with the remembered identity hint). A
+    // remembered identity boots into browsing, so wait for that
+    // subtitle as the readiness gate.
     await page2.reload();
-    await expect(page2.locator(".conn-dot.connected").first()).toBeVisible({
-      timeout: 60_000,
-    });
+    await expect(
+      page2.getByText("Read-only access", { exact: true }),
+    ).toBeVisible({ timeout: 60_000 });
     await loginViaModal(page2, { rememberMe: true });
     await expect(
       page2.locator("button", { hasText: title }).first(),
@@ -231,11 +237,13 @@ test("two contexts can sequentially save the same note without conflict", async 
       timeout: 60_000,
     });
 
-    // Page1 reloads + re-logs to see page2's edit, then makes its own change.
+    // Page1 reloads + re-logs to see page2's edit, then makes its own
+    // change. Remembered identity → browsing on reload, so wait for
+    // the browsing subtitle as the readiness gate.
     await page1.reload();
-    await expect(page1.locator(".conn-dot.connected").first()).toBeVisible({
-      timeout: 60_000,
-    });
+    await expect(
+      page1.getByText("Read-only access", { exact: true }),
+    ).toBeVisible({ timeout: 60_000 });
     await loginViaModal(page1, { rememberMe: true });
     await page1.locator("button", { hasText: title }).first().click();
     await expect(page1.getByLabel("Body")).toHaveValue("round 2 (from page2)", {

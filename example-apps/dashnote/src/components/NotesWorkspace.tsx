@@ -735,23 +735,23 @@ function EmptyState({
 
 function SignInHero({ onOpenLogin }: { onOpenLogin: () => void }) {
   return (
-    <section className="relative overflow-hidden rounded-[24px] border border-line bg-surface px-12 py-14 max-md:px-6 max-md:py-10">
+    <section className="relative overflow-hidden rounded-[24px] border border-line bg-surface px-12 py-14 max-md:flex max-md:flex-1 max-md:flex-col max-md:justify-center max-md:rounded-none max-md:border-0 max-md:px-6 max-md:py-10">
       <div className="pointer-events-none absolute -right-32 -top-32 h-96 w-96 rounded-full bg-[radial-gradient(circle,color-mix(in_oklab,var(--color-accent)_22%,transparent),transparent_60%)]" />
       <div className="relative grid grid-cols-1 gap-10 lg:grid-cols-[1.05fr_0.95fr]">
-        <div>
+        <div className="max-md:text-center">
           <div className="text-[11px] font-bold uppercase tracking-[0.18em] text-accent">
             Dash Platform tutorial
           </div>
           <h2 className="mt-3 text-balance text-[36px] font-bold leading-[1.05] tracking-[-0.025em] text-ink max-md:text-[28px]">
             Personal notes, stored on a public blockchain.
           </h2>
-          <p className="mt-3 max-w-[440px] text-pretty text-[14.5px] leading-[1.6] text-ink-2">
+          <p className="mt-3 max-w-[440px] text-pretty text-[14.5px] leading-[1.6] text-ink-2 max-md:mx-auto">
             Dashnote stores notes against your testnet identity. Sign in with a
             Dash Platform identity to create, edit, and review your notes — or
             read the source to see how a small app registers a contract, writes
             documents, and queries them back.
           </p>
-          <div className="mt-5 flex flex-wrap gap-2.5">
+          <div className="mt-5 flex flex-wrap gap-2.5 max-md:justify-center">
             <button
               type="button"
               onClick={onOpenLogin}
