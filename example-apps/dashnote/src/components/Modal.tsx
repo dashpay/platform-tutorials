@@ -7,7 +7,7 @@ import { useEffect, useId, useRef, type ReactNode } from "react";
 
 export interface ModalProps {
   open: boolean;
-  title: string;
+  title: ReactNode;
   onClose: () => void;
   children: ReactNode;
   footer?: ReactNode;
@@ -55,12 +55,16 @@ export function Modal({
         onClick={(e) => e.stopPropagation()}
       >
         <div className="flex items-center justify-between px-5 py-3">
-          <h2
-            id={titleId}
-            className="text-[10px] font-semibold uppercase tracking-[0.12em] text-ink-4"
-          >
-            {title}
-          </h2>
+          {typeof title === "string" ? (
+            <h2
+              id={titleId}
+              className="text-[10px] font-semibold uppercase tracking-[0.12em] text-ink-4"
+            >
+              {title}
+            </h2>
+          ) : (
+            <div id={titleId}>{title}</div>
+          )}
           <button
             type="button"
             onClick={onClose}
