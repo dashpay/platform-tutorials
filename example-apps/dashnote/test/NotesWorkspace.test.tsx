@@ -99,7 +99,7 @@ afterEach(() => {
 });
 
 describe("NotesWorkspace", () => {
-  it("shows auth gating when the session is not authenticated", () => {
+  it("shows the sign-in hero when the session is not authenticated", () => {
     mockUseSession.mockReturnValue(
       makeSession({
         status: "readonly",
@@ -113,11 +113,24 @@ describe("NotesWorkspace", () => {
       <NotesWorkspace onOpenLogin={onOpenLogin} onOpenSettings={vi.fn()} />,
     );
 
-    expect(screen.getByText(/sign in to see your notes/i)).toBeTruthy();
+    expect(
+      screen.getByText(/personal notes, stored on a public blockchain/i),
+    ).toBeTruthy();
+    expect(
+      screen.getByText(/dashnote stores notes against your testnet identity/i),
+    ).toBeTruthy();
+    // The old EmptyState copy must not regress alongside the new hero.
+    expect(screen.queryByText(/sign in to see your notes/i)).toBeNull();
+
     const loginButton = screen.getByRole("button", { name: /^sign in$/i });
     fireEvent.click(loginButton);
     expect(onOpenLogin).toHaveBeenCalled();
     expect(screen.queryByRole("button", { name: /new note/i })).toBeNull();
+
+    const sourceLink = screen.getByRole("link", { name: /view source/i });
+    expect(sourceLink.getAttribute("href")).toBe(
+      "https://github.com/dashpay/platform-tutorials/tree/main/example-apps/dashnote",
+    );
 
     const bridgeLink = screen.getByRole("link", { name: /dash bridge/i });
     expect(bridgeLink.getAttribute("href")).toBe(

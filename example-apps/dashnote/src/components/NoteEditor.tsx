@@ -71,8 +71,8 @@ export function NoteEditor({
     if (!isDesktop || isReadOnly || !hasSelection) return;
     const onKey = (e: KeyboardEvent) => {
       if ((e.metaKey || e.ctrlKey) && e.key.toLowerCase() === "s") {
-        if (!canEdit || saving || !dirty || oversize) return;
         e.preventDefault();
+        if (!canEdit || saving || !dirty || oversize) return;
         onSave();
       }
     };
