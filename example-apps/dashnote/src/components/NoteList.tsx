@@ -15,6 +15,7 @@ interface NoteListProps {
   onSelect: (noteId: string) => void;
   onNew: () => void;
   canCreate: boolean;
+  newButtonLabel?: string;
 }
 
 export function NoteList({
@@ -25,6 +26,7 @@ export function NoteList({
   onSelect,
   onNew,
   canCreate,
+  newButtonLabel = "New note",
 }: NoteListProps) {
   const [search, setSearch] = useState("");
   const searchRef = useRef<HTMLInputElement>(null);
@@ -106,7 +108,7 @@ export function NoteList({
             onClick={onNew}
             className="rounded-full bg-accent px-3 py-1.5 text-[12px] font-semibold text-bg transition hover:bg-accent-dim max-md:hidden"
           >
-            New note
+            {newButtonLabel}
           </button>
         )}
       </div>

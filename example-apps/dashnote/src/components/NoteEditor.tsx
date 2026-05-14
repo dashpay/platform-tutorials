@@ -208,36 +208,24 @@ export function NoteEditor({
               </svg>
             </button>
           )}
-          {isReadOnly ? (
+          {!isReadOnly && hasSelection && (
             <button
               type="button"
-              onClick={onOpenLogin}
-              className="rounded-full bg-accent px-3 py-1.5 text-[12px] font-semibold text-bg transition hover:bg-accent-dim"
+              onClick={onSave}
+              disabled={!canEdit || saving || !dirty || oversize}
+              aria-label={saving ? "Saving…" : isNew ? "Create note" : "Save"}
+              className="inline-flex items-center gap-2 rounded-md bg-accent px-3 py-1.5 text-[13px] font-semibold text-bg transition hover:bg-accent-dim disabled:cursor-not-allowed disabled:bg-surface-2 disabled:text-ink-4"
             >
-              Sign in to edit
-            </button>
-          ) : (
-            hasSelection && (
-              <button
-                type="button"
-                onClick={onSave}
-                disabled={!canEdit || saving || !dirty || oversize}
-                aria-label={saving ? "Saving…" : isNew ? "Create note" : "Save"}
-                className="inline-flex items-center gap-2 rounded-md bg-accent px-3 py-1.5 text-[13px] font-semibold text-bg transition hover:bg-accent-dim disabled:cursor-not-allowed disabled:bg-surface-2 disabled:text-ink-4"
-              >
-                <span>
-                  {saving ? "Saving…" : isNew ? "Create note" : "Save"}
+              <span>{saving ? "Saving…" : isNew ? "Create note" : "Save"}</span>
+              {isDesktop && (
+                <span
+                  aria-hidden
+                  className="rounded bg-black/20 px-1.5 py-px font-mono text-[10px] opacity-70"
+                >
+                  ⌘S
                 </span>
-                {isDesktop && (
-                  <span
-                    aria-hidden
-                    className="rounded bg-black/20 px-1.5 py-px font-mono text-[10px] opacity-70"
-                  >
-                    ⌘S
-                  </span>
-                )}
-              </button>
-            )
+              )}
+            </button>
           )}
         </div>
       </div>
@@ -318,7 +306,7 @@ export function NoteEditor({
           </div>
         ) : (
           <>
-            <label className="flex min-h-0 flex-1 flex-col">
+            <label className="relative flex min-h-0 flex-1 flex-col">
               <input
                 type="text"
                 aria-label="Title"
@@ -341,6 +329,14 @@ export function NoteEditor({
                 <div className="mt-2 md:hidden">
                   <FillBar bytes={messageBytes} limit={FIELD_BYTE_LIMIT} />
                 </div>
+              )}
+              {isReadOnly && (
+                <button
+                  type="button"
+                  onClick={onOpenLogin}
+                  aria-label="Sign in to edit this note"
+                  className="absolute inset-0 z-10 cursor-pointer bg-transparent outline-none focus-visible:ring-2 focus-visible:ring-accent"
+                />
               )}
             </label>
 

@@ -201,6 +201,49 @@ describe("NotesWorkspace", () => {
     expect(screen.getByText(/0 notes/i)).toBeTruthy();
   });
 
+  it("in browsing mode, the desktop 'Sign in to create' button opens the login modal", async () => {
+    mockUseSession.mockReturnValue(
+      makeSession({
+        status: "browsing",
+        keyManager: null,
+      }),
+    );
+    mockListMyNotes.mockResolvedValue([]);
+
+    const onOpenLogin = vi.fn();
+    render(
+      <NotesWorkspace onOpenLogin={onOpenLogin} onOpenSettings={vi.fn()} />,
+    );
+
+    const desktopButton = await screen.findByRole("button", {
+      name: /sign in to create/i,
+    });
+    fireEvent.click(desktopButton);
+    expect(onOpenLogin).toHaveBeenCalledTimes(1);
+    expect(screen.queryByRole("button", { name: /^new note$/i })).toBeNull();
+  });
+
+  it("in browsing mode, the mobile compose '+' button also opens the login modal", async () => {
+    mockUseSession.mockReturnValue(
+      makeSession({
+        status: "browsing",
+        keyManager: null,
+      }),
+    );
+    mockListMyNotes.mockResolvedValue([]);
+
+    const onOpenLogin = vi.fn();
+    render(
+      <NotesWorkspace onOpenLogin={onOpenLogin} onOpenSettings={vi.fn()} />,
+    );
+
+    const composeButton = await screen.findByRole("button", {
+      name: /compose note/i,
+    });
+    fireEvent.click(composeButton);
+    expect(onOpenLogin).toHaveBeenCalledTimes(1);
+  });
+
   it("updates an existing note and shows delete flow", async () => {
     mockUseSession.mockReturnValue(makeSession());
     const note = {

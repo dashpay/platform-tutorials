@@ -430,7 +430,13 @@ export function NotesWorkspace({
   }
 
   function handleNew() {
-    if (!canMutate) return;
+    if (!canMutate) {
+      // Browsing with a remembered identity: prompt the user to sign in so
+      // they can author. Anonymous "idle" state never reaches this branch
+      // because the button is hidden when the user can't even read.
+      if (canRead) onOpenLogin();
+      return;
+    }
     if (!confirmDiscard()) return;
     resetDraft();
   }
@@ -621,7 +627,8 @@ export function NotesWorkspace({
               selectedId={selectedId}
               onSelect={handleSelect}
               onNew={handleNew}
-              canCreate={canMutate}
+              canCreate={canMutate || isBrowsing}
+              newButtonLabel={canMutate ? "New note" : "Sign in to create"}
             />
           </div>
           <div
