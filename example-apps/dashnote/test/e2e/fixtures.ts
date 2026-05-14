@@ -52,7 +52,7 @@ function isMobile(page: Page): boolean {
 }
 
 /**
- * Resolve a sidebar nav button (Notes / How it works / Login) by label.
+ * Resolve a sidebar nav button (Notes / How it works / Sign in) by label.
  *
  * On mobile the sidebar is off-canvas; this helper opens the hamburger
  * drawer first so the button is in the visible viewport.
@@ -74,9 +74,11 @@ export async function navButton(page: Page, label: RegExp | string) {
 }
 
 /**
- * Open the IdentityCard menu (the popover with Settings / Switch identity
- * / Log out items). Only available when the session is `authenticated` or
- * `browsing` — caller is responsible for being in that state.
+ * Open the IdentityCard menu (the popover with Settings, Switch identity
+ * or Sign in, and Log out items). Only available when the session is
+ * `authenticated` or `browsing` — caller is responsible for being in that
+ * state. The middle entry reads "Switch identity" when authenticated and
+ * "Sign in" when browsing read-only.
  *
  * On mobile the sidebar is off-canvas; opens the drawer transparently
  * via the hamburger first.
@@ -102,9 +104,14 @@ export async function openIdentityMenu(page: Page) {
 }
 
 /**
- * Open the LoginModal via the sidebar "Login" nav button, fill the
- * mnemonic from PLATFORM_MNEMONIC, submit, and wait for the
- * IdentityCard to report `Authenticated`.
+ * Open the LoginModal, fill the mnemonic from PLATFORM_MNEMONIC, submit,
+ * and wait for the IdentityCard to report `Authenticated`.
+ *
+ * The entry point depends on session state: in `idle/connecting/readonly`
+ * the sidebar exposes a "Sign in" NavButton; in `browsing` (remembered
+ * identity after reload) the sidebar entry is hidden and the modal is
+ * reached via the IdentityCard menu instead. We detect which surface
+ * exists and use whichever one is visible.
  *
  * Defaults to `rememberMe: false` (the modal's default is true) so tests
  * start from a clean localStorage; opt in explicitly when exercising the
@@ -121,7 +128,17 @@ export async function loginViaModal(
     throw new Error("PLATFORM_MNEMONIC is required for loginViaModal");
   }
 
-  await (await navButton(page, /login$/i)).click();
+  const browsing = await page
+    .getByText("Browsing (read-only)", { exact: true })
+    .isVisible()
+    .catch(() => false);
+
+  if (browsing) {
+    await openIdentityMenu(page);
+    await page.getByRole("menuitem", { name: /^sign in$/i }).click();
+  } else {
+    await (await navButton(page, /sign in$/i)).click();
+  }
 
   const dialog = page.getByRole("dialog");
   await expect(dialog).toBeVisible();
@@ -132,7 +149,7 @@ export async function loginViaModal(
   if (!rememberMe) {
     await rememberCheckbox.uncheck();
   }
-  await dialog.getByRole("button", { name: /^Login$/ }).click();
+  await dialog.getByRole("button", { name: /^Sign in$/ }).click();
 
   await expect(dialog).toBeHidden({ timeout: 60_000 });
   await expect(page.getByText("Authenticated", { exact: true })).toBeVisible({
@@ -251,18 +268,18 @@ export async function deleteNoteByTitle(page: Page, title: string) {
     timeout: 30_000,
   });
 
-  // window.confirm("Delete this note permanently?") — auto-accept.
-  const dialogHandler = (dialog: import("@playwright/test").Dialog) => {
-    void dialog.accept();
-  };
-  page.once("dialog", dialogHandler);
-
   // Desktop renders the "Delete" button in the editor header; mobile
   // renders "Delete note" near the bottom. Match either label.
   await page
     .getByRole("button", { name: /^delete( note)?$/i })
     .first()
     .click();
+
+  // DeleteNoteModal opens for confirmation; scope to its dialog so we
+  // don't accidentally re-match the editor's Delete trigger.
+  const confirmDialog = page.getByRole("dialog");
+  await expect(confirmDialog).toBeVisible();
+  await confirmDialog.getByRole("button", { name: /^delete$/i }).click();
 
   // Item leaves the list after reloadNotes resolves.
   await expect(page.locator("button", { hasText: title })).toHaveCount(0, {

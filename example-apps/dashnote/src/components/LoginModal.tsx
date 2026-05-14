@@ -16,7 +16,6 @@ export function LoginModal({ open, onClose }: LoginModalProps) {
   const session = useSession();
   const [secret, setSecret] = useState("");
   const [identityIndex, setIdentityIndex] = useState("0");
-  const [contractInput, setContractInput] = useState(session.contractId ?? "");
   const [error, setError] = useState<string | null>(null);
   const [submitting, setSubmitting] = useState(false);
   const [showAdvanced, setShowAdvanced] = useState(false);
@@ -38,10 +37,6 @@ export function LoginModal({ open, onClose }: LoginModalProps) {
     wifPreview.status === "key-disabled";
 
   useEffect(() => {
-    setContractInput(session.contractId ?? "");
-  }, [session.contractId]);
-
-  useEffect(() => {
     if (open) {
       setRememberMe(true);
       setUseDifferentIdentity(false);
@@ -49,10 +44,6 @@ export function LoginModal({ open, onClose }: LoginModalProps) {
       setSecret("");
     }
   }, [open]);
-
-  function applyContractId() {
-    session.setContractId(contractInput.trim() || null);
-  }
 
   async function handleLogin(event: FormEvent) {
     event.preventDefault();
@@ -74,7 +65,7 @@ export function LoginModal({ open, onClose }: LoginModalProps) {
   }
 
   return (
-    <Modal open={open} onClose={onClose} title="Login">
+    <Modal open={open} onClose={onClose} title="Sign in">
       <form onSubmit={handleLogin} className="flex flex-col gap-4 py-2">
         {showRememberedPanel && session.rememberedIdentityId && (
           <label
@@ -187,26 +178,17 @@ export function LoginModal({ open, onClose }: LoginModalProps) {
           )}
         </label>
 
-        {session.rememberedIdentityId && (
+        {session.rememberedIdentityId && !useDifferentIdentity && (
           <div
             data-testid="remembered-identity-actions"
             className="flex flex-wrap gap-3 text-[11px]"
           >
-            {!useDifferentIdentity && (
-              <button
-                type="button"
-                onClick={() => setUseDifferentIdentity(true)}
-                className="font-medium text-accent-dim underline-offset-2 hover:text-accent hover:underline"
-              >
-                Use a different identity
-              </button>
-            )}
             <button
               type="button"
-              onClick={() => session.forgetIdentity()}
-              className="font-medium text-ink-3 underline-offset-2 hover:text-[color:var(--color-danger)] hover:underline"
+              onClick={() => setUseDifferentIdentity(true)}
+              className="font-medium text-accent-dim underline-offset-2 hover:text-accent hover:underline"
             >
-              Forget this device
+              Use a different identity
             </button>
           </div>
         )}
@@ -221,57 +203,38 @@ export function LoginModal({ open, onClose }: LoginModalProps) {
           <span>Remember this identity on this device</span>
         </label>
 
-        <button
-          type="button"
-          onClick={() => setShowAdvanced(!showAdvanced)}
-          className="flex items-center gap-1 self-start text-[11px] font-medium text-ink-3 transition hover:text-ink"
-        >
-          <span
-            className={`inline-block transition-transform ${showAdvanced ? "rotate-90" : ""}`}
-          >
-            ▶
-          </span>
-          Advanced settings
-        </button>
-
-        {showAdvanced && (
-          <div className="flex flex-col gap-4 rounded-md border border-line bg-bg/40 p-3">
-            {!isWifInput && (
-              <label className="flex flex-col gap-1">
-                <span className="text-[10px] font-semibold uppercase tracking-[0.12em] text-ink-4">
-                  Identity index
-                </span>
-                <input
-                  type="number"
-                  min={0}
-                  value={identityIndex}
-                  onChange={(event) => setIdentityIndex(event.target.value)}
-                  className="w-24 rounded-md border border-line bg-bg px-3 py-2 text-[13px] text-ink outline-none transition focus:border-accent-dim"
-                />
-              </label>
-            )}
-
-            <div className="flex flex-col gap-2">
-              <span className="text-[10px] font-semibold uppercase tracking-[0.12em] text-ink-4">
-                Contract ID (optional)
-              </span>
-              <input
-                type="text"
-                value={contractInput}
-                onChange={(event) => setContractInput(event.target.value)}
-                placeholder="Paste a Dashnote note contract ID to reuse"
-                className="rounded-md border border-line bg-bg px-3 py-2 font-mono text-[12px] text-ink outline-none transition focus:border-accent-dim"
-              />
-              <button
-                type="button"
-                onClick={applyContractId}
-                disabled={contractInput.trim() === (session.contractId ?? "")}
-                className="self-start rounded-md border border-line-2 bg-transparent px-3 py-1 text-[12px] font-semibold text-ink-2 transition hover:border-accent-dim hover:text-ink disabled:cursor-not-allowed disabled:border-line disabled:text-ink-4"
+        {!isWifInput && (
+          <>
+            <button
+              type="button"
+              onClick={() => setShowAdvanced(!showAdvanced)}
+              className="flex items-center gap-1 self-start text-[11px] font-medium text-ink-3 transition hover:text-ink"
+            >
+              <span
+                className={`inline-block transition-transform ${showAdvanced ? "rotate-90" : ""}`}
               >
-                Use this ID
-              </button>
-            </div>
-          </div>
+                ▶
+              </span>
+              Advanced settings
+            </button>
+
+            {showAdvanced && (
+              <div className="flex flex-col gap-4 rounded-md border border-line bg-bg/40 p-3">
+                <label className="flex flex-col gap-1">
+                  <span className="text-[10px] font-semibold uppercase tracking-[0.12em] text-ink-4">
+                    Identity index
+                  </span>
+                  <input
+                    type="number"
+                    min={0}
+                    value={identityIndex}
+                    onChange={(event) => setIdentityIndex(event.target.value)}
+                    className="w-24 rounded-md border border-line bg-bg px-3 py-2 text-[13px] text-ink outline-none transition focus:border-accent-dim"
+                  />
+                </label>
+              </div>
+            )}
+          </>
         )}
 
         {error && (
@@ -291,7 +254,7 @@ export function LoginModal({ open, onClose }: LoginModalProps) {
             disabled={submitting || !secret.trim() || previewBlocksLogin}
             className="flex-1 rounded-md bg-accent px-4 py-2 text-[13px] font-semibold text-bg transition hover:bg-accent-dim disabled:cursor-not-allowed disabled:bg-surface-2 disabled:text-ink-4"
           >
-            {submitting ? "Connecting…" : "Login"}
+            {submitting ? "Connecting…" : "Sign in"}
           </button>
           <button
             type="button"

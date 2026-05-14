@@ -6,6 +6,7 @@ import {
   render,
   screen,
   waitFor,
+  within,
 } from "@testing-library/react";
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 
@@ -113,7 +114,7 @@ describe("NotesWorkspace", () => {
     );
 
     expect(screen.getByText(/sign in to see your notes/i)).toBeTruthy();
-    const loginButton = screen.getByRole("button", { name: /^log in$/i });
+    const loginButton = screen.getByRole("button", { name: /^sign in$/i });
     fireEvent.click(loginButton);
     expect(onOpenLogin).toHaveBeenCalled();
     expect(screen.queryByRole("button", { name: /new note/i })).toBeNull();
@@ -239,6 +240,10 @@ describe("NotesWorkspace", () => {
     });
 
     fireEvent.click(screen.getByRole("button", { name: /^delete$/i }));
+    const confirmDialog = screen.getByRole("dialog");
+    fireEvent.click(
+      within(confirmDialog).getByRole("button", { name: /^delete$/i }),
+    );
     await waitFor(() => {
       expect(mockDeleteNote).toHaveBeenCalledWith(
         expect.objectContaining({ noteId: "note-2" }),
@@ -664,7 +669,7 @@ describe("NotesWorkspace", () => {
       ).toBe("Edited offline");
     });
 
-    it("deletes a note via the bottom 'Delete note' button", async () => {
+    it("deletes a note via the bottom 'Delete note' button after confirming the modal", async () => {
       mockUseSession.mockReturnValue(makeSession());
       mockListMyNotes.mockResolvedValue([noteFixture]);
       mockGetNote.mockResolvedValue(noteFixture);
@@ -681,6 +686,14 @@ describe("NotesWorkspace", () => {
       });
 
       fireEvent.click(screen.getByRole("button", { name: /delete note/i }));
+
+      // Trigger doesn't fire the delete directly anymore — the
+      // confirmation modal must be acknowledged first.
+      expect(mockDeleteNote).not.toHaveBeenCalled();
+      const dialog = screen.getByRole("dialog");
+      fireEvent.click(
+        within(dialog).getByRole("button", { name: /^delete$/i }),
+      );
 
       await waitFor(() => {
         expect(mockDeleteNote).toHaveBeenCalledWith(

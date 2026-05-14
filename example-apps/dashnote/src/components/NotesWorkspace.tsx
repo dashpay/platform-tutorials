@@ -11,6 +11,7 @@ import { createNote } from "../dash/createNote";
 import { deleteNote } from "../dash/deleteNote";
 import { getNote, listMyNotes, type NoteRecord } from "../dash/queries";
 import { updateNote } from "../dash/updateNote";
+import { DeleteNoteModal } from "./DeleteNoteModal";
 import { useMediaQuery } from "../hooks/useMediaQuery";
 import { byteLength, FIELD_BYTE_LIMIT } from "../lib/fieldLimits";
 import { errorMessage } from "../lib/logger";
@@ -71,6 +72,7 @@ export function NotesWorkspace({
   const [detailLoading, setDetailLoading] = useState(false);
   const [saving, setSaving] = useState(false);
   const [deleting, setDeleting] = useState(false);
+  const [deleteRequested, setDeleteRequested] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const [revalidating, setRevalidating] = useState(false);
   const [editsReady, setEditsReady] = useState(false);
@@ -545,13 +547,18 @@ export function NotesWorkspace({
     }
   }
 
-  async function handleDelete() {
+  function requestDelete() {
     if (!sdk || !keyManager || !contractId || !isAuthed || !selectedId) return;
     if (selectedId === "new") {
       resetDraft();
       return;
     }
-    if (!window.confirm("Delete this note permanently?")) return;
+    setDeleteRequested(true);
+  }
+
+  async function confirmDelete() {
+    if (!sdk || !keyManager || !contractId || !isAuthed || !selectedId) return;
+    if (selectedId === "new") return;
 
     setDeleting(true);
     setError(null);
@@ -564,6 +571,7 @@ export function NotesWorkspace({
         noteId: selectedId,
         log,
       });
+      setDeleteRequested(false);
       await reloadNotes();
     } catch (err) {
       setError(errorMessage(err));
@@ -594,8 +602,8 @@ export function NotesWorkspace({
             </svg>
           }
           title="Sign in to see your notes"
-          description="Dashnote stores notes against your testnet identity. Log in with a Dash Platform identity to create, edit, and review your notes."
-          actionLabel="Log in"
+          description="Dashnote stores notes against your testnet identity. Sign in with a Dash Platform identity to create, edit, and review your notes."
+          actionLabel="Sign in"
           onAction={onOpenLogin}
           secondaryHref="https://bridge.thepasta.org/"
           secondaryLabel="Need an identity? Create one on Dash Bridge"
@@ -652,7 +660,7 @@ export function NotesWorkspace({
               onTitleChange={setTitle}
               onMessageChange={setMessage}
               onSave={() => void handleSave()}
-              onDelete={() => void handleDelete()}
+              onDelete={requestDelete}
               onBack={handleBack}
               loading={detailLoading}
               saving={saving}
@@ -673,6 +681,13 @@ export function NotesWorkspace({
           </div>
         </div>
       )}
+      <DeleteNoteModal
+        open={deleteRequested}
+        noteTitle={title}
+        deleting={deleting}
+        onCancel={() => setDeleteRequested(false)}
+        onConfirm={() => void confirmDelete()}
+      />
     </div>
   );
 }

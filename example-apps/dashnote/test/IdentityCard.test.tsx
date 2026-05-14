@@ -91,13 +91,13 @@ describe("IdentityCard", () => {
     expect(screen.getByText(TRUNCATED_ID)).toBeTruthy();
   });
 
-  it("hides the identity layout and shows a Login button when not connected", () => {
+  it("hides the identity layout and shows a Sign in button when not connected", () => {
     renderCard({
       status: "idle",
       identityId: IDENTITY_ID,
       dpnsName: "alice",
     });
-    expect(screen.getByRole("button", { name: /login/i })).toBeTruthy();
+    expect(screen.getByRole("button", { name: /^sign in$/i })).toBeTruthy();
     // The identity layout (name + truncated id) must not render in the
     // disconnected state, even when an id and name are passed in.
     expect(screen.queryByText("@alice")).toBeNull();
@@ -106,8 +106,8 @@ describe("IdentityCard", () => {
 
   // Regression: when the card was unified into a single menu trigger, readonly
   // (connected-but-not-signed-in) silently lost its one-click path to the
-  // login modal — the menu offered Settings and Switch identity but no direct
-  // Login. The card must call onLoginClick on click and render no menu.
+  // login modal — the menu offered Settings and Sign in but no direct Sign in
+  // affordance. The card must call onLoginClick on click and render no menu.
   it("calls onLoginClick on click when readonly, without opening a menu", () => {
     const onLoginClick = vi.fn();
     renderCard({
@@ -156,6 +156,25 @@ describe("IdentityCard", () => {
     });
     fireEvent.click(screen.getByRole("button", { expanded: false }));
     fireEvent.click(screen.getByRole("menuitem", { name: /switch identity/i }));
+    expect(onLoginClick).toHaveBeenCalled();
+  });
+
+  // In browsing mode the user has no signed-in key to switch *from*, so the
+  // menu entry is labeled Sign in (not Switch identity). It still calls
+  // onLoginClick — only the affordance changes.
+  it("labels the login entry 'Sign in' in browsing mode and calls onLoginClick", () => {
+    const onLoginClick = vi.fn();
+    renderCard({
+      status: "browsing",
+      identityId: IDENTITY_ID,
+      dpnsName: null,
+      onLoginClick,
+    });
+    fireEvent.click(screen.getByRole("button", { expanded: false }));
+    expect(
+      screen.queryByRole("menuitem", { name: /switch identity/i }),
+    ).toBeNull();
+    fireEvent.click(screen.getByRole("menuitem", { name: /^sign in$/i }));
     expect(onLoginClick).toHaveBeenCalled();
   });
 

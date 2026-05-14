@@ -98,7 +98,9 @@ function App() {
             />
           )}
           {tab === "how-it-works" && <HowItWorks />}
-          {tab === "settings" && <SettingsPanel />}
+          {tab === "settings" && (
+            <SettingsPanel onOpenLogin={() => setLoginOpen(true)} />
+          )}
         </div>
       </AppShell>
 

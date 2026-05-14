@@ -61,15 +61,15 @@ test.describe("theme toggle", () => {
 });
 
 test.describe("login modal", () => {
-  test("sidebar Login button opens the modal", async ({ page }) => {
-    await (await navButton(page, /login$/i)).click();
+  test("sidebar Sign in button opens the modal", async ({ page }) => {
+    await (await navButton(page, /sign in$/i)).click();
     const dialog = page.getByRole("dialog");
     await expect(dialog).toBeVisible();
     await expect(dialog.getByPlaceholder(/mnemonic phrase|wif/i)).toBeVisible();
   });
 
   test("Cancel button closes the modal", async ({ page }) => {
-    await (await navButton(page, /login$/i)).click();
+    await (await navButton(page, /sign in$/i)).click();
     const dialog = page.getByRole("dialog");
     await expect(dialog).toBeVisible();
     await dialog.getByRole("button", { name: /^cancel$/i }).click();
@@ -77,19 +77,19 @@ test.describe("login modal", () => {
   });
 
   test("Escape closes the modal", async ({ page }) => {
-    await (await navButton(page, /login$/i)).click();
+    await (await navButton(page, /sign in$/i)).click();
     const dialog = page.getByRole("dialog");
     await expect(dialog).toBeVisible();
     await page.keyboard.press("Escape");
     await expect(dialog).toBeHidden();
   });
 
-  test("Login button is disabled until a secret is entered", async ({
+  test("Sign in button is disabled until a secret is entered", async ({
     page,
   }) => {
-    await (await navButton(page, /login$/i)).click();
+    await (await navButton(page, /sign in$/i)).click();
     const dialog = page.getByRole("dialog");
-    const submit = dialog.getByRole("button", { name: /^Login$/ });
+    const submit = dialog.getByRole("button", { name: /^Sign in$/ });
     await expect(submit).toBeDisabled();
     await dialog.getByPlaceholder(/mnemonic phrase|wif/i).fill("abandon");
     await expect(submit).toBeEnabled();
@@ -98,7 +98,7 @@ test.describe("login modal", () => {
   test("Advanced settings reveals the identity-index field for mnemonic input", async ({
     page,
   }) => {
-    await (await navButton(page, /login$/i)).click();
+    await (await navButton(page, /sign in$/i)).click();
     const dialog = page.getByRole("dialog");
     // Type something with whitespace so detectSecretShape() picks "mnemonic"
     // and the identity-index field is rendered inside Advanced.
@@ -108,14 +108,27 @@ test.describe("login modal", () => {
     await expect(dialog.locator('input[type="number"]')).toBeVisible();
   });
 
-  test("Advanced settings exposes a contract-ID field", async ({ page }) => {
-    await (await navButton(page, /login$/i)).click();
+  test("Advanced settings disclosure is hidden when input parses as a WIF", async ({
+    page,
+  }) => {
+    // WIF input has no DIP-13 derivation, so identity-index is irrelevant
+    // and the whole Advanced disclosure should disappear.
+    await (await navButton(page, /sign in$/i)).click();
     const dialog = page.getByRole("dialog");
-    await dialog.getByRole("button", { name: /advanced settings/i }).click();
-    await expect(dialog.getByText(/contract id/i).first()).toBeVisible();
+
+    // Mnemonic-shaped input first → disclosure renders.
+    await dialog.getByPlaceholder(/mnemonic phrase|wif/i).fill("word word");
     await expect(
-      dialog.getByPlaceholder(/dashnote note contract id/i),
+      dialog.getByRole("button", { name: /advanced settings/i }),
     ).toBeVisible();
+
+    // Switch to WIF-shaped input → disclosure disappears.
+    await dialog
+      .getByPlaceholder(/mnemonic phrase|wif/i)
+      .fill("cVHcfvcWNc7DvqaPCwM6Z3DqZ");
+    await expect(
+      dialog.getByRole("button", { name: /advanced settings/i }),
+    ).toBeHidden();
   });
 });
 

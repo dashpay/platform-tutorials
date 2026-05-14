@@ -69,7 +69,7 @@ export function IdentityCard({
           onClick={onLoginClick}
           className="w-full rounded-md bg-accent px-3 py-2 text-[12px] font-semibold text-bg transition hover:bg-accent-dim"
         >
-          Login
+          Sign in
         </button>
         <div className="mt-2.5 flex items-center gap-1.5">
           <span
@@ -94,8 +94,8 @@ export function IdentityCard({
   }
 
   // Read-only mode has nothing to put in a menu (no identity → no Settings
-  // target, no Switch identity, no Log out), so the card goes straight to
-  // the login modal on click — matching the pre-menu behavior.
+  // target, no Login/Switch entry, no Log out), so the card goes straight
+  // to the login modal on click — matching the pre-menu behavior.
   if (isReadonly) {
     return (
       <button
@@ -196,7 +196,7 @@ export function IdentityCard({
             }}
             className="rounded-md px-2 py-1.5 text-left text-[12px] font-medium text-ink-2 transition hover:bg-surface-2 hover:text-ink"
           >
-            Switch identity
+            {isAuthed ? "Switch identity" : "Sign in"}
           </button>
           {isAuthed && (
             <button

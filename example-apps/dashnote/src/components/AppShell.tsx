@@ -116,9 +116,9 @@ export function AppShell({
           closeDrawer();
         }}
       />
-      {status !== "authenticated" && (
+      {status !== "authenticated" && status !== "browsing" && (
         <NavButton
-          label="Login"
+          label="Sign in"
           glyph="→"
           active={false}
           onClick={() => {

@@ -76,7 +76,11 @@ function Section({
   );
 }
 
-export function SettingsPanel() {
+interface SettingsPanelProps {
+  onOpenLogin: () => void;
+}
+
+export function SettingsPanel({ onOpenLogin }: SettingsPanelProps) {
   const session = useSession();
   const {
     register,
@@ -108,8 +112,17 @@ export function SettingsPanel() {
 
   if (!isConnected) {
     return (
-      <div className="rounded-md border border-line bg-bg/40 p-6 text-center text-[13px] text-ink-3">
-        Sign in to view and manage your identity, contract, and device data.
+      <div className="flex flex-col items-center gap-4 rounded-md border border-line bg-bg/40 p-6 text-center text-[13px] text-ink-3">
+        <p>
+          Sign in to view and manage your identity, contract, and device data.
+        </p>
+        <button
+          type="button"
+          onClick={onOpenLogin}
+          className="rounded-full bg-accent px-5 py-2 text-[13px] font-semibold text-bg transition hover:bg-accent-dim"
+        >
+          Sign in
+        </button>
       </div>
     );
   }
