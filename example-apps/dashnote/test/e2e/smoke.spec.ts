@@ -23,7 +23,7 @@ test.describe("tab navigation", () => {
     // Notes tab is the default.
     await expect(
       page.getByRole("heading", {
-        name: /Personal notes on Dash Platform/i,
+        name: /personal notes, stored on a public blockchain/i,
       }),
     ).toBeVisible();
 
@@ -35,7 +35,7 @@ test.describe("tab navigation", () => {
     await (await navButton(page, /notes$/i)).click();
     await expect(
       page.getByRole("heading", {
-        name: /Personal notes on Dash Platform/i,
+        name: /personal notes, stored on a public blockchain/i,
       }),
     ).toBeVisible();
   });
