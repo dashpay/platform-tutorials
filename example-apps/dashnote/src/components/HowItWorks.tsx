@@ -3,41 +3,81 @@ const REPO =
 const APP_REPO =
   "https://github.com/dashpay/platform-tutorials/blob/main/example-apps/dashnote/";
 
+type PipelineGlyph = "ui" | "helper" | "sdk" | "platform";
+
 const PIPELINE: Array<{
   label: string;
   sub: string;
+  glyph: PipelineGlyph;
   href?: string;
 }> = [
   {
     label: "UI",
     sub: "NoteEditor.tsx",
+    glyph: "ui",
     href: "https://github.com/dashpay/platform-tutorials/blob/main/example-apps/dashnote/src/components/NoteEditor.tsx",
   },
   {
     label: "Helper",
     sub: "src/dash/*.ts",
+    glyph: "helper",
     href: "https://github.com/dashpay/platform-tutorials/tree/main/example-apps/dashnote/src/dash",
   },
   {
     label: "Evo SDK",
     sub: "@dashevo/evo-sdk",
+    glyph: "sdk",
     href: "https://www.npmjs.com/package/@dashevo/evo-sdk",
   },
   {
     label: "Platform",
     sub: "testnet",
+    glyph: "platform",
     href: "https://testnet.platform-explorer.com/",
   },
 ];
 
-// Progressively darker cards reinforce the left-to-right flow direction so
-// the four boxes don't read as equally-weighted siblings.
-const PIPELINE_BG = [
-  "bg-bg",
-  "bg-[color:color-mix(in_oklab,var(--color-bg)_75%,var(--color-accent)_8%)]",
-  "bg-[color:color-mix(in_oklab,var(--color-bg)_50%,var(--color-accent)_16%)]",
-  "bg-[color:color-mix(in_oklab,var(--color-bg)_25%,var(--color-accent)_24%)]",
-];
+function PipelineGlyphIcon({ kind }: { kind: PipelineGlyph }) {
+  const common = {
+    width: 14,
+    height: 14,
+    viewBox: "0 0 24 24",
+    fill: "none" as const,
+    stroke: "currentColor",
+    strokeWidth: 2,
+    strokeLinecap: "round" as const,
+    strokeLinejoin: "round" as const,
+    "aria-hidden": true,
+  };
+  switch (kind) {
+    case "ui":
+      return (
+        <svg {...common}>
+          <rect x="3" y="3" width="18" height="18" rx="2" />
+          <path d="M3 9h18M9 21V9" />
+        </svg>
+      );
+    case "helper":
+      return (
+        <svg {...common}>
+          <path d="m16 18 6-6-6-6M8 6l-6 6 6 6" />
+        </svg>
+      );
+    case "sdk":
+      return (
+        <svg {...common}>
+          <path d="M10 13a5 5 0 0 0 7.54.54l3-3a5 5 0 0 0-7.07-7.07l-1.72 1.71" />
+          <path d="M14 11a5 5 0 0 0-7.54-.54l-3 3a5 5 0 0 0 7.07 7.07l1.71-1.71" />
+        </svg>
+      );
+    case "platform":
+      return (
+        <svg {...common}>
+          <path d="M12 22s8-4 8-10V5l-8-3-8 3v7c0 6 8 10 8 10z" />
+        </svg>
+      );
+  }
+}
 
 const OPS = [
   { op: "Create a note", file: "createNote.ts", sdk: "documents.create" },
@@ -45,7 +85,7 @@ const OPS = [
     op: "Update a note",
     file: "updateNote.ts",
     sdk: "documents.get → replace",
-  },
+    },
   { op: "Delete a note", file: "deleteNote.ts", sdk: "documents.delete" },
   { op: "List my notes", file: "queries.ts", sdk: "documents.query" },
   { op: "Register a contract", file: "contract.ts", sdk: "contracts.publish" },
@@ -82,39 +122,36 @@ const SECTION_INTRO = "mt-2 text-[12.5px] leading-5 text-ink-2";
 export function HowItWorks() {
   return (
     <div className="flex flex-col gap-3">
-      {/* 1. How data flows */}
-      <section className="rounded-2xl border border-line bg-surface px-7 py-4 max-md:px-5 max-md:py-4">
-        <div className={SECTION_LABEL}>Data flow</div>
-        <div className="mt-2 space-y-2 text-[13px] leading-6 text-ink-2">
-          <p>
-            Dashnote stores each entry as a single <code>note</code> document
-            with an optional <code>title</code> and a required{" "}
-            <code>message</code>. Every operation in the app follows the same
-            four-step path below: a React component calls a one-file helper in{" "}
-            <code>src/dash/</code>, the helper calls the Evo SDK, and the SDK
-            writes to a Platform node on testnet.{" "}
-            <strong className="font-semibold text-ink">
-              If you&apos;re reading dashnote to learn the SDK, the files in{" "}
-              <code>src/dash/</code> are the lesson — everything else is
-              plumbing.
-            </strong>
-          </p>
-          <p>
-            Every update is a full document replacement with an incremented
-            revision, so the UI can show <code>$revision</code> alongside the
-            Platform-provided <code>$createdAt</code> and{" "}
-            <code>$updatedAt</code> timestamps. Earlier note bodies aren&apos;t
-            shown — &quot;history&quot; in dashnote means the current state plus
-            its metadata.
-          </p>
+      {/* 0. Page header */}
+      <header className="px-1 pb-1 pt-2">
+        <div className="text-[10px] font-semibold uppercase tracking-[0.14em] text-accent">
+          How Dashnote works
         </div>
+        <h1 className="mt-1.5 text-[28px] font-semibold leading-[1.1] tracking-tight text-ink max-md:text-[22px]">
+          A walkthrough of every SDK call this app makes
+        </h1>
+        <p className="mt-2 max-w-[640px] text-[13px] leading-6 text-ink-2">
+          Dashnote stores each entry as a single <code>note</code> document with
+          an optional <code>title</code> and a required <code>message</code>.
+          Every operation follows the same four-step path: a React component
+          calls a one-file helper in <code>src/dash/</code>, the helper calls
+          the Evo SDK, and the SDK writes to a Platform node on testnet. The
+          files in <code>src/dash/</code> are the lesson — everything else is
+          plumbing.
+        </p>
+      </header>
 
+      {/* 1. Data flow */}
+      <section className="rounded-2xl border border-line bg-surface px-7 py-5 max-md:px-5 max-md:py-4">
+        <div className={SECTION_LABEL}>Data flow</div>
         <div className="mt-4 grid grid-cols-1 gap-3 md:grid-cols-4">
           {PIPELINE.map((step, i, arr) => {
-            const cardClass = `block rounded-xl border border-line p-4 ${PIPELINE_BG[i]}`;
+            const cardClass =
+              "block rounded-xl border border-line bg-bg p-4 text-accent";
             const cardBody = (
               <>
-                <div className="text-[14px] font-bold text-ink">
+                <PipelineGlyphIcon kind={step.glyph} />
+                <div className="mt-3 text-[14px] font-bold text-ink">
                   {step.label}
                 </div>
                 <div className="mt-0.5 font-mono text-[11px] text-ink-3">
@@ -157,7 +194,11 @@ export function HowItWorks() {
             <div className={SECTION_LABEL}>Platform operations</div>
             <p className={SECTION_INTRO}>
               Each row links to a one-file helper in <code>src/dash/</code>.
-              Read these as the canonical example of each SDK call.
+              Read these as the canonical example of each SDK call. Every
+              update is a full document replacement with an incremented{" "}
+              <code>$revision</code>, so the UI can show that alongside the
+              Platform-provided <code>$createdAt</code> and{" "}
+              <code>$updatedAt</code> timestamps.
             </p>
           </div>
           {OPS.map((o) => (

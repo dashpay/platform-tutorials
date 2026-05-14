@@ -75,7 +75,7 @@ function App() {
             title="Notes"
             onOpenActivity={() => setActivityOpen(true)}
           />
-        ) : (
+        ) : tab === "how-it-works" ? null : (
           <header className="rounded-[28px] border border-line bg-surface px-5 py-5 shadow-[0_20px_60px_-36px_rgba(0,0,0,0.45)] max-md:rounded-none max-md:border-0 max-md:bg-transparent max-md:px-4 max-md:py-4 max-md:shadow-none">
             <h1 className="mt-2 text-[28px] font-semibold leading-[1.05] tracking-tight text-ink">
               {header.title}
@@ -88,7 +88,7 @@ function App() {
 
         <div
           className={`${
-            tab === "notes" ? "mt-4 max-md:mt-0" : "mt-6"
+            tab === "notes" || tab === "how-it-works" ? "mt-4 max-md:mt-0" : "mt-6"
           } ${mobileFullBleed ? "max-md:flex max-md:min-h-0 max-md:flex-1 max-md:flex-col" : ""}`}
         >
           {session.error && (
