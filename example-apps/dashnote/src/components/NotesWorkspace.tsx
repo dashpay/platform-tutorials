@@ -785,7 +785,7 @@ function SignInHero({ onOpenLogin }: { onOpenLogin: () => void }) {
 
         {/* Sample note peek — mirrors the real NoteEditor (header pill + footer mono strip) */}
         <div className="relative max-lg:hidden" aria-hidden="true">
-          <div className="overflow-hidden rounded-[18px] border border-line bg-bg shadow-[0_30px_70px_-36px_rgba(0,0,0,0.55)] [transform:rotate(-0.4deg)]">
+          <div className="overflow-hidden rounded-lg border border-line bg-bg shadow-[0_30px_70px_-36px_rgba(0,0,0,0.55)] [transform:rotate(-0.4deg)]">
             <div className="flex items-center gap-3 border-b border-line px-4 py-3">
               <span className="inline-flex shrink-0 items-center gap-1.5 whitespace-nowrap rounded-full bg-[color:color-mix(in_oklab,var(--color-accent)_14%,transparent)] px-2.5 py-1 font-mono text-[11px] font-semibold text-accent">
                 <svg
