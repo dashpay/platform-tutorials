@@ -72,6 +72,24 @@ test.describe("login modal", () => {
     await expect(dialog.getByPlaceholder(/mnemonic phrase|wif/i)).toBeVisible();
   });
 
+  test("Bridge card is visible when no identity is remembered", async ({
+    page,
+  }) => {
+    // localStorage is empty on a fresh boot, so the remembered-identity
+    // panel is hidden and the Bridge card surfaces in its place.
+    await (await navButton(page, /sign in$/i)).click();
+    const dialog = page.getByRole("dialog");
+    const bridgeLink = dialog.getByRole("link", {
+      name: /create one on dash bridge/i,
+    });
+    await expect(bridgeLink).toBeVisible();
+    await expect(bridgeLink).toHaveAttribute(
+      "href",
+      "https://bridge.thepasta.org/",
+    );
+    await expect(dialog.getByText(/~30 seconds/i)).toBeVisible();
+  });
+
   test("Cancel button closes the modal", async ({ page }) => {
     await (await navButton(page, /sign in$/i)).click();
     const dialog = page.getByRole("dialog");

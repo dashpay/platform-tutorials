@@ -271,3 +271,27 @@ test("two contexts can sequentially save the same note without conflict", async 
     await ctx2.close();
   }
 });
+
+test("activity panel opens via ⌘L, lists entries, clears, and closes via Escape", async ({
+  page,
+}) => {
+  // Login alone produces several info-level log entries
+  // (SessionContext.tsx logs "Connecting…", "Connected…", "Identity resolved",
+  // etc.), so we don't need to save a note before opening the panel.
+  await page.keyboard.press("Meta+l");
+  const dialog = page.getByRole("dialog", { name: /activity log/i });
+  await expect(dialog).toBeVisible();
+
+  // At least one log entry should be visible.
+  await expect(
+    dialog.getByText(/connected to dash platform testnet/i).first(),
+  ).toBeVisible({ timeout: 10_000 });
+
+  // Clear empties the log and renders the empty-state copy.
+  await dialog.getByRole("button", { name: /^clear$/i }).click();
+  await expect(dialog.getByText(/no activity yet/i)).toBeVisible();
+
+  // Escape detaches the dialog.
+  await page.keyboard.press("Escape");
+  await expect(dialog).toBeHidden();
+});
