@@ -25,6 +25,7 @@ export function ActivityPanel({ open, onClose }: ActivityPanelProps) {
   return (
     <div
       role="dialog"
+      aria-modal="true"
       aria-label="Activity log"
       className="fixed inset-0 z-40 flex justify-end bg-black/40"
       onClick={onClose}

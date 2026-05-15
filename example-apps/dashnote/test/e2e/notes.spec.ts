@@ -217,7 +217,9 @@ test("two contexts can sequentially save the same note without conflict", async 
     // subtitle as the readiness gate.
     await page2.reload();
     await expect(
-      page2.getByText("Read-only access", { exact: true }),
+      page2
+        .locator('aside[aria-label="Main navigation"]')
+        .getByText("Read-only access", { exact: true }),
     ).toBeVisible({ timeout: 60_000 });
     await loginViaModal(page2, { rememberMe: true });
     await expect(
@@ -242,7 +244,9 @@ test("two contexts can sequentially save the same note without conflict", async 
     // the browsing subtitle as the readiness gate.
     await page1.reload();
     await expect(
-      page1.getByText("Read-only access", { exact: true }),
+      page1
+        .locator('aside[aria-label="Main navigation"]')
+        .getByText("Read-only access", { exact: true }),
     ).toBeVisible({ timeout: 60_000 });
     await loginViaModal(page1, { rememberMe: true });
     await page1.locator("button", { hasText: title }).first().click();

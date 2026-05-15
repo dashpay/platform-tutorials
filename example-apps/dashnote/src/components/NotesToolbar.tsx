@@ -47,7 +47,7 @@ export function NotesToolbar({
             </svg>
             Activity
             <span className="rounded border border-line bg-bg px-1 font-mono text-[9px] text-ink-4">
-              ⌘L
+              ⌘/Ctrl L
             </span>
           </button>
         )}
