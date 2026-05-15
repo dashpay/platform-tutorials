@@ -278,7 +278,7 @@ test("activity panel opens via ⌘L, lists entries, clears, and closes via Escap
   // Login alone produces several info-level log entries
   // (SessionContext.tsx logs "Connecting…", "Connected…", "Identity resolved",
   // etc.), so we don't need to save a note before opening the panel.
-  await page.keyboard.press("Meta+l");
+  await page.keyboard.press("ControlOrMeta+l");
   const dialog = page.getByRole("dialog", { name: /activity log/i });
   await expect(dialog).toBeVisible();
 
