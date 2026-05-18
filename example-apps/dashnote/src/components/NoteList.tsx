@@ -1,8 +1,7 @@
-import { useMemo, useState } from "react";
+import { useEffect, useMemo, useRef, useState } from "react";
 
 import type { NoteRecord } from "../dash/queries";
 import {
-  formatCompactTimestamp,
   formatRelativeTime,
   noteDisplayTitle,
   notePreview,
@@ -16,6 +15,7 @@ interface NoteListProps {
   onSelect: (noteId: string) => void;
   onNew: () => void;
   canCreate: boolean;
+  newButtonLabel?: string;
 }
 
 export function NoteList({
@@ -26,8 +26,26 @@ export function NoteList({
   onSelect,
   onNew,
   canCreate,
+  newButtonLabel = "New note",
 }: NoteListProps) {
   const [search, setSearch] = useState("");
+  const searchRef = useRef<HTMLInputElement>(null);
+
+  useEffect(() => {
+    const onKey = (e: KeyboardEvent) => {
+      if (e.key !== "/") return;
+      const target = e.target;
+      const editable =
+        target instanceof HTMLInputElement ||
+        target instanceof HTMLTextAreaElement ||
+        (target instanceof HTMLElement && target.isContentEditable);
+      if (editable) return;
+      e.preventDefault();
+      searchRef.current?.focus();
+    };
+    window.addEventListener("keydown", onKey);
+    return () => window.removeEventListener("keydown", onKey);
+  }, []);
 
   const filteredNotes = useMemo(() => {
     const q = search.trim().toLowerCase();
@@ -90,7 +108,7 @@ export function NoteList({
             onClick={onNew}
             className="rounded-full bg-accent px-3 py-1.5 text-[12px] font-semibold text-bg transition hover:bg-accent-dim max-md:hidden"
           >
-            New note
+            {newButtonLabel}
           </button>
         )}
       </div>
@@ -114,12 +132,19 @@ export function NoteList({
             <path d="m21 21-4.3-4.3" />
           </svg>
           <input
+            ref={searchRef}
             type="search"
             value={search}
             onChange={(event) => setSearch(event.target.value)}
             placeholder="Search"
             className="w-full rounded-full border border-line bg-bg px-9 py-2 text-[13px] text-ink outline-none transition focus:border-accent-dim"
           />
+          <span
+            aria-hidden="true"
+            className="pointer-events-none absolute right-2.5 top-1/2 -translate-y-1/2 rounded border border-line bg-bg px-1.5 py-px font-mono text-[10px] text-ink-4"
+          >
+            /
+          </span>
         </label>
       </div>
 
@@ -165,28 +190,33 @@ export function NoteList({
                   key={note.id}
                   type="button"
                   onClick={() => onSelect(note.id)}
-                  className={`block w-full rounded-[18px] border px-3 py-3 text-left transition ${
+                  className={`relative block w-full overflow-hidden rounded-lg px-3 py-3 text-left transition ${
                     active
-                      ? "border-accent bg-surface-2 shadow-[0_16px_35px_-28px_rgba(0,0,0,0.5)]"
-                      : "border-transparent bg-transparent hover:border-line hover:bg-surface-2"
+                      ? "bg-surface-2"
+                      : "bg-transparent hover:bg-surface-2"
                   }`}
                 >
-                  <div className="flex items-start justify-between gap-3">
-                    <div className="min-w-0">
-                      <div className="truncate text-[13px] font-semibold text-ink">
+                  {active && (
+                    <span
+                      aria-hidden="true"
+                      className="absolute inset-y-3 left-0 w-0.5 rounded-r-sm bg-accent"
+                    />
+                  )}
+                  <div className="relative">
+                    <div className="flex items-baseline justify-between gap-3">
+                      <div
+                        className={`min-w-0 truncate text-[13.5px] font-semibold tracking-[-0.005em] text-ink ${
+                          note.title?.trim() ? "" : "italic text-ink-2"
+                        }`}
+                      >
                         {noteDisplayTitle(note)}
                       </div>
-                      <div className="mt-1 line-clamp-2 text-[12px] leading-5 text-ink-3">
-                        {notePreview(note.message)}
-                      </div>
-                    </div>
-                    <div className="shrink-0 text-right">
-                      <div className="text-[10px] font-medium text-ink-4">
+                      <div className="shrink-0 text-[10.5px] text-ink-4">
                         {formatRelativeTime(note.updatedAt)}
                       </div>
-                      <div className="mt-1 font-mono text-[10px] text-ink-4">
-                        {formatCompactTimestamp(note.updatedAt)}
-                      </div>
+                    </div>
+                    <div className="mt-1 line-clamp-2 text-[12px] leading-5 text-ink-3">
+                      {notePreview(note.message)}
                     </div>
                   </div>
                 </button>

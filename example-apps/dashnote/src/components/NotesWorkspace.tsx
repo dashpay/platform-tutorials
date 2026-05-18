@@ -14,7 +14,7 @@ import { updateNote } from "../dash/updateNote";
 import { DeleteNoteModal } from "./DeleteNoteModal";
 import { useMediaQuery } from "../hooks/useMediaQuery";
 import { byteLength, FIELD_BYTE_LIMIT } from "../lib/fieldLimits";
-import { errorMessage } from "../lib/logger";
+import { errorMessage, normalizeLogOptions, type Logger } from "../lib/logger";
 import {
   BACKGROUND_REFRESH_MS,
   FOCUS_REFRESH_MIN_MS,
@@ -31,6 +31,16 @@ const STALE_EDIT_WARNING =
   "This note changed on the network. Your unsaved edits are still here — saving will overwrite the newer version.";
 
 type SelectedNoteId = string | "new" | null;
+
+// Wrap the session logger so `info` rows from src/dash/* helpers (which only
+// pass a string) pick up the activity-panel `detail` for the operation. The
+// helpers stay terse; presentation lives here in the caller.
+function withDetail(log: Logger, detail: string): Logger {
+  return (message, levelOrOptions) => {
+    const opts = normalizeLogOptions(levelOrOptions);
+    log(message, { ...opts, detail: opts.detail ?? detail });
+  };
+}
 
 export function NotesWorkspace({
   onOpenLogin,
@@ -430,7 +440,13 @@ export function NotesWorkspace({
   }
 
   function handleNew() {
-    if (!canMutate) return;
+    if (!canMutate) {
+      // Browsing with a remembered identity: prompt the user to sign in so
+      // they can author. Anonymous "idle" state never reaches this branch
+      // because the button is hidden when the user can't even read.
+      if (canRead) onOpenLogin();
+      return;
+    }
     if (!confirmDiscard()) return;
     resetDraft();
   }
@@ -463,7 +479,11 @@ export function NotesWorkspace({
           contractId,
           title,
           message,
-          log,
+          log: withDetail(log, "documents.create"),
+        });
+        log("Note created.", {
+          level: "success",
+          detail: `id ${noteId.slice(0, 8)}…`,
         });
         // Advance baselines so the post-save reload doesn't see wasDirty=true
         // and trip the conflict detector against its own write.
@@ -473,14 +493,18 @@ export function NotesWorkspace({
         setBaselineMessage(submittedMessage);
         await reloadNotes(noteId);
       } else {
-        await updateNote({
+        const newRevision = await updateNote({
           sdk,
           keyManager,
           contractId,
           noteId: selectedId,
           title,
           message,
-          log,
+          log: withDetail(log, "documents.get → replace"),
+        });
+        log("Note saved.", {
+          level: "success",
+          detail: `rev ${newRevision.toString()}`,
         });
         baselineTitleRef.current = submittedTitle;
         baselineMessageRef.current = submittedMessage;
@@ -569,7 +593,11 @@ export function NotesWorkspace({
         keyManager,
         contractId,
         noteId: selectedId,
-        log,
+        log: withDetail(log, "documents.delete"),
+      });
+      log("Note deleted.", {
+        level: "success",
+        detail: `id ${selectedId.slice(0, 8)}…`,
       });
       setDeleteRequested(false);
       await reloadNotes();
@@ -584,31 +612,7 @@ export function NotesWorkspace({
   return (
     <div className="space-y-5 max-md:flex max-md:min-h-0 max-md:flex-1 max-md:flex-col max-md:space-y-2">
       {!canRead ? (
-        <EmptyState
-          icon={
-            <svg
-              width="32"
-              height="32"
-              viewBox="0 0 24 24"
-              fill="none"
-              stroke="currentColor"
-              strokeWidth="1.75"
-              strokeLinecap="round"
-              strokeLinejoin="round"
-              aria-hidden="true"
-            >
-              <rect width="18" height="11" x="3" y="11" rx="2" />
-              <path d="M7 11V7a5 5 0 0 1 10 0v4" />
-            </svg>
-          }
-          title="Sign in to see your notes"
-          description="Dashnote stores notes against your testnet identity. Sign in with a Dash Platform identity to create, edit, and review your notes."
-          actionLabel="Sign in"
-          onAction={onOpenLogin}
-          secondaryHref="https://bridge.thepasta.org/"
-          secondaryLabel="Need an identity? Create one on Dash Bridge"
-          footnote="Notes are not private. They are stored publicly on Dash Platform."
-        />
+        <SignInHero onOpenLogin={onOpenLogin} />
       ) : !contractReady ? (
         <EmptyState
           icon={
@@ -634,7 +638,7 @@ export function NotesWorkspace({
           onAction={onOpenSettings}
         />
       ) : (
-        <div className="gap-5 max-md:flex max-md:min-h-0 max-md:flex-1 max-md:flex-col md:grid md:h-[calc(100vh-220px)] md:min-h-[520px] md:grid-cols-[260px_minmax(0,1fr)] md:gap-0 md:overflow-hidden md:rounded-[24px] md:border md:border-line md:bg-surface md:shadow-[0_20px_60px_-36px_rgba(0,0,0,0.45)] lg:grid-cols-[340px_minmax(0,1fr)]">
+        <div className="gap-5 max-md:flex max-md:min-h-0 max-md:flex-1 max-md:flex-col md:grid md:h-[calc(100vh-175px)] md:min-h-[520px] md:grid-cols-[260px_minmax(0,1fr)] md:gap-0 md:overflow-hidden md:rounded-[24px] md:border md:border-line md:bg-surface md:shadow-[0_20px_60px_-36px_rgba(0,0,0,0.45)] lg:grid-cols-[340px_minmax(0,1fr)]">
           <div
             className={`min-h-0 max-md:flex-1 ${selectedId !== null ? "hidden md:flex" : "flex"} flex-col`}
           >
@@ -645,7 +649,8 @@ export function NotesWorkspace({
               selectedId={selectedId}
               onSelect={handleSelect}
               onNew={handleNew}
-              canCreate={canMutate}
+              canCreate={canMutate || isBrowsing}
+              newButtonLabel={canMutate ? "New note" : "Sign in to create"}
             />
           </div>
           <div
@@ -674,7 +679,9 @@ export function NotesWorkspace({
               messageBytes={messageBytes}
               messageOversize={messageOversize}
               contractReady={contractReady}
-              error={error ?? conflictWarning}
+              contractId={contractId}
+              error={error}
+              conflictWarning={conflictWarning}
               onOpenLogin={onOpenLogin}
               onOpenSettings={onOpenSettings}
             />
@@ -745,5 +752,108 @@ function EmptyState({
         </div>
       )}
     </div>
+  );
+}
+
+function SignInHero({ onOpenLogin }: { onOpenLogin: () => void }) {
+  return (
+    <section className="relative overflow-hidden rounded-[24px] border border-line bg-surface px-12 py-14 max-md:flex max-md:flex-1 max-md:flex-col max-md:justify-center max-md:rounded-none max-md:border-0 max-md:px-6 max-md:py-10">
+      <div className="pointer-events-none absolute -right-32 -top-32 h-96 w-96 rounded-full bg-[radial-gradient(circle,color-mix(in_oklab,var(--color-accent)_22%,transparent),transparent_60%)]" />
+      <div className="relative grid grid-cols-1 gap-10 lg:grid-cols-[1.05fr_0.95fr]">
+        <div className="max-md:text-center">
+          <div className="text-[11px] font-bold uppercase tracking-[0.18em] text-accent">
+            Dash Platform tutorial
+          </div>
+          <h2 className="mt-3 text-balance text-[36px] font-bold leading-[1.05] tracking-[-0.025em] text-ink max-md:text-[28px]">
+            Personal notes, stored on a public blockchain.
+          </h2>
+          <p className="mt-3 max-w-[440px] text-pretty text-[14.5px] leading-[1.6] text-ink-2 max-md:mx-auto">
+            Dashnote stores notes against your testnet identity. Sign in with a
+            Dash Platform identity to create, edit, and review your notes — or
+            read the source to see how a small app registers a contract, writes
+            documents, and queries them back.
+          </p>
+          <div className="mt-5 flex flex-wrap gap-2.5 max-md:justify-center">
+            <button
+              type="button"
+              onClick={onOpenLogin}
+              className="inline-flex items-center gap-2 rounded-full bg-accent px-5 py-2.5 text-[13px] font-semibold text-bg hover:bg-accent-dim"
+            >
+              Sign in
+            </button>
+            <a
+              href="https://github.com/dashpay/platform-tutorials/tree/main/example-apps/dashnote"
+              target="_blank"
+              rel="noreferrer"
+              className="inline-flex items-center gap-2 rounded-full border border-line-2 px-5 py-2.5 text-[13px] font-semibold text-ink-2 hover:border-accent-dim"
+            >
+              <svg
+                width="14"
+                height="14"
+                viewBox="0 0 16 16"
+                fill="currentColor"
+                aria-hidden="true"
+              >
+                <path d="M8 0C3.58 0 0 3.58 0 8a8 8 0 0 0 5.47 7.59c.4.07.55-.17.55-.38 0-.19-.01-.82-.01-1.49-2.01.37-2.53-.49-2.69-.94-.09-.23-.48-.94-.82-1.13-.28-.15-.68-.52-.01-.53.63-.01 1.08.58 1.23.82.72 1.21 1.87.87 2.33.66.07-.52.28-.87.51-1.07-1.78-.2-3.64-.89-3.64-3.95 0-.87.31-1.59.82-2.15-.08-.2-.36-1.02.08-2.12 0 0 .67-.21 2.2.82.64-.18 1.32-.27 2-.27.68 0 1.36.09 2 .27 1.53-1.04 2.2-.82 2.2-.82.44 1.1.16 1.92.08 2.12.51.56.82 1.27.82 2.15 0 3.07-1.87 3.75-3.65 3.95.29.25.54.73.54 1.48 0 1.07-.01 1.93-.01 2.2 0 .21.15.46.55.38A8.01 8.01 0 0 0 16 8c0-4.42-3.58-8-8-8Z" />
+              </svg>
+              View source
+            </a>
+          </div>
+          <div className="mt-4 text-[12px] text-ink-4">
+            Need a testnet identity?{" "}
+            <a
+              href="https://bridge.thepasta.org/"
+              target="_blank"
+              rel="noreferrer"
+              className="font-medium text-accent underline-offset-2 hover:underline"
+            >
+              Create one on Dash Bridge →
+            </a>
+          </div>
+        </div>
+
+        {/* Sample note peek — mirrors the real NoteEditor (header pill + footer mono strip) */}
+        <div className="relative max-lg:hidden" aria-hidden="true">
+          <div className="overflow-hidden rounded-lg border border-line bg-bg shadow-[0_30px_70px_-36px_rgba(0,0,0,0.55)] [transform:rotate(-0.4deg)]">
+            <div className="flex items-center gap-3 border-b border-line px-4 py-3">
+              <span className="inline-flex shrink-0 items-center gap-1.5 whitespace-nowrap rounded-full bg-[color:color-mix(in_oklab,var(--color-accent)_14%,transparent)] px-2.5 py-1 font-mono text-[11px] font-semibold text-accent">
+                <svg
+                  width="11"
+                  height="11"
+                  viewBox="0 0 24 24"
+                  fill="none"
+                  stroke="currentColor"
+                  strokeWidth="2.2"
+                  strokeLinecap="round"
+                  strokeLinejoin="round"
+                >
+                  <path d="M10 13a5 5 0 0 0 7.54.54l3-3a5 5 0 0 0-7.07-7.07l-1.72 1.71" />
+                  <path d="M14 11a5 5 0 0 0-7.54-.54l-3 3a5 5 0 0 0 7.07 7.07l1.71-1.71" />
+                </svg>
+                Revision 4
+              </span>
+              <span className="text-[12px] text-ink-3">Updated last week</span>
+            </div>
+            <div className="px-5 py-4">
+              <div className="text-[18px] font-bold tracking-[-0.015em] text-ink">
+                Q4 product retro
+              </div>
+              <div className="mt-1.5 text-[13px] leading-[1.55] text-ink-2">
+                Wins: shipped the tutorial app to staging, two contracts
+                published, byte-budget editor unblocks long docs…
+              </div>
+            </div>
+            <div className="flex items-center justify-between gap-3 border-t border-line bg-surface/40 px-5 py-3 font-mono text-[10.5px] text-ink-4">
+              <span>
+                <span className="text-ink-3">$createdAt</span> 5/5/2026, 1:48 PM
+              </span>
+              <span>
+                <span className="text-ink-3">$updatedAt</span> 5/5/2026, 4:43 PM
+              </span>
+            </div>
+          </div>
+        </div>
+      </div>
+    </section>
   );
 }

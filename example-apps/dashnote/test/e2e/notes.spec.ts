@@ -27,9 +27,11 @@ test.beforeEach(async ({ page }) => {
     }
   });
   await page.reload();
-  await expect(page.locator(".conn-dot.connected").first()).toBeVisible({
-    timeout: 60_000,
-  });
+  await expect(
+    page
+      .locator('aside[aria-label="Main navigation"]')
+      .getByText("Connected", { exact: true }),
+  ).toBeVisible({ timeout: 60_000 });
   await loginViaModal(page);
 });
 
@@ -194,9 +196,11 @@ test("two contexts can sequentially save the same note without conflict", async 
   try {
     for (const p of [page1, page2]) {
       await p.goto("/");
-      await expect(p.locator(".conn-dot.connected").first()).toBeVisible({
-        timeout: 60_000,
-      });
+      await expect(
+        p
+          .locator('aside[aria-label="Main navigation"]')
+          .getByText("Connected", { exact: true }),
+      ).toBeVisible({ timeout: 60_000 });
       await loginViaModal(p, { rememberMe: true });
     }
 
@@ -208,11 +212,15 @@ test("two contexts can sequentially save the same note without conflict", async 
 
     // Page2 needs to see the note created by page1. Reload to bypass
     // the 30s background refresh and re-login (rememberMe means the
-    // login form pre-fills with the remembered identity hint).
+    // login form pre-fills with the remembered identity hint). A
+    // remembered identity boots into browsing, so wait for that
+    // subtitle as the readiness gate.
     await page2.reload();
-    await expect(page2.locator(".conn-dot.connected").first()).toBeVisible({
-      timeout: 60_000,
-    });
+    await expect(
+      page2
+        .locator('aside[aria-label="Main navigation"]')
+        .getByText("Read-only access", { exact: true }),
+    ).toBeVisible({ timeout: 60_000 });
     await loginViaModal(page2, { rememberMe: true });
     await expect(
       page2.locator("button", { hasText: title }).first(),
@@ -231,11 +239,15 @@ test("two contexts can sequentially save the same note without conflict", async 
       timeout: 60_000,
     });
 
-    // Page1 reloads + re-logs to see page2's edit, then makes its own change.
+    // Page1 reloads + re-logs to see page2's edit, then makes its own
+    // change. Remembered identity → browsing on reload, so wait for
+    // the browsing subtitle as the readiness gate.
     await page1.reload();
-    await expect(page1.locator(".conn-dot.connected").first()).toBeVisible({
-      timeout: 60_000,
-    });
+    await expect(
+      page1
+        .locator('aside[aria-label="Main navigation"]')
+        .getByText("Read-only access", { exact: true }),
+    ).toBeVisible({ timeout: 60_000 });
     await loginViaModal(page1, { rememberMe: true });
     await page1.locator("button", { hasText: title }).first().click();
     await expect(page1.getByLabel("Body")).toHaveValue("round 2 (from page2)", {
@@ -258,4 +270,28 @@ test("two contexts can sequentially save the same note without conflict", async 
     await ctx1.close();
     await ctx2.close();
   }
+});
+
+test("activity panel opens via ⌘L, lists entries, clears, and closes via Escape", async ({
+  page,
+}) => {
+  // Login alone produces several info-level log entries
+  // (SessionContext.tsx logs "Connecting…", "Connected…", "Identity resolved",
+  // etc.), so we don't need to save a note before opening the panel.
+  await page.keyboard.press("ControlOrMeta+l");
+  const dialog = page.getByRole("dialog", { name: /activity log/i });
+  await expect(dialog).toBeVisible();
+
+  // At least one log entry should be visible.
+  await expect(
+    dialog.getByText(/connected to dash platform testnet/i).first(),
+  ).toBeVisible({ timeout: 10_000 });
+
+  // Clear empties the log and renders the empty-state copy.
+  await dialog.getByRole("button", { name: /^clear$/i }).click();
+  await expect(dialog.getByText(/no activity yet/i)).toBeVisible();
+
+  // Escape detaches the dialog.
+  await page.keyboard.press("Escape");
+  await expect(dialog).toBeHidden();
 });

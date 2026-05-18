@@ -16,7 +16,13 @@ import {
 import { resolveDpnsName } from "../dash/resolveDpnsName";
 import type { DashKeyManager, DashSdk } from "../dash/types";
 import { detectSecretShape } from "../lib/detectSecretShape";
-import { errorMessage, type Logger } from "../lib/logger";
+import {
+  ACTIVITY_LOG_LIMIT,
+  errorMessage,
+  normalizeLogOptions,
+  type LogEntry,
+  type Logger,
+} from "../lib/logger";
 import { clearCachedNotes } from "../lib/notesCache";
 import {
   clearRememberedIdentity,
@@ -70,6 +76,8 @@ export interface SessionValue {
   dpnsName: string | null;
   setContractId: (id: string | null) => void;
   log: Logger;
+  activityLog: LogEntry[];
+  clearActivityLog: () => void;
   login: (secret: string, options?: LoginOptions) => Promise<void>;
   enterReadOnly: () => Promise<void>;
   viewAsRemembered: () => Promise<void>;
@@ -101,13 +109,34 @@ export function SessionProvider({ children }: { children: ReactNode }) {
     initialRemembered?.name ?? null,
   );
 
-  const log = useCallback<Logger>((message, level = "info") => {
+  const [activityLog, setActivityLog] = useState<LogEntry[]>([]);
+
+  const log = useCallback<Logger>((message, levelOrOptions) => {
+    const { level = "info", detail } = normalizeLogOptions(levelOrOptions);
     const method =
       level === "error" ? "error" : level === "success" ? "info" : "log";
-    console[method](`[${level}] ${message}`);
+    console[method](`[${level}] ${message}${detail ? ` (${detail})` : ""}`);
+    const entry: LogEntry = {
+      id:
+        typeof crypto !== "undefined" && "randomUUID" in crypto
+          ? crypto.randomUUID()
+          : `${Date.now()}-${Math.random().toString(36).slice(2, 10)}`,
+      level,
+      message,
+      detail,
+      timestamp: Date.now(),
+    };
+    setActivityLog((prev) => {
+      const next = [entry, ...prev];
+      return next.length > ACTIVITY_LOG_LIMIT
+        ? next.slice(0, ACTIVITY_LOG_LIMIT)
+        : next;
+    });
     if (level === "success") toast.success(message);
     if (level === "error") toast.error(message);
   }, []);
+
+  const clearActivityLog = useCallback(() => setActivityLog([]), []);
 
   const setContractId = useCallback(
     (id: string | null) => {
@@ -134,11 +163,17 @@ export function SessionProvider({ children }: { children: ReactNode }) {
   const connect = useCallback(async () => {
     setStatus("connecting");
     setError(null);
-    log("Connecting to Dash Platform testnet…");
+    log("Connecting to Dash Platform testnet…", {
+      level: "info",
+      detail: 'createClient("testnet")',
+    });
     const { createClient } = await loadSdkModule();
     const connected = (await createClient("testnet")) as unknown as DashSdk;
     setSdk(connected);
-    log("Connected to Dash Platform testnet.");
+    log("Connected to Dash Platform testnet.", {
+      level: "info",
+      detail: "sdk.connect",
+    });
     return connected;
   }, [log]);
 
@@ -188,7 +223,13 @@ export function SessionProvider({ children }: { children: ReactNode }) {
         const resolvedId = resolvedKeyManager.identityId ?? null;
         setIdentityId(resolvedId ?? null);
         setStatus("authenticated");
-        log(`Identity resolved: ${resolvedId ?? "(unknown)"}`, "success");
+        log(`Identity resolved: ${resolvedId ?? "(unknown)"}`, {
+          level: "success",
+          detail:
+            shape === "mnemonic"
+              ? "IdentityKeyManager.create"
+              : "loginWithPrivateKey",
+        });
 
         // Resolve the DPNS name after auth so we can persist it alongside
         // the identity ID — DPNS bindings are permanent, so what we save
@@ -346,6 +387,8 @@ export function SessionProvider({ children }: { children: ReactNode }) {
       dpnsName,
       setContractId,
       log,
+      activityLog,
+      clearActivityLog,
       login,
       enterReadOnly,
       viewAsRemembered,
@@ -363,6 +406,8 @@ export function SessionProvider({ children }: { children: ReactNode }) {
       dpnsName,
       setContractId,
       log,
+      activityLog,
+      clearActivityLog,
       login,
       enterReadOnly,
       viewAsRemembered,

@@ -37,7 +37,6 @@ export function IdentityCard({
   const isBrowsing = status === "browsing";
   const isReadonly = status === "readonly";
   const isConnected = isReadonly || isAuthed || isBrowsing;
-  const hasIdentity = isAuthed || isBrowsing;
   const [menuOpen, setMenuOpen] = useState(false);
   const containerRef = useRef<HTMLDivElement>(null);
 
@@ -71,16 +70,7 @@ export function IdentityCard({
         >
           Sign in
         </button>
-        <div className="mt-2.5 flex items-center gap-1.5">
-          <span
-            className={`conn-dot ${
-              status === "connecting"
-                ? "connecting"
-                : status === "error"
-                  ? "error"
-                  : ""
-            }`}
-          />
+        <div className="mt-2.5">
           <span className="font-mono text-[10.5px] text-ink-3">
             {status === "connecting"
               ? "Connecting..."
@@ -93,27 +83,53 @@ export function IdentityCard({
     );
   }
 
-  // Read-only mode has nothing to put in a menu (no identity → no Settings
-  // target, no Login/Switch entry, no Log out), so the card goes straight
-  // to the login modal on click — matching the pre-menu behavior.
-  if (isReadonly) {
+  // Logged out — either without (readonly) or with (browsing) a remembered
+  // identity hint. Both variants click straight to the login modal; the
+  // browsing variant additionally decorates the card with the cached
+  // DPNS name + avatar so returning users see who they were.
+  if (isReadonly || isBrowsing) {
     return (
       <button
         type="button"
         onClick={onLoginClick}
         className="group w-full border-t border-line pt-3.5 text-left"
       >
-        <div className="flex items-center justify-between">
+        <div className="mb-0.5 flex items-center justify-between">
           <span className="text-[10px] font-semibold uppercase tracking-[0.12em] text-ink-4">
-            Connected
+            {isBrowsing ? "Signed out" : "Guest"}
           </span>
           <span className="text-[10px] text-ink-4 opacity-0 transition-opacity group-hover:opacity-100">
             Sign in
           </span>
         </div>
-        <div className="mt-2.5 flex items-center gap-1.5">
-          <span className="conn-dot connected" />
-          <span className="font-mono text-[10.5px] text-ink-3">Connected</span>
+        {isBrowsing && (
+          <div className="flex items-center gap-2.5">
+            <div
+              className="h-7 w-7 shrink-0 rounded-full"
+              style={{ background: avatarGradient(identityId) }}
+            />
+            <div className="min-w-0">
+              <div className="truncate text-[12px] font-semibold text-ink transition-colors group-hover:text-accent">
+                {dpnsName
+                  ? `@${dpnsName}`
+                  : identityId
+                    ? truncateId(identityId, 6)
+                    : "Identity"}
+              </div>
+              <div className="truncate font-mono text-[10px] text-ink-4">
+                {dpnsName && identityId
+                  ? truncateId(identityId, 6)
+                  : contractId
+                    ? `contract ${truncateId(contractId, 6)}`
+                    : "No contract"}
+              </div>
+            </div>
+          </div>
+        )}
+        <div className="mt-2.5">
+          <span className="font-mono text-[10.5px] text-ink-3">
+            {isBrowsing ? "Read-only access" : "Connected"}
+          </span>
         </div>
       </button>
     );
@@ -128,45 +144,40 @@ export function IdentityCard({
         aria-expanded={menuOpen}
         className="group w-full border-t border-line pt-3.5 text-left"
       >
-        {hasIdentity && (
-          <>
-            <div className="mb-0.5 flex items-center justify-between">
-              <span className="text-[10px] font-semibold uppercase tracking-[0.12em] text-ink-4">
-                {isAuthed ? "Signed in" : "Read-only"}
-              </span>
-              <span className="text-[10px] text-ink-4 opacity-0 transition-opacity group-hover:opacity-100">
-                Menu
-              </span>
+        <div className="mb-0.5 flex items-center justify-between">
+          <span className="text-[10px] font-semibold uppercase tracking-[0.12em] text-ink-4">
+            Signed in
+          </span>
+          <span className="text-[10px] text-ink-4 opacity-0 transition-opacity group-hover:opacity-100">
+            Menu
+          </span>
+        </div>
+        <div className="flex items-center gap-2.5">
+          <div
+            className="h-7 w-7 shrink-0 rounded-full"
+            style={{ background: avatarGradient(identityId) }}
+          />
+          <div className="min-w-0">
+            <div className="truncate text-[12px] font-semibold text-ink transition-colors group-hover:text-accent">
+              {dpnsName
+                ? `@${dpnsName}`
+                : identityId
+                  ? truncateId(identityId, 6)
+                  : "Identity"}
             </div>
-            <div className="flex items-center gap-2">
-              <div
-                className="h-5 w-5 shrink-0 rounded-full"
-                style={{ background: avatarGradient(identityId) }}
-              />
-              <div className="min-w-0">
-                <div className="truncate text-[12px] font-medium text-ink transition-colors group-hover:text-accent">
-                  {dpnsName
-                    ? `@${dpnsName}`
-                    : identityId
-                      ? truncateId(identityId, 6)
-                      : "Identity"}
-                </div>
-                <div className="truncate font-mono text-[10px] text-ink-4">
-                  {dpnsName && identityId
-                    ? truncateId(identityId, 6)
-                    : contractId
-                      ? `contract ${truncateId(contractId, 6)}`
-                      : "No contract"}
-                </div>
-              </div>
+            <div className="truncate font-mono text-[10px] text-ink-4">
+              {dpnsName && identityId
+                ? truncateId(identityId, 6)
+                : contractId
+                  ? `contract ${truncateId(contractId, 6)}`
+                  : "No contract"}
             </div>
-          </>
-        )}
+          </div>
+        </div>
 
-        <div className="mt-2.5 flex items-center gap-1.5">
-          <span className="conn-dot connected" />
+        <div className="mt-2.5">
           <span className="font-mono text-[10.5px] text-ink-3">
-            {isAuthed ? "Authenticated" : "Browsing (read-only)"}
+            Full access
           </span>
         </div>
       </button>
@@ -196,21 +207,19 @@ export function IdentityCard({
             }}
             className="rounded-md px-2 py-1.5 text-left text-[12px] font-medium text-ink-2 transition hover:bg-surface-2 hover:text-ink"
           >
-            {isAuthed ? "Switch identity" : "Sign in"}
+            Switch identity
           </button>
-          {isAuthed && (
-            <button
-              type="button"
-              role="menuitem"
-              onClick={() => {
-                setMenuOpen(false);
-                session.logout();
-              }}
-              className="rounded-md px-2 py-1.5 text-left text-[12px] font-medium text-ink-2 transition hover:bg-surface-2 hover:text-ink"
-            >
-              Log out
-            </button>
-          )}
+          <button
+            type="button"
+            role="menuitem"
+            onClick={() => {
+              setMenuOpen(false);
+              session.logout();
+            }}
+            className="rounded-md px-2 py-1.5 text-left text-[12px] font-medium text-ink-2 transition hover:bg-surface-2 hover:text-ink"
+          >
+            Log out
+          </button>
         </div>
       )}
     </div>

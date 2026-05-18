@@ -90,10 +90,14 @@ describe("DeleteNoteModal", () => {
       />,
     );
     expect(
-      screen.getByRole("button", { name: /deleting…/i }).hasAttribute("disabled"),
+      screen
+        .getByRole("button", { name: /deleting…/i })
+        .hasAttribute("disabled"),
     ).toBe(true);
     expect(
-      screen.getByRole("button", { name: /^cancel$/i }).hasAttribute("disabled"),
+      screen
+        .getByRole("button", { name: /^cancel$/i })
+        .hasAttribute("disabled"),
     ).toBe(true);
   });
 

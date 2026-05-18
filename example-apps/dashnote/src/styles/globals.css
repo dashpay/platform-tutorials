@@ -92,35 +92,3 @@ code {
   outline: 2px solid var(--color-accent-dim);
   outline-offset: 2px;
 }
-
-@keyframes conn-pulse {
-  0%,
-  100% {
-    opacity: 1;
-  }
-  50% {
-    opacity: 0.4;
-  }
-}
-
-.conn-dot {
-  width: 8px;
-  height: 8px;
-  border-radius: 9999px;
-  background: var(--color-ink-4);
-}
-
-.conn-dot.connecting {
-  background: var(--color-accent);
-  animation: conn-pulse 1s infinite;
-}
-
-.conn-dot.connected,
-.conn-dot.authenticated,
-.conn-dot.readonly {
-  background: oklch(70% 0.16 150);
-}
-
-.conn-dot.error {
-  background: var(--color-danger);
-}

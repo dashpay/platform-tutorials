@@ -65,7 +65,38 @@ export function LoginModal({ open, onClose }: LoginModalProps) {
   }
 
   return (
-    <Modal open={open} onClose={onClose} title="Sign in">
+    <Modal
+      open={open}
+      onClose={onClose}
+      title={
+        <div className="flex items-center gap-2.5">
+          <span className="flex h-7 w-7 items-center justify-center rounded-lg bg-accent text-bg">
+            <svg
+              width="14"
+              height="14"
+              viewBox="0 0 24 24"
+              fill="none"
+              stroke="currentColor"
+              strokeWidth="2.2"
+              strokeLinecap="round"
+              strokeLinejoin="round"
+              aria-hidden="true"
+            >
+              <circle cx="7.5" cy="15.5" r="3.5" />
+              <path d="M21 2 9.6 13.4M14.5 8.5l4 4M19 5l3 3" />
+            </svg>
+          </span>
+          <div>
+            <div className="text-[15px] font-bold tracking-[-0.01em] text-ink">
+              Sign in to Dashnote
+            </div>
+            <div className="text-[11px] text-ink-4">
+              Connects to <span className="font-mono text-accent">testnet</span>
+            </div>
+          </div>
+        </div>
+      }
+    >
       <form onSubmit={handleLogin} className="flex flex-col gap-4 py-2">
         {showRememberedPanel && session.rememberedIdentityId && (
           <label
@@ -106,20 +137,6 @@ export function LoginModal({ open, onClose }: LoginModalProps) {
               ? "Mnemonic or Private Key"
               : "Identity Mnemonic or Private Key"}
           </span>
-          {!showRememberedPanel && (
-            <p className="text-[11px] text-ink-3">
-              Need an identity? Use the{" "}
-              <a
-                href="https://bridge.thepasta.org/"
-                target="_blank"
-                rel="noopener noreferrer"
-                className="font-medium text-accent-dim underline underline-offset-2 hover:text-accent"
-              >
-                Dash bridge
-              </a>{" "}
-              to create one for testing.
-            </p>
-          )}
           <input
             type="password"
             autoComplete="off"
@@ -177,6 +194,21 @@ export function LoginModal({ open, onClose }: LoginModalProps) {
             </div>
           )}
         </label>
+
+        <div className="flex items-center gap-1.5 text-[11px] text-ink-4">
+          <svg
+            width="11"
+            height="11"
+            viewBox="0 0 24 24"
+            fill="none"
+            stroke="currentColor"
+            strokeWidth="2"
+            aria-hidden="true"
+          >
+            <path d="M12 22s8-4 8-10V5l-8-3-8 3v7c0 6 8 10 8 10z" />
+          </svg>
+          Stored in memory only — never sent over the network.
+        </div>
 
         {session.rememberedIdentityId && !useDifferentIdentity && (
           <div
@@ -243,11 +275,6 @@ export function LoginModal({ open, onClose }: LoginModalProps) {
           </OperationResultNotice>
         )}
 
-        <p className="text-[11px] text-ink-4">
-          Your secret never leaves this browser. Only the public identity ID is
-          stored when this identity is remembered on this device.
-        </p>
-
         <div className="flex gap-2 pt-1">
           <button
             type="submit"
@@ -264,6 +291,38 @@ export function LoginModal({ open, onClose }: LoginModalProps) {
             Cancel
           </button>
         </div>
+
+        {!showRememberedPanel && (
+          <div className="flex items-start gap-2.5 rounded-xl border border-dashed border-line-2 px-3.5 py-3 text-[12px] text-ink-3">
+            <svg
+              width="14"
+              height="14"
+              viewBox="0 0 24 24"
+              fill="none"
+              stroke="currentColor"
+              strokeWidth="1.6"
+              className="mt-px text-accent"
+              aria-hidden="true"
+            >
+              <path d="M12 3v3M12 18v3M3 12h3M18 12h3M5.6 5.6l2 2M16.4 16.4l2 2M5.6 18.4l2-2M16.4 7.6l2-2" />
+            </svg>
+            <div>
+              Don&apos;t have a testnet identity?{" "}
+              <a
+                href="https://bridge.thepasta.org/"
+                target="_blank"
+                rel="noreferrer"
+                className="font-semibold text-accent underline-offset-2 hover:underline"
+              >
+                Create one on Dash Bridge →
+              </a>
+              <br />
+              <span className="text-ink-4">
+                Funded automatically. ~30 seconds.
+              </span>
+            </div>
+          </div>
+        )}
       </form>
     </Modal>
   );

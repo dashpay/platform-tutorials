@@ -14,7 +14,7 @@ test.describe.configure({ mode: "serial" });
 // Each test starts from a clean session: no remembered identity, no
 // contract override. The base `page` fixture in fixtures.ts already
 // waits for the SDK to connect on `/`, so the IdentityCard renders
-// "Connected" (readonly) by default.
+// "Guest" (readonly) by default with the subtitle "Connected".
 test.beforeEach(async ({ page }) => {
   await page.evaluate(() => {
     try {
@@ -25,9 +25,11 @@ test.beforeEach(async ({ page }) => {
     }
   });
   await page.reload();
-  await expect(page.locator(".conn-dot.connected").first()).toBeVisible({
-    timeout: 60_000,
-  });
+  await expect(
+    page
+      .locator('aside[aria-label="Main navigation"]')
+      .getByText("Connected", { exact: true }),
+  ).toBeVisible({ timeout: 60_000 });
 });
 
 test("login with a mnemonic, then logout via the IdentityCard menu", async ({
@@ -38,13 +40,19 @@ test("login with a mnemonic, then logout via the IdentityCard menu", async ({
   await openIdentityMenu(page);
   await page.getByRole("menuitem", { name: /^log out$/i }).click();
 
-  // No remembered identity → session drops back to readonly. The readonly
-  // IdentityCard paints "Connected" twice: once as the eyebrow label
-  // above the card, and once as the inline status text next to the
-  // connection dot — hence count=2, not 1.
+  // No remembered identity → session drops back to readonly. The
+  // readonly IdentityCard paints "Guest" as the eyebrow and "Connected"
+  // as the subtitle.
   await expect(
-    page.locator('aside[aria-label="Main navigation"]').getByText("Connected"),
-  ).toHaveCount(2, { timeout: 30_000 });
+    page
+      .locator('aside[aria-label="Main navigation"]')
+      .getByText("Guest", { exact: true }),
+  ).toBeVisible({ timeout: 30_000 });
+  await expect(
+    page
+      .locator('aside[aria-label="Main navigation"]')
+      .getByText("Connected", { exact: true }),
+  ).toBeVisible();
 });
 
 test("remember-me persists the identity hint across reloads", async ({
@@ -54,9 +62,13 @@ test("remember-me persists the identity hint across reloads", async ({
 
   await page.reload();
   // A fresh load drops the keyManager, so the remembered identity boots
-  // into "browsing" (read-only) rather than authenticated.
+  // into "browsing" (signed-out with identity hint) rather than
+  // authenticated. The IdentityCard renders the "Read-only access"
+  // subtitle under a "Signed out" eyebrow.
   await expect(
-    page.getByText("Browsing (read-only)", { exact: true }),
+    page
+      .locator('aside[aria-label="Main navigation"]')
+      .getByText("Read-only access", { exact: true }),
   ).toBeVisible({ timeout: 30_000 });
 });
 
@@ -72,11 +84,15 @@ test("forget-this-device via the Settings panel drops back to readonly", async (
   // After forgetting, this session stays authenticated; the localStorage
   // hint is gone, so a reload drops to readonly (not browsing).
   await page.reload();
-  await expect(page.locator(".conn-dot.connected").first()).toBeVisible({
-    timeout: 30_000,
-  });
   await expect(
-    page.getByText("Browsing (read-only)", { exact: true }),
+    page
+      .locator('aside[aria-label="Main navigation"]')
+      .getByText("Connected", { exact: true }),
+  ).toBeVisible({ timeout: 30_000 });
+  await expect(
+    page
+      .locator('aside[aria-label="Main navigation"]')
+      .getByText("Read-only access", { exact: true }),
   ).toBeHidden();
 });
 
@@ -110,7 +126,7 @@ test("Settings tab is reachable from both the IdentityCard menu and the sidebar 
   // handles the mobile drawer open dance.
   await (await navButton(page, /how it works/i)).click();
   await expect(
-    page.getByRole("heading", { name: /How Dashnote works/i }),
+    page.getByRole("heading", { name: /walkthrough of every sdk call/i }),
   ).toBeVisible();
 
   await (await navButton(page, /settings$/i)).click();

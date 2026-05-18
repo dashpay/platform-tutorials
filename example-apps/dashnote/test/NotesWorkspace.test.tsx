@@ -99,7 +99,7 @@ afterEach(() => {
 });
 
 describe("NotesWorkspace", () => {
-  it("shows auth gating when the session is not authenticated", () => {
+  it("shows the sign-in hero when the session is not authenticated", () => {
     mockUseSession.mockReturnValue(
       makeSession({
         status: "readonly",
@@ -113,11 +113,24 @@ describe("NotesWorkspace", () => {
       <NotesWorkspace onOpenLogin={onOpenLogin} onOpenSettings={vi.fn()} />,
     );
 
-    expect(screen.getByText(/sign in to see your notes/i)).toBeTruthy();
+    expect(
+      screen.getByText(/personal notes, stored on a public blockchain/i),
+    ).toBeTruthy();
+    expect(
+      screen.getByText(/dashnote stores notes against your testnet identity/i),
+    ).toBeTruthy();
+    // The old EmptyState copy must not regress alongside the new hero.
+    expect(screen.queryByText(/sign in to see your notes/i)).toBeNull();
+
     const loginButton = screen.getByRole("button", { name: /^sign in$/i });
     fireEvent.click(loginButton);
     expect(onOpenLogin).toHaveBeenCalled();
     expect(screen.queryByRole("button", { name: /new note/i })).toBeNull();
+
+    const sourceLink = screen.getByRole("link", { name: /view source/i });
+    expect(sourceLink.getAttribute("href")).toBe(
+      "https://github.com/dashpay/platform-tutorials/tree/main/example-apps/dashnote",
+    );
 
     const bridgeLink = screen.getByRole("link", { name: /dash bridge/i });
     expect(bridgeLink.getAttribute("href")).toBe(
@@ -188,6 +201,49 @@ describe("NotesWorkspace", () => {
     expect(screen.getByText(/0 notes/i)).toBeTruthy();
   });
 
+  it("in browsing mode, the desktop 'Sign in to create' button opens the login modal", async () => {
+    mockUseSession.mockReturnValue(
+      makeSession({
+        status: "browsing",
+        keyManager: null,
+      }),
+    );
+    mockListMyNotes.mockResolvedValue([]);
+
+    const onOpenLogin = vi.fn();
+    render(
+      <NotesWorkspace onOpenLogin={onOpenLogin} onOpenSettings={vi.fn()} />,
+    );
+
+    const desktopButton = await screen.findByRole("button", {
+      name: /sign in to create/i,
+    });
+    fireEvent.click(desktopButton);
+    expect(onOpenLogin).toHaveBeenCalledTimes(1);
+    expect(screen.queryByRole("button", { name: /^new note$/i })).toBeNull();
+  });
+
+  it("in browsing mode, the mobile compose '+' button also opens the login modal", async () => {
+    mockUseSession.mockReturnValue(
+      makeSession({
+        status: "browsing",
+        keyManager: null,
+      }),
+    );
+    mockListMyNotes.mockResolvedValue([]);
+
+    const onOpenLogin = vi.fn();
+    render(
+      <NotesWorkspace onOpenLogin={onOpenLogin} onOpenSettings={vi.fn()} />,
+    );
+
+    const composeButton = await screen.findByRole("button", {
+      name: /compose note/i,
+    });
+    fireEvent.click(composeButton);
+    expect(onOpenLogin).toHaveBeenCalledTimes(1);
+  });
+
   it("updates an existing note and shows delete flow", async () => {
     mockUseSession.mockReturnValue(makeSession());
     const note = {
@@ -202,7 +258,7 @@ describe("NotesWorkspace", () => {
     const updated = { ...note, title: "Edited", updatedAt: 3000, revision: 3 };
     mockListMyNotes.mockResolvedValue([note]);
     mockGetNote.mockResolvedValueOnce(note).mockResolvedValueOnce(updated);
-    mockUpdateNote.mockResolvedValue(undefined);
+    mockUpdateNote.mockResolvedValue(3n);
     mockDeleteNote.mockResolvedValue(undefined);
 
     render(<NotesWorkspace onOpenLogin={vi.fn()} onOpenSettings={vi.fn()} />);
@@ -401,7 +457,7 @@ describe("NotesWorkspace", () => {
         .mockResolvedValue(remote); // post-success reload
       mockUpdateNote
         .mockRejectedValueOnce(new Error("Identity nonce is stale"))
-        .mockResolvedValue(undefined);
+        .mockResolvedValue(3n);
 
       render(<NotesWorkspace onOpenLogin={vi.fn()} onOpenSettings={vi.fn()} />);
 
@@ -452,7 +508,7 @@ describe("NotesWorkspace", () => {
       mockGetNote
         .mockResolvedValueOnce(initial) // initial detail load
         .mockResolvedValue(saved); // post-save reload
-      mockUpdateNote.mockResolvedValue(undefined);
+      mockUpdateNote.mockResolvedValue(2n);
 
       render(<NotesWorkspace onOpenLogin={vi.fn()} onOpenSettings={vi.fn()} />);
 

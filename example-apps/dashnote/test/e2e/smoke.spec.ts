@@ -7,10 +7,14 @@ test.describe("boot", () => {
   test("SDK connects and the IdentityCard reports a live connection", async ({
     page,
   }) => {
-    // The base fixture already waits for the connected dot. This test
-    // re-asserts the same locator so failures here flag a regression in
-    // the connection gate itself, not a downstream selector.
-    await expect(page.locator(".conn-dot.connected").first()).toBeVisible();
+    // The base fixture already waits for the readonly subtitle to paint
+    // "Connected". This test re-asserts that signal so failures here
+    // flag a regression in the connection gate itself.
+    await expect(
+      page
+        .locator('aside[aria-label="Main navigation"]')
+        .getByText("Connected", { exact: true }),
+    ).toBeVisible();
   });
 
   test("page title is Dashnote", async ({ page }) => {
@@ -23,19 +27,19 @@ test.describe("tab navigation", () => {
     // Notes tab is the default.
     await expect(
       page.getByRole("heading", {
-        name: /Personal notes on Dash Platform/i,
+        name: /personal notes, stored on a public blockchain/i,
       }),
     ).toBeVisible();
 
     await (await navButton(page, /how it works/i)).click();
     await expect(
-      page.getByRole("heading", { name: /How Dashnote works/i }),
+      page.getByRole("heading", { name: /walkthrough of every sdk call/i }),
     ).toBeVisible();
 
     await (await navButton(page, /notes$/i)).click();
     await expect(
       page.getByRole("heading", {
-        name: /Personal notes on Dash Platform/i,
+        name: /personal notes, stored on a public blockchain/i,
       }),
     ).toBeVisible();
   });
@@ -66,6 +70,24 @@ test.describe("login modal", () => {
     const dialog = page.getByRole("dialog");
     await expect(dialog).toBeVisible();
     await expect(dialog.getByPlaceholder(/mnemonic phrase|wif/i)).toBeVisible();
+  });
+
+  test("Bridge card is visible when no identity is remembered", async ({
+    page,
+  }) => {
+    // localStorage is empty on a fresh boot, so the remembered-identity
+    // panel is hidden and the Bridge card surfaces in its place.
+    await (await navButton(page, /sign in$/i)).click();
+    const dialog = page.getByRole("dialog");
+    const bridgeLink = dialog.getByRole("link", {
+      name: /create one on dash bridge/i,
+    });
+    await expect(bridgeLink).toBeVisible();
+    await expect(bridgeLink).toHaveAttribute(
+      "href",
+      "https://bridge.thepasta.org/",
+    );
+    await expect(dialog.getByText(/~30 seconds/i)).toBeVisible();
   });
 
   test("Cancel button closes the modal", async ({ page }) => {

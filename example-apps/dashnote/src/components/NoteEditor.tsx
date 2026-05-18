@@ -1,6 +1,9 @@
+import { useEffect, useState } from "react";
+
 import type { NoteRecord } from "../dash/queries";
 import { FIELD_BYTE_LIMIT } from "../lib/fieldLimits";
-import { formatTimestamp } from "../lib/format";
+import { formatRelativeTime, formatTimestamp } from "../lib/format";
+import { NoteJsonDrawer } from "./NoteJsonDrawer";
 import { OperationResultNotice } from "./OperationResultNotice";
 
 interface NoteEditorProps {
@@ -22,7 +25,9 @@ interface NoteEditorProps {
   messageBytes: number;
   messageOversize: boolean;
   contractReady: boolean;
+  contractId: string | null;
   error: string | null;
+  conflictWarning?: string | null;
   onOpenLogin: () => void;
   onOpenSettings: () => void;
   isReadOnly?: boolean;
@@ -48,7 +53,9 @@ export function NoteEditor({
   messageBytes,
   messageOversize,
   contractReady,
+  contractId,
   error,
+  conflictWarning,
   onOpenLogin,
   onOpenSettings,
   isReadOnly = false,
@@ -57,10 +64,34 @@ export function NoteEditor({
   const hasSelection = selectedId !== null;
   const isNew = selectedId === "new";
   const oversize = messageOversize;
+  const [jsonOpen, setJsonOpen] = useState(false);
+
+  // Cmd/Ctrl-S triggers Save (matches the keyboard hint chip).
+  useEffect(() => {
+    if (!isDesktop || isReadOnly || !hasSelection) return;
+    const onKey = (e: KeyboardEvent) => {
+      if ((e.metaKey || e.ctrlKey) && e.key.toLowerCase() === "s") {
+        e.preventDefault();
+        if (!canEdit || saving || !dirty || oversize) return;
+        onSave();
+      }
+    };
+    window.addEventListener("keydown", onKey);
+    return () => window.removeEventListener("keydown", onKey);
+  }, [
+    isDesktop,
+    isReadOnly,
+    hasSelection,
+    canEdit,
+    saving,
+    dirty,
+    oversize,
+    onSave,
+  ]);
 
   return (
     <section className="flex min-h-0 flex-1 flex-col rounded-[24px] border border-line bg-surface shadow-[0_20px_60px_-36px_rgba(0,0,0,0.45)] max-md:rounded-none max-md:border-0 max-md:shadow-none md:h-full md:rounded-none md:border-0 md:bg-transparent md:shadow-none">
-      <div className="flex h-[61px] items-center justify-between gap-3 border-b border-line px-4 py-3 max-md:h-auto max-md:px-3 max-md:py-2.5">
+      <div className="flex h-[61px] min-w-0 items-center justify-between gap-3 overflow-hidden border-b border-line px-4 py-3 max-md:h-auto max-md:px-3 max-md:py-2.5">
         {hasSelection && (
           <button
             type="button"
@@ -85,7 +116,7 @@ export function NoteEditor({
           </button>
         )}
         {isDesktop && (
-          <div className="min-w-0 flex-1">
+          <div className="flex min-w-0 flex-1 items-center gap-3">
             {!hasSelection ? (
               <div className="text-[14px] text-ink-4">
                 Select a note from the list
@@ -98,46 +129,127 @@ export function NoteEditor({
                 />
                 Loading…
               </div>
+            ) : note ? (
+              <>
+                <span className="inline-flex shrink-0 items-center gap-1.5 whitespace-nowrap rounded-full bg-[color:color-mix(in_oklab,var(--color-accent)_14%,transparent)] px-2.5 py-1 font-mono text-[11px] font-semibold text-accent max-lg:hidden">
+                  <svg
+                    width="11"
+                    height="11"
+                    viewBox="0 0 24 24"
+                    fill="none"
+                    stroke="currentColor"
+                    strokeWidth="2"
+                    strokeLinecap="round"
+                    strokeLinejoin="round"
+                    aria-hidden
+                  >
+                    <path d="M10 13a5 5 0 0 0 7.54.54l3-3a5 5 0 0 0-7.07-7.07l-1.72 1.71" />
+                    <path d="M14 11a5 5 0 0 0-7.54-.54l-3 3a5 5 0 0 0 7.07 7.07l1.71-1.71" />
+                  </svg>
+                  Revision {note.revision}
+                </span>
+                {note.updatedAt && (
+                  <span
+                    title={formatTimestamp(note.updatedAt)}
+                    className="min-w-0 truncate text-[12px] text-ink-4 max-lg:hidden"
+                  >
+                    Updated {formatRelativeTime(note.updatedAt)}
+                  </span>
+                )}
+              </>
             ) : null}
           </div>
         )}
         <div className="flex-1 md:hidden" />
 
-        <div className="flex gap-2">
-          {canDelete && (
+        <div className="flex shrink-0 items-center gap-2">
+          {isDesktop && note && (
+            <button
+              type="button"
+              onClick={() => setJsonOpen(true)}
+              className="inline-flex items-center gap-1.5 rounded-md border border-line px-2.5 py-1.5 text-[11.5px] font-medium text-ink-3 hover:border-line-2 hover:text-ink max-lg:hidden"
+            >
+              <svg
+                width="12"
+                height="12"
+                viewBox="0 0 24 24"
+                fill="none"
+                stroke="currentColor"
+                strokeWidth="2"
+                strokeLinecap="round"
+                strokeLinejoin="round"
+                aria-hidden
+              >
+                <path d="m16 18 6-6-6-6M8 6l-6 6 6 6" />
+              </svg>
+              View JSON
+            </button>
+          )}
+          {canDelete && isDesktop && (
             <button
               type="button"
               onClick={onDelete}
+              aria-label="Delete"
               disabled={deleting}
-              className="rounded-full border border-line-2 px-3 py-1.5 text-[12px] font-semibold text-ink-2 transition hover:border-[color:var(--color-danger)] hover:text-[color:var(--color-danger)] disabled:cursor-not-allowed disabled:border-line disabled:text-ink-4 max-md:hidden"
+              className="inline-flex h-7 w-7 items-center justify-center rounded-md border border-line text-ink-3 transition hover:border-[color:var(--color-danger)] hover:text-[color:var(--color-danger)] disabled:cursor-not-allowed disabled:opacity-50"
             >
-              {deleting ? "Deleting…" : "Delete"}
+              <svg
+                width="14"
+                height="14"
+                viewBox="0 0 24 24"
+                fill="none"
+                stroke="currentColor"
+                strokeWidth="1.8"
+                strokeLinecap="round"
+                strokeLinejoin="round"
+                aria-hidden
+              >
+                <path d="M3 6h18M8 6V4a2 2 0 0 1 2-2h4a2 2 0 0 1 2 2v2M19 6v14a2 2 0 0 1-2 2H7a2 2 0 0 1-2-2V6" />
+              </svg>
             </button>
           )}
-          {isReadOnly ? (
+          {!isReadOnly && hasSelection && (
             <button
               type="button"
-              onClick={onOpenLogin}
-              className="rounded-full bg-accent px-3 py-1.5 text-[12px] font-semibold text-bg transition hover:bg-accent-dim"
+              onClick={onSave}
+              disabled={!canEdit || saving || !dirty || oversize}
+              aria-label={saving ? "Saving…" : isNew ? "Create note" : "Save"}
+              className="inline-flex items-center gap-2 rounded-md bg-accent px-3 py-1.5 text-[13px] font-semibold text-bg transition hover:bg-accent-dim disabled:cursor-not-allowed disabled:bg-surface-2 disabled:text-ink-4"
             >
-              Sign in to edit
+              <span>{saving ? "Saving…" : isNew ? "Create note" : "Save"}</span>
+              {isDesktop && (
+                <span
+                  aria-hidden
+                  className="rounded bg-black/20 px-1.5 py-px font-mono text-[10px] opacity-70"
+                >
+                  ⌘S
+                </span>
+              )}
             </button>
-          ) : (
-            hasSelection && (
-              <button
-                type="button"
-                onClick={onSave}
-                disabled={!canEdit || saving || !dirty || oversize}
-                className="rounded-full bg-accent px-3 py-1.5 text-[12px] font-semibold text-bg transition hover:bg-accent-dim disabled:cursor-not-allowed disabled:bg-surface-2 disabled:text-ink-4"
-              >
-                {saving ? "Saving…" : isNew ? "Create note" : "Save"}
-              </button>
-            )
           )}
         </div>
       </div>
 
       <div className="flex min-h-0 flex-1 flex-col gap-4 overflow-y-auto px-5 py-5 max-md:px-4 max-md:py-3">
+        {conflictWarning && (
+          <div className="flex items-start gap-2.5 rounded-xl border border-[color:color-mix(in_oklab,var(--color-warning)_45%,transparent)] bg-[color:color-mix(in_oklab,var(--color-warning)_7%,var(--color-surface))] px-3.5 py-2.5 text-[12.5px] leading-[1.55] text-ink-2">
+            <svg
+              width="14"
+              height="14"
+              viewBox="0 0 24 24"
+              fill="none"
+              stroke="currentColor"
+              strokeWidth="2"
+              className="mt-px shrink-0 text-[color:var(--color-warning)]"
+              aria-hidden
+            >
+              <path d="M21 12a9 9 0 1 1-3-6.7" />
+              <path d="M21 3v6h-6" />
+            </svg>
+            <span>{conflictWarning}</span>
+          </div>
+        )}
+
         {error && (
           <OperationResultNotice tone="error" title="Editor error">
             {error}
@@ -194,7 +306,7 @@ export function NoteEditor({
           </div>
         ) : (
           <>
-            <label className="flex min-h-0 flex-1 flex-col">
+            <label className="relative flex min-h-0 flex-1 flex-col">
               <input
                 type="text"
                 aria-label="Title"
@@ -218,6 +330,14 @@ export function NoteEditor({
                   <FillBar bytes={messageBytes} limit={FIELD_BYTE_LIMIT} />
                 </div>
               )}
+              {isReadOnly && (
+                <button
+                  type="button"
+                  onClick={onOpenLogin}
+                  aria-label="Sign in to edit this note"
+                  className="absolute inset-0 z-10 cursor-pointer bg-transparent outline-none focus-visible:ring-2 focus-visible:ring-accent"
+                />
+              )}
             </label>
 
             <div className="flex items-center gap-1.5 text-[11px] text-ink-4 md:hidden">
@@ -239,32 +359,6 @@ export function NoteEditor({
               <span>
                 Notes are stored publicly on Dash Platform — not encrypted.
               </span>
-            </div>
-
-            <div className="flex flex-wrap items-baseline justify-between gap-x-4 gap-y-1 border-t border-line pt-3 text-[11px] text-ink-3 max-md:hidden">
-              {note && (
-                <>
-                  <div>
-                    <span className="text-ink-4">Revision </span>
-                    <span className="font-mono text-ink-2">
-                      {note.revision}
-                    </span>
-                  </div>
-                  <div>
-                    <span className="text-ink-4">Created </span>
-                    {formatTimestamp(note.createdAt)}
-                  </div>
-                  <div>
-                    <span className="text-ink-4">Updated </span>
-                    {formatTimestamp(note.updatedAt)}
-                  </div>
-                </>
-              )}
-              {(messageBytes / FIELD_BYTE_LIMIT >= 0.75 || messageOversize) && (
-                <div className="w-[140px]">
-                  <FillBar bytes={messageBytes} limit={FIELD_BYTE_LIMIT} />
-                </div>
-              )}
             </div>
 
             {canDelete && (
@@ -297,6 +391,41 @@ export function NoteEditor({
           </>
         )}
       </div>
+      {isDesktop && hasSelection && contractReady && (
+        <div className="flex items-center justify-between gap-4 border-t border-line bg-[color:color-mix(in_oklab,var(--color-bg)_30%,var(--color-surface))] px-5 py-3">
+          {note ? (
+            <div className="flex flex-wrap items-center gap-x-5 gap-y-1 text-[11.5px] text-ink-3">
+              <span className="flex items-center gap-1.5">
+                <span className="font-mono text-ink-4">$createdAt</span>
+                <span>{formatTimestamp(note.createdAt)}</span>
+              </span>
+              <span className="flex items-center gap-1.5">
+                <span className="font-mono text-ink-4">$updatedAt</span>
+                <span>{formatTimestamp(note.updatedAt)}</span>
+              </span>
+            </div>
+          ) : (
+            <div className="text-[11.5px] text-ink-4">
+              Platform metadata appears after the first save.
+            </div>
+          )}
+          <div className="flex items-center gap-2 text-[11px] text-ink-4">
+            <span>
+              {messageBytes.toLocaleString()} /{" "}
+              {FIELD_BYTE_LIMIT.toLocaleString()} B
+            </span>
+            <div className="w-20">
+              <FillBar bytes={messageBytes} limit={FIELD_BYTE_LIMIT} />
+            </div>
+          </div>
+        </div>
+      )}
+      <NoteJsonDrawer
+        open={jsonOpen}
+        note={note}
+        contractId={contractId}
+        onClose={() => setJsonOpen(false)}
+      />
     </section>
   );
 }

@@ -159,10 +159,10 @@ describe("IdentityCard", () => {
     expect(onLoginClick).toHaveBeenCalled();
   });
 
-  // In browsing mode the user has no signed-in key to switch *from*, so the
-  // menu entry is labeled Sign in (not Switch identity). It still calls
-  // onLoginClick — only the affordance changes.
-  it("labels the login entry 'Sign in' in browsing mode and calls onLoginClick", () => {
+  // Browsing = logged out with a remembered identity hint. The card has
+  // no menu in this state — a click on the card itself opens the login
+  // modal directly, the same way the readonly card does.
+  it("calls onLoginClick on click when browsing, without opening a menu", () => {
     const onLoginClick = vi.fn();
     renderCard({
       status: "browsing",
@@ -170,12 +170,40 @@ describe("IdentityCard", () => {
       dpnsName: null,
       onLoginClick,
     });
-    fireEvent.click(screen.getByRole("button", { expanded: false }));
-    expect(
-      screen.queryByRole("menuitem", { name: /switch identity/i }),
-    ).toBeNull();
-    fireEvent.click(screen.getByRole("menuitem", { name: /^sign in$/i }));
+    const trigger = screen.getByRole("button");
+    fireEvent.click(trigger);
     expect(onLoginClick).toHaveBeenCalled();
+    expect(screen.queryByRole("menu")).toBeNull();
+  });
+
+  // Each card variant pairs an eyebrow (state name) with a subtitle
+  // (capability). These strings are the public contract the e2e specs and
+  // fixtures depend on — assert them at the unit level so drift fails
+  // fast instead of waiting for the slow Playwright suite.
+  it("labels the readonly card as 'Guest' over 'Connected'", () => {
+    renderCard({ status: "readonly", identityId: null, dpnsName: null });
+    expect(screen.getByText("Guest")).toBeTruthy();
+    expect(screen.getByText("Connected")).toBeTruthy();
+  });
+
+  it("labels the browsing card as 'Signed out' over 'Read-only access'", () => {
+    renderCard({
+      status: "browsing",
+      identityId: IDENTITY_ID,
+      dpnsName: "alice",
+    });
+    expect(screen.getByText("Signed out")).toBeTruthy();
+    expect(screen.getByText("Read-only access")).toBeTruthy();
+  });
+
+  it("labels the authenticated card as 'Signed in' over 'Full access'", () => {
+    renderCard({
+      status: "authenticated",
+      identityId: IDENTITY_ID,
+      dpnsName: "alice",
+    });
+    expect(screen.getByText("Signed in")).toBeTruthy();
+    expect(screen.getByText("Full access")).toBeTruthy();
   });
 
   it("calls session.logout when Log out is chosen from the menu", () => {
@@ -189,15 +217,5 @@ describe("IdentityCard", () => {
     fireEvent.click(screen.getByRole("button", { expanded: false }));
     fireEvent.click(screen.getByRole("menuitem", { name: /log out/i }));
     expect(logout).toHaveBeenCalled();
-  });
-
-  it("hides Log out when browsing read-only", () => {
-    renderCard({
-      status: "browsing",
-      identityId: IDENTITY_ID,
-      dpnsName: null,
-    });
-    fireEvent.click(screen.getByRole("button", { expanded: false }));
-    expect(screen.queryByRole("menuitem", { name: /log out/i })).toBeNull();
   });
 });

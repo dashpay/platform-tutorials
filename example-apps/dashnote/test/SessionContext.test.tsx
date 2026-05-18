@@ -647,4 +647,98 @@ describe("SessionProvider", () => {
       expect.stringContaining("checksum"),
     );
   });
+
+  describe("activity log", () => {
+    it("appends entries with default info level and a generated id", () => {
+      const ref = mountSession();
+      expect(ref.current.activityLog).toEqual([]);
+
+      act(() => {
+        ref.current.log("hello");
+      });
+
+      expect(ref.current.activityLog).toHaveLength(1);
+      const [entry] = ref.current.activityLog;
+      expect(entry.message).toBe("hello");
+      expect(entry.level).toBe("info");
+      expect(entry.detail).toBeUndefined();
+      expect(typeof entry.id).toBe("string");
+      expect(entry.id.length).toBeGreaterThan(0);
+      expect(typeof entry.timestamp).toBe("number");
+    });
+
+    it("accepts the legacy string-level call shape", () => {
+      const ref = mountSession();
+      act(() => {
+        ref.current.log("done", "success");
+      });
+      expect(ref.current.activityLog[0].level).toBe("success");
+    });
+
+    it("accepts the object-form call shape and carries detail", () => {
+      const ref = mountSession();
+      act(() => {
+        ref.current.log("saving", { level: "info", detail: "documents.get" });
+      });
+      const [entry] = ref.current.activityLog;
+      expect(entry.level).toBe("info");
+      expect(entry.detail).toBe("documents.get");
+    });
+
+    it("prepends new entries so the newest is first", () => {
+      const ref = mountSession();
+      act(() => {
+        ref.current.log("first");
+      });
+      act(() => {
+        ref.current.log("second");
+      });
+      expect(ref.current.activityLog.map((e) => e.message)).toEqual([
+        "second",
+        "first",
+      ]);
+    });
+
+    it("caps the log at ACTIVITY_LOG_LIMIT (200) entries", () => {
+      const ref = mountSession();
+      act(() => {
+        for (let i = 0; i < 205; i += 1) ref.current.log(`msg-${i}`);
+      });
+      expect(ref.current.activityLog).toHaveLength(200);
+      // Newest first; oldest five (msg-0..msg-4) should have been evicted.
+      expect(ref.current.activityLog[0].message).toBe("msg-204");
+      expect(
+        ref.current.activityLog.find((e) => e.message === "msg-4"),
+      ).toBeUndefined();
+      expect(
+        ref.current.activityLog.find((e) => e.message === "msg-5"),
+      ).toBeDefined();
+    });
+
+    it("clearActivityLog empties the log", () => {
+      const ref = mountSession();
+      act(() => {
+        ref.current.log("a");
+        ref.current.log("b");
+      });
+      expect(ref.current.activityLog).toHaveLength(2);
+      act(() => {
+        ref.current.clearActivityLog();
+      });
+      expect(ref.current.activityLog).toEqual([]);
+    });
+
+    it("fires toast.success and toast.error matching the log level", () => {
+      const ref = mountSession();
+      act(() => {
+        ref.current.log("ok", "success");
+        ref.current.log("nope", "error");
+        ref.current.log("info-line");
+      });
+      expect(mockToastSuccess).toHaveBeenCalledWith("ok");
+      expect(mockToastError).toHaveBeenCalledWith("nope");
+      expect(mockToastSuccess).toHaveBeenCalledTimes(1);
+      expect(mockToastError).toHaveBeenCalledTimes(1);
+    });
+  });
 });
