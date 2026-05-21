@@ -22,7 +22,6 @@ export const NOTE_SCHEMAS = {
       },
       message: {
         type: "string",
-        maxLength: 10000,
         position: 1,
       },
     },

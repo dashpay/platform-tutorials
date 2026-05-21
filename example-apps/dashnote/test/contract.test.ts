@@ -69,9 +69,11 @@ describe("NOTE_SCHEMAS", () => {
     });
     expect(NOTE_SCHEMAS.note.properties.message).toMatchObject({
       type: "string",
-      maxLength: 10000,
       position: 1,
     });
+    expect(NOTE_SCHEMAS.note.properties.message).not.toHaveProperty(
+      "maxLength",
+    );
     expect(NOTE_SCHEMAS.note.indices).toEqual([
       {
         name: "byOwnerUpdated",
