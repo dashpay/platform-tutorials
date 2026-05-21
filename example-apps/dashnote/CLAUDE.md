@@ -35,7 +35,7 @@ React + TypeScript + Vite app for personal notes on Dash Platform testnet. Notes
 Schema lives in [src/dash/contract.ts](src/dash/contract.ts) as `NOTE_SCHEMAS`. One document type, `note`:
 
 - `title` — optional string, max 120 chars, position 0
-- `message` — required string, max 10000 chars, position 1
+- `message` — required string, no schema `maxLength`; the real cap is the system-level `max_field_value_size` (5120 bytes / 5 KiB), enforced by the network. The UI gates input to that byte limit via [src/lib/fieldLimits.ts](src/lib/fieldLimits.ts).
 - `$createdAt`, `$updatedAt` — required (Platform-managed)
 - Indices: `byOwnerUpdated` (`$ownerId`, `$updatedAt`) and `byOwnerCreated` (`$ownerId`, `$createdAt`)
 - `documentsMutable: true`, `canBeDeleted: true` — notes are editable and deletable
