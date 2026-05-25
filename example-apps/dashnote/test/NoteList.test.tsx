@@ -117,13 +117,16 @@ describe("NoteList desktop behavior", () => {
 
 describe("NoteList mobile refresh", () => {
   it("uses a compact mobile header with no count row or shortcut hint", () => {
-    renderList([makeNote()], { isDesktop: false });
+    const { container } = renderList([makeNote()], { isDesktop: false });
 
     expect(screen.queryByRole("heading", { name: /^notes$/i })).toBeNull();
     expect(screen.queryByText(/my notes/i)).toBeNull();
     expect(screen.queryByText(/1 note/i)).toBeNull();
     expect(screen.queryByText("/")).toBeNull();
     expect(screen.getByPlaceholderText(/search/i)).toBeTruthy();
+    expect(container.querySelector("section")?.className).not.toMatch(
+      /max-md:border-t/,
+    );
   });
 
   it("pins the mobile search row above the scrolling list", () => {
@@ -132,8 +135,12 @@ describe("NoteList mobile refresh", () => {
     const searchRow = screen.getByPlaceholderText(/search/i).closest("div");
 
     expect(searchRow?.className).toMatch(/max-md:sticky/);
-    expect(searchRow?.className).toMatch(/max-md:top-0/);
-    expect(searchRow?.className).toMatch(/max-md:z-10/);
+    expect(searchRow?.className).toMatch(/max-md:top-\[53px\]/);
+    expect(searchRow?.className).toMatch(/max-md:z-20/);
+    expect(searchRow?.className).toMatch(/max-md:py-2/);
+    expect(searchRow?.className).toMatch(/max-md:bg-surface\/95/);
+    expect(searchRow?.className).toMatch(/max-md:backdrop-blur/);
+    expect(searchRow?.className).not.toMatch(/max-md:pt-4/);
   });
 
   it("opens a note when the mobile row is tapped", () => {

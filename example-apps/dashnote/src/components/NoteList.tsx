@@ -169,7 +169,7 @@ export function NoteList({
   }
 
   return (
-    <section className="flex min-h-0 flex-1 flex-col rounded-[24px] border border-line bg-surface shadow-[0_20px_60px_-36px_rgba(0,0,0,0.45)] max-md:rounded-none max-md:border-0 max-md:border-t max-md:border-t-line max-md:shadow-none md:h-full md:rounded-none md:border-0 md:bg-transparent md:shadow-none">
+    <section className="flex min-h-0 flex-1 flex-col rounded-[24px] border border-line bg-surface shadow-[0_20px_60px_-36px_rgba(0,0,0,0.45)] max-md:rounded-none max-md:border-0 max-md:shadow-none md:h-full md:rounded-none md:border-0 md:bg-transparent md:shadow-none">
       {isDesktop && (
         <div className="flex h-[61px] items-center justify-between border-b border-line px-4 py-3">
           <div>
@@ -255,7 +255,7 @@ export function NoteList({
         </div>
       )}
 
-      <div className="px-3 py-2.5 max-md:sticky max-md:top-0 max-md:z-10 max-md:border-b max-md:border-line max-md:bg-surface max-md:pt-4">
+      <div className="px-3 py-2.5 max-md:sticky max-md:top-[53px] max-md:z-20 max-md:border-b max-md:border-[color:color-mix(in_oklab,var(--color-line)_58%,transparent)] max-md:bg-surface/95 max-md:py-2 max-md:backdrop-blur">
         <label className="relative block">
           <span className="sr-only">Search notes</span>
           <svg
@@ -279,7 +279,7 @@ export function NoteList({
             value={search}
             onChange={(event) => setSearch(event.target.value)}
             placeholder="Search"
-            className="w-full rounded-full border border-line bg-bg px-9 py-2 text-[13px] text-ink outline-none transition focus:border-accent-dim"
+            className="w-full rounded-full border border-line bg-bg px-9 py-2 text-[13px] text-ink outline-none transition focus:border-accent-dim max-md:py-1.5"
           />
           {isDesktop && (
             <span
@@ -293,7 +293,7 @@ export function NoteList({
       </div>
 
       <div
-        className="max-h-[calc(100vh-270px)] min-h-0 flex-1 overflow-y-auto p-3 max-md:max-h-none xl:max-h-none"
+        className="max-h-[calc(100vh-270px)] min-h-0 flex-1 overflow-y-auto p-3 max-md:max-h-none max-md:pt-4 xl:max-h-none"
         onScroll={() => {
           if (!isDesktop) closeRowActions();
         }}

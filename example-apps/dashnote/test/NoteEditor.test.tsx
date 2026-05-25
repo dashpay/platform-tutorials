@@ -71,6 +71,7 @@ describe("NoteEditor mobile refresh", () => {
 
     expect(screen.getByRole("button", { name: /back to notes/i })).toBeTruthy();
     expect(screen.queryByRole("button", { name: /^save$/i })).toBeNull();
+    expect(screen.getByText(/updated/i)).toBeTruthy();
   });
 
   it("shows and enables mobile Save only when dirty", () => {
@@ -84,6 +85,7 @@ describe("NoteEditor mobile refresh", () => {
 
     const save = screen.getByRole("button", { name: /^save$/i });
     expect((save as HTMLButtonElement).disabled).toBe(false);
+    expect(screen.getByText(/^edited$/i)).toBeTruthy();
     fireEvent.click(save);
     expect(onSave).toHaveBeenCalledTimes(1);
   });

@@ -69,6 +69,14 @@ export function NoteEditor({
   const [mobileInfoOpen, setMobileInfoOpen] = useState(false);
   const showMobileSave =
     !isDesktop && !isReadOnly && hasSelection && (dirty || saving);
+  const mobileHeaderStatus =
+    !isDesktop && hasSelection
+      ? dirty
+        ? "Edited"
+        : note && !isNew
+          ? `Updated ${formatRelativeTime(note.updatedAt)}`
+          : null
+      : null;
 
   // Cmd/Ctrl-S triggers Save (matches the keyboard hint chip).
   useEffect(() => {
@@ -164,7 +172,13 @@ export function NoteEditor({
             ) : null}
           </div>
         )}
-        <div className="flex-1 md:hidden" />
+        <div className="min-w-0 flex-1 text-center md:hidden">
+          {mobileHeaderStatus && (
+            <span className="block truncate text-[12px] font-medium text-ink-4">
+              {mobileHeaderStatus}
+            </span>
+          )}
+        </div>
 
         <div className="flex shrink-0 items-center gap-2">
           {isDesktop && note && (
