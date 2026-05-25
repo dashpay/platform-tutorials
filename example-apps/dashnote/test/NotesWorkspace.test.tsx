@@ -670,7 +670,7 @@ describe("NotesWorkspace", () => {
       });
 
       fireEvent.click(screen.getByRole("button", { name: /compose note/i }));
-      expect(screen.getByRole("button", { name: /create note/i })).toBeTruthy();
+      expect(screen.queryByRole("button", { name: /create note/i })).toBeNull();
       expect(
         (screen.getByLabelText(/^title$/i) as HTMLInputElement).value,
       ).toBe("");
@@ -698,7 +698,7 @@ describe("NotesWorkspace", () => {
       fireEvent.click(screen.getByRole("button", { name: /back to notes/i }));
       // Editor body should no longer be rendered; list header stays.
       expect(screen.queryByLabelText(/^body$/i)).toBeNull();
-      expect(screen.getByText(/my notes/i)).toBeTruthy();
+      expect(screen.getByPlaceholderText(/search/i)).toBeTruthy();
     });
 
     it("blocks back navigation when discard is declined", async () => {
@@ -725,7 +725,7 @@ describe("NotesWorkspace", () => {
       ).toBe("Edited offline");
     });
 
-    it("deletes a note via the bottom 'Delete note' button after confirming the modal", async () => {
+    it("deletes a note via mobile note actions after confirming the modal", async () => {
       mockUseSession.mockReturnValue(makeSession());
       mockListMyNotes.mockResolvedValue([noteFixture]);
       mockGetNote.mockResolvedValue(noteFixture);
@@ -741,12 +741,47 @@ describe("NotesWorkspace", () => {
         expect(screen.getByLabelText(/^body$/i)).toBeTruthy();
       });
 
-      fireEvent.click(screen.getByRole("button", { name: /delete note/i }));
+      fireEvent.click(screen.getByRole("button", { name: /note actions/i }));
+      const sheet = screen.getByRole("dialog", { name: /note actions/i });
+      fireEvent.click(within(sheet).getByRole("button", { name: /^delete$/i }));
 
       // Trigger doesn't fire the delete directly anymore — the
       // confirmation modal must be acknowledged first.
       expect(mockDeleteNote).not.toHaveBeenCalled();
-      const dialog = screen.getByRole("dialog");
+      const dialog = screen.getByRole("dialog", { name: /delete note/i });
+      fireEvent.click(
+        within(dialog).getByRole("button", { name: /^delete$/i }),
+      );
+
+      await waitFor(() => {
+        expect(mockDeleteNote).toHaveBeenCalledWith(
+          expect.objectContaining({ noteId: "note-mobile" }),
+        );
+      });
+    });
+
+    it("opens the delete modal from list actions without opening the note", async () => {
+      mockUseSession.mockReturnValue(makeSession());
+      mockListMyNotes.mockResolvedValue([noteFixture]);
+      mockGetNote.mockResolvedValue(noteFixture);
+      mockDeleteNote.mockResolvedValue(undefined);
+
+      render(<NotesWorkspace onOpenLogin={vi.fn()} onOpenSettings={vi.fn()} />);
+
+      await waitFor(() => {
+        expect(screen.getByText(/phone note/i)).toBeTruthy();
+      });
+
+      fireEvent.click(
+        screen.getByRole("button", { name: /actions for phone note/i }),
+      );
+      const sheet = screen.getByRole("dialog", { name: /note actions/i });
+      fireEvent.click(within(sheet).getByRole("button", { name: /^delete$/i }));
+
+      expect(screen.queryByLabelText(/^body$/i)).toBeNull();
+      expect(mockGetNote).not.toHaveBeenCalled();
+
+      const dialog = screen.getByRole("dialog", { name: /delete note/i });
       fireEvent.click(
         within(dialog).getByRole("button", { name: /^delete$/i }),
       );

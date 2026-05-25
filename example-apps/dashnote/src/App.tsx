@@ -68,6 +68,7 @@ function App() {
         dpnsName={session.dpnsName}
         contractId={session.contractId}
         onLoginOpen={() => setLoginOpen(true)}
+        onOpenActivity={() => setActivityOpen(true)}
         mobileFullBleed={mobileFullBleed}
       >
         {tab === "notes" ? (

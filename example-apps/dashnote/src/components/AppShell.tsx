@@ -14,6 +14,7 @@ interface AppShellProps {
   dpnsName: string | null;
   contractId: string | null;
   onLoginOpen: () => void;
+  onOpenActivity?: () => void;
   children: ReactNode;
   mobileFullBleed?: boolean;
 }
@@ -97,6 +98,7 @@ export function AppShell({
   dpnsName,
   contractId,
   onLoginOpen,
+  onOpenActivity,
   children,
   mobileFullBleed = false,
 }: AppShellProps) {
@@ -132,6 +134,19 @@ export function AppShell({
           closeDrawer();
         }}
       />
+      {onOpenActivity && (
+        <div className="md:hidden">
+          <NavButton
+            label="Activity"
+            glyph="⌁"
+            active={false}
+            onClick={() => {
+              onOpenActivity();
+              closeDrawer();
+            }}
+          />
+        </div>
+      )}
       {status !== "authenticated" && status !== "browsing" && (
         <NavButton
           label="Sign in"

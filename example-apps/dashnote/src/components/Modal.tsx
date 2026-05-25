@@ -42,7 +42,7 @@ export function Modal({
 
   return (
     <div
-      className="fixed inset-0 z-50 flex items-center justify-center bg-black/50 backdrop-blur-sm p-4"
+      className="fixed inset-0 z-50 flex items-center justify-center bg-black/50 p-4 backdrop-blur-sm max-md:items-end max-md:p-0"
       onClick={onClose}
     >
       <div
@@ -51,7 +51,7 @@ export function Modal({
         aria-modal="true"
         aria-labelledby={titleId}
         tabIndex={-1}
-        className={`w-full max-w-md overflow-hidden rounded-xl border border-line bg-surface shadow-[0_24px_60px_-20px_rgba(0,0,0,0.7)] outline-none ${panelClassName ?? ""}`}
+        className={`w-full max-w-md overflow-hidden rounded-xl border border-line bg-surface shadow-[0_24px_60px_-20px_rgba(0,0,0,0.7)] outline-none max-md:max-w-none max-md:rounded-b-none max-md:border-x-0 max-md:border-b-0 ${panelClassName ?? ""}`}
         onClick={(e) => e.stopPropagation()}
       >
         <div className="flex items-center justify-between px-5 py-3">

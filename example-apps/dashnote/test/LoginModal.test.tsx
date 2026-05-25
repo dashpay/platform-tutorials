@@ -150,6 +150,16 @@ describe("LoginModal", () => {
     expect(button.disabled).toBe(true);
   });
 
+  it("presents primary Sign in and secondary Dash Bridge CTAs", () => {
+    mockUseSession.mockReturnValue(makeSession());
+
+    render(<LoginModal open onClose={vi.fn()} />);
+
+    expect(screen.getByRole("button", { name: /^sign in$/i })).toBeTruthy();
+    const bridge = screen.getByRole("link", { name: /dash bridge/i });
+    expect(bridge.getAttribute("href")).toBe("https://bridge.thepasta.org/");
+  });
+
   it("keeps the login button disabled for a whitespace-only secret", () => {
     mockUseSession.mockReturnValue(makeSession());
 

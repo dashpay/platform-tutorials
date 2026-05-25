@@ -68,6 +68,7 @@ export function LoginModal({ open, onClose }: LoginModalProps) {
     <Modal
       open={open}
       onClose={onClose}
+      panelClassName="max-md:max-h-[calc(100dvh-1.5rem)] max-md:overflow-y-auto"
       title={
         <div className="flex items-center gap-2.5">
           <span className="flex h-7 w-7 items-center justify-center rounded-lg bg-accent text-bg">
@@ -279,14 +280,14 @@ export function LoginModal({ open, onClose }: LoginModalProps) {
           <button
             type="submit"
             disabled={submitting || !secret.trim() || previewBlocksLogin}
-            className="flex-1 rounded-md bg-accent px-4 py-2 text-[13px] font-semibold text-bg transition hover:bg-accent-dim disabled:cursor-not-allowed disabled:bg-surface-2 disabled:text-ink-4"
+            className="min-h-11 flex-1 rounded-md bg-accent px-4 py-2 text-[13px] font-semibold text-bg transition hover:bg-accent-dim disabled:cursor-not-allowed disabled:bg-surface-2 disabled:text-ink-4"
           >
             {submitting ? "Connecting…" : "Sign in"}
           </button>
           <button
             type="button"
             onClick={onClose}
-            className="rounded-md border border-line bg-transparent px-4 py-2 text-[13px] font-semibold text-ink-3 transition hover:border-line-2 hover:text-ink-2"
+            className="min-h-11 rounded-md border border-line bg-transparent px-4 py-2 text-[13px] font-semibold text-ink-3 transition hover:border-line-2 hover:text-ink-2"
           >
             Cancel
           </button>
@@ -312,7 +313,7 @@ export function LoginModal({ open, onClose }: LoginModalProps) {
                 href="https://bridge.thepasta.org/"
                 target="_blank"
                 rel="noreferrer"
-                className="font-semibold text-accent underline-offset-2 hover:underline"
+                className="font-semibold text-accent underline-offset-2 hover:underline max-md:mt-2 max-md:inline-flex max-md:min-h-10 max-md:items-center max-md:rounded-full max-md:border max-md:border-line-2 max-md:px-3 max-md:no-underline"
               >
                 Create one on Dash Bridge →
               </a>

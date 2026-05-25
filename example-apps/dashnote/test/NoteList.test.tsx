@@ -1,6 +1,12 @@
 // @vitest-environment jsdom
 
-import { cleanup, fireEvent, render, screen } from "@testing-library/react";
+import {
+  cleanup,
+  fireEvent,
+  render,
+  screen,
+  within,
+} from "@testing-library/react";
 import { afterEach, describe, expect, it, vi } from "vitest";
 
 import { NoteList } from "../src/components/NoteList";
@@ -14,41 +20,52 @@ function makeNote(overrides: Partial<NoteRecord> = {}): NoteRecord {
     ownerId: "identity-1",
     title: "Meeting agenda",
     message: "Draft notes for the kickoff meeting.",
-    createdAt: NOW - 60_000,
+    createdAt: NOW - 120_000,
     updatedAt: NOW - 60_000,
     revision: 1,
     ...overrides,
   };
 }
 
-function renderList(notes: NoteRecord[]) {
-  return render(
-    <NoteList
-      notes={notes}
-      loading={false}
-      selectedId={null}
-      onSelect={vi.fn()}
-      onNew={vi.fn()}
-      canCreate
-    />,
-  );
+function renderList(
+  notes: NoteRecord[],
+  overrides: Partial<React.ComponentProps<typeof NoteList>> = {},
+) {
+  const props: React.ComponentProps<typeof NoteList> = {
+    notes,
+    loading: false,
+    selectedId: null,
+    onSelect: vi.fn(),
+    onNew: vi.fn(),
+    canCreate: true,
+    isDesktop: true,
+    ...overrides,
+  };
+  return { props, ...render(<NoteList {...props} />) };
 }
 
 afterEach(() => {
   cleanup();
 });
 
-describe("NoteList P6 row layout", () => {
-  it("renders a single relative timestamp on the right (no second mono timestamp line)", () => {
+describe("NoteList desktop behavior", () => {
+  it("keeps the desktop header, count, create button, and shortcut hint", () => {
+    renderList([makeNote()]);
+
+    expect(screen.getByText(/my notes/i)).toBeTruthy();
+    expect(screen.getByText(/1 note/i)).toBeTruthy();
+    expect(screen.getByRole("button", { name: /new note/i })).toBeTruthy();
+    expect(screen.getByText("/")).toBeTruthy();
+  });
+
+  it("renders a single relative timestamp on the right", () => {
     renderList([makeNote()]);
 
     expect(screen.getByText(/ago|just now/i)).toBeTruthy();
-    // The old layout had a second timestamp line like "5/14/2026, 11:00 AM" —
-    // a numeric date pattern with slashes. Guard against it returning.
     expect(screen.queryByText(/\d+\/\d+\/\d+/)).toBeNull();
   });
 
-  it("italicizes the title when the note has no title (uses the fallback)", () => {
+  it("italicizes the title when the note has no title", () => {
     renderList([
       makeNote({
         id: "no-title",
@@ -62,8 +79,6 @@ describe("NoteList P6 row layout", () => {
       }),
     ]);
 
-    // The title is the .truncate element inside each row button; matching by
-    // text alone is ambiguous because the body preview repeats the fallback.
     const fallbackTitle = screen
       .getAllByText("Body of an untitled note")
       .find((el) => el.className.includes("truncate"));
@@ -96,8 +111,177 @@ describe("NoteList P6 row layout", () => {
     });
     search.dispatchEvent(event);
 
-    // Listener must bail when the event originates in a text field, so the
-    // default behavior (the "/" character reaching the input) is preserved.
     expect(event.defaultPrevented).toBe(false);
+  });
+});
+
+describe("NoteList mobile refresh", () => {
+  it("uses a compact mobile header with no count row or shortcut hint", () => {
+    renderList([makeNote()], { isDesktop: false });
+
+    expect(screen.queryByRole("heading", { name: /^notes$/i })).toBeNull();
+    expect(screen.queryByText(/my notes/i)).toBeNull();
+    expect(screen.queryByText(/1 note/i)).toBeNull();
+    expect(screen.queryByText("/")).toBeNull();
+    expect(screen.getByPlaceholderText(/search/i)).toBeTruthy();
+  });
+
+  it("pins the mobile search row above the scrolling list", () => {
+    renderList([makeNote()], { isDesktop: false });
+
+    const searchRow = screen.getByPlaceholderText(/search/i).closest("div");
+
+    expect(searchRow?.className).toMatch(/max-md:sticky/);
+    expect(searchRow?.className).toMatch(/max-md:top-0/);
+    expect(searchRow?.className).toMatch(/max-md:z-10/);
+  });
+
+  it("opens a note when the mobile row is tapped", () => {
+    const onSelect = vi.fn();
+    renderList([makeNote()], { isDesktop: false, onSelect });
+
+    fireEvent.click(
+      screen.getByRole("button", { name: /open meeting agenda/i }),
+    );
+
+    expect(onSelect).toHaveBeenCalledWith("note-a");
+  });
+
+  it("opens the row action sheet from the ellipsis without selecting the note", () => {
+    const onSelect = vi.fn();
+    renderList([makeNote()], { isDesktop: false, onSelect });
+
+    fireEvent.click(
+      screen.getByRole("button", { name: /actions for meeting agenda/i }),
+    );
+
+    expect(onSelect).not.toHaveBeenCalled();
+    expect(screen.getByRole("dialog", { name: /note actions/i })).toBeTruthy();
+  });
+
+  it("shows Open, Info, and Delete for authenticated mobile row actions", () => {
+    renderList([makeNote()], {
+      isDesktop: false,
+      canDeleteNotes: true,
+      onDeleteNote: vi.fn(),
+    });
+
+    fireEvent.click(
+      screen.getByRole("button", { name: /actions for meeting agenda/i }),
+    );
+    const sheet = screen.getByRole("dialog", { name: /note actions/i });
+
+    expect(within(sheet).getByRole("button", { name: /^open$/i })).toBeTruthy();
+    expect(within(sheet).getByRole("button", { name: /^info$/i })).toBeTruthy();
+    expect(
+      within(sheet).getByRole("button", { name: /^delete$/i }),
+    ).toBeTruthy();
+  });
+
+  it("shows Open, Info, and Sign in for read-only mobile row actions", () => {
+    renderList([makeNote()], {
+      isDesktop: false,
+      canDeleteNotes: false,
+      isReadOnly: true,
+    });
+
+    fireEvent.click(
+      screen.getByRole("button", { name: /actions for meeting agenda/i }),
+    );
+    const sheet = screen.getByRole("dialog", { name: /note actions/i });
+
+    expect(within(sheet).getByRole("button", { name: /^open$/i })).toBeTruthy();
+    expect(within(sheet).getByRole("button", { name: /^info$/i })).toBeTruthy();
+    expect(
+      within(sheet).getByRole("button", { name: /sign in to edit/i }),
+    ).toBeTruthy();
+  });
+
+  it("delete row action requests confirmation flow but does not select the note", () => {
+    const onSelect = vi.fn();
+    const onDeleteNote = vi.fn();
+    const note = makeNote();
+    renderList([note], {
+      isDesktop: false,
+      onSelect,
+      canDeleteNotes: true,
+      onDeleteNote,
+    });
+
+    fireEvent.click(
+      screen.getByRole("button", { name: /actions for meeting agenda/i }),
+    );
+    const sheet = screen.getByRole("dialog", { name: /note actions/i });
+    fireEvent.click(within(sheet).getByRole("button", { name: /^delete$/i }));
+
+    expect(onSelect).not.toHaveBeenCalled();
+    expect(onDeleteNote).toHaveBeenCalledWith(note);
+  });
+
+  it("swipe-left reveals mobile row actions after the horizontal threshold", () => {
+    renderList([makeNote()], { isDesktop: false });
+
+    const row = screen.getByTestId("note-row-note-a");
+    const foreground = screen.getByTestId("note-row-foreground-note-a");
+    fireEvent.mouseDown(row, { button: 0, clientX: 220, clientY: 20 });
+    fireEvent.mouseMove(row, { clientX: 140, clientY: 22 });
+    fireEvent.mouseUp(row);
+
+    expect(foreground.getAttribute("style")).toContain("translateX(-156px)");
+  });
+
+  it("vertical movement cancels mobile row swipe reveal", () => {
+    renderList([makeNote()], { isDesktop: false });
+
+    const row = screen.getByTestId("note-row-note-a");
+    const foreground = screen.getByTestId("note-row-foreground-note-a");
+    fireEvent.mouseDown(row, { button: 0, clientX: 220, clientY: 20 });
+    fireEvent.mouseMove(row, { clientX: 216, clientY: 60 });
+    fireEvent.mouseUp(row);
+
+    expect(foreground.getAttribute("style")).toContain("translateX(0px)");
+  });
+
+  it("ignores edge-start mobile swipe gestures", () => {
+    renderList([makeNote()], { isDesktop: false });
+
+    const row = screen.getByTestId("note-row-note-a");
+    const foreground = screen.getByTestId("note-row-foreground-note-a");
+    fireEvent.mouseDown(row, { button: 0, clientX: 12, clientY: 20 });
+    fireEvent.mouseMove(row, { clientX: 0, clientY: 20 });
+    fireEvent.mouseUp(row);
+
+    expect(foreground.getAttribute("style")).toContain("translateX(0px)");
+  });
+
+  it("opening one swiped row closes the previous row", () => {
+    renderList(
+      [
+        makeNote({ id: "note-a", title: "First" }),
+        makeNote({ id: "note-b", title: "Second" }),
+      ],
+      { isDesktop: false },
+    );
+
+    const first = screen.getByTestId("note-row-note-a");
+    const firstForeground = screen.getByTestId("note-row-foreground-note-a");
+    const second = screen.getByTestId("note-row-note-b");
+    const secondForeground = screen.getByTestId("note-row-foreground-note-b");
+
+    fireEvent.mouseDown(first, { button: 0, clientX: 220, clientY: 20 });
+    fireEvent.mouseMove(first, { clientX: 140, clientY: 22 });
+    fireEvent.mouseUp(first);
+    expect(firstForeground.getAttribute("style")).toContain(
+      "translateX(-156px)",
+    );
+
+    fireEvent.mouseDown(second, { button: 0, clientX: 220, clientY: 20 });
+    fireEvent.mouseMove(second, { clientX: 140, clientY: 22 });
+    fireEvent.mouseUp(second);
+
+    expect(firstForeground.getAttribute("style")).toContain("translateX(0px)");
+    expect(secondForeground.getAttribute("style")).toContain(
+      "translateX(-156px)",
+    );
   });
 });

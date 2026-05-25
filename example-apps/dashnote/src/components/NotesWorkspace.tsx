@@ -31,6 +31,7 @@ const STALE_EDIT_WARNING =
   "This note changed on the network. Your unsaved edits are still here — saving will overwrite the newer version.";
 
 type SelectedNoteId = string | "new" | null;
+type DeleteTarget = { id: string; title: string };
 
 // Wrap the session logger so `info` rows from src/dash/* helpers (which only
 // pass a string) pick up the activity-panel `detail` for the operation. The
@@ -83,6 +84,7 @@ export function NotesWorkspace({
   const [saving, setSaving] = useState(false);
   const [deleting, setDeleting] = useState(false);
   const [deleteRequested, setDeleteRequested] = useState(false);
+  const [deleteTarget, setDeleteTarget] = useState<DeleteTarget | null>(null);
   const [error, setError] = useState<string | null>(null);
   const [revalidating, setRevalidating] = useState(false);
   const [editsReady, setEditsReady] = useState(false);
@@ -577,12 +579,21 @@ export function NotesWorkspace({
       resetDraft();
       return;
     }
+    setDeleteTarget({ id: selectedId, title });
+    setDeleteRequested(true);
+  }
+
+  function requestDeleteNote(note: NoteRecord) {
+    if (!sdk || !keyManager || !contractId || !isAuthed) return;
+    setDeleteTarget({ id: note.id, title: note.title ?? "" });
     setDeleteRequested(true);
   }
 
   async function confirmDelete() {
-    if (!sdk || !keyManager || !contractId || !isAuthed || !selectedId) return;
-    if (selectedId === "new") return;
+    if (!sdk || !keyManager || !contractId || !isAuthed || !deleteTarget) {
+      return;
+    }
+    const noteId = deleteTarget.id;
 
     setDeleting(true);
     setError(null);
@@ -592,14 +603,25 @@ export function NotesWorkspace({
         sdk,
         keyManager,
         contractId,
-        noteId: selectedId,
+        noteId,
         log: withDetail(log, "documents.delete"),
       });
       log("Note deleted.", {
         level: "success",
-        detail: `id ${selectedId.slice(0, 8)}…`,
+        detail: `id ${noteId.slice(0, 8)}…`,
       });
       setDeleteRequested(false);
+      setDeleteTarget(null);
+      if (selectedIdRef.current === noteId) {
+        setSelectedId(null);
+        setSelectedNote(null);
+        setTitle("");
+        setMessage("");
+        setBaselineTitle("");
+        setBaselineMessage("");
+        setError(null);
+        setConflictWarning(null);
+      }
       await reloadNotes();
     } catch (err) {
       setError(errorMessage(err));
@@ -651,6 +673,11 @@ export function NotesWorkspace({
               onNew={handleNew}
               canCreate={canMutate || isBrowsing}
               newButtonLabel={canMutate ? "New note" : "Sign in to create"}
+              isDesktop={isDesktop}
+              canDeleteNotes={canMutate}
+              isReadOnly={isBrowsing}
+              onDeleteNote={requestDeleteNote}
+              onOpenLogin={onOpenLogin}
             />
           </div>
           <div
@@ -690,9 +717,12 @@ export function NotesWorkspace({
       )}
       <DeleteNoteModal
         open={deleteRequested}
-        noteTitle={title}
+        noteTitle={deleteTarget?.title ?? title}
         deleting={deleting}
-        onCancel={() => setDeleteRequested(false)}
+        onCancel={() => {
+          setDeleteRequested(false);
+          setDeleteTarget(null);
+        }}
         onConfirm={() => void confirmDelete()}
       />
     </div>

@@ -1,4 +1,4 @@
-import { useEffect, useState } from "react";
+import { useEffect, useState, type ReactNode } from "react";
 
 import type { NoteRecord } from "../dash/queries";
 import { FIELD_BYTE_LIMIT } from "../lib/fieldLimits";
@@ -65,6 +65,10 @@ export function NoteEditor({
   const isNew = selectedId === "new";
   const oversize = messageOversize;
   const [jsonOpen, setJsonOpen] = useState(false);
+  const [mobileActionsOpen, setMobileActionsOpen] = useState(false);
+  const [mobileInfoOpen, setMobileInfoOpen] = useState(false);
+  const showMobileSave =
+    !isDesktop && !isReadOnly && hasSelection && (dirty || saving);
 
   // Cmd/Ctrl-S triggers Save (matches the keyboard hint chip).
   useEffect(() => {
@@ -208,7 +212,7 @@ export function NoteEditor({
               </svg>
             </button>
           )}
-          {!isReadOnly && hasSelection && (
+          {!isReadOnly && hasSelection && (isDesktop || showMobileSave) && (
             <button
               type="button"
               onClick={onSave}
@@ -225,6 +229,30 @@ export function NoteEditor({
                   ⌘S
                 </span>
               )}
+            </button>
+          )}
+          {!isDesktop && hasSelection && (
+            <button
+              type="button"
+              onClick={() => setMobileActionsOpen(true)}
+              aria-label="Note actions"
+              className="flex h-10 w-10 items-center justify-center rounded-full text-ink-3 transition hover:bg-surface-2 hover:text-ink"
+            >
+              <svg
+                width="20"
+                height="20"
+                viewBox="0 0 24 24"
+                fill="none"
+                stroke="currentColor"
+                strokeWidth="2.25"
+                strokeLinecap="round"
+                strokeLinejoin="round"
+                aria-hidden="true"
+              >
+                <circle cx="12" cy="12" r="1" />
+                <circle cx="19" cy="12" r="1" />
+                <circle cx="5" cy="12" r="1" />
+              </svg>
             </button>
           )}
         </div>
@@ -314,7 +342,7 @@ export function NoteEditor({
                 onChange={(event) => onTitleChange(event.target.value)}
                 placeholder={isNew ? "New note title" : "Title"}
                 disabled={!canEdit}
-                className="w-full border-0 bg-transparent px-0 pt-0 pb-1 text-[28px] font-semibold leading-tight tracking-tight text-ink outline-none placeholder:text-ink-4 disabled:cursor-not-allowed disabled:text-ink-4"
+                className="mobile-note-editor-field w-full border-0 bg-transparent px-0 pt-0 pb-1 text-[28px] font-semibold leading-tight tracking-tight text-ink outline-none placeholder:text-ink-4 disabled:cursor-not-allowed disabled:text-ink-4"
               />
               <textarea
                 aria-label="Body"
@@ -323,70 +351,23 @@ export function NoteEditor({
                 placeholder="Start writing…"
                 disabled={!canEdit}
                 rows={16}
-                className="w-full min-h-0 flex-1 border-0 bg-transparent px-0 py-1 text-[15px] leading-6 text-ink outline-none placeholder:text-ink-4 disabled:cursor-not-allowed disabled:text-ink-4 md:min-h-[340px] xl:min-h-0"
+                className="mobile-note-editor-field w-full min-h-0 flex-1 border-0 bg-transparent px-0 py-1 text-[15px] leading-6 text-ink outline-none placeholder:text-ink-4 disabled:cursor-not-allowed disabled:text-ink-4 md:min-h-[340px] xl:min-h-0"
               />
               {(messageBytes / FIELD_BYTE_LIMIT >= 0.75 || messageOversize) && (
                 <div className="mt-2 md:hidden">
                   <FillBar bytes={messageBytes} limit={FIELD_BYTE_LIMIT} />
                 </div>
               )}
-              {isReadOnly && (
-                <button
-                  type="button"
-                  onClick={onOpenLogin}
-                  aria-label="Sign in to edit this note"
-                  className="absolute inset-0 z-10 cursor-pointer bg-transparent outline-none focus-visible:ring-2 focus-visible:ring-accent"
-                />
-              )}
             </label>
 
-            <div className="flex items-center gap-1.5 text-[11px] text-ink-4 md:hidden">
-              <svg
-                width="12"
-                height="12"
-                viewBox="0 0 24 24"
-                fill="none"
-                stroke="currentColor"
-                strokeWidth="2"
-                strokeLinecap="round"
-                strokeLinejoin="round"
-                aria-hidden="true"
-                className="shrink-0"
+            {isReadOnly && (
+              <button
+                type="button"
+                onClick={onOpenLogin}
+                className="inline-flex min-h-11 items-center justify-center rounded-full bg-accent px-4 py-2 text-[13px] font-semibold text-bg transition hover:bg-accent-dim md:hidden"
               >
-                <circle cx="12" cy="12" r="10" />
-                <path d="M12 16v-4M12 8h.01" />
-              </svg>
-              <span>
-                Notes are stored publicly on Dash Platform — not encrypted.
-              </span>
-            </div>
-
-            {canDelete && (
-              <div className="mt-2 flex justify-center md:hidden">
-                <button
-                  type="button"
-                  onClick={onDelete}
-                  disabled={deleting}
-                  className="inline-flex items-center gap-2 rounded-full px-4 py-2 text-[14px] font-medium text-[color:var(--color-danger)] transition hover:bg-surface-2 disabled:cursor-not-allowed disabled:text-ink-4"
-                >
-                  <svg
-                    width="16"
-                    height="16"
-                    viewBox="0 0 24 24"
-                    fill="none"
-                    stroke="currentColor"
-                    strokeWidth="2"
-                    strokeLinecap="round"
-                    strokeLinejoin="round"
-                    aria-hidden="true"
-                  >
-                    <path d="M3 6h18" />
-                    <path d="M8 6V4a2 2 0 0 1 2-2h4a2 2 0 0 1 2 2v2" />
-                    <path d="M19 6v14a2 2 0 0 1-2 2H7a2 2 0 0 1-2-2V6" />
-                  </svg>
-                  {deleting ? "Deleting…" : "Delete note"}
-                </button>
-              </div>
+                Sign in to edit
+              </button>
             )}
           </>
         )}
@@ -426,7 +407,145 @@ export function NoteEditor({
         contractId={contractId}
         onClose={() => setJsonOpen(false)}
       />
+      <MobileActionSheet
+        open={mobileActionsOpen}
+        title="Note actions"
+        onClose={() => setMobileActionsOpen(false)}
+      >
+        {note && (
+          <button
+            type="button"
+            aria-label="Info"
+            onClick={() => {
+              setMobileActionsOpen(false);
+              setMobileInfoOpen(true);
+            }}
+            className="flex min-h-12 w-full items-center justify-between rounded-xl px-4 py-3 text-left text-[15px] font-medium text-ink hover:bg-surface-2"
+          >
+            Info
+            <span className="font-mono text-[11px] text-ink-4">
+              Rev {note.revision}
+            </span>
+          </button>
+        )}
+        {note && (
+          <button
+            type="button"
+            onClick={() => {
+              setMobileActionsOpen(false);
+              setJsonOpen(true);
+            }}
+            className="flex min-h-12 w-full items-center rounded-xl px-4 py-3 text-left text-[15px] font-medium text-ink hover:bg-surface-2"
+          >
+            View JSON
+          </button>
+        )}
+        {isReadOnly && (
+          <button
+            type="button"
+            onClick={() => {
+              setMobileActionsOpen(false);
+              onOpenLogin();
+            }}
+            className="flex min-h-12 w-full items-center rounded-xl px-4 py-3 text-left text-[15px] font-semibold text-accent hover:bg-surface-2"
+          >
+            Sign in to edit
+          </button>
+        )}
+        {canDelete && (
+          <button
+            type="button"
+            onClick={() => {
+              setMobileActionsOpen(false);
+              onDelete();
+            }}
+            disabled={deleting}
+            className="flex min-h-12 w-full items-center rounded-xl px-4 py-3 text-left text-[15px] font-semibold text-[color:var(--color-danger)] hover:bg-surface-2 disabled:cursor-not-allowed disabled:text-ink-4"
+          >
+            {deleting ? "Deleting…" : "Delete"}
+          </button>
+        )}
+      </MobileActionSheet>
+      <MobileActionSheet
+        open={mobileInfoOpen}
+        title="Note info"
+        onClose={() => setMobileInfoOpen(false)}
+      >
+        {note ? (
+          <dl className="grid grid-cols-[auto_1fr] gap-x-4 gap-y-3 px-1 py-2 text-[13px]">
+            <dt className="text-ink-4">Revision</dt>
+            <dd className="text-right font-mono text-ink">{note.revision}</dd>
+            <dt className="text-ink-4">Created</dt>
+            <dd className="text-right text-ink">
+              {formatTimestamp(note.createdAt)}
+            </dd>
+            <dt className="text-ink-4">Updated</dt>
+            <dd className="text-right text-ink">
+              {formatTimestamp(note.updatedAt)}
+            </dd>
+            <dt className="text-ink-4">Body</dt>
+            <dd className="text-right font-mono text-ink">
+              {messageBytes.toLocaleString()} /{" "}
+              {FIELD_BYTE_LIMIT.toLocaleString()} B
+            </dd>
+          </dl>
+        ) : (
+          <div className="px-1 py-2 text-[13px] text-ink-3">
+            Platform metadata appears after the first save.
+          </div>
+        )}
+      </MobileActionSheet>
     </section>
+  );
+}
+
+function MobileActionSheet({
+  open,
+  title,
+  children,
+  onClose,
+}: {
+  open: boolean;
+  title: string;
+  children: ReactNode;
+  onClose: () => void;
+}) {
+  useEffect(() => {
+    if (!open) return;
+    const onKey = (event: KeyboardEvent) => {
+      if (event.key === "Escape") onClose();
+    };
+    window.addEventListener("keydown", onKey);
+    return () => window.removeEventListener("keydown", onKey);
+  }, [open, onClose]);
+
+  if (!open) return null;
+
+  return (
+    <div
+      className="fixed inset-0 z-50 flex items-end bg-black/40 px-3 pb-[max(0.75rem,env(safe-area-inset-bottom))] md:hidden"
+      onClick={onClose}
+    >
+      <div
+        role="dialog"
+        aria-modal="true"
+        aria-label={title}
+        className="w-full rounded-2xl border border-line bg-surface p-2 shadow-[0_22px_60px_-24px_rgba(0,0,0,0.65)]"
+        onClick={(event) => event.stopPropagation()}
+      >
+        <div className="px-4 pb-1 pt-3 text-[12px] font-semibold uppercase tracking-[0.12em] text-ink-4">
+          {title}
+        </div>
+        <div className="py-1">{children}</div>
+        <button
+          type="button"
+          onClick={onClose}
+          className="mt-1 flex min-h-12 w-full items-center justify-center rounded-xl bg-surface-2 px-4 py-3 text-[15px] font-semibold text-ink"
+        >
+          Cancel
+        </button>
+      </div>
+    </div>
   );
 }
 
