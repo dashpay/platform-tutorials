@@ -143,6 +143,20 @@ describe("NoteList mobile refresh", () => {
     expect(searchRow?.className).not.toMatch(/max-md:pt-4/);
   });
 
+  it("keeps the mobile refresh indicator inside the search row", () => {
+    renderList([makeNote()], { isDesktop: false, revalidating: true });
+
+    const searchRow = screen.getByPlaceholderText(/search/i).closest("div");
+    const refreshStatus = screen.getByRole("status", {
+      name: /refreshing notes/i,
+    });
+
+    expect(searchRow?.contains(refreshStatus)).toBe(true);
+    expect(searchRow?.previousElementSibling).toBeNull();
+    expect(refreshStatus.className).toMatch(/absolute/);
+    expect(refreshStatus.className).toMatch(/right-6/);
+  });
+
   it("opens a note when the mobile row is tapped", () => {
     const onSelect = vi.fn();
     renderList([makeNote()], { isDesktop: false, onSelect });

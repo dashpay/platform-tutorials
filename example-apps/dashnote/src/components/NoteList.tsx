@@ -269,39 +269,7 @@ export function NoteList({
           )}
         </div>
       )}
-      {!isDesktop && revalidating && (
-        <div className="flex justify-end px-4 pt-3">
-          <span
-            className="inline-flex items-center gap-1 text-[11px] text-ink-4"
-            role="status"
-            aria-label="Refreshing notes"
-          >
-            <svg
-              className="h-3 w-3 animate-spin"
-              viewBox="0 0 24 24"
-              fill="none"
-              aria-hidden="true"
-            >
-              <circle
-                cx="12"
-                cy="12"
-                r="10"
-                stroke="currentColor"
-                strokeOpacity="0.25"
-                strokeWidth="3"
-              />
-              <path
-                d="M22 12a10 10 0 0 1-10 10"
-                stroke="currentColor"
-                strokeWidth="3"
-                strokeLinecap="round"
-              />
-            </svg>
-          </span>
-        </div>
-      )}
-
-      <div className="px-3 py-2.5 max-md:sticky max-md:top-[53px] max-md:z-20 max-md:border-b max-md:border-[color:color-mix(in_oklab,var(--color-line)_58%,transparent)] max-md:bg-surface/95 max-md:py-2 max-md:backdrop-blur">
+      <div className="relative px-3 py-2.5 max-md:sticky max-md:top-[53px] max-md:z-20 max-md:border-b max-md:border-[color:color-mix(in_oklab,var(--color-line)_58%,transparent)] max-md:bg-surface/95 max-md:py-2 max-md:backdrop-blur">
         <label className="relative block">
           <span className="sr-only">Search notes</span>
           <svg
@@ -336,6 +304,35 @@ export function NoteList({
             </span>
           )}
         </label>
+        {!isDesktop && revalidating && (
+          <span
+            className="pointer-events-none absolute right-6 top-1/2 inline-flex -translate-y-1/2 items-center text-ink-4"
+            role="status"
+            aria-label="Refreshing notes"
+          >
+            <svg
+              className="h-3 w-3 animate-spin"
+              viewBox="0 0 24 24"
+              fill="none"
+              aria-hidden="true"
+            >
+              <circle
+                cx="12"
+                cy="12"
+                r="10"
+                stroke="currentColor"
+                strokeOpacity="0.25"
+                strokeWidth="3"
+              />
+              <path
+                d="M22 12a10 10 0 0 1-10 10"
+                stroke="currentColor"
+                strokeWidth="3"
+                strokeLinecap="round"
+              />
+            </svg>
+          </span>
+        )}
       </div>
 
       <div
