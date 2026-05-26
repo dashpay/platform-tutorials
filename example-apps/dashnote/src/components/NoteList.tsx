@@ -3,9 +3,8 @@ import {
   useMemo,
   useRef,
   useState,
-  type PointerEvent,
   type MouseEvent,
-  type ReactNode,
+  type PointerEvent,
 } from "react";
 
 import type { NoteRecord } from "../dash/queries";
@@ -15,6 +14,7 @@ import {
   noteDisplayTitle,
   notePreview,
 } from "../lib/format";
+import { MobileActionSheet } from "./MobileActionSheet";
 
 interface NoteListProps {
   notes: NoteRecord[];
@@ -61,6 +61,7 @@ export function NoteList({
     vertical: boolean;
     horizontal: boolean;
     latestOffset: number;
+    pointerId?: number;
   } | null>(null);
   const searchRef = useRef<HTMLInputElement>(null);
 
@@ -100,8 +101,12 @@ export function NoteList({
     gestureRef.current = null;
   }
 
-  function handlePointerDown(event: PointerEvent | MouseEvent, noteId: string) {
-    if (isDesktop || (event.button !== 0 && event.button !== undefined)) return;
+  function startGesture(
+    event: PointerEvent<HTMLDivElement> | MouseEvent<HTMLDivElement>,
+    noteId: string,
+    pointerId?: number,
+  ) {
+    if (isDesktop || event.button > 0) return;
     gestureRef.current = {
       noteId,
       startX: event.clientX,
@@ -110,10 +115,25 @@ export function NoteList({
       vertical: false,
       horizontal: false,
       latestOffset: 0,
+      pointerId,
     };
   }
 
-  function handlePointerMove(event: PointerEvent | MouseEvent) {
+  function handlePointerDown(
+    event: PointerEvent<HTMLDivElement>,
+    noteId: string,
+  ) {
+    startGesture(event, noteId, event.pointerId);
+  }
+
+  function handleMouseDown(event: MouseEvent<HTMLDivElement>, noteId: string) {
+    if ("PointerEvent" in window) return;
+    startGesture(event, noteId);
+  }
+
+  function moveGesture(
+    event: PointerEvent<HTMLDivElement> | MouseEvent<HTMLDivElement>,
+  ) {
     const gesture = gestureRef.current;
     if (!gesture || gesture.ignored || isDesktop) return;
     const dx = event.clientX - gesture.startX;
@@ -127,7 +147,12 @@ export function NoteList({
       return;
     }
     if (gesture.vertical) return;
-    if (absX > 12 && absX > absY) gesture.horizontal = true;
+    if (absX > 12 && absX > absY) {
+      gesture.horizontal = true;
+      if ("pointerId" in event && gesture.pointerId !== undefined) {
+        event.currentTarget.setPointerCapture?.(gesture.pointerId);
+      }
+    }
     if (!gesture.horizontal) return;
     event.preventDefault();
     const offset = Math.max(-revealedWidth, Math.min(0, dx));
@@ -139,9 +164,21 @@ export function NoteList({
     setDragOffset(offset);
   }
 
-  function handlePointerEnd() {
+  function handlePointerMove(event: PointerEvent<HTMLDivElement>) {
+    moveGesture(event);
+  }
+
+  function handleMouseMove(event: MouseEvent<HTMLDivElement>) {
+    if ("PointerEvent" in window) return;
+    moveGesture(event);
+  }
+
+  function endGesture(event?: PointerEvent<HTMLDivElement>) {
     const gesture = gestureRef.current;
     if (!gesture) return;
+    if (gesture.pointerId !== undefined) {
+      event?.currentTarget.releasePointerCapture?.(gesture.pointerId);
+    }
     if (gesture.ignored || gesture.vertical || isDesktop) {
       gestureRef.current = null;
       setDraggingId(null);
@@ -152,6 +189,15 @@ export function NoteList({
     setDraggingId(null);
     setDragOffset(0);
     gestureRef.current = null;
+  }
+
+  function handlePointerEnd(event?: PointerEvent<HTMLDivElement>) {
+    endGesture(event);
+  }
+
+  function handleMouseEnd() {
+    if ("PointerEvent" in window) return;
+    endGesture();
   }
 
   function openActions(note: NoteRecord) {
@@ -345,19 +391,23 @@ export function NoteList({
                 <div
                   key={note.id}
                   data-testid={`note-row-${note.id}`}
-                  className="relative overflow-hidden rounded-lg"
+                  className="relative overflow-hidden rounded-lg [touch-action:pan-y]"
                   onPointerDown={(event) => handlePointerDown(event, note.id)}
                   onPointerMove={handlePointerMove}
                   onPointerUp={handlePointerEnd}
                   onPointerCancel={handlePointerEnd}
-                  onMouseDown={(event) => handlePointerDown(event, note.id)}
-                  onMouseMove={handlePointerMove}
-                  onMouseUp={handlePointerEnd}
+                  onMouseDown={(event) => handleMouseDown(event, note.id)}
+                  onMouseMove={handleMouseMove}
+                  onMouseUp={handleMouseEnd}
                 >
                   {!isDesktop && (
-                    <div className="absolute inset-y-0 right-0 flex w-[156px] items-stretch justify-end overflow-hidden rounded-lg bg-surface-2">
+                    <div
+                      className="absolute inset-y-0 right-0 flex w-[156px] items-stretch justify-end overflow-hidden rounded-lg bg-surface-2"
+                      aria-hidden={!open}
+                    >
                       <button
                         type="button"
+                        tabIndex={open ? 0 : -1}
                         onClick={() => openActions(note)}
                         className="flex w-[78px] items-center justify-center text-[12px] font-semibold text-ink"
                       >
@@ -365,6 +415,7 @@ export function NoteList({
                       </button>
                       <button
                         type="button"
+                        tabIndex={open ? 0 : -1}
                         onClick={() => deleteOrSignIn(note)}
                         className={`flex w-[78px] items-center justify-center text-[12px] font-semibold ${
                           canDeleteNotes
@@ -561,55 +612,5 @@ export function NoteList({
         )}
       </MobileActionSheet>
     </section>
-  );
-}
-
-function MobileActionSheet({
-  open,
-  title,
-  children,
-  onClose,
-}: {
-  open: boolean;
-  title: string;
-  children: ReactNode;
-  onClose: () => void;
-}) {
-  useEffect(() => {
-    if (!open) return;
-    const onKey = (event: KeyboardEvent) => {
-      if (event.key === "Escape") onClose();
-    };
-    window.addEventListener("keydown", onKey);
-    return () => window.removeEventListener("keydown", onKey);
-  }, [open, onClose]);
-
-  if (!open) return null;
-
-  return (
-    <div
-      className="fixed inset-0 z-50 flex items-end bg-black/40 px-3 pb-[max(0.75rem,env(safe-area-inset-bottom))] md:hidden"
-      onClick={onClose}
-    >
-      <div
-        role="dialog"
-        aria-modal="true"
-        aria-label={title}
-        className="w-full rounded-2xl border border-line bg-surface p-2 shadow-[0_22px_60px_-24px_rgba(0,0,0,0.65)]"
-        onClick={(event) => event.stopPropagation()}
-      >
-        <div className="px-4 pb-1 pt-3 text-[12px] font-semibold uppercase tracking-[0.12em] text-ink-4">
-          {title}
-        </div>
-        <div className="py-1">{children}</div>
-        <button
-          type="button"
-          onClick={onClose}
-          className="mt-1 flex min-h-12 w-full items-center justify-center rounded-xl bg-surface-2 px-4 py-3 text-[15px] font-semibold text-ink"
-        >
-          Cancel
-        </button>
-      </div>
-    </div>
   );
 }

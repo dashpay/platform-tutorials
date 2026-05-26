@@ -126,12 +126,12 @@ describe("NoteEditor mobile refresh", () => {
     expect(body.className).not.toMatch(/\bring\b/);
   });
 
-  it("does not render the per-note public-chain notice on mobile", () => {
+  it("renders the mobile public-chain notice", () => {
     renderEditor({ isDesktop: false, canEdit: true });
 
     expect(
-      screen.queryByText(/notes are stored publicly on dash platform/i),
-    ).toBeNull();
+      screen.getByText(/notes are stored publicly on dash platform/i),
+    ).toBeTruthy();
   });
 
   it("keeps desktop metadata footer behavior", () => {

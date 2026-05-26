@@ -225,6 +225,20 @@ describe("NoteList mobile refresh", () => {
     expect(onDeleteNote).toHaveBeenCalledWith(note);
   });
 
+  it("keeps hidden swipe actions out of tab order and the accessibility tree", () => {
+    renderList([makeNote()], { isDesktop: false });
+
+    const row = screen.getByTestId("note-row-note-a");
+    const actionRail = row.querySelector("[aria-hidden]");
+    const more = within(row).getByText("More").closest("button");
+    const signIn = within(row).getByText("Sign in").closest("button");
+
+    expect(actionRail?.getAttribute("aria-hidden")).toBe("true");
+    expect(more?.getAttribute("tabindex")).toBe("-1");
+    expect(signIn?.getAttribute("tabindex")).toBe("-1");
+    expect(screen.queryByRole("button", { name: /^more$/i })).toBeNull();
+  });
+
   it("swipe-left reveals mobile row actions after the horizontal threshold", () => {
     renderList([makeNote()], { isDesktop: false });
 
@@ -235,6 +249,10 @@ describe("NoteList mobile refresh", () => {
     fireEvent.mouseUp(row);
 
     expect(foreground.getAttribute("style")).toContain("translateX(-156px)");
+    expect(
+      row.querySelector("[aria-hidden]")?.getAttribute("aria-hidden"),
+    ).toBe("false");
+    expect(screen.getByRole("button", { name: /^more$/i })).toBeTruthy();
   });
 
   it("vertical movement cancels mobile row swipe reveal", () => {

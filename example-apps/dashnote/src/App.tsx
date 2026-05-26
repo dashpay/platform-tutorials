@@ -10,6 +10,7 @@ import { NotesWorkspace } from "./components/NotesWorkspace";
 import { OperationResultNotice } from "./components/OperationResultNotice";
 import { SettingsPanel } from "./components/SettingsPanel";
 import type { TopTab } from "./components/Tabs";
+import { useMediaQuery } from "./hooks/useMediaQuery";
 import { useSession } from "./session/useSession";
 
 const screenCopy: Record<TopTab, { title: string; subtitle: string }> = {
@@ -36,6 +37,7 @@ function App() {
   const [tab, setTab] = useState<TopTab>("notes");
   const [loginOpen, setLoginOpen] = useState(false);
   const [activityOpen, setActivityOpen] = useState(false);
+  const isDesktop = useMediaQuery("(min-width: 768px)");
 
   const mobileFullBleed = tab === "notes";
 
@@ -59,7 +61,7 @@ function App() {
 
   return (
     <>
-      <Toaster position="bottom-center" />
+      <Toaster position={isDesktop ? "bottom-center" : "top-center"} />
       <AppShell
         tab={tab}
         onTabChange={setTab}

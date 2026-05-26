@@ -1,8 +1,9 @@
-import { useEffect, useState, type ReactNode } from "react";
+import { useEffect, useState } from "react";
 
 import type { NoteRecord } from "../dash/queries";
 import { FIELD_BYTE_LIMIT } from "../lib/fieldLimits";
 import { formatRelativeTime, formatTimestamp } from "../lib/format";
+import { MobileActionSheet } from "./MobileActionSheet";
 import { NoteJsonDrawer } from "./NoteJsonDrawer";
 import { OperationResultNotice } from "./OperationResultNotice";
 
@@ -374,6 +375,27 @@ export function NoteEditor({
               )}
             </label>
 
+            <div className="flex items-center gap-1.5 text-[11px] text-ink-4 md:hidden">
+              <svg
+                width="12"
+                height="12"
+                viewBox="0 0 24 24"
+                fill="none"
+                stroke="currentColor"
+                strokeWidth="2"
+                strokeLinecap="round"
+                strokeLinejoin="round"
+                aria-hidden="true"
+                className="shrink-0"
+              >
+                <circle cx="12" cy="12" r="10" />
+                <path d="M12 16v-4M12 8h.01" />
+              </svg>
+              <span>
+                Notes are stored publicly on Dash Platform — not encrypted.
+              </span>
+            </div>
+
             {isReadOnly && (
               <button
                 type="button"
@@ -510,56 +532,6 @@ export function NoteEditor({
         )}
       </MobileActionSheet>
     </section>
-  );
-}
-
-function MobileActionSheet({
-  open,
-  title,
-  children,
-  onClose,
-}: {
-  open: boolean;
-  title: string;
-  children: ReactNode;
-  onClose: () => void;
-}) {
-  useEffect(() => {
-    if (!open) return;
-    const onKey = (event: KeyboardEvent) => {
-      if (event.key === "Escape") onClose();
-    };
-    window.addEventListener("keydown", onKey);
-    return () => window.removeEventListener("keydown", onKey);
-  }, [open, onClose]);
-
-  if (!open) return null;
-
-  return (
-    <div
-      className="fixed inset-0 z-50 flex items-end bg-black/40 px-3 pb-[max(0.75rem,env(safe-area-inset-bottom))] md:hidden"
-      onClick={onClose}
-    >
-      <div
-        role="dialog"
-        aria-modal="true"
-        aria-label={title}
-        className="w-full rounded-2xl border border-line bg-surface p-2 shadow-[0_22px_60px_-24px_rgba(0,0,0,0.65)]"
-        onClick={(event) => event.stopPropagation()}
-      >
-        <div className="px-4 pb-1 pt-3 text-[12px] font-semibold uppercase tracking-[0.12em] text-ink-4">
-          {title}
-        </div>
-        <div className="py-1">{children}</div>
-        <button
-          type="button"
-          onClick={onClose}
-          className="mt-1 flex min-h-12 w-full items-center justify-center rounded-xl bg-surface-2 px-4 py-3 text-[15px] font-semibold text-ink"
-        >
-          Cancel
-        </button>
-      </div>
-    </div>
   );
 }
 
