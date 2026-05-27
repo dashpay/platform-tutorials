@@ -39,11 +39,7 @@ test.describe("Authenticated flows (auth-gated)", () => {
       .getByRole("navigation")
       .getByRole("button", { name: /mint/i })
       .click();
-    // The unauthenticated overlay is gone. (A different overlay may appear
-    // for non-contract-owners; we only assert the *unauth* one is hidden.)
-    await expect(
-      page.getByText(/login as contract owner to access this feature/i),
-    ).toBeHidden();
+    await expect(page.getByText(/login to burn dashmint tokens/i)).toBeHidden();
   });
 
   // ─── Modal smokes (open / inspect / cancel) ───────────────────────────────

@@ -75,9 +75,9 @@ test("Copy ID writes a 44-char document id to the clipboard", async ({
   await firstCard.getByRole("button", { name: /copy id/i }).click();
 
   const copied = await page.evaluate(() => navigator.clipboard.readText());
-  // Platform document IDs are 32-byte base58 — exactly 44 chars in the base58
-  // alphabet (no 0/O/I/l).
-  expect(copied).toMatch(/^[1-9A-HJ-NP-Za-km-z]{44}$/);
+  // Platform document IDs are 32-byte base58 — 43 or 44 chars depending on the
+  // leading byte (a 32-byte value encodes to 43.7 base58 chars on average).
+  expect(copied).toMatch(/^[1-9A-HJ-NP-Za-km-z]{43,44}$/);
 });
 
 test("Marketplace Buy button opens LoginModal when not authenticated", async ({
