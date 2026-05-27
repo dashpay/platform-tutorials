@@ -126,7 +126,8 @@ export function LoginModal({ open, onClose }: LoginModalProps) {
               </button>
             </div>
             <p className="text-[11px] text-ink-4">
-              Register deploys a fresh NFT card contract to testnet (one-time).
+              Register deploys a fresh NFT card contract with 100 DashMint
+              tokens to testnet.
             </p>
           </div>
 

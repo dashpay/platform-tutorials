@@ -41,8 +41,8 @@ function App() {
     sdk,
     identityId,
     contractId,
-    contractOwnerId,
     balance,
+    dashMintTokenBalance,
     refreshBalance,
     log,
     browseOnly,
@@ -151,7 +151,7 @@ function App() {
     },
     mint: {
       title: "Mint",
-      subtitle: "Create a new card document on the contract.",
+      subtitle: "Burn 1 DashMint token to create a new card document.",
     },
     "how-it-works": {
       title: "How it works",
@@ -253,7 +253,7 @@ function App() {
             {status !== "authenticated" && (
               <div className="absolute inset-0 z-10 flex flex-col items-center justify-center gap-3 rounded-lg bg-bg/55 backdrop-blur-sm">
                 <p className="text-sm text-ink-2">
-                  Login as contract owner to access this feature
+                  Login to burn DashMint tokens and create cards
                 </p>
                 <button
                   type="button"
@@ -264,28 +264,13 @@ function App() {
                 </button>
               </div>
             )}
-            {/* Overlay: logged in but not the contract owner */}
-            {status === "authenticated" &&
-              contractOwnerId &&
-              identityId !== contractOwnerId && (
-                <div className="absolute inset-0 z-10 flex flex-col items-center justify-center gap-3 rounded-lg bg-bg/55 backdrop-blur-sm">
-                  <p className="max-w-sm text-center text-sm text-ink-2">
-                    Only the contract owner can mint new cards. Register your
-                    own new contract in Settings to try this feature.
-                  </p>
-                  <button
-                    type="button"
-                    onClick={() => setLoginOpen(true)}
-                    className="rounded-md bg-accent px-6 py-2.5 text-sm font-semibold text-bg transition hover:bg-accent-dim"
-                  >
-                    Settings
-                  </button>
-                </div>
-              )}
-
             {contractId && (
               <div className="mx-auto max-w-[540px]">
-                <MintForm contractId={contractId} onMinted={refresh} />
+                <MintForm
+                  contractId={contractId}
+                  dashMintTokenBalance={dashMintTokenBalance}
+                  onMinted={refresh}
+                />
               </div>
             )}
           </section>

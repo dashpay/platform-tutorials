@@ -121,9 +121,10 @@
     // identically against the same testnet contract.
     import { EvoSDK } from 'https://esm.sh/@dashevo/evo-sdk@3.1.0-dev.1';
 
-    // The "card" data contract is already published on testnet by the React app.
-    // Anyone querying with the same contract id hits the same documents.
-    const CONTRACT_ID = '4eJR4pgV9mQdyoodfTTwFUp3SYBRJbUrJ5X1ViN2zBhY';
+    // The token-enabled "card" data contract is already published on testnet by
+    // the React app. Anyone querying with the same contract id hits the same
+    // documents.
+    const CONTRACT_ID = 'k4FEoJPLGtoF6S36sLvQy11Jcqfm8WyMKtfVRYtE9sE';
     const DOC_TYPE = 'card';
 
     // Connect to testnet. testnetTrusted() uses the SDK's bundled list of trusted

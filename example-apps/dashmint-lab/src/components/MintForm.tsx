@@ -6,15 +6,21 @@ import { useState, type FormEvent } from "react";
 import { drawStarterPack, STARTER_PACK_SIZE } from "../data/starterPack";
 import { errorMessage } from "../dash/logger";
 import { mintCard } from "../dash/mintCard";
+import { DASHMINT_TOKEN_COST } from "../dash/dashMintToken";
 import { useSession } from "../session/useSession";
 import { OddsTable } from "./OddsTable";
 
 export interface MintFormProps {
   contractId: string;
+  dashMintTokenBalance?: bigint | null;
   onMinted?: () => void;
 }
 
-export function MintForm({ contractId, onMinted }: MintFormProps) {
+export function MintForm({
+  contractId,
+  dashMintTokenBalance = null,
+  onMinted,
+}: MintFormProps) {
   const session = useSession();
   const [name, setName] = useState("");
   const [description, setDescription] = useState("");
@@ -24,7 +30,7 @@ export function MintForm({ contractId, onMinted }: MintFormProps) {
   async function handleSubmit(e: FormEvent) {
     e.preventDefault();
     if (!session.sdk || !session.keyManager) return;
-    if (submitting || mintingPack) return;
+    if (submitting || mintingPack || dashMintTokenBalance === 0n) return;
     setSubmitting(true);
     try {
       await mintCard({
@@ -46,7 +52,14 @@ export function MintForm({ contractId, onMinted }: MintFormProps) {
 
   async function handleStarterPack() {
     if (!session.sdk || !session.keyManager) return;
-    if (submitting || mintingPack) return;
+    if (
+      submitting ||
+      mintingPack ||
+      (dashMintTokenBalance !== null &&
+        dashMintTokenBalance < BigInt(STARTER_PACK_SIZE))
+    ) {
+      return;
+    }
     setMintingPack(true);
     session.log(`Minting starter pack (${STARTER_PACK_SIZE} cards)…`);
     try {
@@ -75,8 +88,22 @@ export function MintForm({ contractId, onMinted }: MintFormProps) {
         <div>
           <h2 className="text-[14px] font-semibold text-ink">New card</h2>
           <p className="mt-1 max-w-[44ch] text-[12px] leading-[1.55] text-ink-3">
-            Creates a document on the Dash Platform contract. Attack and defense
-            are randomly chosen.
+            Burn 1 DashMint token to mint a document on the Dash Platform
+            contract. Attack and defense are randomly chosen.
+          </p>
+        </div>
+
+        <div className="rounded-md border border-line bg-bg px-3 py-2">
+          <div className="text-[10px] font-semibold uppercase tracking-[0.12em] text-ink-4">
+            DashMint tokens
+          </div>
+          <div className="mt-1 font-mono text-[14px] text-ink">
+            {dashMintTokenBalance === null
+              ? "Unavailable"
+              : dashMintTokenBalance.toString()}
+          </div>
+          <p className="mt-1 text-[11px] leading-[1.45] text-ink-4">
+            Fresh contracts start with 100 DashMint tokens.
           </p>
         </div>
 
@@ -123,10 +150,16 @@ export function MintForm({ contractId, onMinted }: MintFormProps) {
 
         <button
           type="submit"
-          disabled={submitting || mintingPack || !name.trim()}
+          disabled={
+            submitting ||
+            mintingPack ||
+            !name.trim() ||
+            (dashMintTokenBalance !== null &&
+              dashMintTokenBalance < DASHMINT_TOKEN_COST)
+          }
           className="h-10 rounded-md bg-accent px-[18px] text-[13px] font-semibold text-bg transition hover:bg-accent-dim disabled:cursor-not-allowed disabled:bg-surface-2 disabled:text-ink-4"
         >
-          {submitting ? "Minting…" : "Mint card"}
+          {submitting ? "Minting…" : "Burn 1 DashMint token"}
         </button>
       </form>
 
@@ -138,16 +171,21 @@ export function MintForm({ contractId, onMinted }: MintFormProps) {
           Starter Pack
         </h2>
         <p className="text-[12px] leading-[1.55] text-ink-3">
-          Mint a random set of {STARTER_PACK_SIZE} sample cards from the
-          tutorial card pool.
+          Burn {STARTER_PACK_SIZE} DashMint tokens to mint a random set of
+          sample cards from the tutorial card pool.
         </p>
         <button
           type="button"
           onClick={handleStarterPack}
-          disabled={submitting || mintingPack}
+          disabled={
+            submitting ||
+            mintingPack ||
+            (dashMintTokenBalance !== null &&
+              dashMintTokenBalance < BigInt(STARTER_PACK_SIZE))
+          }
           className="self-start rounded-md border border-line-2 px-4 py-2 text-[13px] font-semibold text-ink transition hover:border-accent-dim hover:text-ink disabled:cursor-not-allowed disabled:border-line disabled:text-ink-4"
         >
-          {mintingPack ? "Minting…" : "Mint Starter Pack"}
+          {mintingPack ? "Minting…" : "Burn tokens for Starter Pack"}
         </button>
       </div>
     </div>

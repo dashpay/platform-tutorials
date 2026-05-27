@@ -31,6 +31,7 @@ import {
   saveContractId,
 } from "../dash/contractStorage";
 import { errorMessage, type Logger } from "../dash/logger";
+import { fetchDashMintTokenBalance } from "../dash/dashMintToken";
 import type { DashKeyManager, DashSdk } from "../dash/types";
 
 // The SDK + IdentityKeyManager pull in @dashevo/evo-sdk (and its ~8MB WASM
@@ -85,6 +86,9 @@ export interface SessionValue {
   /** Signed-in identity's credit balance. Null while loading or logged out. */
   balance: bigint | null;
 
+  /** Signed-in identity's DashMint token balance. Null if unavailable. */
+  dashMintTokenBalance: bigint | null;
+
   /** Refetch the balance. Called by App's `refresh` after mutations. */
   refreshBalance: () => void;
 
@@ -118,6 +122,9 @@ export function SessionProvider({ children }: { children: ReactNode }) {
   );
   const [contractOwnerId, setContractOwnerId] = useState<string | null>(null);
   const [balance, setBalance] = useState<bigint | null>(null);
+  const [dashMintTokenBalance, setDashMintTokenBalance] = useState<
+    bigint | null
+  >(null);
   const [balanceNonce, setBalanceNonce] = useState(0);
   const refreshBalance = useCallback(() => {
     setBalanceNonce((n) => n + 1);
@@ -166,6 +173,23 @@ export function SessionProvider({ children }: { children: ReactNode }) {
       cancelled = true;
     };
   }, [sdk, identityId, balanceNonce, log]);
+
+  // Fetch the signed-in identity's DashMint token balance. If the active
+  // contract does not expose the token, unavailable is represented as null.
+  useEffect(() => {
+    if (!sdk || !identityId || !contractId) return;
+    let cancelled = false;
+    fetchDashMintTokenBalance({ sdk, contractId, identityId })
+      .then((tokens) => {
+        if (!cancelled) setDashMintTokenBalance(tokens);
+      })
+      .catch(() => {
+        if (!cancelled) setDashMintTokenBalance(null);
+      });
+    return () => {
+      cancelled = true;
+    };
+  }, [sdk, identityId, contractId, balanceNonce]);
 
   const setContractId = useCallback((id: string | null) => {
     if (id) {
@@ -227,6 +251,7 @@ export function SessionProvider({ children }: { children: ReactNode }) {
       setKeyManager(null);
       setIdentityId(null);
       setBalance(null);
+      setDashMintTokenBalance(null);
       setStatus("browsing");
       log("Browse-only mode (not logged in).", "info");
     } catch (e) {
@@ -241,6 +266,7 @@ export function SessionProvider({ children }: { children: ReactNode }) {
     setKeyManager(null);
     setIdentityId(null);
     setBalance(null);
+    setDashMintTokenBalance(null);
     setStatus(sdk ? "browsing" : "idle");
     log("Logged out.", "info");
   }, [sdk, log]);
@@ -255,6 +281,7 @@ export function SessionProvider({ children }: { children: ReactNode }) {
       contractId,
       contractOwnerId,
       balance,
+      dashMintTokenBalance,
       refreshBalance,
       setContractId,
       log,
@@ -271,6 +298,7 @@ export function SessionProvider({ children }: { children: ReactNode }) {
       contractId,
       contractOwnerId,
       balance,
+      dashMintTokenBalance,
       refreshBalance,
       setContractId,
       log,

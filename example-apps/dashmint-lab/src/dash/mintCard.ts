@@ -4,11 +4,18 @@
  * Attack and defense are rolled client-side (1-10 each). Name is required,
  * description is optional.
  *
- * SDK method: sdk.documents.create({ document, identityKey, signer })
+ * Scarcity comes from the contract, not this function: the `card` document
+ * type has `tokenCost.create` configured to burn 1 token at position 0.
+ * Passing `tokenPaymentInfo` below is the caller's agreement to spend that
+ * DashMint token, so each successful document create consumes one fixed-supply
+ * token and reduces the remaining mint capacity.
+ *
+ * SDK method: sdk.documents.create({ document, identityKey, signer, tokenPaymentInfo })
  */
 import { Document } from "@dashevo/evo-sdk";
 
 import type { Logger } from "./logger";
+import { DASHMINT_TOKEN_PAYMENT_INFO } from "./dashMintToken";
 import type { DashKeyManager, DashSdk } from "./types";
 
 export interface MintCardInput {
@@ -46,7 +53,9 @@ export async function mintCard({
   const defense = card.defense ?? rollStat();
   const description = card.description?.trim();
 
-  log?.(`Minting "${name}" (ATK ${attack} / DEF ${defense})…`);
+  log?.(
+    `Burning 1 DashMint token to mint "${name}" (ATK ${attack} / DEF ${defense})…`,
+  );
 
   const { identity, identityKey, signer } = await keyManager.getAuth();
 
@@ -60,6 +69,11 @@ export async function mintCard({
     ownerId: identity.id,
   });
 
-  await sdk.documents.create({ document: doc, identityKey, signer });
+  await sdk.documents.create({
+    document: doc,
+    identityKey,
+    signer,
+    tokenPaymentInfo: DASHMINT_TOKEN_PAYMENT_INFO,
+  });
   log?.(`Card "${name}" minted!`, "success");
 }

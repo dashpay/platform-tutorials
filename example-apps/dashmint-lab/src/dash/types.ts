@@ -21,6 +21,20 @@ export interface DashDocumentLike {
   [key: string]: unknown;
 }
 
+export interface DashDocumentTokenPaymentInfo {
+  paymentTokenContractId?: string;
+  tokenContractPosition: number;
+  minimumTokenCost?: bigint;
+  maximumTokenCost?: bigint;
+  gasFeesPaidBy?:
+    | "documentOwner"
+    | "contractOwner"
+    | "preferContractOwner"
+    | 0
+    | 1
+    | 2;
+}
+
 export interface DashSdk {
   contracts: {
     fetch(contractId: string): Promise<{
@@ -52,6 +66,7 @@ export interface DashSdk {
       document: unknown;
       identityKey: IdentityPublicKey | undefined;
       signer: IdentitySigner;
+      tokenPaymentInfo?: DashDocumentTokenPaymentInfo;
     }): Promise<unknown>;
     transfer(args: {
       document: DashDocumentLike | undefined;
@@ -86,6 +101,13 @@ export interface DashSdk {
   identities: {
     nonce(identityId: string): Promise<bigint | null | undefined>;
     balance(identityId: string): Promise<bigint>;
+  };
+  tokens: {
+    calculateId(contractId: string, tokenPosition: number): Promise<string>;
+    identityBalances(
+      identityId: string,
+      tokenIds: string[],
+    ): Promise<Map<string, bigint>>;
   };
   dpns: {
     username(identityId: string): Promise<string | null | undefined>;

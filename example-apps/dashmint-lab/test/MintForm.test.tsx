@@ -68,7 +68,7 @@ describe("MintForm", () => {
     render(<MintForm contractId="contract-1" onMinted={vi.fn()} />);
 
     const submit = screen.getByRole("button", {
-      name: "Mint card",
+      name: "Burn 1 DashMint token",
     }) as HTMLButtonElement;
     expect(submit.disabled).toBe(true);
 
@@ -99,7 +99,9 @@ describe("MintForm", () => {
         target: { value: "Fast and bright." },
       },
     );
-    fireEvent.click(screen.getByRole("button", { name: "Mint card" }));
+    fireEvent.click(
+      screen.getByRole("button", { name: "Burn 1 DashMint token" }),
+    );
 
     await waitFor(() => {
       expect(mockMintCard).toHaveBeenCalledWith({
@@ -139,7 +141,9 @@ describe("MintForm", () => {
     fireEvent.change(screen.getByPlaceholderText("e.g. Fire Dragon"), {
       target: { value: "Sky Hunter" },
     });
-    fireEvent.click(screen.getByRole("button", { name: "Mint card" }));
+    fireEvent.click(
+      screen.getByRole("button", { name: "Burn 1 DashMint token" }),
+    );
 
     await waitFor(() => {
       expect(log).toHaveBeenCalledWith("Mint error: Mint failed", "error");
@@ -157,7 +161,9 @@ describe("MintForm", () => {
 
     render(<MintForm contractId="contract-1" onMinted={onMinted} />);
 
-    fireEvent.click(screen.getByRole("button", { name: "Mint Starter Pack" }));
+    fireEvent.click(
+      screen.getByRole("button", { name: "Burn tokens for Starter Pack" }),
+    );
 
     await waitFor(() => {
       expect(mockMintCard).toHaveBeenCalledTimes(3);
@@ -209,7 +215,9 @@ describe("MintForm", () => {
 
     render(<MintForm contractId="contract-1" onMinted={onMinted} />);
 
-    fireEvent.click(screen.getByRole("button", { name: "Mint Starter Pack" }));
+    fireEvent.click(
+      screen.getByRole("button", { name: "Burn tokens for Starter Pack" }),
+    );
 
     await waitFor(() => {
       expect(mockMintCard).toHaveBeenCalledTimes(2);
@@ -224,5 +232,36 @@ describe("MintForm", () => {
     );
     expect(log).not.toHaveBeenCalledWith("Starter pack minted!", "success");
     expect(onMinted).not.toHaveBeenCalled();
+  });
+
+  it("shows token-burn copy and disables minting when the token balance is zero", () => {
+    mockUseSession.mockReturnValue(sessionValue);
+
+    render(
+      <MintForm
+        contractId="contract-1"
+        dashMintTokenBalance={0n}
+        onMinted={vi.fn()}
+      />,
+    );
+
+    expect(
+      screen.getByText(/Burn 1 DashMint token to mint a document/),
+    ).toBeTruthy();
+    expect(screen.getByText("DashMint tokens")).toBeTruthy();
+    expect(screen.getByText("0")).toBeTruthy();
+
+    fireEvent.change(screen.getByPlaceholderText("e.g. Fire Dragon"), {
+      target: { value: "Sky Hunter" },
+    });
+
+    expect(
+      (
+        screen.getByRole("button", {
+          name: "Burn 1 DashMint token",
+        }) as HTMLButtonElement
+      ).disabled,
+    ).toBe(true);
+    expect(mockMintCard).not.toHaveBeenCalled();
   });
 });

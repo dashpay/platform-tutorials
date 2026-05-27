@@ -17,6 +17,8 @@ const {
   mockIdentityKeyManagerCreate,
   mockFetchContractOwnerId,
   mockFetchBalance,
+  mockCalculateTokenId,
+  mockFetchTokenBalances,
   mockLoadStoredContractId,
   mockSaveContractId,
   mockClearStoredContractId,
@@ -27,6 +29,8 @@ const {
   mockIdentityKeyManagerCreate: vi.fn(),
   mockFetchContractOwnerId: vi.fn(),
   mockFetchBalance: vi.fn(),
+  mockCalculateTokenId: vi.fn(),
+  mockFetchTokenBalances: vi.fn(),
   mockLoadStoredContractId: vi.fn(),
   mockSaveContractId: vi.fn(),
   mockClearStoredContractId: vi.fn(),
@@ -60,6 +64,10 @@ vi.mock("../src/dash/contractStorage", () => ({
 const fakeSdk = {
   sdk: "connected" as const,
   identities: { balance: mockFetchBalance, nonce: vi.fn() },
+  tokens: {
+    calculateId: mockCalculateTokenId,
+    identityBalances: mockFetchTokenBalances,
+  },
 };
 
 vi.mock("sonner", () => ({
@@ -81,6 +89,11 @@ function SessionProbe() {
       <div data-testid="owner">{session.contractOwnerId ?? ""}</div>
       <div data-testid="balance">
         {session.balance === null ? "" : session.balance.toString()}
+      </div>
+      <div data-testid="dashmint-token-balance">
+        {session.dashMintTokenBalance === null
+          ? ""
+          : session.dashMintTokenBalance.toString()}
       </div>
       <button type="button" onClick={() => session.refreshBalance()}>
         Refresh Balance
@@ -137,6 +150,10 @@ beforeEach(() => {
   mockFetchContractOwnerId.mockReset();
   mockFetchBalance.mockReset();
   mockFetchBalance.mockResolvedValue(0n);
+  mockCalculateTokenId.mockReset();
+  mockCalculateTokenId.mockResolvedValue("token-1");
+  mockFetchTokenBalances.mockReset();
+  mockFetchTokenBalances.mockResolvedValue(new Map([["token-1", 0n]]));
   mockSaveContractId.mockReset();
   mockClearStoredContractId.mockReset();
   mockToastSuccess.mockReset();
@@ -299,6 +316,28 @@ describe("SessionProvider", () => {
     expect(mockFetchBalance).toHaveBeenCalledWith("identity-456");
   });
 
+  it("fetches the DashMint token balance for the active contract", async () => {
+    mockCreateClient.mockResolvedValue(fakeSdk);
+    mockFetchContractOwnerId.mockResolvedValue("owner-123");
+    mockIdentityKeyManagerCreate.mockResolvedValue({
+      identityId: "identity-456",
+    });
+    mockFetchTokenBalances.mockResolvedValue(new Map([["token-1", 42n]]));
+
+    renderSession();
+    fireEvent.click(screen.getByRole("button", { name: "Login" }));
+
+    await waitFor(() => {
+      expect(screen.getByTestId("dashmint-token-balance").textContent).toBe(
+        "42",
+      );
+    });
+    expect(mockCalculateTokenId).toHaveBeenCalledWith("stored-contract-id", 0);
+    expect(mockFetchTokenBalances).toHaveBeenCalledWith("identity-456", [
+      "token-1",
+    ]);
+  });
+
   it("clears the balance on logout", async () => {
     mockCreateClient.mockResolvedValue(fakeSdk);
     mockFetchContractOwnerId.mockResolvedValue(null);
@@ -318,6 +357,7 @@ describe("SessionProvider", () => {
     await waitFor(() => {
       expect(screen.getByTestId("balance").textContent).toBe("");
     });
+    expect(screen.getByTestId("dashmint-token-balance").textContent).toBe("");
   });
 
   it("clears the balance when transitioning from authenticated to browse-only", async () => {
@@ -340,6 +380,7 @@ describe("SessionProvider", () => {
       expect(screen.getByTestId("status").textContent).toBe("browsing");
     });
     expect(screen.getByTestId("balance").textContent).toBe("");
+    expect(screen.getByTestId("dashmint-token-balance").textContent).toBe("");
   });
 
   it("refreshBalance() re-runs the fetch", async () => {
