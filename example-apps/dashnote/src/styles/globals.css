@@ -92,3 +92,11 @@ code {
   outline: 2px solid var(--color-accent-dim);
   outline-offset: 2px;
 }
+
+@media (max-width: 767px) {
+  .mobile-note-editor-field:focus,
+  .mobile-note-editor-field:focus-visible {
+    outline: none;
+    box-shadow: none;
+  }
+}

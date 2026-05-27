@@ -37,15 +37,22 @@ vi.mock("../src/components/AppShell", () => ({
     children,
     onLoginOpen,
     onTabChange,
+    onOpenActivity,
   }: {
     children: ReactNode;
     onLoginOpen: () => void;
     onTabChange: (tab: "notes" | "how-it-works" | "settings") => void;
+    onOpenActivity?: () => void;
   }) => (
     <div>
       <button type="button" onClick={onLoginOpen}>
         Open settings
       </button>
+      {onOpenActivity && (
+        <button type="button" onClick={onOpenActivity}>
+          Open shell activity
+        </button>
+      )}
       <button type="button" onClick={() => onTabChange("how-it-works")}>
         How it works tab
       </button>
@@ -180,6 +187,18 @@ describe("App", () => {
     expect(screen.getByText("activity:false")).toBeTruthy();
 
     fireEvent.click(screen.getByRole("button", { name: /open activity/i }));
+    expect(screen.getByText("activity:true")).toBeTruthy();
+  });
+
+  it("opens the activity panel from the shell activity action", () => {
+    mockUseSession.mockReturnValue(makeSession({ status: "readonly" }));
+
+    render(<App />);
+    expect(screen.getByText("activity:false")).toBeTruthy();
+
+    fireEvent.click(
+      screen.getByRole("button", { name: /open shell activity/i }),
+    );
     expect(screen.getByText("activity:true")).toBeTruthy();
   });
 

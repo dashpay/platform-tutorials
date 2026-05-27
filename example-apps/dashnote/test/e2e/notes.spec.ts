@@ -8,6 +8,7 @@ import {
   cleanupE2eNotes,
   returnToList,
   seedSearchFixtures,
+  waitForSaveComplete,
   e2eTitle,
   SEARCH_FIXTURE_ALPHA,
   SEARCH_FIXTURE_BETA,
@@ -59,8 +60,7 @@ test("create, edit, and delete a note round-trip", async ({ page }) => {
   await expect(page.getByLabel("Title")).toHaveValue(originalTitle);
   await page.getByLabel("Title").fill(newTitle);
   await page.getByRole("button", { name: /^save$/i }).click();
-  // Save completes when the button disables again (dirty=false).
-  await expect(page.getByRole("button", { name: /^save$/i })).toBeDisabled();
+  await waitForSaveComplete(page);
 
   // After save, hop back to the list to verify the title change is
   // reflected there (and the old title is gone).
@@ -156,33 +156,106 @@ test("mobile: tapping a note transitions list → editor; Back returns", async (
     "mobile-only viewport behavior",
   );
 
-  const title = e2eTitle("mobile");
-  await createNoteViaEditor(page, {
-    title,
-    message: "mobile list/editor transition",
-  });
-
-  // Returning to the list view: after createNoteViaEditor, the editor is
-  // showing the new note. Hit Back.
-  await page.getByRole("button", { name: /back to notes/i }).click();
-  // List visible again, editor hidden.
+  await returnToList(page);
+  await expect(
+    page.locator("button", { hasText: SEARCH_FIXTURE_ALPHA }).first(),
+  ).toBeVisible({ timeout: 60_000 });
   await expect(page.getByPlaceholder("Search")).toBeVisible();
   await expect(page.getByLabel("Title")).toBeHidden();
 
   // Tap the note → editor reappears.
-  await page.locator("button", { hasText: title }).first().click();
-  await expect(page.getByLabel("Title")).toHaveValue(title);
+  await page
+    .locator("button", { hasText: SEARCH_FIXTURE_ALPHA })
+    .first()
+    .click();
+  await expect(page.getByLabel("Title")).toHaveValue(SEARCH_FIXTURE_ALPHA);
   // Search bar is hidden once a note is selected on mobile.
   await expect(page.getByPlaceholder("Search")).toBeHidden();
+
+  await page.getByRole("button", { name: /back to notes/i }).click();
+  await expect(page.getByPlaceholder("Search")).toBeVisible();
+  await expect(page.getByLabel("Title")).toBeHidden();
+});
+
+test("mobile: swiping a note reveals row actions and opens note info", async ({
+  page,
+}, testInfo) => {
+  test.skip(
+    testInfo.project.name !== "chromium-mobile",
+    "mobile-only viewport behavior",
+  );
+
+  await returnToList(page);
+  await expect(
+    page.locator("button", { hasText: SEARCH_FIXTURE_ALPHA }).first(),
+  ).toBeVisible({ timeout: 60_000 });
+
+  const row = page.locator(
+    'div[data-testid^="note-row-"]:not([data-testid*="foreground"])',
+    { has: page.locator("button", { hasText: SEARCH_FIXTURE_ALPHA }) },
+  );
+  const box = await row.boundingBox();
+  expect(box).not.toBeNull();
+  if (!box) return;
+
+  await page.mouse.move(box.x + box.width - 24, box.y + box.height / 2);
+  await page.mouse.down();
+  await page.mouse.move(box.x + box.width - 120, box.y + box.height / 2 + 2, {
+    steps: 5,
+  });
+  await page.mouse.up();
+
+  await expect(row.getByRole("button", { name: /^more$/i })).toBeVisible();
+  await row.getByRole("button", { name: /^more$/i }).click();
+  const actions = page.getByRole("dialog", { name: /note actions/i });
+  await expect(actions).toBeVisible();
+
+  await actions.getByRole("button", { name: /^info$/i }).click();
+  const info = page.getByRole("dialog", { name: /note info/i });
+  await expect(info).toBeVisible();
+  await expect(info.getByText(/revision/i)).toBeVisible();
+
+  await info.getByRole("button", { name: /^cancel$/i }).click();
+  await expect(info).toBeHidden();
+});
+
+test("mobile: editor note actions delete flow opens confirmation", async ({
+  page,
+}, testInfo) => {
+  test.skip(
+    testInfo.project.name !== "chromium-mobile",
+    "mobile-only viewport behavior",
+  );
+
+  await returnToList(page);
+  await expect(
+    page.locator("button", { hasText: SEARCH_FIXTURE_BETA }).first(),
+  ).toBeVisible({ timeout: 60_000 });
+  await page
+    .locator("button", { hasText: SEARCH_FIXTURE_BETA })
+    .first()
+    .click();
+  await expect(page.getByLabel("Title")).toHaveValue(SEARCH_FIXTURE_BETA);
+
+  await page.getByRole("button", { name: /note actions/i }).click();
+  const actions = page.getByRole("dialog", { name: /note actions/i });
+  await expect(actions).toBeVisible();
+  await actions.getByRole("button", { name: /^delete$/i }).click();
+
+  const confirmDialog = page.getByRole("dialog", { name: /delete note/i });
+  await expect(confirmDialog).toBeVisible();
+  await expect(confirmDialog.getByText(SEARCH_FIXTURE_BETA)).toBeVisible();
+  await confirmDialog.getByRole("button", { name: /^cancel$/i }).click();
+  await expect(confirmDialog).toBeHidden();
 });
 
 test("two contexts can sequentially save the same note without conflict", async ({
   browser,
 }) => {
   // This test does ~6 testnet round-trips (login×2, create, update×2,
-  // delete) across two browser contexts. The default 15s test budget
-  // isn't enough.
-  test.setTimeout(60_000);
+  // delete) across two browser contexts. Mobile emulation can be slower,
+  // so give this network-heavy serial case extra room.
+  test.setTimeout(120_000);
 
   // Spin up two contexts that share the same identity. Login with
   // rememberMe so reloads keep the identity hint and re-enter "browsing"
@@ -211,16 +284,9 @@ test("two contexts can sequentially save the same note without conflict", async 
     });
 
     // Page2 needs to see the note created by page1. Reload to bypass
-    // the 30s background refresh and re-login (rememberMe means the
-    // login form pre-fills with the remembered identity hint). A
-    // remembered identity boots into browsing, so wait for that
-    // subtitle as the readiness gate.
+    // the 30s background refresh and re-login. Remembered identity boots
+    // into browsing, so loginViaModal uses the IdentityCard path.
     await page2.reload();
-    await expect(
-      page2
-        .locator('aside[aria-label="Main navigation"]')
-        .getByText("Read-only access", { exact: true }),
-    ).toBeVisible({ timeout: 60_000 });
     await loginViaModal(page2, { rememberMe: true });
     await expect(
       page2.locator("button", { hasText: title }).first(),
@@ -235,19 +301,11 @@ test("two contexts can sequentially save the same note without conflict", async 
     });
     await page2.getByLabel("Body").fill("round 2 (from page2)");
     await page2.getByRole("button", { name: /^save$/i }).click();
-    await expect(page2.getByRole("button", { name: /^save$/i })).toBeDisabled({
-      timeout: 60_000,
-    });
+    await waitForSaveComplete(page2);
 
     // Page1 reloads + re-logs to see page2's edit, then makes its own
-    // change. Remembered identity → browsing on reload, so wait for
-    // the browsing subtitle as the readiness gate.
+    // change. Remembered identity boots into browsing after reload.
     await page1.reload();
-    await expect(
-      page1
-        .locator('aside[aria-label="Main navigation"]')
-        .getByText("Read-only access", { exact: true }),
-    ).toBeVisible({ timeout: 60_000 });
     await loginViaModal(page1, { rememberMe: true });
     await page1.locator("button", { hasText: title }).first().click();
     await expect(page1.getByLabel("Body")).toHaveValue("round 2 (from page2)", {
@@ -255,9 +313,7 @@ test("two contexts can sequentially save the same note without conflict", async 
     });
     await page1.getByLabel("Body").fill("round 3 (from page1)");
     await page1.getByRole("button", { name: /^save$/i }).click();
-    await expect(page1.getByRole("button", { name: /^save$/i })).toBeDisabled({
-      timeout: 60_000,
-    });
+    await waitForSaveComplete(page1);
 
     // Cleanup from page1. afterEach runs against the base test `page`,
     // which is a different context that isn't logged in, so cleanup has
@@ -267,8 +323,7 @@ test("two contexts can sequentially save the same note without conflict", async 
       /* best effort */
     });
   } finally {
-    await ctx1.close();
-    await ctx2.close();
+    await Promise.allSettled([ctx1.close(), ctx2.close()]);
   }
 });
 

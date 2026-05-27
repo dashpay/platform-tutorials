@@ -51,6 +51,15 @@ function isMobile(page: Page): boolean {
   return size != null && size.width < 768;
 }
 
+async function openMobileDrawerIfNeeded(page: Page) {
+  if (!isMobile(page)) return;
+  const hamburger = page.locator('button[aria-expanded][aria-label*="menu" i]');
+  if ((await hamburger.getAttribute("aria-expanded")) !== "true") {
+    await hamburger.click();
+    await expect(hamburger).toHaveAttribute("aria-expanded", "true");
+  }
+}
+
 /**
  * Resolve a sidebar nav button (Notes / How it works / Sign in) by label.
  *
@@ -58,16 +67,7 @@ function isMobile(page: Page): boolean {
  * drawer first so the button is in the visible viewport.
  */
 export async function navButton(page: Page, label: RegExp | string) {
-  if (isMobile(page)) {
-    // Hamburger button carries aria-expanded="true|false" reflecting drawerOpen.
-    const hamburger = page.locator(
-      'button[aria-expanded][aria-label*="menu" i]',
-    );
-    if ((await hamburger.getAttribute("aria-expanded")) !== "true") {
-      await hamburger.click();
-      await expect(hamburger).toHaveAttribute("aria-expanded", "true");
-    }
-  }
+  await openMobileDrawerIfNeeded(page);
   return page
     .locator('aside[aria-label="Main navigation"]')
     .getByRole("button", { name: label });
@@ -84,15 +84,7 @@ export async function navButton(page: Page, label: RegExp | string) {
  * via the hamburger first.
  */
 export async function openIdentityMenu(page: Page) {
-  if (isMobile(page)) {
-    const hamburger = page.locator(
-      'button[aria-expanded][aria-label*="menu" i]',
-    );
-    if ((await hamburger.getAttribute("aria-expanded")) !== "true") {
-      await hamburger.click();
-      await expect(hamburger).toHaveAttribute("aria-expanded", "true");
-    }
-  }
+  await openMobileDrawerIfNeeded(page);
   // The IdentityCard menu trigger is the button with aria-haspopup="menu".
   // (The hamburger uses aria-haspopup absent; readonly card is a plain
   // button; only the authenticated/browsing IdentityCard exposes the menu.)
@@ -127,6 +119,8 @@ export async function loginViaModal(
   if (!mnemonic) {
     throw new Error("PLATFORM_MNEMONIC is required for loginViaModal");
   }
+
+  await openMobileDrawerIfNeeded(page);
 
   const browsing = await page
     .locator('aside[aria-label="Main navigation"]')
@@ -236,6 +230,30 @@ export async function startNewNote(page: Page) {
 }
 
 /**
+ * Wait until a save/create operation has completed and the editor is clean.
+ * Desktop keeps a disabled Save button visible; mobile hides Save when clean.
+ */
+export async function waitForSaveComplete(page: Page) {
+  if (isMobile(page)) {
+    await expect(page.getByText(/^Updated /i)).toBeVisible({
+      timeout: 60_000,
+    });
+    await expect(page.getByRole("button", { name: /^save$/i })).toBeHidden();
+    return;
+  }
+
+  await expect(page.getByRole("button", { name: /^save$/i })).toBeDisabled({
+    timeout: 60_000,
+  });
+}
+
+async function waitForToastsToClear(page: Page) {
+  await expect(page.locator("[data-sonner-toast]")).toHaveCount(0, {
+    timeout: 10_000,
+  });
+}
+
+/**
  * Create a note via the editor: opens the New-note draft, fills title +
  * body, clicks the create/save button, waits until the list contains an
  * item with the given title.
@@ -249,14 +267,7 @@ export async function createNoteViaEditor(
   await page.getByLabel("Body").fill(message);
   // The save button reads "Create note" for new drafts.
   await page.getByRole("button", { name: /^create note$/i }).click();
-  // Post-save, the editor advances baselines, so the Save button flips
-  // from enabled ("Create note") to disabled (label becomes "Save" and
-  // dirty=false). That's a viewport-agnostic signal — much more reliable
-  // than asserting list-item visibility, which on mobile is hidden
-  // because the list pane gets `display: none` when a note is selected.
-  await expect(page.getByRole("button", { name: /^save$/i })).toBeDisabled({
-    timeout: 60_000,
-  });
+  await waitForSaveComplete(page);
 }
 
 /**
@@ -276,17 +287,23 @@ export async function deleteNoteByTitle(page: Page, title: string) {
     timeout: 30_000,
   });
 
-  // Desktop renders the "Delete" button in the editor header; mobile
-  // renders "Delete note" near the bottom. Match either label.
-  await page
-    .getByRole("button", { name: /^delete( note)?$/i })
-    .first()
-    .click();
+  if (isMobile(page)) {
+    await page.getByRole("button", { name: /note actions/i }).click();
+    const actions = page.getByRole("dialog", { name: /note actions/i });
+    await expect(actions).toBeVisible();
+    await actions.getByRole("button", { name: /^delete$/i }).click();
+  } else {
+    await page
+      .getByRole("button", { name: /^delete$/i })
+      .first()
+      .click();
+  }
 
   // DeleteNoteModal opens for confirmation; scope to its dialog so we
   // don't accidentally re-match the editor's Delete trigger.
-  const confirmDialog = page.getByRole("dialog");
+  const confirmDialog = page.getByRole("dialog", { name: /delete note/i });
   await expect(confirmDialog).toBeVisible();
+  await waitForToastsToClear(page);
   await confirmDialog.getByRole("button", { name: /^delete$/i }).click();
 
   // Item leaves the list after reloadNotes resolves.
