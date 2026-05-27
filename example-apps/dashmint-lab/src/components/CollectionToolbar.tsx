@@ -21,3 +21,13 @@ export function CollectionToolbar({
     </button>
   );
 }
+
+export function RefreshSpinner() {
+  return (
+    <span
+      aria-label="Refreshing"
+      role="status"
+      className="inline-block h-3 w-3 animate-spin rounded-full border border-ink-4 border-t-transparent"
+    />
+  );
+}
