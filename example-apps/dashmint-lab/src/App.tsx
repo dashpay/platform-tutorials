@@ -151,7 +151,8 @@ function App() {
     },
     mint: {
       title: "Mint",
-      subtitle: "Burn 1 DashMint token to create a new card document.",
+      subtitle:
+        "Create collectible cards on Dash Platform using DashMint tokens.",
     },
     "how-it-works": {
       title: "How it works",
