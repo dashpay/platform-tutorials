@@ -8,6 +8,7 @@ React + TypeScript + Vite app for minting, viewing, transferring, and trading NF
 - `npm run build` — typecheck (`tsc -b`) then bundle
 - `npm run lint` — ESLint
 - `npm run test` — Vitest suite in [test/](test/)
+- `npm run test:coverage` — Vitest with v8 coverage (text + HTML report in `coverage/`)
 - `npm run test:e2e` — Playwright suite in [test/e2e/](test/e2e/) (auto-boots Vite on :5180)
 - `npm run test:e2e:ui` — Playwright with the interactive UI runner
 - `npm run format` / `format:check` — Prettier
