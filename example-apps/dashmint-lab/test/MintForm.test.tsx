@@ -68,7 +68,7 @@ describe("MintForm", () => {
     render(<MintForm contractId="contract-1" onMinted={vi.fn()} />);
 
     const submit = screen.getByRole("button", {
-      name: "Mint card",
+      name: "Mint Card",
     }) as HTMLButtonElement;
     expect(submit.disabled).toBe(true);
 
@@ -99,7 +99,7 @@ describe("MintForm", () => {
         target: { value: "Fast and bright." },
       },
     );
-    fireEvent.click(screen.getByRole("button", { name: "Mint card" }));
+    fireEvent.click(screen.getByRole("button", { name: "Mint Card" }));
 
     await waitFor(() => {
       expect(mockMintCard).toHaveBeenCalledWith({
@@ -139,7 +139,7 @@ describe("MintForm", () => {
     fireEvent.change(screen.getByPlaceholderText("e.g. Fire Dragon"), {
       target: { value: "Sky Hunter" },
     });
-    fireEvent.click(screen.getByRole("button", { name: "Mint card" }));
+    fireEvent.click(screen.getByRole("button", { name: "Mint Card" }));
 
     await waitFor(() => {
       expect(log).toHaveBeenCalledWith("Mint error: Mint failed", "error");
@@ -157,7 +157,7 @@ describe("MintForm", () => {
 
     render(<MintForm contractId="contract-1" onMinted={onMinted} />);
 
-    fireEvent.click(screen.getByRole("button", { name: "Mint Starter Pack" }));
+    fireEvent.click(screen.getByRole("button", { name: "Open Starter Pack" }));
 
     await waitFor(() => {
       expect(mockMintCard).toHaveBeenCalledTimes(3);
@@ -209,7 +209,7 @@ describe("MintForm", () => {
 
     render(<MintForm contractId="contract-1" onMinted={onMinted} />);
 
-    fireEvent.click(screen.getByRole("button", { name: "Mint Starter Pack" }));
+    fireEvent.click(screen.getByRole("button", { name: "Open Starter Pack" }));
 
     await waitFor(() => {
       expect(mockMintCard).toHaveBeenCalledTimes(2);
@@ -224,5 +224,82 @@ describe("MintForm", () => {
     );
     expect(log).not.toHaveBeenCalledWith("Starter pack minted!", "success");
     expect(onMinted).not.toHaveBeenCalled();
+  });
+
+  it("shows token-burn copy and disables minting when the token balance is zero", () => {
+    mockUseSession.mockReturnValue(sessionValue);
+
+    render(
+      <MintForm
+        contractId="contract-1"
+        dashMintTokenBalance={0n}
+        onMinted={vi.fn()}
+      />,
+    );
+
+    expect(
+      screen.getByText(
+        /Mint a unique collectible card\. Costs 1 DashMint token\./,
+      ),
+    ).toBeTruthy();
+    expect(screen.getByText("DashMint tokens")).toBeTruthy();
+    expect(screen.getByText("0")).toBeTruthy();
+    expect(
+      screen.getByText("You need at least 1 DashMint token to mint a card."),
+    ).toBeTruthy();
+    expect(
+      screen.getByText(
+        `You need ${STARTER_PACK_SIZE} DashMint tokens to open a Starter Pack.`,
+      ),
+    ).toBeTruthy();
+
+    fireEvent.change(screen.getByPlaceholderText("e.g. Fire Dragon"), {
+      target: { value: "Sky Hunter" },
+    });
+
+    expect(
+      (
+        screen.getByRole("button", {
+          name: "Mint Card",
+        }) as HTMLButtonElement
+      ).disabled,
+    ).toBe(true);
+    expect(mockMintCard).not.toHaveBeenCalled();
+  });
+
+  it("allows a single mint but disables starter pack when balance is below pack size", () => {
+    mockUseSession.mockReturnValue(sessionValue);
+
+    render(
+      <MintForm
+        contractId="contract-1"
+        dashMintTokenBalance={1n}
+        onMinted={vi.fn()}
+      />,
+    );
+
+    fireEvent.change(screen.getByPlaceholderText("e.g. Fire Dragon"), {
+      target: { value: "Sky Hunter" },
+    });
+
+    expect(
+      (
+        screen.getByRole("button", {
+          name: "Mint Card",
+        }) as HTMLButtonElement
+      ).disabled,
+    ).toBe(false);
+    expect(
+      (
+        screen.getByRole("button", {
+          name: "Open Starter Pack",
+        }) as HTMLButtonElement
+      ).disabled,
+    ).toBe(true);
+    expect(
+      screen.getByText(
+        `You need ${STARTER_PACK_SIZE} DashMint tokens to open a Starter Pack.`,
+      ),
+    ).toBeTruthy();
   });
 });

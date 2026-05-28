@@ -8,6 +8,7 @@ React + TypeScript + Vite app for minting, viewing, transferring, and trading NF
 - `npm run build` — typecheck (`tsc -b`) then bundle
 - `npm run lint` — ESLint
 - `npm run test` — Vitest suite in [test/](test/)
+- `npm run test:coverage` — Vitest with v8 coverage (text + HTML report in `coverage/`)
 - `npm run test:e2e` — Playwright suite in [test/e2e/](test/e2e/) (auto-boots Vite on :5180)
 - `npm run test:e2e:ui` — Playwright with the interactive UI runner
 - `npm run format` / `format:check` — Prettier
@@ -15,7 +16,7 @@ React + TypeScript + Vite app for minting, viewing, transferring, and trading NF
 
 ## Architecture
 
-- **[src/dash/](src/dash/)** — one file per Platform SDK operation. Each exports an async function with a leading JSDoc block. No hooks, no wrappers — the SDK call is the function. Includes the `classifyRecipientInput` / `resolveRecipient` DPNS helpers.
+- **[src/dash/](src/dash/)** — one file per Platform SDK operation. Each exports an async function with a leading JSDoc block. No hooks, no wrappers — the SDK call is the function. Includes the `classifyRecipientInput` / `resolveRecipient` DPNS helpers and [dashMintToken.ts](src/dash/dashMintToken.ts), which holds fixed-supply token constants, token payment metadata, and balance lookup for constrained minting.
 - **Shared SDK core** — [src/dash/client.ts](src/dash/client.ts) and [src/dash/keyManager.ts](src/dash/keyManager.ts) re-export directly from `../../../../setupDashClient-core.mjs` (the canonical browser-safe core at the host repo root). No vendoring, no backport step. The `@dashevo/evo-sdk` bare specifier is aliased to the app's local copy via [vite.config.ts](vite.config.ts).
 - **[src/session/](src/session/)** — `SessionContext.tsx` provides the context (SDK, keyManager, identityId, contractId, contractOwnerId, balance, activity log) and calls `sdk.identities.balance` inline; `useSession.ts` is the consumer hook. Mnemonic lives only in the keyManager closure — never in state, never in localStorage.
 - **[src/components/](src/components/)** — standard React. Modals call `src/dash/` functions directly. Notable: [HowItWorks.tsx](src/components/HowItWorks.tsx) (static education tab), [CardArt.tsx](src/components/CardArt.tsx) (deterministic themed SVG), [OddsTable.tsx](src/components/OddsTable.tsx).
@@ -29,7 +30,8 @@ React + TypeScript + Vite app for minting, viewing, transferring, and trading NF
 
 ## SDK Patterns
 
-- **Minting**: `sdk.documents.create({ document, identityKey, signer })`
+- **Minting**: `sdk.documents.create({ document, identityKey, signer, tokenPaymentInfo })`; `card.tokenCost.create` burns 1 DashMint token, so supply is constrained by the fixed token supply.
+- **DashMint token balance**: `sdk.tokens.calculateId(contractId, 0)` + `sdk.tokens.identityBalances(identityId, [tokenId])`
 - **Transfer**: `sdk.documents.transfer({ document, recipientId, identityKey, signer })`
 - **Set price**: `sdk.documents.setPrice({ document, price: BigInt, identityKey, signer })`
 - **Purchase**: `sdk.documents.purchase({ document, buyerId, price: BigInt, identityKey, signer })`
@@ -45,11 +47,12 @@ All mutations except mint flow through [withAuthedCard.ts](src/dash/withAuthedCa
 - All document mutations (transfer, setPrice, purchase) require fetching the document first and incrementing `document.revision = BigInt(document.revision) + 1n`
 - Transfer/trade operations use AUTHENTICATION keys, not TRANSFER purpose keys — the SDK rejects TRANSFER purpose for these state transitions
 - Attack/defense are randomly generated (1–10) on mint; rarity is derived client-side in [rarity.ts](src/lib/rarity.ts) (common ≤10, rare 11–14, legendary ≥15) and is not persisted
+- Mint capacity is real, but rarity is not enforced by the contract: card creation burns one fixed-supply DashMint token, while stats/rarity are still client-generated demo data
 - Browse-only mode sets `keyManager` to null — `withAuthedCard` guards this; check session status before any write operation
 - `listMarketplaceCards` filters client-side for `$price` (no server-side trade-mode index available yet)
 - DPNS names are normalized to lowercase + `.dash` suffix before resolving; `classifyRecipientInput` distinguishes identity IDs from names by character set, not length
 - Contract ID stored in `localStorage['dashmint-lab.contractId']` (public, safe to persist); clearing falls back to `DEFAULT_CONTRACT_ID` in [contract.ts](src/dash/contract.ts) so browse-only mode always has something queryable
-- The mint tab is gated to the contract owner — non-owners see an informative overlay
+- The mint tab is login-gated. Any authenticated identity with DashMint tokens can mint; identities without tokens see minting disabled by balance state or rejected by Platform.
 - The Evo SDK WASM bundle is ~8MB; this is expected and not a build error
 - `allowJs: true` in tsconfig so TypeScript can import the JSDoc-typed `.mjs` core at the host repo root
 - Deploys to GitHub Pages via `VITE_BASE_PATH`; the workflow lives at the repo root under `.github/workflows/`

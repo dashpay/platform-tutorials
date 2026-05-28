@@ -204,7 +204,11 @@ vi.mock("../src/components/BurnModal", () => ({
 }));
 
 vi.mock("../src/components/MintForm", () => ({
-  MintForm: () => <div>Mint Form</div>,
+  MintForm: ({
+    dashMintTokenBalance,
+  }: {
+    dashMintTokenBalance?: bigint | null;
+  }) => <div>Mint Form tokens:{String(dashMintTokenBalance)}</div>,
 }));
 
 vi.mock("../src/components/HowItWorks", () => ({
@@ -219,6 +223,7 @@ function makeSession(overrides: Partial<ReturnType<typeof makeSession>> = {}) {
     contractId: "contract-1",
     contractOwnerId: null as string | null,
     balance: null as bigint | null,
+    dashMintTokenBalance: null as bigint | null,
     refreshBalance: vi.fn(),
     log: vi.fn(),
     browseOnly: vi.fn().mockResolvedValue(undefined),
@@ -526,20 +531,21 @@ describe("App", () => {
     fireEvent.click(screen.getByRole("button", { name: "Mint Tab" }));
 
     expect(
-      screen.getByText("Login as contract owner to access this feature"),
+      screen.getByText("Login to burn DashMint tokens and create cards"),
     ).toBeTruthy();
     fireEvent.click(screen.getByRole("button", { name: "Login" }));
     expect(screen.getByTestId("login-modal").textContent).toContain(
       "open:true",
     );
-    expect(screen.getByText("Mint Form")).toBeTruthy();
+    expect(screen.getByText("Mint Form tokens:null")).toBeTruthy();
   });
 
-  it("shows the owner gate on the mint screen for authenticated non-owners", async () => {
+  it("allows authenticated non-owners to mint when they hold DashMint tokens", async () => {
     const session = makeSession({
       status: "authenticated" as const,
       identityId: "identity-1",
       contractOwnerId: "owner-2",
+      dashMintTokenBalance: 3n,
     });
     mockUseSession.mockReturnValue(session);
     mockListMyCards.mockResolvedValue([cards[1]]);
@@ -548,16 +554,10 @@ describe("App", () => {
 
     fireEvent.click(screen.getByRole("button", { name: "Mint Tab" }));
 
+    expect(screen.getByText("Mint Form tokens:3")).toBeTruthy();
     expect(
-      screen.getByText(
-        "Only the contract owner can mint new cards. Register your own new contract in Settings to try this feature.",
-      ),
-    ).toBeTruthy();
-    fireEvent.click(screen.getByRole("button", { name: "Settings" }));
-    expect(screen.getByTestId("login-modal").textContent).toContain(
-      "open:true",
-    );
-    expect(screen.getByText("Mint Form")).toBeTruthy();
+      screen.queryByText(/Only the contract owner can mint new cards/),
+    ).toBeNull();
   });
 
   it("does not show a gate on the mint screen for the contract owner", async () => {
@@ -573,9 +573,9 @@ describe("App", () => {
 
     fireEvent.click(screen.getByRole("button", { name: "Mint Tab" }));
 
-    expect(screen.getByText("Mint Form")).toBeTruthy();
+    expect(screen.getByText("Mint Form tokens:null")).toBeTruthy();
     expect(
-      screen.queryByText("Login as contract owner to access this feature"),
+      screen.queryByText("Login to burn DashMint tokens and create cards"),
     ).toBeNull();
     expect(
       screen.queryByText(/Only the contract owner can mint new cards/),

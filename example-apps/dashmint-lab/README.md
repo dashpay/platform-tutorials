@@ -33,7 +33,7 @@ npm run format:check  # Prettier (check only)
 - Write operations require a funded Platform identity; browse-only mode works without login.
 - Trading flows are easiest to test with a second funded identity.
 - The active contract ID can be swapped or a new one can be registered from Settings.
-- Minting is restricted to the contract owner by the schema (`creationRestrictionMode: 1`); non-owners see an overlay on the Mint tab.
+- Minting is gated by a fixed-supply DashMint token. Creating a card burns 1 DashMint token through `card.tokenCost.create`, so any identity with a token can mint.
 - The browser bundle is intentionally heavy because it includes the full `@dashevo/evo-sdk` (~8MB WASM).
 
 ## Platform operations at a glance
@@ -45,7 +45,8 @@ Every SDK call lives in its own file under [`src/dash/`](src/dash/). Open the fi
 | Connect to testnet   | [`src/dash/client.ts`](src/dash/client.ts)                     | `EvoSDK.testnetTrusted()` + `sdk.connect()` |
 | Derive identity keys | [`src/dash/keyManager.ts`](src/dash/keyManager.ts)             | `wallet.deriveKeyFromSeedWithPath`          |
 | Deploy card contract | [`src/dash/contract.ts`](src/dash/contract.ts)                 | `sdk.contracts.publish`                     |
-| Mint a card          | [`src/dash/mintCard.ts`](src/dash/mintCard.ts)                 | `sdk.documents.create`                      |
+| Token mint capacity  | [`src/dash/dashMintToken.ts`](src/dash/dashMintToken.ts)       | `sdk.tokens.identityBalances`               |
+| Mint a card          | [`src/dash/mintCard.ts`](src/dash/mintCard.ts)                 | `sdk.documents.create` + `tokenPaymentInfo` |
 | Transfer a card      | [`src/dash/transferCard.ts`](src/dash/transferCard.ts)         | `sdk.documents.transfer`                    |
 | Set / remove price   | [`src/dash/setPrice.ts`](src/dash/setPrice.ts)                 | `sdk.documents.setPrice`                    |
 | Purchase a card      | [`src/dash/purchaseCard.ts`](src/dash/purchaseCard.ts)         | `sdk.documents.purchase`                    |
@@ -53,11 +54,12 @@ Every SDK call lives in its own file under [`src/dash/`](src/dash/). Open the fi
 | Query cards          | [`src/dash/queries.ts`](src/dash/queries.ts)                   | `sdk.documents.query`                       |
 | Resolve DPNS name    | [`src/dash/resolveRecipient.ts`](src/dash/resolveRecipient.ts) | `sdk.dpns.resolveName`                      |
 
-Balance is fetched inline from `SessionContext` via `sdk.identities.balance(identityId)` — it's a one-liner, so there's no dedicated `src/dash/` file for it.
+Credit balance is fetched inline from `SessionContext` via `sdk.identities.balance(identityId)` — it's a one-liner, so there's no dedicated `src/dash/` file for it. DashMint token balance lives in [`src/dash/dashMintToken.ts`](src/dash/dashMintToken.ts), because it is part of the token-burn minting flow.
 
 Supporting files:
 
 - **[`src/dash/withAuthedCard.ts`](src/dash/withAuthedCard.ts)** — shared mutation prelude used by transfer, setPrice, purchase, and burn. Fetches the document, bumps its revision, and resolves the authentication signer.
+- **[`src/dash/dashMintToken.ts`](src/dash/dashMintToken.ts)** — fixed-supply DashMint token constants, token payment metadata, and balance lookup. The contract burns 1 token to create each card document.
 - **[`src/dash/classifyRecipientInput.ts`](src/dash/classifyRecipientInput.ts)** — decides whether a recipient string looks like a DPNS name or an identity ID by character set.
 - **[`src/dash/logger.ts`](src/dash/logger.ts)** — shared `Logger` type so every operation can stream progress messages to the UI.
 
@@ -65,7 +67,7 @@ Supporting files:
 
 Recommended order for understanding how the app works:
 
-1. **[`src/dash/`](src/dash/)** — start here. One file per Platform operation, each with a JSDoc block explaining what / why / which SDK method. Read [`mintCard.ts`](src/dash/mintCard.ts) first (simplest create flow), then [`withAuthedCard.ts`](src/dash/withAuthedCard.ts) (shared pattern for mutations that need the current document).
+1. **[`src/dash/`](src/dash/)** — start here. One file per Platform operation, each with a JSDoc block explaining what / why / which SDK method. Read [`contract.ts`](src/dash/contract.ts), [`dashMintToken.ts`](src/dash/dashMintToken.ts), and [`mintCard.ts`](src/dash/mintCard.ts) together to see how fixed supply, token burn, and document creation combine. Then read [`withAuthedCard.ts`](src/dash/withAuthedCard.ts) for mutations that need the current document.
 
 2. **[`src/session/SessionContext.tsx`](src/session/SessionContext.tsx)** — manages the SDK connection, identity, contract ID, contract-owner ID, credit balance, and activity log. The mnemonic never enters React state; it lives only inside the `keyManager` closure and is garbage-collected on logout. The consumer hook lives in [`useSession.ts`](src/session/useSession.ts).
 

@@ -102,6 +102,10 @@ export async function dip13KeyPath(network, identityIndex, keyIndex) {
 // SDK client helpers
 // ---------------------------------------------------------------------------
 
+// Workaround: pin platform protocol version for @dashevo/evo-sdk dev.6.
+// Remove once a fixed SDK release lands.
+export const PLATFORM_VERSION_OVERRIDE = 11;
+
 /**
  * Create and connect an EvoSDK client for the selected network.
  *
@@ -110,9 +114,11 @@ export async function dip13KeyPath(network, identityIndex, keyIndex) {
  */
 export async function createClient(network = 'testnet') {
   const factories = /** @type {Record<string, () => EvoSDK>} */ ({
-    testnet: () => EvoSDK.testnetTrusted(),
-    mainnet: () => EvoSDK.mainnetTrusted(),
-    local: () => EvoSDK.localTrusted(),
+    testnet: () =>
+      EvoSDK.testnetTrusted({ version: PLATFORM_VERSION_OVERRIDE }),
+    mainnet: () =>
+      EvoSDK.mainnetTrusted({ version: PLATFORM_VERSION_OVERRIDE }),
+    local: () => EvoSDK.localTrusted({ version: PLATFORM_VERSION_OVERRIDE }),
   });
 
   const factory = factories[network];

@@ -13,7 +13,10 @@ import { useSession } from "./session/useSession";
 import { AppShell } from "./components/AppShell";
 import { BurnModal } from "./components/BurnModal";
 import { CardGrid } from "./components/CardGrid";
-import { CollectionToolbar } from "./components/CollectionToolbar";
+import {
+  CollectionToolbar,
+  RefreshSpinner,
+} from "./components/CollectionToolbar";
 import { LoginModal } from "./components/LoginModal";
 import { MintForm } from "./components/MintForm";
 import { PurchaseModal } from "./components/PurchaseModal";
@@ -41,8 +44,8 @@ function App() {
     sdk,
     identityId,
     contractId,
-    contractOwnerId,
     balance,
+    dashMintTokenBalance,
     refreshBalance,
     log,
     browseOnly,
@@ -58,13 +61,18 @@ function App() {
 
   const [sortKey, setSortKey] = useState<SortKey>("rarity");
 
-  const [cards, setCards] = useState<Card[]>([]);
+  const [cardsBySubTab, setCardsBySubTab] = useState<
+    Partial<Record<CollectionSubTab, Card[]>>
+  >({});
   const [loadingCards, setLoadingCards] = useState(false);
   const [refreshNonce, setRefreshNonce] = useState(0);
   const refresh = useCallback(() => {
+    setCardsBySubTab({});
     setRefreshNonce((n) => n + 1);
     refreshBalance();
   }, [refreshBalance]);
+
+  const cards = cardsBySubTab[subTab];
 
   // Auto-connect in browse-only mode so read tabs work without login.
   // Defer to the next frame so the shell paints before the SDK chunk
@@ -82,11 +90,11 @@ function App() {
   }, [status]);
 
   // Load cards for the current sub-tab whenever dependencies change.
+  // Keeps any previously-cached results visible while refetching so tab
+  // switches don't tear down the grid — only the first load shows the
+  // full "Loading…" placeholder.
   useEffect(() => {
-    if (!sdk || !contractId) {
-      setCards([]);
-      return;
-    }
+    if (!sdk || !contractId) return;
     let cancelled = false;
     (async () => {
       setLoadingCards(true);
@@ -99,11 +107,13 @@ function App() {
         } else {
           result = await listAllCards({ sdk, contractId, log });
         }
-        if (!cancelled) setCards(result);
+        if (!cancelled) {
+          setCardsBySubTab((prev) => ({ ...prev, [subTab]: result }));
+        }
       } catch (err) {
         if (!cancelled) {
           log(`Query failed: ${errorMessage(err)}`, "error");
-          setCards([]);
+          setCardsBySubTab((prev) => ({ ...prev, [subTab]: [] }));
         }
       } finally {
         if (!cancelled) setLoadingCards(false);
@@ -116,6 +126,7 @@ function App() {
 
   // Sort cards for the collection grid.
   const sortedCards = useMemo(() => {
+    if (!cards) return [];
     if (sortKey === "rarity") {
       return [...cards].sort((a, b) => {
         const sa = (a.data.attack ?? 0) + (a.data.defense ?? 0);
@@ -151,7 +162,8 @@ function App() {
     },
     mint: {
       title: "Mint",
-      subtitle: "Create a new card document on the contract.",
+      subtitle:
+        "Create collectible cards on Dash Platform using DashMint tokens.",
     },
     "how-it-works": {
       title: "How it works",
@@ -203,11 +215,18 @@ function App() {
         {tab === "collection" && (
           <section>
             <div className="flex items-end justify-between">
-              <SubTabs
-                value={subTab}
-                onChange={setSubTab}
-                showMy={status === "authenticated"}
-              />
+              <div className="relative">
+                <SubTabs
+                  value={subTab}
+                  onChange={setSubTab}
+                  showMy={status === "authenticated"}
+                />
+                {loadingCards && cards !== undefined && (
+                  <span className="pointer-events-none absolute top-[9px] left-full ml-3 -translate-y-1/2">
+                    <RefreshSpinner />
+                  </span>
+                )}
+              </div>
               <CollectionToolbar
                 sortLabel={SORT_LABELS[sortKey]}
                 onSortClick={() =>
@@ -219,7 +238,7 @@ function App() {
               />
             </div>
             <div className="mt-4">
-              {loadingCards ? (
+              {loadingCards && cards === undefined ? (
                 <div className="rounded-lg border border-dashed border-line px-6 py-12 text-center text-ink-4">
                   Loading…
                 </div>
@@ -253,7 +272,7 @@ function App() {
             {status !== "authenticated" && (
               <div className="absolute inset-0 z-10 flex flex-col items-center justify-center gap-3 rounded-lg bg-bg/55 backdrop-blur-sm">
                 <p className="text-sm text-ink-2">
-                  Login as contract owner to access this feature
+                  Login to burn DashMint tokens and create cards
                 </p>
                 <button
                   type="button"
@@ -264,28 +283,13 @@ function App() {
                 </button>
               </div>
             )}
-            {/* Overlay: logged in but not the contract owner */}
-            {status === "authenticated" &&
-              contractOwnerId &&
-              identityId !== contractOwnerId && (
-                <div className="absolute inset-0 z-10 flex flex-col items-center justify-center gap-3 rounded-lg bg-bg/55 backdrop-blur-sm">
-                  <p className="max-w-sm text-center text-sm text-ink-2">
-                    Only the contract owner can mint new cards. Register your
-                    own new contract in Settings to try this feature.
-                  </p>
-                  <button
-                    type="button"
-                    onClick={() => setLoginOpen(true)}
-                    className="rounded-md bg-accent px-6 py-2.5 text-sm font-semibold text-bg transition hover:bg-accent-dim"
-                  >
-                    Settings
-                  </button>
-                </div>
-              )}
-
             {contractId && (
               <div className="mx-auto max-w-[540px]">
-                <MintForm contractId={contractId} onMinted={refresh} />
+                <MintForm
+                  contractId={contractId}
+                  dashMintTokenBalance={dashMintTokenBalance}
+                  onMinted={refresh}
+                />
               </div>
             )}
           </section>

@@ -27,9 +27,7 @@ test("Mint tab shows the login overlay when not logged in", async ({
     .getByRole("navigation")
     .getByRole("button", { name: /mint/i })
     .click();
-  await expect(
-    page.getByText(/login as contract owner to access this feature/i),
-  ).toBeVisible();
+  await expect(page.getByText(/login to burn dashmint tokens/i)).toBeVisible();
 });
 
 // ─── Card rendering ────────────────────────────────────────────────────────

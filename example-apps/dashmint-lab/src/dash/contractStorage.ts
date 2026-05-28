@@ -11,12 +11,12 @@ const STORAGE_KEY = "dashmint-lab.contractId";
 
 /**
  * Default contract ID baked into the tutorial so browse-only mode works
- * on a fresh machine without any setup. Comes from the original
- * HTML tutorial's pre-deployed testnet contract. Users can override it
- * in the Settings modal or register their own.
+ * on a fresh machine without any setup. This is the token-enabled testnet
+ * contract used by the token-burn minting demo. Users can override it in
+ * the Settings modal or register their own.
  */
 export const DEFAULT_CONTRACT_ID =
-  "4eJR4pgV9mQdyoodfTTwFUp3SYBRJbUrJ5X1ViN2zBhY";
+  "GDBN1h52Zcs8hSSKBoz67WDyWmUwcRyCSJjXBgKPty94";
 
 export function loadStoredContractId(): string | null {
   return localStorage.getItem(STORAGE_KEY) ?? DEFAULT_CONTRACT_ID;

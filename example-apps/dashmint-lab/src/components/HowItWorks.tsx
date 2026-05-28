@@ -22,7 +22,12 @@ const OPERATIONS: { op: string; file: string; method: string }[] = [
   {
     op: "Mint card",
     file: "src/dash/mintCard.ts",
-    method: "sdk.documents.create",
+    method: "sdk.documents.create + tokenPaymentInfo",
+  },
+  {
+    op: "Read token balance",
+    file: "src/dash/dashMintToken.ts",
+    method: "sdk.tokens.calculateId → sdk.tokens.identityBalances",
   },
   {
     op: "Transfer card",
@@ -74,9 +79,14 @@ const COMPARISONS: { dimension: string; dash: string; ethereum: string }[] = [
   },
   {
     dimension: "Minting",
-    dash: "Create a document — one SDK call",
+    dash: "Burn 1 fixed-supply DashMint token, then create a card document",
     ethereum:
       "Upload metadata to IPFS, then call a contract function to mint a token",
+  },
+  {
+    dimension: "Supply cap",
+    dash: "The DashMint token supply caps how many card documents can be created",
+    ethereum: "Usually enforced by smart-contract mint logic",
   },
   {
     dimension: "Transfer",
@@ -110,8 +120,16 @@ const COMPARISONS: { dimension: string; dash: string; ethereum: string }[] = [
 
 const READING_ORDER = [
   {
+    file: "src/dash/contract.ts",
+    desc: "Defines the card schema, DashMint token, and one-token burn rule.",
+  },
+  {
+    file: "src/dash/dashMintToken.ts",
+    desc: "Token payment metadata and DashMint token balance lookup.",
+  },
+  {
     file: "src/dash/mintCard.ts",
-    desc: "Simplest create flow — one SDK call.",
+    desc: "Creates a card document while agreeing to burn one DashMint token.",
   },
   {
     file: "src/dash/withAuthedCard.ts",
@@ -138,7 +156,8 @@ export function HowItWorks() {
         <p className="mt-2 text-[13.5px] leading-[1.55] text-ink-2">
           DashMint Lab lets you create and trade NFT-style collectibles on Dash
           Platform. Each card is a document owned by an identity — transferable,
-          tradeable, and stored on-chain.
+          tradeable, and stored on-chain. Mint capacity is constrained by a
+          fixed-supply DashMint token.
         </p>
 
         {/* Core idea callout */}
@@ -147,11 +166,12 @@ export function HowItWorks() {
             Core idea
           </div>
           <p className="text-[13px] leading-[1.55] text-ink-2">
-            These cards aren't tokens — they're documents stored on Dash
-            Platform:
+            Cards are documents stored on Dash Platform. The DashMint token is
+            the minting resource that makes creation scarce:
           </p>
           <ul className="mt-2 list-disc space-y-1 pl-4 text-[13px] leading-[1.55] text-ink-2">
-            <li>Creating a card = creating a document</li>
+            <li>Creating a card = burning 1 DashMint token</li>
+            <li>Each successful mint creates a new card document</li>
             <li>Ownership = which identity controls that document</li>
             <li>Transfer = updating ownership via a state transition</li>
           </ul>

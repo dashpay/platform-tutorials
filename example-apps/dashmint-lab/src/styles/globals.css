@@ -63,6 +63,12 @@ body,
   font-family: var(--font-sans);
 }
 
+/* Reserve scrollbar gutter so tabs with overflowing content don't shift
+ * the centered card grid relative to tabs that fit in the viewport. */
+html {
+  scrollbar-gutter: stable;
+}
+
 /* ── Focus ring (accessibility) ───────────────────────────────────── */
 
 :focus-visible {

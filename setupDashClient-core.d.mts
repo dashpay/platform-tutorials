@@ -11,6 +11,20 @@ interface ConnectedDocumentLike {
   [key: string]: unknown;
 }
 
+interface ConnectedDocumentTokenPaymentInfo {
+  paymentTokenContractId?: string;
+  tokenContractPosition: number;
+  minimumTokenCost?: bigint;
+  maximumTokenCost?: bigint;
+  gasFeesPaidBy?:
+    | "documentOwner"
+    | "contractOwner"
+    | "preferContractOwner"
+    | 0
+    | 1
+    | 2;
+}
+
 interface ConnectedDashClientLike {
   contracts: {
     fetch(contractId: string): Promise<{
@@ -46,6 +60,7 @@ interface ConnectedDashClientLike {
       document: unknown;
       identityKey: IdentityPublicKey | undefined;
       signer: IdentitySigner;
+      tokenPaymentInfo?: ConnectedDocumentTokenPaymentInfo;
     }): Promise<unknown>;
     transfer(args: {
       document: ConnectedDocumentLike | undefined;
@@ -80,6 +95,13 @@ interface ConnectedDashClientLike {
   identities: {
     nonce(identityId: string): Promise<bigint | null | undefined>;
     balance(identityId: string): Promise<bigint>;
+  };
+  tokens: {
+    calculateId(contractId: string, tokenPosition: number): Promise<string>;
+    identityBalances(
+      identityId: string,
+      tokenIds: string[],
+    ): Promise<Map<string, bigint>>;
   };
   dpns: {
     username(identityId: string): Promise<string | null | undefined>;
