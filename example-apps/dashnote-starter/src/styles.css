@@ -1,0 +1,169 @@
+:root {
+  font-family:
+    system-ui,
+    -apple-system,
+    sans-serif;
+  line-height: 1.5;
+  color: #1f2937;
+  background: #f9fafb;
+}
+
+* {
+  box-sizing: border-box;
+}
+
+body {
+  margin: 0;
+  padding: 0;
+}
+
+main {
+  max-width: 720px;
+  margin: 2rem auto;
+  padding: 0 1.25rem;
+}
+
+h1 {
+  margin: 0 0 0.75rem;
+  font-size: 1.5rem;
+}
+
+h2 {
+  margin: 1.5rem 0 0.75rem;
+  font-size: 1.15rem;
+}
+
+h3 {
+  margin: 0 0 0.25rem;
+  font-size: 1rem;
+}
+
+label {
+  display: block;
+  margin-top: 0.75rem;
+  font-size: 0.875rem;
+  font-weight: 600;
+}
+
+input,
+textarea {
+  display: block;
+  width: 100%;
+  margin-top: 0.25rem;
+  padding: 0.5rem 0.625rem;
+  font: inherit;
+  border: 1px solid #d1d5db;
+  border-radius: 4px;
+  background: white;
+}
+
+textarea {
+  resize: vertical;
+}
+
+button {
+  margin-top: 0.75rem;
+  padding: 0.5rem 1rem;
+  font: inherit;
+  border: 1px solid #2563eb;
+  background: #2563eb;
+  color: white;
+  border-radius: 4px;
+  cursor: pointer;
+}
+
+button:hover:not(:disabled) {
+  background: #1d4ed8;
+}
+
+button:disabled {
+  background: #93c5fd;
+  border-color: #93c5fd;
+  cursor: not-allowed;
+}
+
+button[type="button"] {
+  background: white;
+  color: #1f2937;
+  border-color: #d1d5db;
+}
+
+button[type="button"]:hover:not(:disabled) {
+  background: #f3f4f6;
+}
+
+.row {
+  display: flex;
+  gap: 0.5rem;
+  margin-top: 0.75rem;
+}
+
+.row button {
+  margin-top: 0;
+}
+
+.signin {
+  max-width: 480px;
+}
+
+.identity {
+  font-size: 0.875rem;
+  color: #4b5563;
+  word-break: break-all;
+}
+
+.identity code {
+  font-size: 0.85em;
+  background: #e5e7eb;
+  padding: 0.1rem 0.3rem;
+  border-radius: 3px;
+}
+
+.status {
+  margin: 0.5rem 0;
+  padding: 0.5rem 0.75rem;
+  font-size: 0.875rem;
+  color: #1f2937;
+  background: #fef3c7;
+  border-radius: 4px;
+}
+
+.note-editor {
+  padding: 1rem;
+  background: white;
+  border: 1px solid #e5e7eb;
+  border-radius: 6px;
+}
+
+.note-list {
+  list-style: none;
+  padding: 0;
+  margin: 0;
+}
+
+.note-item {
+  padding: 1rem;
+  margin-bottom: 0.75rem;
+  background: white;
+  border: 1px solid #e5e7eb;
+  border-radius: 6px;
+}
+
+.note-body p {
+  margin: 0.25rem 0 0.5rem;
+  white-space: pre-wrap;
+}
+
+.note-body small {
+  color: #6b7280;
+  font-size: 0.8rem;
+}
+
+.empty {
+  padding: 1rem;
+  color: #6b7280;
+  background: white;
+  border: 1px dashed #d1d5db;
+  border-radius: 6px;
+  text-align: center;
+}
