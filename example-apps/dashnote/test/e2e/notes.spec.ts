@@ -327,6 +327,80 @@ test("two contexts can sequentially save the same note without conflict", async 
   }
 });
 
+test("stale-revision save surfaces conflict warning and preserves the draft", async ({
+  browser,
+}) => {
+  // The pre-check in updateNote.ts (expectedRevision) should reject a save
+  // when the network's revision moved while the editor was open. The
+  // existing catch-and-refresh branch in NotesWorkspace.handleSave then
+  // surfaces STALE_EDIT_WARNING and advances the baseline to the latest
+  // network revision — but deliberately preserves the user's unsaved draft
+  // so they can decide whether to overwrite.
+  test.setTimeout(120_000);
+
+  const ctx1 = await browser.newContext();
+  const ctx2 = await browser.newContext();
+  const page1 = await ctx1.newPage();
+  const page2 = await ctx2.newPage();
+
+  try {
+    for (const p of [page1, page2]) {
+      await p.goto("/");
+      await expect(
+        p
+          .locator('aside[aria-label="Main navigation"]')
+          .getByText("Connected", { exact: true }),
+      ).toBeVisible({ timeout: 60_000 });
+      await loginViaModal(p, { rememberMe: true });
+    }
+
+    const title = e2eTitle("stale");
+    await createNoteViaEditor(page1, {
+      title,
+      message: "original body",
+    });
+
+    // Page2 picks up the same note and saves a new revision.
+    await page2.reload();
+    await loginViaModal(page2, { rememberMe: true });
+    await expect(
+      page2.locator("button", { hasText: title }).first(),
+    ).toBeVisible({ timeout: 60_000 });
+    await page2.locator("button", { hasText: title }).first().click();
+    await expect(page2.getByLabel("Title")).toHaveValue(title, {
+      timeout: 30_000,
+    });
+    await page2.getByLabel("Body").fill("page2 wrote first");
+    await page2.getByRole("button", { name: /^save$/i }).click();
+    await waitForSaveComplete(page2);
+
+    // Page1 stays on the stale revision (no reload) and tries to save its
+    // own change. The pre-check should reject before the network round-trip;
+    // the catch branch surfaces the warning and advances the baseline to
+    // page2's revision while keeping the user's draft in the textarea.
+    await page1.getByLabel("Body").fill("page1 stale edit");
+    await page1.getByRole("button", { name: /^save$/i }).click();
+
+    // Pre-check should reject the stale save before the network round-trip;
+    // the catch branch surfaces STALE_EDIT_WARNING and advances the baseline
+    // to page2's revision while preserving the user's draft in the textarea.
+    // We don't assert that a retry succeeds — both pages share one identity,
+    // so retry can collide on identity nonce (a separate race the starter
+    // and full app both surface as a raw error and ask the user to retry).
+    await expect(page1.getByText(/changed on the network/i)).toBeVisible({
+      timeout: 30_000,
+    });
+    await expect(page1.getByLabel("Body")).toHaveValue("page1 stale edit");
+
+    await deleteNoteByTitle(page2, title);
+    await cleanupE2eNotes(page2).catch(() => {
+      /* best effort */
+    });
+  } finally {
+    await Promise.allSettled([ctx1.close(), ctx2.close()]);
+  }
+});
+
 test("activity panel opens via ⌘L, lists entries, clears, and closes via Escape", async ({
   page,
 }) => {

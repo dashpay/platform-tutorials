@@ -2,6 +2,10 @@
  * Update an existing note. Fetches the current document to bump its revision,
  * then submits a replace state transition.
  *
+ * Pass `expectedRevision` to refuse the update if the network's revision
+ * doesn't match — i.e. the note was changed on the network after the local
+ * copy was loaded.
+ *
  * SDK methods:
  *   sdk.documents.get(contractId, documentTypeName, documentId)
  *   sdk.documents.replace({ document, identityKey, signer })
@@ -17,6 +21,7 @@ export interface UpdateNoteParams {
   noteId: string;
   title?: string;
   message: string;
+  expectedRevision?: number;
   log?: Logger;
 }
 
@@ -27,6 +32,7 @@ export async function updateNote({
   noteId,
   title,
   message,
+  expectedRevision,
   log,
 }: UpdateNoteParams): Promise<bigint> {
   log?.(`Saving note ${noteId}…`);
@@ -36,8 +42,18 @@ export async function updateNote({
     throw new Error(`Note ${noteId} not found.`);
   }
 
+  const currentRevision = BigInt(existingDoc.revision ?? 0);
+  if (
+    expectedRevision !== undefined &&
+    currentRevision !== BigInt(expectedRevision)
+  ) {
+    throw new Error(
+      `Note changed on network (you had revision ${expectedRevision}, network is at ${currentRevision}). Reload your notes and try again.`,
+    );
+  }
+
   const { Document } = await loadSdkModule();
-  const revision = BigInt(existingDoc.revision ?? 0) + 1n;
+  const revision = currentRevision + 1n;
   const trimmedTitle = title?.trim();
   const document = new Document({
     properties: {
