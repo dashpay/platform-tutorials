@@ -121,6 +121,19 @@ export default function App() {
     setNotes(fetched);
   }
 
+  async function handleRefresh() {
+    setBusy(true);
+    setStatus("");
+    try {
+      await refresh();
+      setStatus("");
+    } catch (err) {
+      setStatus(`Refresh failed: ${errorMessage(err)}`);
+    } finally {
+      setBusy(false);
+    }
+  }
+
   async function handleCreate(title: string, message: string) {
     if (!session) return;
     setBusy(true);
@@ -144,7 +157,12 @@ export default function App() {
     }
   }
 
-  async function handleUpdate(noteId: string, title: string, message: string) {
+  async function handleUpdate(
+    noteId: string,
+    title: string,
+    message: string,
+    expectedRevision: number,
+  ) {
     if (!session) return;
     setBusy(true);
     setStatus("");
@@ -156,6 +174,7 @@ export default function App() {
         noteId,
         title,
         message,
+        expectedRevision,
         log,
       });
       await refresh();
@@ -190,6 +209,16 @@ export default function App() {
     }
   }
 
+  // Drop the session and let the keyManager closure (which holds the derived
+  // keys) become garbage-collectable. The mnemonic itself was never lifted
+  // into App state — it only lived in SignIn's local input.
+  function handleSignOut() {
+    setSession(null);
+    setNotes([]);
+    setEditing(null);
+    setStatus("");
+  }
+
   if (!session) {
     return <SignIn onSignIn={handleSignIn} busy={busy} status={status} />;
   }
@@ -197,9 +226,31 @@ export default function App() {
   return (
     <main className="app">
       <header>
-        <h1>Dashnote Starter</h1>
+        <div className="row section-head">
+          <h1>Dashnote Starter</h1>
+          <button type="button" onClick={handleSignOut} disabled={busy}>
+            Sign out
+          </button>
+        </div>
         <p className="identity">
-          Identity: <code>{session.identityId}</code>
+          Identity:{" "}
+          <a
+            href={`https://testnet.platform-explorer.com/identity/${session.identityId}`}
+            target="_blank"
+            rel="noreferrer noopener"
+          >
+            <code>{session.identityId}</code>
+          </a>
+        </p>
+        <p className="identity">
+          Contract:{" "}
+          <a
+            href={`https://testnet.platform-explorer.com/dataContract/${DEFAULT_CONTRACT_ID}`}
+            target="_blank"
+            rel="noreferrer noopener"
+          >
+            <code>{DEFAULT_CONTRACT_ID}</code>
+          </a>
         </p>
         {status && (
           <p className="status" aria-live="polite">
@@ -210,20 +261,25 @@ export default function App() {
 
       <section>
         <NoteEditor
-          key={editing?.id ?? "new"}
+          key={editing?.id ?? `new-${notes.length}`}
           note={editing}
           busy={busy}
           onCancel={editing ? () => setEditing(null) : undefined}
           onSubmit={(title, message) =>
             editing
-              ? handleUpdate(editing.id, title, message)
+              ? handleUpdate(editing.id, title, message, editing.revision)
               : handleCreate(title, message)
           }
         />
       </section>
 
       <section>
-        <h2>Your notes ({notes.length})</h2>
+        <div className="row section-head">
+          <h2>Your notes ({notes.length})</h2>
+          <button type="button" onClick={handleRefresh} disabled={busy}>
+            Refresh
+          </button>
+        </div>
         <NoteList
           notes={notes}
           onEdit={(note) => setEditing(note)}
@@ -231,6 +287,37 @@ export default function App() {
           disabled={busy}
         />
       </section>
+
+      <footer>
+        <p>
+          Built on{" "}
+          <a
+            href="https://docs.dash.org/platform"
+            target="_blank"
+            rel="noreferrer noopener"
+          >
+            Dash Platform
+          </a>{" "}
+          with{" "}
+          <a
+            href="https://www.npmjs.com/package/@dashevo/evo-sdk"
+            target="_blank"
+            rel="noreferrer noopener"
+          >
+            @dashevo/evo-sdk
+          </a>
+          .
+        </p>
+        <p>
+          <a
+            href="https://github.com/dashpay/platform-tutorials/tree/main/example-apps/dashnote-starter"
+            target="_blank"
+            rel="noreferrer noopener"
+          >
+            View on GitHub
+          </a>
+        </p>
+      </footer>
     </main>
   );
 }

@@ -98,6 +98,15 @@ button[type="button"]:hover:not(:disabled) {
   margin-top: 0.75rem;
 }
 
+.section-head {
+  align-items: center;
+  justify-content: space-between;
+}
+
+.section-head h2 {
+  margin: 0;
+}
+
 .row button {
   margin-top: 0;
 }
@@ -107,16 +116,24 @@ button[type="button"]:hover:not(:disabled) {
 }
 
 .identity {
-  font-size: 0.875rem;
-  color: #4b5563;
+  margin: 0.125rem 0;
+  font-size: 0.75rem;
+  color: #6b7280;
   word-break: break-all;
 }
 
 .identity code {
-  font-size: 0.85em;
-  background: #e5e7eb;
-  padding: 0.1rem 0.3rem;
-  border-radius: 3px;
+  font-size: 1em;
+  font-family: ui-monospace, SFMono-Regular, Menlo, monospace;
+}
+
+.identity a {
+  color: inherit;
+  text-decoration: none;
+}
+
+.identity a:hover {
+  text-decoration: underline;
 }
 
 .status {
@@ -157,6 +174,33 @@ button[type="button"]:hover:not(:disabled) {
 .note-body small {
   color: #6b7280;
   font-size: 0.8rem;
+}
+
+.required {
+  color: #dc2626;
+}
+
+.hint {
+  margin: 0.25rem 0 0;
+  font-size: 0.8rem;
+  color: #6b7280;
+}
+
+footer {
+  margin: 2rem 0 1rem;
+  padding-top: 1rem;
+  border-top: 1px solid #e5e7eb;
+  font-size: 0.8rem;
+  text-align: center;
+  color: #6b7280;
+}
+
+footer p {
+  margin: 0.25rem 0;
+}
+
+footer a {
+  color: #6b7280;
 }
 
 .empty {

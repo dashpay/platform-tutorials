@@ -40,7 +40,9 @@ export function NoteEditor({
         maxLength={120}
         disabled={busy}
       />
-      <label htmlFor="message">Message</label>
+      <label htmlFor="message">
+        Message <span className="required">*</span>
+      </label>
       <textarea
         id="message"
         rows={4}
@@ -48,7 +50,9 @@ export function NoteEditor({
         onChange={(event) => setMessage(event.target.value)}
         required
         disabled={busy}
+        aria-required="true"
       />
+      <p className="hint">* Message is required.</p>
       <div className="row">
         <button type="submit" disabled={busy || !message.trim()}>
           {note ? "Save changes" : "Create note"}

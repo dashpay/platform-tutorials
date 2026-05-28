@@ -65,6 +65,37 @@ export function SignIn({ onSignIn, busy, status }: SignInProps) {
           {status}
         </p>
       )}
+
+      <footer>
+        <p>
+          Built on{" "}
+          <a
+            href="https://docs.dash.org/platform"
+            target="_blank"
+            rel="noreferrer noopener"
+          >
+            Dash Platform
+          </a>{" "}
+          with{" "}
+          <a
+            href="https://www.npmjs.com/package/@dashevo/evo-sdk"
+            target="_blank"
+            rel="noreferrer noopener"
+          >
+            @dashevo/evo-sdk
+          </a>
+          .
+        </p>
+        <p>
+          <a
+            href="https://github.com/dashpay/platform-tutorials/tree/main/example-apps/dashnote-starter"
+            target="_blank"
+            rel="noreferrer noopener"
+          >
+            View on GitHub
+          </a>
+        </p>
+      </footer>
     </main>
   );
 }
