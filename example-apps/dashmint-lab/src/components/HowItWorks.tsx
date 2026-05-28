@@ -27,7 +27,7 @@ const OPERATIONS: { op: string; file: string; method: string }[] = [
   {
     op: "Read token balance",
     file: "src/dash/dashMintToken.ts",
-    method: "sdk.tokens.identityBalances",
+    method: "sdk.tokens.calculateId → sdk.tokens.identityBalances",
   },
   {
     op: "Transfer card",
