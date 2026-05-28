@@ -650,11 +650,11 @@ describe("NotesWorkspace", () => {
       render(<NotesWorkspace onOpenLogin={vi.fn()} onOpenSettings={vi.fn()} />);
 
       await waitFor(() => {
-        expect(mockListMyNotes).toHaveBeenCalledTimes(1);
+        expect(screen.getByText(/phone note/i)).toBeTruthy();
       });
       // List rendered (note title visible) but editor body field not, since
       // no note has been selected yet on mobile.
-      expect(screen.getByText(/phone note/i)).toBeTruthy();
+      expect(mockListMyNotes).toHaveBeenCalledTimes(1);
       expect(mockGetNote).not.toHaveBeenCalled();
       expect(screen.queryByLabelText(/^body$/i)).toBeNull();
     });
