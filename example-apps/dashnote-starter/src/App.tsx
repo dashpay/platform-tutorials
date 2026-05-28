@@ -228,7 +228,12 @@ export default function App() {
       <header>
         <div className="row section-head">
           <h1>Dashnote Starter</h1>
-          <button type="button" onClick={handleSignOut} disabled={busy}>
+          <button
+            type="button"
+            className="linklike"
+            onClick={handleSignOut}
+            disabled={busy}
+          >
             Sign out
           </button>
         </div>
@@ -276,7 +281,12 @@ export default function App() {
       <section>
         <div className="row section-head">
           <h2>Your notes ({notes.length})</h2>
-          <button type="button" onClick={handleRefresh} disabled={busy}>
+          <button
+            type="button"
+            className="linklike"
+            onClick={handleRefresh}
+            disabled={busy}
+          >
             Refresh
           </button>
         </div>

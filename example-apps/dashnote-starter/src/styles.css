@@ -5,7 +5,7 @@
     sans-serif;
   line-height: 1.5;
   color: #1f2937;
-  background: #f9fafb;
+  background: #eef0f3;
 }
 
 * {
@@ -14,35 +14,30 @@
 
 body {
   margin: 0;
-  padding: 0;
 }
 
 main {
   max-width: 720px;
-  margin: 2rem auto;
+  margin: 1.5rem auto;
   padding: 0 1.25rem;
 }
 
 h1 {
-  margin: 0 0 0.75rem;
+  margin: 0 0 0.5rem;
   font-size: 1.5rem;
 }
 
 h2 {
-  margin: 1.5rem 0 0.75rem;
-  font-size: 1.15rem;
-}
-
-h3 {
-  margin: 0 0 0.25rem;
-  font-size: 1rem;
+  margin: 1.25rem 0 0.5rem;
+  font-size: 1.05rem;
 }
 
 label {
   display: block;
-  margin-top: 0.75rem;
-  font-size: 0.875rem;
-  font-weight: 600;
+  margin-top: 0.5rem;
+  font-size: 0.8rem;
+  font-weight: 500;
+  color: #4b5563;
 }
 
 input,
@@ -50,8 +45,9 @@ textarea {
   display: block;
   width: 100%;
   margin-top: 0.25rem;
-  padding: 0.5rem 0.625rem;
+  padding: 0.375rem 0.5rem;
   font: inherit;
+  font-size: 0.875rem;
   border: 1px solid #d1d5db;
   border-radius: 4px;
   background: white;
@@ -77,19 +73,37 @@ button:hover:not(:disabled) {
 }
 
 button:disabled {
-  background: #93c5fd;
-  border-color: #93c5fd;
+  opacity: 0.5;
   cursor: not-allowed;
 }
 
-button[type="button"] {
+button.secondary {
   background: white;
   color: #1f2937;
   border-color: #d1d5db;
 }
 
-button[type="button"]:hover:not(:disabled) {
+button.secondary:hover:not(:disabled) {
   background: #f3f4f6;
+}
+
+button.linklike {
+  margin-top: 0;
+  padding: 0.125rem 0.375rem;
+  background: transparent;
+  border: none;
+  color: #2563eb;
+  font-size: 0.85rem;
+  line-height: 1.25;
+}
+
+button.linklike:hover:not(:disabled) {
+  background: transparent;
+  text-decoration: underline;
+}
+
+button.linklike.danger {
+  color: #dc2626;
 }
 
 .row {
@@ -107,10 +121,6 @@ button[type="button"]:hover:not(:disabled) {
   margin: 0;
 }
 
-.row button {
-  margin-top: 0;
-}
-
 .signin {
   max-width: 480px;
 }
@@ -120,11 +130,6 @@ button[type="button"]:hover:not(:disabled) {
   font-size: 0.75rem;
   color: #6b7280;
   word-break: break-all;
-}
-
-.identity code {
-  font-size: 1em;
-  font-family: ui-monospace, SFMono-Regular, Menlo, monospace;
 }
 
 .identity a {
@@ -140,40 +145,62 @@ button[type="button"]:hover:not(:disabled) {
   margin: 0.5rem 0;
   padding: 0.5rem 0.75rem;
   font-size: 0.875rem;
-  color: #1f2937;
   background: #fef3c7;
   border-radius: 4px;
-}
-
-.note-editor {
-  padding: 1rem;
-  background: white;
-  border: 1px solid #e5e7eb;
-  border-radius: 6px;
 }
 
 .note-list {
   list-style: none;
   padding: 0;
   margin: 0;
+  display: flex;
+  flex-direction: column;
+  gap: 0.875rem;
 }
 
 .note-item {
-  padding: 1rem;
-  margin-bottom: 0.75rem;
+  display: flex;
+  align-items: flex-start;
+  justify-content: space-between;
+  gap: 1rem;
+  padding: 1rem 1.125rem;
   background: white;
-  border: 1px solid #e5e7eb;
+  border: 1px solid #d4d8de;
   border-radius: 6px;
+  box-shadow: 0 1px 2px rgba(15, 23, 42, 0.06);
 }
 
-.note-body p {
-  margin: 0.25rem 0 0.5rem;
+.note-body {
+  flex: 1;
+  min-width: 0;
+}
+
+.note-title {
+  margin: 0;
+  font-size: 1rem;
+  font-weight: 600;
+}
+
+.note-message {
+  margin: 0.25rem 0 0;
+  max-width: 70ch;
+  color: #374151;
+  font-size: 0.9rem;
   white-space: pre-wrap;
+  word-break: break-word;
 }
 
-.note-body small {
+.note-meta {
+  display: block;
+  margin-top: 0.5rem;
   color: #6b7280;
-  font-size: 0.8rem;
+  font-size: 0.78rem;
+}
+
+.note-actions {
+  display: flex;
+  gap: 0.25rem;
+  flex-shrink: 0;
 }
 
 .required {
@@ -200,14 +227,11 @@ footer p {
 }
 
 footer a {
-  color: #6b7280;
+  color: inherit;
 }
 
 .empty {
-  padding: 1rem;
+  padding: 0.75rem 0;
   color: #6b7280;
-  background: white;
-  border: 1px dashed #d1d5db;
-  border-radius: 6px;
-  text-align: center;
+  font-style: italic;
 }

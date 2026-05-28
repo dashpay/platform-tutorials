@@ -47,7 +47,7 @@ src/
 │   ├── client.ts         — createClient(network)
 │   ├── keyManager.ts     — IdentityKeyManager (mnemonic → DIP-13 keys)
 │   ├── sdkModule.ts      — cached dynamic import of @dashevo/evo-sdk
-│   ├── contract.ts       — note schema + DEFAULT_CONTRACT_ID
+│   ├── contract.ts       — DEFAULT_CONTRACT_ID (see full app for the schema)
 │   ├── createNote.ts     — sdk.documents.create
 │   ├── updateNote.ts     — sdk.documents.get + sdk.documents.replace
 │   ├── deleteNote.ts     — sdk.documents.delete
@@ -61,6 +61,16 @@ The note contract is hardcoded to `8d6heK6CoskLBi6Rs7cChRG9RuckcZqZst28BdviBe8y`
 — the same one the full dashnote app uses by default. Notes you create here show
 up in the full app, and vice versa.
 
+## What's here
+
+- **Sign in / sign out** — paste a mnemonic, identity is derived in-memory and
+  never persisted; "Sign out" drops the session
+- **Create / read / update / delete** notes against the hardcoded contract
+- **Refresh** button to re-query the note list
+- **Stale-revision detection** — passing `expectedRevision` to `updateNote`
+  refuses the save if the network's revision moved while the editor was open
+  (basic optimistic concurrency control)
+
 ## What's deliberately missing
 
 In keeping with "render layer, not the subject," this app skips:
@@ -70,9 +80,10 @@ In keeping with "render layer, not the subject," this app skips:
 - Contract registration UI — see the full app for `sdk.contracts.publish()`
 - Activity log, toast notifications, theming
 - Mobile-specific layouts
-- localStorage cache, optimistic updates, background revalidation
+- localStorage cache, background revalidation, conflict-resolution UI
 - React Context, custom hooks
 - Tailwind, state libraries, animation libraries
+- Tests — `npm run lint` + `tsc` are the only automated checks
 
 If you want to see those patterns, read [`../dashnote/`](../dashnote/). If you
 just want to understand which SDK calls are involved, start here.

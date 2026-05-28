@@ -58,7 +58,12 @@ export function NoteEditor({
           {note ? "Save changes" : "Create note"}
         </button>
         {onCancel && (
-          <button type="button" onClick={onCancel} disabled={busy}>
+          <button
+            type="button"
+            className="secondary"
+            onClick={onCancel}
+            disabled={busy}
+          >
             Cancel
           </button>
         )}

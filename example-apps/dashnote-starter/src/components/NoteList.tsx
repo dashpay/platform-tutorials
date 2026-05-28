@@ -25,15 +25,16 @@ export function NoteList({ notes, onEdit, onDelete, disabled }: NoteListProps) {
       {notes.map((note) => (
         <li key={note.id} className="note-item">
           <div className="note-body">
-            <h3>{note.title?.trim() || "(no title)"}</h3>
-            <p>{note.message}</p>
-            <small>
+            <h3 className="note-title">{note.title?.trim() || "(no title)"}</h3>
+            <p className="note-message">{note.message}</p>
+            <small className="note-meta">
               Updated {formatTimestamp(note.updatedAt)} · rev {note.revision}
             </small>
           </div>
-          <div className="row">
+          <div className="note-actions">
             <button
               type="button"
+              className="linklike"
               onClick={() => onEdit(note)}
               disabled={disabled}
             >
@@ -41,6 +42,7 @@ export function NoteList({ notes, onEdit, onDelete, disabled }: NoteListProps) {
             </button>
             <button
               type="button"
+              className="linklike danger"
               onClick={() => onDelete(note.id)}
               disabled={disabled}
             >
