@@ -14,6 +14,28 @@ interface SignInProps {
   status: string;
 }
 
+// Static sample notes shown above the sign-in form so a learner can see
+// what the UI looks like before pasting a mnemonic. Intentionally not
+// fetched from the network — a live query would load the 8MB SDK
+// bundle before the user has signaled any intent to use it.
+const SAMPLE_NOTES = [
+  {
+    title: "Shopping list",
+    message: "Coffee beans, oat milk, sourdough.",
+    meta: "Updated 2 hours ago",
+  },
+  {
+    title: "Reading queue",
+    message: "Finish chapter 4 of the Dash Platform overview.",
+    meta: "Updated yesterday",
+  },
+  {
+    title: "(no title)",
+    message: "Remember: notes are owned by the identity, not the device.",
+    meta: "Updated 3 days ago",
+  },
+];
+
 export function SignIn({ onSignIn, busy, status }: SignInProps) {
   const [mnemonic, setMnemonic] = useState("");
 
@@ -65,6 +87,24 @@ export function SignIn({ onSignIn, busy, status }: SignInProps) {
           {status}
         </p>
       )}
+
+      <section className="preview" aria-label="Sample notes">
+        <h2>Sample notes</h2>
+        <p className="hint">
+          A preview of what your notes will look like once you sign in.
+        </p>
+        <ul className="note-list">
+          {SAMPLE_NOTES.map((note) => (
+            <li key={note.title} className="note-item">
+              <div className="note-body">
+                <h3 className="note-title">{note.title}</h3>
+                <p className="note-message">{note.message}</p>
+                <small className="note-meta">{note.meta}</small>
+              </div>
+            </li>
+          ))}
+        </ul>
+      </section>
 
       <footer>
         <p>

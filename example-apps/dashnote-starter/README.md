@@ -34,7 +34,7 @@ list.
 
 ## What's in here
 
-```
+```text
 src/
 ├── main.tsx          — React root
 ├── App.tsx           — session state + the four CRUD handlers

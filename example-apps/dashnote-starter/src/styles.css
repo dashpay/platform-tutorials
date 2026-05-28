@@ -187,7 +187,7 @@ button.linklike.danger {
   color: #374151;
   font-size: 0.9rem;
   white-space: pre-wrap;
-  word-break: break-word;
+  overflow-wrap: anywhere;
 }
 
 .note-meta {
