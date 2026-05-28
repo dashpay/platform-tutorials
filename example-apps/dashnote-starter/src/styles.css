@@ -125,6 +125,124 @@ button.linklike.danger {
   max-width: 480px;
 }
 
+.signin .eyebrow {
+  margin: 0 0 0.25rem;
+  font-size: 0.7rem;
+  font-weight: 700;
+  letter-spacing: 0.12em;
+  text-transform: uppercase;
+  color: #2563eb;
+}
+
+.signin h1 {
+  font-size: 1.75rem;
+  line-height: 1.15;
+  margin-bottom: 0.75rem;
+}
+
+.signin .lede {
+  margin: 0 0 1.25rem;
+  color: #374151;
+  font-size: 0.95rem;
+  line-height: 1.5;
+}
+
+.signin-card {
+  padding: 1.25rem;
+  background: white;
+  border: 1px solid #d4d8de;
+  border-radius: 8px;
+  box-shadow: 0 1px 3px rgba(15, 23, 42, 0.08);
+}
+
+.signin-card form {
+  margin: 0;
+}
+
+.signin-actions {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 0.5rem;
+  margin-top: 0.75rem;
+}
+
+.signin-actions button {
+  margin-top: 0;
+}
+
+.button-secondary {
+  display: inline-flex;
+  align-items: center;
+  padding: 0.5rem 1rem;
+  font: inherit;
+  font-size: 0.875rem;
+  color: #1f2937;
+  background: white;
+  border: 1px solid #d1d5db;
+  border-radius: 4px;
+  text-decoration: none;
+}
+
+.button-secondary:hover {
+  background: #f3f4f6;
+}
+
+.badge {
+  padding: 0.125rem 0.5rem;
+  font-size: 0.7rem;
+  font-weight: 600;
+  letter-spacing: 0.04em;
+  text-transform: uppercase;
+  color: #6b7280;
+  background: #f3f4f6;
+  border-radius: 999px;
+}
+
+.preview {
+  margin-top: 2rem;
+}
+
+.note-item.sample {
+  background: #fafafa;
+  border-style: dashed;
+  box-shadow: none;
+}
+
+.note-item.sample .note-title,
+.note-item.sample .note-message {
+  color: #6b7280;
+}
+
+.note-item.sample .note-meta {
+  color: #9ca3af;
+}
+
+.about {
+  margin-top: 2rem;
+  color: #4b5563;
+  font-size: 0.9rem;
+}
+
+.about > summary {
+  cursor: pointer;
+  color: #2563eb;
+  font-weight: 500;
+  list-style: revert;
+}
+
+.about > summary:hover {
+  text-decoration: underline;
+}
+
+.about p {
+  margin: 0.5rem 0;
+}
+
+.about[open] > summary {
+  margin-bottom: 0.25rem;
+}
+
 .identity {
   margin: 0.125rem 0;
   font-size: 0.75rem;
