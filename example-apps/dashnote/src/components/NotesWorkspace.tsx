@@ -502,6 +502,12 @@ export function NotesWorkspace({
           noteId: selectedId,
           title,
           message,
+          // Optimistic concurrency check: reject the replace if the network's
+          // revision moved while the editor was open. The post-failure
+          // refresh branch below still handles cases this can't predict
+          // (identity-nonce races, network errors, or a race between our
+          // helper's fetch and its replace).
+          expectedRevision: selectedNote?.revision,
           log: withDetail(log, "documents.get → replace"),
         });
         log("Note saved.", {
