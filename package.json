@@ -10,7 +10,10 @@
     "test:read-only": "node --test --test-timeout=120000 test/read-only.test.mjs",
     "test:read-write": "node --test --test-timeout=300000 --test-concurrency=1 test/read-write.test.mjs",
     "test:all": "node --test --test-timeout=300000 --test-concurrency=1 test/read-only.test.mjs test/read-write.test.mjs",
-    "test:setup": "mocha --slow 500 test/setupDashClient.test.mjs --exit"
+    "test:setup": "mocha --slow 500 test/setupDashClient.test.mjs --exit",
+    "walkthrough:dashmint-lab": "node scripts/walkthroughs/record.mjs dashmint-lab",
+    "walkthrough:dashnote": "node scripts/walkthroughs/record.mjs dashnote",
+    "walkthrough:dashnote-starter": "node scripts/walkthroughs/record.mjs dashnote-starter"
   },
   "repository": {
     "type": "git",
