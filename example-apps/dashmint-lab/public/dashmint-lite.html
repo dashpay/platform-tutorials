@@ -124,14 +124,19 @@
     // The token-enabled "card" data contract is already published on testnet by
     // the React app. Anyone querying with the same contract id hits the same
     // documents.
-    const CONTRACT_ID = 'GDBN1h52Zcs8hSSKBoz67WDyWmUwcRyCSJjXBgKPty94';
+    const CONTRACT_ID = '5hK6SMfN4m2vU1t9qhvngUUQjsXeMNwr8MZdFeGBH8Aa';
     const DOC_TYPE = 'card';
 
     // Connect to testnet. testnetTrusted() uses the SDK's bundled list of trusted
     // nodes — no node URL or config needed. connect() does the gRPC handshake
     // + initial sync. No identity or signing is required for read-only queries.
+    //
+    // Workaround: pin the platform protocol version for evo-sdk dev.6 so the
+    // SDK doesn't ask testnet for a newer protocol it can't decode. Mirrors
+    // PLATFORM_VERSION_OVERRIDE in setupDashClient-core.mjs. Remove once a
+    // fixed SDK release lands.
     async function connectSdk() {
-      const sdk = EvoSDK.testnetTrusted();
+      const sdk = EvoSDK.testnetTrusted({ version: 11 });
       await sdk.connect();
       return sdk;
     }

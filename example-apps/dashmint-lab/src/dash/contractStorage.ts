@@ -16,7 +16,7 @@ const STORAGE_KEY = "dashmint-lab.contractId";
  * the Settings modal or register their own.
  */
 export const DEFAULT_CONTRACT_ID =
-  "GDBN1h52Zcs8hSSKBoz67WDyWmUwcRyCSJjXBgKPty94";
+  "5hK6SMfN4m2vU1t9qhvngUUQjsXeMNwr8MZdFeGBH8Aa";
 
 export function loadStoredContractId(): string | null {
   return localStorage.getItem(STORAGE_KEY) ?? DEFAULT_CONTRACT_ID;
