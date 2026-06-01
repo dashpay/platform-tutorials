@@ -228,20 +228,20 @@ async function addWalkthroughOverlay(page, accent = '#34d399') {
       html { scroll-behavior: smooth; }
       #walkthrough-caption {
         position: fixed;
-        left: 50%;
-        top: 22px;
+        right: 24px;
+        top: 8px;
         z-index: 999999;
-        max-width: 640px;
-        width: min(640px, calc(100vw - 48px));
-        padding: 14px 18px;
-        border-radius: 8px;
-        background: rgba(8, 13, 24, 0.76);
-        color: white;
+        max-width: 560px;
+        width: min(560px, calc(100vw - 320px));
+        padding: 10px 16px;
+        border-radius: 10px;
+        background: rgba(15, 23, 42, 0.88);
+        color: #f8fafc;
+        border: 1px solid color-mix(in srgb, ${accent} 55%, transparent);
         text-align: center;
-        font: 600 20px/1.35 system-ui, -apple-system, BlinkMacSystemFont, "Segoe UI", sans-serif;
-        box-shadow: 0 12px 32px rgba(0, 0, 0, .28);
-        backdrop-filter: blur(10px);
-        transform: translateX(-50%);
+        font: 600 17px/1.35 system-ui, -apple-system, BlinkMacSystemFont, "Segoe UI", sans-serif;
+        box-shadow: 0 12px 32px rgba(0, 0, 0, .55);
+        backdrop-filter: blur(12px);
       }
       #walkthrough-cursor {
         position: fixed;
@@ -817,12 +817,12 @@ async function runDashmintLab(page) {
     state: 'visible',
     timeout: 20000,
   });
-  page.logStep('Waiting for first card (Frost Warden) to load');
-  await page.getByText('Frost Warden', { exact: true }).first().waitFor({
+  page.logStep('Waiting for first card to load');
+  await page.getByRole('article').first().waitFor({
     state: 'visible',
     timeout: 30000,
   });
-  await addWalkthroughOverlay(page, '#34d399');
+  await addWalkthroughOverlay(page, '#fbbf24');
 
   const driver = makeDriver(page);
   await driver.delay(900);
@@ -1005,24 +1005,60 @@ async function main() {
   page.walkthroughCaptions = captions;
   page.logStep = logStep;
 
+  let interrupted = false;
+  const bail = new Promise((resolve) => {
+    const onSignal = (signal) => {
+      if (interrupted) return;
+      interrupted = true;
+      logStep(`Received ${signal}, finalizing video`);
+      resolve();
+    };
+    process.once('SIGINT', () => onSignal('SIGINT'));
+    process.once('SIGTERM', () => onSignal('SIGTERM'));
+  });
+
   logStep(`Recording ${config.title} at ${args.url}`);
   try {
-    await config.run(page);
-    logStep('Capturing preview screenshot');
-    await page.screenshot({ path: targetPreview, fullPage: false });
+    await Promise.race([config.run(page), bail]);
+    if (!interrupted) {
+      logStep('Capturing preview screenshot');
+      await page.screenshot({ path: targetPreview, fullPage: false });
+    }
   } finally {
     const video = page.video();
-    await context.close();
-    await browser.close();
+    try {
+      await context.close();
+    } catch (err) {
+      logStep(`context.close failed: ${err.message}`);
+    }
+    try {
+      await browser.close();
+    } catch (err) {
+      logStep(`browser.close failed: ${err.message}`);
+    }
     if (video) {
-      const source = await video.path();
-      await fs.copyFile(source, targetWebm);
+      try {
+        await video.saveAs(targetWebm);
+      } catch (err) {
+        logStep(`video.saveAs failed: ${err.message}`);
+        try {
+          const source = await video.path();
+          await fs.copyFile(source, targetWebm);
+        } catch (copyErr) {
+          logStep(`video copy fallback failed: ${copyErr.message}`);
+        }
+      }
     }
   }
 
-  console.log(`Recorded ${config.title}`);
+  if (interrupted) {
+    console.log(`Interrupted; saved partial video for ${config.title}`);
+  } else {
+    console.log(`Recorded ${config.title}`);
+  }
   console.log(`Video: ${targetWebm}`);
-  console.log(`Preview: ${targetPreview}`);
+  if (!interrupted) console.log(`Preview: ${targetPreview}`);
+  if (interrupted) process.exit(130);
 }
 
 main().catch((err) => {
