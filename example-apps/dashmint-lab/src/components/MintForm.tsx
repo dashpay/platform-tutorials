@@ -272,7 +272,7 @@ export function MintForm({
             starterPackSoldOut ||
             hasInsufficientTokensForStarterPack
           }
-          className="self-start rounded-md border border-line-2 px-4 py-2 text-[13px] font-semibold text-ink transition hover:border-accent-dim hover:text-ink disabled:cursor-not-allowed disabled:border-line disabled:text-ink-4"
+          className="h-10 rounded-md border border-line-2 px-[18px] text-[13px] font-semibold text-ink transition hover:border-accent-dim hover:text-ink disabled:cursor-not-allowed disabled:border-line disabled:text-ink-4"
         >
           {mintingPack
             ? "Minting…"
