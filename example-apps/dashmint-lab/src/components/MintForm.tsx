@@ -257,8 +257,8 @@ export function MintForm({
           Starter Pack
         </h2>
         <p className="text-[12px] leading-[1.55] text-ink-3">
-          Mint a random set of sample cards from the tutorial collection. Costs{" "}
-          {STARTER_PACK_SIZE} DashMint tokens.
+          Mint {STARTER_PACK_SIZE} random cards from the tutorial collection.
+          Costs {STARTER_PACK_SIZE} DashMint tokens (1 per card).
         </p>
         {starterPackSoldOut ? (
           <p className="rounded-md border border-[oklch(30%_0.08_25)] bg-[oklch(22%_0.04_25)] px-3 py-2 text-[12px] font-medium leading-[1.45] text-danger">
