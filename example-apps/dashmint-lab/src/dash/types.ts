@@ -108,6 +108,9 @@ export interface DashSdk {
       identityId: string,
       tokenIds: string[],
     ): Promise<Map<string, bigint>>;
+    totalSupply(
+      tokenId: string,
+    ): Promise<{ totalSupply: bigint; tokenId: string } | undefined>;
   };
   dpns: {
     username(identityId: string): Promise<string | null | undefined>;

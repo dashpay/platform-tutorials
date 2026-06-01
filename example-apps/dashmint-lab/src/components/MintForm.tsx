@@ -2,11 +2,15 @@
  * Mint-a-card form. Calls src/dash/mintCard directly; session provides
  * sdk, keyManager, and the contract ID.
  */
-import { useState, type FormEvent } from "react";
+import { useEffect, useState, type FormEvent } from "react";
 import { drawStarterPack, STARTER_PACK_SIZE } from "../data/starterPack";
 import { errorMessage } from "../dash/logger";
 import { mintCard } from "../dash/mintCard";
-import { DASHMINT_TOKEN_COST } from "../dash/dashMintToken";
+import {
+  DASHMINT_TOKEN_COST,
+  DASHMINT_TOKEN_SUPPLY,
+  fetchCardsMintedCount,
+} from "../dash/dashMintToken";
 import { useSession } from "../session/useSession";
 import { OddsTable } from "./OddsTable";
 
@@ -26,17 +30,43 @@ export function MintForm({
   const [description, setDescription] = useState("");
   const [submitting, setSubmitting] = useState(false);
   const [mintingPack, setMintingPack] = useState(false);
+  const [mintedCount, setMintedCount] = useState<bigint | null>(null);
   const starterPackTokenCost = BigInt(STARTER_PACK_SIZE);
+
+  useEffect(() => {
+    if (!session.sdk) return;
+    let cancelled = false;
+    fetchCardsMintedCount({ sdk: session.sdk, contractId })
+      .then((count) => {
+        if (!cancelled) setMintedCount(count);
+      })
+      .catch(() => {
+        if (!cancelled) setMintedCount(null);
+      });
+    return () => {
+      cancelled = true;
+    };
+  }, [session.sdk, contractId, submitting, mintingPack]);
+  const soldOut = mintedCount !== null && mintedCount >= DASHMINT_TOKEN_SUPPLY;
+  const starterPackSoldOut =
+    mintedCount !== null &&
+    DASHMINT_TOKEN_SUPPLY - mintedCount < starterPackTokenCost;
   const hasInsufficientTokensForCard =
     dashMintTokenBalance !== null && dashMintTokenBalance < DASHMINT_TOKEN_COST;
   const hasInsufficientTokensForStarterPack =
     dashMintTokenBalance !== null &&
     dashMintTokenBalance < starterPackTokenCost;
+  const mintedPercent =
+    mintedCount === null
+      ? 0
+      : Math.min(100, Number((mintedCount * 100n) / DASHMINT_TOKEN_SUPPLY));
 
   async function handleSubmit(e: FormEvent) {
     e.preventDefault();
     if (!session.sdk || !session.keyManager) return;
-    if (submitting || mintingPack || hasInsufficientTokensForCard) return;
+    if (submitting || mintingPack || soldOut || hasInsufficientTokensForCard) {
+      return;
+    }
     setSubmitting(true);
     try {
       await mintCard({
@@ -58,7 +88,12 @@ export function MintForm({
 
   async function handleStarterPack() {
     if (!session.sdk || !session.keyManager) return;
-    if (submitting || mintingPack || hasInsufficientTokensForStarterPack) {
+    if (
+      submitting ||
+      mintingPack ||
+      starterPackSoldOut ||
+      hasInsufficientTokensForStarterPack
+    ) {
       return;
     }
     setMintingPack(true);
@@ -83,6 +118,41 @@ export function MintForm({
     }
   }
 
+  const supplyBlock = (
+    <div className="rounded-md border border-line bg-bg px-3 py-2">
+      <div className="text-[10px] font-semibold uppercase tracking-[0.12em] text-ink-4">
+        Supply
+      </div>
+      <div className="mt-1 font-mono text-[14px] text-ink">
+        {mintedCount === null
+          ? "—"
+          : `${mintedCount.toString()} / ${DASHMINT_TOKEN_SUPPLY.toString()} minted`}
+      </div>
+      {mintedCount !== null && (
+        <div className="mt-2 h-1.5 overflow-hidden rounded-full bg-surface-2">
+          <div
+            className={`h-full ${soldOut ? "bg-danger" : "bg-accent"}`}
+            style={{ width: `${mintedPercent}%` }}
+          />
+        </div>
+      )}
+      {soldOut && (
+        <p className="mt-2 rounded-md border border-[oklch(30%_0.08_25)] bg-[oklch(22%_0.04_25)] px-3 py-2 text-[12px] font-medium leading-[1.45] text-danger">
+          All cards have been minted.
+        </p>
+      )}
+    </div>
+  );
+
+  if (soldOut) {
+    return (
+      <div className="flex flex-col gap-5 rounded-xl border border-line bg-surface p-5">
+        {supplyBlock}
+        <OddsTable />
+      </div>
+    );
+  }
+
   return (
     <div className="flex flex-col gap-5 rounded-xl border border-line bg-surface p-5">
       <form onSubmit={handleSubmit} className="flex flex-col gap-4">
@@ -93,9 +163,11 @@ export function MintForm({
           </p>
         </div>
 
+        {supplyBlock}
+
         <div className="rounded-md border border-line bg-bg px-3 py-2">
           <div className="text-[10px] font-semibold uppercase tracking-[0.12em] text-ink-4">
-            DashMint tokens
+            Your DashMint token balance
           </div>
           <div className="mt-1 font-mono text-[14px] text-ink">
             {dashMintTokenBalance === null
@@ -179,20 +251,34 @@ export function MintForm({
           Mint a random set of sample cards from the tutorial collection. Costs{" "}
           {STARTER_PACK_SIZE} DashMint tokens.
         </p>
-        {hasInsufficientTokensForStarterPack && (
+        {starterPackSoldOut ? (
           <p className="rounded-md border border-[oklch(30%_0.08_25)] bg-[oklch(22%_0.04_25)] px-3 py-2 text-[12px] font-medium leading-[1.45] text-danger">
-            You need {STARTER_PACK_SIZE} DashMint tokens to open a Starter Pack.
+            Not enough remaining supply for a Starter Pack.
           </p>
+        ) : (
+          hasInsufficientTokensForStarterPack && (
+            <p className="rounded-md border border-[oklch(30%_0.08_25)] bg-[oklch(22%_0.04_25)] px-3 py-2 text-[12px] font-medium leading-[1.45] text-danger">
+              You need {STARTER_PACK_SIZE} DashMint tokens to open a Starter
+              Pack.
+            </p>
+          )
         )}
         <button
           type="button"
           onClick={handleStarterPack}
           disabled={
-            submitting || mintingPack || hasInsufficientTokensForStarterPack
+            submitting ||
+            mintingPack ||
+            starterPackSoldOut ||
+            hasInsufficientTokensForStarterPack
           }
           className="self-start rounded-md border border-line-2 px-4 py-2 text-[13px] font-semibold text-ink transition hover:border-accent-dim hover:text-ink disabled:cursor-not-allowed disabled:border-line disabled:text-ink-4"
         >
-          {mintingPack ? "Minting…" : "Open Starter Pack"}
+          {mintingPack
+            ? "Minting…"
+            : starterPackSoldOut
+              ? "Sold out"
+              : "Open Starter Pack"}
         </button>
       </div>
     </div>

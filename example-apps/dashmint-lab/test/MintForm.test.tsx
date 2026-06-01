@@ -242,7 +242,7 @@ describe("MintForm", () => {
         /Mint a unique collectible card\. Costs 1 DashMint token\./,
       ),
     ).toBeTruthy();
-    expect(screen.getByText("DashMint tokens")).toBeTruthy();
+    expect(screen.getByText("Your DashMint token balance")).toBeTruthy();
     expect(screen.getByText("0")).toBeTruthy();
     expect(
       screen.getByText("You need at least 1 DashMint token to mint a card."),
