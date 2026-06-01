@@ -1,0 +1,18 @@
+{
+  "intro": "DashMint Lab opens directly into browse-only mode on Dash Platform testnet.",
+  "collectionLive": "The Collection tab is live without signing in: cards are queried from the shared contract.",
+  "cardDetails": "Each card shows rarity, price, stats, owner, and marketplace actions when a price exists.",
+  "marketplace": "Switch to Marketplace to see cards that are listed for purchase.",
+  "marketplaceBuy": "Listed cards expose a Buy action that opens a purchase confirmation when signed in.",
+  "sorting": "Sorting is available on all Collection views; here it cycles the card grid ordering.",
+  "signInUnlocks": "Signing in unlocks account-specific actions alongside the public marketplace data.",
+  "afterLogin": "After login, the Yours tab and account balance become available alongside browse-only data.",
+  "ownedCardMenu": "Cards you own expose owner-only actions through the ⋯ menu: Transfer, Copy ID, View on Explorer, and Burn.",
+  "mintUnlocked": "The Mint tab is unlocked after login; the form shows token balance and available mint actions.",
+  "mintReadOnly": "The Mint tab exposes the full form, but write operations are gated until login.",
+  "noMintDefault": "Anyone owning tokens associated with the contract can mint new cards. Tokens are burned upon minting to limit card supply.",
+  "loginPath": "Opening Login shows the account access path without requiring a sign-in.",
+  "fundedIdentity": "A funded testnet identity unlocks mint, transfer, pricing, purchase, and burn functionality.",
+  "howItWorks": "The How it works tab explains the SDK pieces behind the marketplace.",
+  "outro": "DashMint Lab is an example application highlighting just some of Dash Platform's many features."
+}

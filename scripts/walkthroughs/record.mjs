@@ -228,11 +228,11 @@ async function addWalkthroughOverlay(page, accent = '#34d399') {
       html { scroll-behavior: smooth; }
       #walkthrough-caption {
         position: fixed;
-        right: 24px;
+        left: calc(50% + var(--walkthrough-caption-offset, 0px));
         top: 8px;
         z-index: 999999;
         max-width: 560px;
-        width: min(560px, calc(100vw - 320px));
+        width: min(560px, calc(100vw - 540px));
         padding: 10px 16px;
         border-radius: 10px;
         background: rgba(15, 23, 42, 0.88);
@@ -242,6 +242,7 @@ async function addWalkthroughOverlay(page, accent = '#34d399') {
         font: 600 17px/1.35 system-ui, -apple-system, BlinkMacSystemFont, "Segoe UI", sans-serif;
         box-shadow: 0 12px 32px rgba(0, 0, 0, .55);
         backdrop-filter: blur(12px);
+        transform: translateX(-50%);
       }
       #walkthrough-cursor {
         position: fixed;
@@ -823,6 +824,12 @@ async function runDashmintLab(page) {
     timeout: 30000,
   });
   await addWalkthroughOverlay(page, '#fbbf24');
+  await page.evaluate(() => {
+    document.documentElement.style.setProperty(
+      '--walkthrough-caption-offset',
+      '104px',
+    );
+  });
 
   const driver = makeDriver(page);
   await driver.delay(900);
@@ -830,6 +837,51 @@ async function runDashmintLab(page) {
     'intro',
     'DashMint Lab opens directly into browse-only mode on Dash Platform testnet.',
   );
+  await driver.captionKey(
+    'collectionLive',
+    'The Collection tab is live without signing in: cards are queried from the shared contract.',
+  );
+  await driver.moveCursor(514, 247);
+  await driver.delay(900);
+  await driver.captionKey(
+    'cardDetails',
+    'Each card shows rarity, price, stats, owner, and marketplace actions when a price exists.',
+  );
+  await driver.moveCursor(1060, 700);
+  await driver.delay(900);
+  await driver.captionKey(
+    'marketplace',
+    'Switch to Marketplace to see cards that are listed for purchase.',
+  );
+  page.logStep('Switching to Marketplace tab');
+  await driver.clickLocator(page.getByRole('button', { name: 'Marketplace' }));
+  await driver.delay(1200);
+  const buyButton = page
+    .getByRole('button', { name: 'Buy', exact: true })
+    .first();
+  if ((await buyButton.count()) > 0) {
+    await buyButton
+      .waitFor({ state: 'visible', timeout: 5000 })
+      .catch(() => {});
+    await driver.captionKey(
+      'marketplaceBuy',
+      'Listed cards expose a Buy action that opens a purchase confirmation when signed in.',
+    );
+    page.logStep('Hovering Buy button');
+    await driver.moveToLocator(buyButton);
+    await driver.delay(1200);
+  }
+  await driver.captionKey(
+    'sorting',
+    'Sorting is available on all Collection views; here it cycles the card grid ordering.',
+  );
+  await driver.clickLocator(page.getByRole('button', { name: /Sort:/ }));
+  await driver.clickLocator(page.getByRole('button', { name: /Sort:/ }));
+  await driver.clickLocator(page.getByRole('button', { name: /Sort:/ }));
+  await driver.delay(1100);
+  page.logStep('Returning to All tab');
+  await driver.clickLocator(page.getByRole('button', { name: 'All' }));
+  await driver.delay(900);
   if (page.walkthroughCredentials) {
     page.logStep('Signing in with walkthrough mnemonic');
     await driver.captionKey(
@@ -866,34 +918,44 @@ async function runDashmintLab(page) {
       'After login, the Yours tab and account balance become available alongside browse-only data.',
     );
     await driver.delay(900);
+    page.logStep('Switching to Yours tab');
+    await driver.clickLocator(page.getByRole('button', { name: 'Yours' }));
+    await driver.delay(1200);
+    const ownedCard = page.getByRole('article').first();
+    if ((await ownedCard.count()) > 0) {
+      await ownedCard.waitFor({ state: 'visible', timeout: 10000 });
+      await driver.captionKey(
+        'ownedCardMenu',
+        'Cards you own expose owner-only actions through the ⋯ menu: Transfer, Copy ID, View on Explorer, and Burn.',
+      );
+      const menuButton = ownedCard.getByRole('button', {
+        name: 'More actions',
+      });
+      page.logStep('Opening owned-card overflow menu');
+      await driver.clickLocator(menuButton);
+      await driver.delay(900);
+      const ownerMenuItems = ['Transfer', 'Copy ID', 'View on Explorer'];
+      for (const itemName of ownerMenuItems) {
+        const item = page.getByRole('button', { name: itemName }).last();
+        if ((await item.count()) > 0) {
+          await driver.moveToLocator(item);
+          await driver.delay(700);
+        }
+      }
+      const burnItem = page.getByRole('button', { name: 'Burn Card' }).last();
+      if ((await burnItem.count()) > 0) {
+        await driver.moveToLocator(burnItem);
+        await driver.delay(900);
+      }
+      page.logStep('Closing overflow menu');
+      await page.keyboard.press('Escape');
+      await page.mouse.click(20, 20);
+      await driver.delay(600);
+    }
+    page.logStep('Returning to All tab');
     await driver.clickLocator(page.getByRole('button', { name: 'All' }));
     await driver.delay(900);
   }
-  await driver.captionKey(
-    'collectionLive',
-    'The Collection tab is live without signing in: cards are queried from the shared contract.',
-  );
-  await driver.moveCursor(514, 247);
-  await driver.delay(900);
-  await driver.captionKey(
-    'cardDetails',
-    'Each card shows rarity, document id, stats, owner, and marketplace actions when a price exists.',
-  );
-  await driver.moveCursor(1060, 700);
-  await driver.delay(900);
-  await driver.captionKey(
-    'marketplace',
-    'Switch to Marketplace to focus on cards that are listed for purchase.',
-  );
-  page.logStep('Switching to Marketplace tab');
-  await driver.clickLocator(page.getByRole('button', { name: 'Marketplace' }));
-  await driver.delay(1200);
-  await driver.captionKey(
-    'sorting',
-    'Sorting is available in browse mode too; here it cycles the card grid ordering.',
-  );
-  await driver.clickLocator(page.getByRole('button', { name: /Sort:/ }));
-  await driver.delay(1100);
   await driver.captionKey(
     page.walkthroughCredentials ? 'mintUnlocked' : 'mintReadOnly',
     page.walkthroughCredentials
