@@ -1,35 +1,35 @@
 #!/usr/bin/env node
-import { createRequire } from "node:module";
-import fs from "node:fs/promises";
-import os from "node:os";
-import path from "node:path";
-import { fileURLToPath } from "node:url";
+import { createRequire } from 'node:module';
+import fs from 'node:fs/promises';
+import os from 'node:os';
+import path from 'node:path';
+import { fileURLToPath } from 'node:url';
 
 const __dirname = path.dirname(fileURLToPath(import.meta.url));
-const repoRoot = path.resolve(__dirname, "../..");
-const defaultUrl = "http://127.0.0.1:5173/";
-const captionsDir = path.join(__dirname, "captions");
+const repoRoot = path.resolve(__dirname, '../..');
+const defaultUrl = 'http://127.0.0.1:5173/';
+const captionsDir = path.join(__dirname, 'captions');
 
 const appConfigs = {
-  "dashnote-starter": {
-    appDir: "example-apps/dashnote-starter",
-    fileStem: "dashnote-starter",
-    title: "Dashnote Starter",
-    previewAfter: "sample notes",
+  'dashnote-starter': {
+    appDir: 'example-apps/dashnote-starter',
+    fileStem: 'dashnote-starter',
+    title: 'Dashnote Starter',
+    previewAfter: 'sample notes',
     run: runDashnoteStarter,
   },
   dashnote: {
-    appDir: "example-apps/dashnote",
-    fileStem: "dashnote",
-    title: "Dashnote",
-    previewAfter: "settings",
+    appDir: 'example-apps/dashnote',
+    fileStem: 'dashnote',
+    title: 'Dashnote',
+    previewAfter: 'settings',
     run: runDashnote,
   },
-  "dashmint-lab": {
-    appDir: "example-apps/dashmint-lab",
-    fileStem: "dashmint-lab",
-    title: "DashMint Lab",
-    previewAfter: "how it works",
+  'dashmint-lab': {
+    appDir: 'example-apps/dashmint-lab',
+    fileStem: 'dashmint-lab',
+    title: 'DashMint Lab',
+    previewAfter: 'how it works',
     run: runDashmintLab,
   },
 };
@@ -61,7 +61,7 @@ Environment:
 function parseArgs(argv) {
   const args = {
     app: null,
-    envFile: path.join(repoRoot, ".env.walkthrough"),
+    envFile: path.join(repoRoot, '.env.walkthrough'),
     login: true,
     url: defaultUrl,
     headed: false,
@@ -69,18 +69,18 @@ function parseArgs(argv) {
 
   for (let i = 0; i < argv.length; i += 1) {
     const arg = argv[i];
-    if (arg === "--help" || arg === "-h") {
+    if (arg === '--help' || arg === '-h') {
       console.log(usage);
       process.exit(0);
-    } else if (arg === "--url") {
+    } else if (arg === '--url') {
       args.url = argv[++i];
-      if (!args.url) throw new Error("--url requires a value");
-    } else if (arg === "--env-file") {
+      if (!args.url) throw new Error('--url requires a value');
+    } else if (arg === '--env-file') {
       args.envFile = path.resolve(argv[++i]);
-      if (!args.envFile) throw new Error("--env-file requires a value");
-    } else if (arg === "--no-login") {
+      if (!args.envFile) throw new Error('--env-file requires a value');
+    } else if (arg === '--no-login') {
       args.login = false;
-    } else if (arg === "--headed") {
+    } else if (arg === '--headed') {
       args.headed = true;
     } else if (!args.app) {
       args.app = arg;
@@ -90,7 +90,7 @@ function parseArgs(argv) {
   }
 
   if (!args.app || !appConfigs[args.app]) {
-    throw new Error(`Choose one app: ${Object.keys(appConfigs).join(", ")}`);
+    throw new Error(`Choose one app: ${Object.keys(appConfigs).join(', ')}`);
   }
 
   return args;
@@ -99,15 +99,15 @@ function parseArgs(argv) {
 async function loadEnvFile(filePath) {
   let raw;
   try {
-    raw = await fs.readFile(filePath, "utf8");
+    raw = await fs.readFile(filePath, 'utf8');
   } catch (err) {
-    if (err.code === "ENOENT") return false;
+    if (err.code === 'ENOENT') return false;
     throw err;
   }
 
   for (const line of raw.split(/\r?\n/)) {
     const trimmed = line.trim();
-    if (!trimmed || trimmed.startsWith("#")) continue;
+    if (!trimmed || trimmed.startsWith('#')) continue;
     const match = trimmed.match(/^([A-Za-z_][A-Za-z0-9_]*)=(.*)$/);
     if (!match) continue;
 
@@ -129,9 +129,9 @@ async function loadCaptionCopy(appName) {
   const filePath = path.join(captionsDir, `${appName}.json`);
   let raw;
   try {
-    raw = await fs.readFile(filePath, "utf8");
+    raw = await fs.readFile(filePath, 'utf8');
   } catch (err) {
-    if (err.code === "ENOENT") return {};
+    if (err.code === 'ENOENT') return {};
     throw err;
   }
 
@@ -142,12 +142,12 @@ async function loadCaptionCopy(appName) {
     throw new Error(`Invalid caption JSON in ${filePath}: ${err.message}`);
   }
 
-  if (!parsed || Array.isArray(parsed) || typeof parsed !== "object") {
+  if (!parsed || Array.isArray(parsed) || typeof parsed !== 'object') {
     throw new Error(`Caption file must be a JSON object: ${filePath}`);
   }
 
   for (const [key, value] of Object.entries(parsed)) {
-    if (typeof value !== "string") {
+    if (typeof value !== 'string') {
       throw new Error(`Caption "${key}" in ${filePath} must be a string`);
     }
   }
@@ -160,28 +160,28 @@ function firstEnv(keys) {
     const value = process.env[key]?.trim();
     if (value) return value;
   }
-  return "";
+  return '';
 }
 
 function getCredentials(loginEnabled) {
   if (!loginEnabled) return null;
   const mnemonic = firstEnv([
-    "WALKTHROUGH_MNEMONIC",
-    "PLATFORM_MNEMONIC",
-    "PLATFORM_TUTORIALS_IDENTITY_MNEMONIC",
-    "MNEMONIC",
+    'WALKTHROUGH_MNEMONIC',
+    'PLATFORM_MNEMONIC',
+    'PLATFORM_TUTORIALS_IDENTITY_MNEMONIC',
+    'MNEMONIC',
   ]);
   if (!mnemonic) return null;
 
   const identityIndex = firstEnv([
-    "WALKTHROUGH_IDENTITY_INDEX",
-    "PLATFORM_IDENTITY_INDEX",
-    "PLATFORM_TUTORIALS_IDENTITY_INDEX",
-    "IDENTITY_INDEX",
+    'WALKTHROUGH_IDENTITY_INDEX',
+    'PLATFORM_IDENTITY_INDEX',
+    'PLATFORM_TUTORIALS_IDENTITY_INDEX',
+    'IDENTITY_INDEX',
   ]);
 
   return {
-    identityIndex: Number.parseInt(identityIndex || "0", 10) || 0,
+    identityIndex: Number.parseInt(identityIndex || '0', 10) || 0,
     mnemonic,
   };
 }
@@ -198,18 +198,18 @@ function loadPlaywright(appDir) {
   for (const candidate of candidates) {
     try {
       const req = createRequire(
-        candidate.endsWith("playwright")
-          ? path.join(candidate, "package.json")
-          : path.join(candidate, "package.json"),
+        candidate.endsWith('playwright')
+          ? path.join(candidate, 'package.json')
+          : path.join(candidate, 'package.json'),
       );
-      return req(candidate.endsWith("playwright") ? candidate : "playwright");
+      return req(candidate.endsWith('playwright') ? candidate : 'playwright');
     } catch (err) {
       errors.push(`${candidate}: ${err.message}`);
     }
   }
 
   throw new Error(
-    `Unable to load Playwright. Install dependencies for the app, or set PLAYWRIGHT_REQUIRE_PATH.\n\n${errors.join("\n")}`,
+    `Unable to load Playwright. Install dependencies for the app, or set PLAYWRIGHT_REQUIRE_PATH.\n\n${errors.join('\n')}`,
   );
 }
 
@@ -222,7 +222,7 @@ async function launchBrowser({ appDir, headed }) {
   });
 }
 
-async function addWalkthroughOverlay(page, accent = "#34d399") {
+async function addWalkthroughOverlay(page, accent = '#34d399') {
   await page.addStyleTag({
     content: `
       html { scroll-behavior: smooth; }
@@ -266,15 +266,15 @@ async function addWalkthroughOverlay(page, accent = "#34d399") {
   });
 
   await page.evaluate(() => {
-    const caption = document.createElement("div");
-    caption.id = "walkthrough-caption";
-    caption.textContent = "";
+    const caption = document.createElement('div');
+    caption.id = 'walkthrough-caption';
+    caption.textContent = '';
     document.body.appendChild(caption);
 
-    const cursor = document.createElement("div");
-    cursor.id = "walkthrough-cursor";
-    cursor.style.left = "1080px";
-    cursor.style.top = "132px";
+    const cursor = document.createElement('div');
+    cursor.id = 'walkthrough-cursor';
+    cursor.style.left = '1080px';
+    cursor.style.top = '132px';
     document.body.appendChild(cursor);
   });
 }
@@ -284,14 +284,14 @@ function makeDriver(page) {
   const captionCopy = page.walkthroughCaptions ?? {};
   const copy = (key, fallback) => {
     const value = captionCopy[key];
-    return typeof value === "string" && value.trim() ? value : fallback;
+    return typeof value === 'string' && value.trim() ? value : fallback;
   };
 
   return {
     delay,
     async caption(text, ms = 3000) {
       await page.evaluate((value) => {
-        const el = document.getElementById("walkthrough-caption");
+        const el = document.getElementById('walkthrough-caption');
         if (el) el.textContent = value;
       }, text);
       await delay(ms);
@@ -300,57 +300,64 @@ function makeDriver(page) {
       await this.caption(copy(key, fallback), ms);
     },
     async moveCursor(x, y) {
-      await page.evaluate(({ x, y }) => {
-        const el = document.getElementById("walkthrough-cursor");
-        if (el) {
-          el.style.left = `${x}px`;
-          el.style.top = `${y}px`;
-        }
-      }, { x, y });
+      await page.evaluate(
+        ({ x, y }) => {
+          const el = document.getElementById('walkthrough-cursor');
+          if (el) {
+            el.style.left = `${x}px`;
+            el.style.top = `${y}px`;
+          }
+        },
+        { x, y },
+      );
       await delay(700);
     },
     async clickCursor(x, y) {
       await this.moveCursor(x, y);
       await page.evaluate(() => {
-        document.getElementById("walkthrough-cursor")?.classList.add("clicking");
+        document
+          .getElementById('walkthrough-cursor')
+          ?.classList.add('clicking');
       });
       await delay(180);
       await page.mouse.click(x, y);
       await page.evaluate(() => {
         document
-          .getElementById("walkthrough-cursor")
-          ?.classList.remove("clicking");
+          .getElementById('walkthrough-cursor')
+          ?.classList.remove('clicking');
       });
       await delay(900);
     },
     async clickLocator(locator) {
       const count = await locator.count();
-      if (count !== 1) throw new Error(`Expected 1 locator match, found ${count}`);
+      if (count !== 1)
+        throw new Error(`Expected 1 locator match, found ${count}`);
       const box = await locator.boundingBox();
-      if (!box) throw new Error("Locator is not visible");
+      if (!box) throw new Error('Locator is not visible');
       await this.clickCursor(box.x + box.width / 2, box.y + box.height / 2);
     },
     async moveToLocator(locator) {
       const count = await locator.count();
-      if (count !== 1) throw new Error(`Expected 1 locator match, found ${count}`);
+      if (count !== 1)
+        throw new Error(`Expected 1 locator match, found ${count}`);
       const box = await locator.boundingBox();
-      if (!box) throw new Error("Locator is not visible");
+      if (!box) throw new Error('Locator is not visible');
       await this.moveCursor(box.x + box.width / 2, box.y + box.height / 2);
     },
     async clickFirstLocator(locator) {
       const count = await locator.count();
-      if (count < 1) throw new Error("Expected at least 1 locator match");
+      if (count < 1) throw new Error('Expected at least 1 locator match');
       const target = locator.first();
       const box = await target.boundingBox();
-      if (!box) throw new Error("Locator is not visible");
+      if (!box) throw new Error('Locator is not visible');
       await this.clickCursor(box.x + box.width / 2, box.y + box.height / 2);
     },
     async clickLastLocator(locator) {
       const count = await locator.count();
-      if (count < 1) throw new Error("Expected at least 1 locator match");
+      if (count < 1) throw new Error('Expected at least 1 locator match');
       const target = locator.nth(count - 1);
       const box = await target.boundingBox();
-      if (!box) throw new Error("Locator is not visible");
+      if (!box) throw new Error('Locator is not visible');
       await this.clickCursor(box.x + box.width / 2, box.y + box.height / 2);
     },
   };
@@ -358,150 +365,156 @@ function makeDriver(page) {
 
 async function runDashnoteStarter(page) {
   await page.goto(page.walkthroughUrl, {
-    waitUntil: "networkidle",
+    waitUntil: 'networkidle',
     timeout: 15000,
   });
-  await page.locator("h1").filter({
-    hasText: "Personal notes, stored on a public blockchain.",
-  }).waitFor({ state: "visible", timeout: 10000 });
-  await addWalkthroughOverlay(page, "#2563eb");
+  await page
+    .locator('h1')
+    .filter({
+      hasText: 'Personal notes, stored on a public blockchain.',
+    })
+    .waitFor({ state: 'visible', timeout: 10000 });
+  await addWalkthroughOverlay(page, '#2563eb');
 
   const driver = makeDriver(page);
   await driver.delay(1000);
   await driver.captionKey(
-    "intro",
-    "Dashnote Starter: a minimal React app for notes on Dash Platform testnet.",
+    'intro',
+    'Dashnote Starter: a minimal React app for notes on Dash Platform testnet.',
   );
   await driver.captionKey(
-    "identityAccess",
-    "Start here: the app explains what it stores and asks for identity access only when you are ready.",
+    'identityAccess',
+    'Start here: the app explains what it stores and asks for identity access only when you are ready.',
   );
   await driver.moveCursor(622, 348);
   await driver.captionKey(
-    "signInForm",
-    "The sign-in form keeps access local and links to the testnet identity setup path.",
+    'signInForm',
+    'The sign-in form keeps access local and links to the testnet identity setup path.',
   );
   if (page.walkthroughCredentials) {
     await driver.captionKey(
-      "signedInWriteAccess",
-      "Signing in unlocks the write actions that are otherwise unavailable in the starter preview.",
+      'signedInWriteAccess',
+      'Signing in unlocks the write actions that are otherwise unavailable in the starter preview.',
     );
     await page.addStyleTag({
       content:
-        "#mnemonic { color: transparent !important; caret-color: transparent !important; }",
+        '#mnemonic { color: transparent !important; caret-color: transparent !important; }',
     });
-    await driver.clickLocator(page.locator("#mnemonic"));
-    await page.locator("#mnemonic").fill(page.walkthroughCredentials.mnemonic);
-    await driver.clickLocator(page.getByRole("button", { name: "Sign in" }));
-    await page.getByRole("heading", { name: "Dashnote Starter" }).waitFor({
-      state: "visible",
+    await driver.clickLocator(page.locator('#mnemonic'));
+    await page.locator('#mnemonic').fill(page.walkthroughCredentials.mnemonic);
+    await driver.clickLocator(page.getByRole('button', { name: 'Sign in' }));
+    await page.getByRole('heading', { name: 'Dashnote Starter' }).waitFor({
+      state: 'visible',
       timeout: 60000,
     });
     await driver.captionKey(
-      "authenticatedWorkspace",
-      "Authenticated view shows the resolved identity, active contract, note editor, and note list.",
+      'authenticatedWorkspace',
+      'Authenticated view shows the resolved identity, active contract, note editor, and note list.',
     );
     await driver.moveCursor(596, 158);
     await driver.delay(700);
     await driver.captionKey(
-      "noWritesDefault",
-      "The default walkthrough does not create, update, or delete notes; it stops before any testnet write.",
+      'noWritesDefault',
+      'The default walkthrough does not create, update, or delete notes; it stops before any testnet write.',
     );
-    await driver.clickLocator(page.locator("#title"));
-    await page.keyboard.type("Walkthrough draft", { delay: 35 });
-    await driver.clickLocator(page.locator("#message"));
-    await page.keyboard.type("This field is filled locally, but not submitted.", {
-      delay: 25,
-    });
+    await driver.clickLocator(page.locator('#title'));
+    await page.keyboard.type('Walkthrough draft', { delay: 35 });
+    await driver.clickLocator(page.locator('#message'));
+    await page.keyboard.type(
+      'This field is filled locally, but not submitted.',
+      {
+        delay: 25,
+      },
+    );
     await driver.moveCursor(114, 405);
     await driver.delay(1400);
     await driver.captionKey(
-      "writeAccessCrud",
-      "With write access, this same flow can exercise a full CRUD demo when needed.",
+      'writeAccessCrud',
+      'With write access, this same flow can exercise a full CRUD demo when needed.',
       1800,
     );
     return;
   }
 
-  await driver.clickLocator(page.locator("#mnemonic"));
-  await page.keyboard.type("testnet mnemonic goes here", { delay: 45 });
+  await driver.clickLocator(page.locator('#mnemonic'));
+  await page.keyboard.type('testnet mnemonic goes here', { delay: 45 });
   await driver.delay(600);
   await driver.captionKey(
-    "readOnlyTour",
-    "Without sign-in, the walkthrough stops before write actions and tours the read-only starter screen.",
+    'readOnlyTour',
+    'Without sign-in, the walkthrough stops before write actions and tours the read-only starter screen.',
   );
-  await page.locator("#mnemonic").fill("");
+  await page.locator('#mnemonic').fill('');
   await driver.delay(500);
   await driver.captionKey(
-    "sampleNotes",
-    "Sample notes preview the authenticated workspace without loading the SDK or touching the network first.",
+    'sampleNotes',
+    'Sample notes preview the authenticated workspace without loading the SDK or touching the network first.',
   );
-  await page.evaluate(() => window.scrollTo({ top: 470, behavior: "smooth" }));
+  await page.evaluate(() => window.scrollTo({ top: 470, behavior: 'smooth' }));
   await driver.delay(1400);
   await driver.moveCursor(336, 376);
   await driver.captionKey(
-    "exampleConcepts",
-    "The examples call out the core concepts: identity-owned data, shared contracts, and revisions.",
+    'exampleConcepts',
+    'The examples call out the core concepts: identity-owned data, shared contracts, and revisions.',
   );
-  await page.evaluate(() => window.scrollTo({ top: 760, behavior: "smooth" }));
+  await page.evaluate(() => window.scrollTo({ top: 760, behavior: 'smooth' }));
   await driver.delay(1400);
   await driver.captionKey(
-    "aboutSection",
-    "The About section summarizes how the starter maps React UI to a hardcoded Dash Platform contract.",
+    'aboutSection',
+    'The About section summarizes how the starter maps React UI to a hardcoded Dash Platform contract.',
   );
   await driver.clickLocator(
-    page.getByText("About this starter app", { exact: true }),
+    page.getByText('About this starter app', { exact: true }),
   );
   await driver.delay(1200);
   await driver.captionKey(
-    "fullAppFlow",
-    "With write access, the full app flow is create, list, edit, refresh, and delete notes.",
+    'fullAppFlow',
+    'With write access, the full app flow is create, list, edit, refresh, and delete notes.',
   );
-  await page.evaluate(() => window.scrollTo({ top: 0, behavior: "smooth" }));
+  await page.evaluate(() => window.scrollTo({ top: 0, behavior: 'smooth' }));
   await driver.delay(1500);
   await driver.captionKey(
-    "outro",
-    "That is Dashnote Starter: deliberately small, readable, and focused on the SDK calls.",
+    'outro',
+    'That is Dashnote Starter: deliberately small, readable, and focused on the SDK calls.',
     1800,
   );
 }
 
 async function runDashnote(page) {
   await page.goto(page.walkthroughUrl, {
-    waitUntil: "domcontentloaded",
+    waitUntil: 'domcontentloaded',
     timeout: 15000,
   });
-  await page.getByRole("heading", { name: "Notes", exact: true }).waitFor({
-    state: "visible",
+  await page.getByRole('heading', { name: 'Notes', exact: true }).waitFor({
+    state: 'visible',
     timeout: 10000,
   });
   await page
-    .getByText("Connected", { exact: true })
-    .or(page.getByText("Read-only access", { exact: true }))
-    .or(page.getByText("Full access", { exact: true }))
-    .waitFor({ state: "visible", timeout: 30000 });
+    .getByText('Connected', { exact: true })
+    .or(page.getByText('Read-only access', { exact: true }))
+    .or(page.getByText('Full access', { exact: true }))
+    .waitFor({ state: 'visible', timeout: 30000 });
 
-  await addWalkthroughOverlay(page, "#d6a75b");
+  await addWalkthroughOverlay(page, '#d6a75b');
   const driver = makeDriver(page);
 
   await driver.delay(900);
   await driver.captionKey(
-    "intro",
-    "Dashnote is the full notes app: a two-pane notebook backed by Dash Platform documents.",
+    'intro',
+    'Dashnote is the full notes app: a two-pane notebook backed by Dash Platform documents.',
   );
 
   if (page.walkthroughCredentials) {
     await driver.captionKey(
-      "signInFullAccess",
-      "Signing in restores full write access for this identity.",
+      'signInFullAccess',
+      'Signing in restores full write access for this identity.',
     );
-    if ((await page.getByText("Full access", { exact: true }).count()) === 0) {
+    if ((await page.getByText('Full access', { exact: true }).count()) === 0) {
       const identityButton = page
-        .locator("button")
+        .locator('button')
         .filter({ hasText: /Guest|Signed out|Sign in|Read-only access/ });
       await driver.clickLastLocator(identityButton);
       await page.locator('input[type="password"]').waitFor({
-        state: "visible",
+        state: 'visible',
         timeout: 10000,
       });
       await driver.clickLocator(page.locator('input[type="password"]'));
@@ -510,78 +523,78 @@ async function runDashnote(page) {
         .fill(page.walkthroughCredentials.mnemonic);
       if (page.walkthroughCredentials.identityIndex !== 0) {
         await driver.clickLocator(
-          page.getByRole("button", { name: "Advanced settings" }),
+          page.getByRole('button', { name: 'Advanced settings' }),
         );
         await page
           .locator('input[type="number"]')
           .fill(String(page.walkthroughCredentials.identityIndex));
       }
       const submitSignIn = page
-        .locator("form")
-        .getByRole("button", { name: "Sign in" });
+        .locator('form')
+        .getByRole('button', { name: 'Sign in' });
       await driver.clickLocator(submitSignIn);
-      await page.getByText("Full access", { exact: true }).waitFor({
-        state: "visible",
+      await page.getByText('Full access', { exact: true }).waitFor({
+        state: 'visible',
         timeout: 60000,
       });
     }
     await driver.captionKey(
-      "identityFullAccess",
-      "After login, the identity card switches to full access and the note list loads for that identity.",
+      'identityFullAccess',
+      'After login, the identity card switches to full access and the note list loads for that identity.',
     );
     await driver.captionKey(
-      "identityMenu",
-      "The identity card menu exposes Settings, Switch identity, and Log out options.",
+      'identityMenu',
+      'The identity card menu exposes Settings, Switch identity, and Log out options.',
     );
     await driver.clickLocator(
       page
         .locator('button[aria-haspopup="menu"]')
         .filter({ hasText: /Full access/ }),
     );
-    await page.getByRole("menu").waitFor({ state: "visible", timeout: 10000 });
+    await page.getByRole('menu').waitFor({ state: 'visible', timeout: 10000 });
     await driver.delay(1100);
-    await driver.clickLocator(page.getByRole("menuitem", { name: "Log out" }));
-    await page.getByText("Read-only access", { exact: true }).waitFor({
-      state: "visible",
+    await driver.clickLocator(page.getByRole('menuitem', { name: 'Log out' }));
+    await page.getByText('Read-only access', { exact: true }).waitFor({
+      state: 'visible',
       timeout: 10000,
     });
     await driver.captionKey(
-      "rememberedReload",
-      "After logout, reloading uses the remembered identity to show cached notes without signing in.",
+      'rememberedReload',
+      'After logout, reloading uses the remembered identity to show cached notes without signing in.',
     );
-    await page.reload({ waitUntil: "domcontentloaded" });
-    await addWalkthroughOverlay(page, "#d6a75b");
-    await page.getByText("Read-only access", { exact: true }).waitFor({
-      state: "visible",
+    await page.reload({ waitUntil: 'domcontentloaded' });
+    await addWalkthroughOverlay(page, '#d6a75b');
+    await page.getByText('Read-only access', { exact: true }).waitFor({
+      state: 'visible',
       timeout: 30000,
     });
     await page
-      .getByText("Revisions prevent conflicts", { exact: true })
-      .waitFor({ state: "visible", timeout: 60000 });
+      .getByText('Revisions prevent conflicts', { exact: true })
+      .waitFor({ state: 'visible', timeout: 60000 });
     await driver.delay(1000);
     await driver.captionKey(
-      "rememberedSearch",
-      "Search works in remembered read-only mode; these notes came from the starter preview messages.",
+      'rememberedSearch',
+      'Search works in remembered read-only mode; these notes came from the starter preview messages.',
     );
-    await driver.clickLocator(page.getByPlaceholder("Search"));
-    await page.getByPlaceholder("Search").fill("Revisions");
+    await driver.clickLocator(page.getByPlaceholder('Search'));
+    await page.getByPlaceholder('Search').fill('Revisions');
     await page
-      .getByText("Revisions prevent conflicts", { exact: true })
-      .waitFor({ state: "visible", timeout: 10000 });
+      .getByText('Revisions prevent conflicts', { exact: true })
+      .waitFor({ state: 'visible', timeout: 10000 });
     await driver.moveCursor(174, 290);
     await driver.delay(1200);
-    await page.getByPlaceholder("Search").fill("");
+    await page.getByPlaceholder('Search').fill('');
     await driver.delay(900);
 
     await driver.captionKey(
-      "signBackInCrud",
-      "Signing back in restores write access for the controlled CRUD demo.",
+      'signBackInCrud',
+      'Signing back in restores write access for the controlled CRUD demo.',
     );
     await driver.clickLastLocator(
-      page.locator("button").filter({ hasText: /Read-only access/ }),
+      page.locator('button').filter({ hasText: /Read-only access/ }),
     );
     await page.locator('input[type="password"]').waitFor({
-      state: "visible",
+      state: 'visible',
       timeout: 10000,
     });
     await driver.clickLocator(page.locator('input[type="password"]'));
@@ -589,69 +602,71 @@ async function runDashnote(page) {
       .locator('input[type="password"]')
       .fill(page.walkthroughCredentials.mnemonic);
     const rememberedSubmit = page
-      .locator("form")
-      .getByRole("button", { name: "Sign in" });
+      .locator('form')
+      .getByRole('button', { name: 'Sign in' });
     await driver.clickLocator(rememberedSubmit);
-    await page.getByText("Full access", { exact: true }).waitFor({
-      state: "visible",
+    await page.getByText('Full access', { exact: true }).waitFor({
+      state: 'visible',
       timeout: 60000,
     });
   } else {
     await driver.captionKey(
-      "readOnlyMode",
-      "Without sign-in, the recording stays in read-only mode.",
+      'readOnlyMode',
+      'Without sign-in, the recording stays in read-only mode.',
     );
   }
 
   await driver.moveCursor(176, 258);
   await driver.captionKey(
-    "leftPane",
-    "The left pane has search, note counts, cached results, and background refresh state.",
+    'leftPane',
+    'The left pane has search, note counts, cached results, and background refresh state.',
   );
   await driver.moveCursor(622, 350);
   await driver.captionKey(
-    "editorPane",
-    "The editor pane shows title, body, revision metadata, timestamps, and a byte-budget progress bar.",
+    'editorPane',
+    'The editor pane shows title, body, revision metadata, timestamps, and a byte-budget progress bar.',
   );
 
   if (page.walkthroughCredentials) {
-    const newButton = page.getByRole("button", { name: "New note" });
+    const newButton = page.getByRole('button', { name: 'New note' });
     if ((await newButton.count()) === 1) {
       const uniqueTitle = `Walkthrough note ${Date.now().toString().slice(-6)}`;
       await driver.captionKey(
-        "createNote",
-        "Now the walkthrough creates a real note document on testnet.",
+        'createNote',
+        'Now the walkthrough creates a real note document on testnet.',
       );
       await driver.clickLocator(newButton);
-      await page.getByLabel("Title").waitFor({
-        state: "visible",
+      await page.getByLabel('Title').waitFor({
+        state: 'visible',
         timeout: 10000,
       });
-      await driver.clickLocator(page.getByLabel("Title"));
+      await driver.clickLocator(page.getByLabel('Title'));
       await page.keyboard.type(uniqueTitle, { delay: 35 });
-      await driver.clickLocator(page.getByLabel("Body"));
+      await driver.clickLocator(page.getByLabel('Body'));
       await page.keyboard.type(
-        "Created by the walkthrough recorder so we can show create, update, revision metadata, and delete.",
+        'Created by the walkthrough recorder so we can show create, update, revision metadata, and delete.',
         { delay: 20 },
       );
       await driver.moveCursor(1040, 740);
       await driver.delay(1200);
       await driver.captionKey(
-        "saveCreate",
-        "Saving submits sdk.documents.create and the note appears with Platform metadata.",
+        'saveCreate',
+        'Saving submits sdk.documents.create and the note appears with Platform metadata.',
       );
-      await driver.clickLocator(page.getByRole("button", { name: "Create note" }));
-      await page.getByText("Note created.", { exact: true }).first().waitFor({
-        state: "visible",
+      await driver.clickLocator(
+        page.getByRole('button', { name: 'Create note' }),
+      );
+      await page.getByText('Note created.', { exact: true }).first().waitFor({
+        state: 'visible',
         timeout: 90000,
       });
       await page.getByText(uniqueTitle, { exact: true }).first().waitFor({
-        state: "visible",
+        state: 'visible',
         timeout: 30000,
       });
       await driver.captionKey(
-        "createdMetadata",
-        "The editor now shows the created note, including a revision chip and created/updated timestamps.",
+        'createdMetadata',
+        'The editor now shows the created note, including a revision chip and created/updated timestamps.',
       );
       await driver.moveCursor(508, 188);
       await driver.delay(900);
@@ -659,164 +674,171 @@ async function runDashnote(page) {
       await driver.delay(900);
 
       await driver.captionKey(
-        "updateNote",
-        "Next the walkthrough updates the body, which bumps the document revision.",
+        'updateNote',
+        'Next the walkthrough updates the body, which bumps the document revision.',
       );
-      await driver.clickLocator(page.getByLabel("Body"));
-      await page.keyboard.press("End");
+      await driver.clickLocator(page.getByLabel('Body'));
+      await page.keyboard.press('End');
       await page.keyboard.type(
-        "\n\nUpdated during the walkthrough to show revision changes.",
+        '\n\nUpdated during the walkthrough to show revision changes.',
         { delay: 20 },
       );
-      await driver.clickLocator(page.getByRole("button", { name: "Save" }));
-      await page.getByText("Note saved.", { exact: true }).first().waitFor({
-        state: "visible",
+      await driver.clickLocator(page.getByRole('button', { name: 'Save' }));
+      await page.getByText('Note saved.', { exact: true }).first().waitFor({
+        state: 'visible',
         timeout: 90000,
       });
       await driver.captionKey(
-        "updatedMetadata",
-        "After update, the revision metadata reflects the newer on-chain document state.",
+        'updatedMetadata',
+        'After update, the revision metadata reflects the newer on-chain document state.',
       );
       await driver.moveCursor(506, 188);
       await driver.delay(1200);
 
       await driver.captionKey(
-        "deleteNote",
-        "Finally, the delete flow uses a confirmation modal before calling sdk.documents.delete.",
+        'deleteNote',
+        'Finally, the delete flow uses a confirmation modal before calling sdk.documents.delete.',
       );
-      await driver.clickLocator(page.getByRole("button", { name: "Delete" }));
-      await page.getByRole("dialog", { name: "Delete note" }).waitFor({
-        state: "visible",
+      await driver.clickLocator(page.getByRole('button', { name: 'Delete' }));
+      await page.getByRole('dialog', { name: 'Delete note' }).waitFor({
+        state: 'visible',
         timeout: 10000,
       });
       await driver.clickLocator(
         page
-          .getByRole("dialog", { name: "Delete note" })
-          .getByRole("button", { name: "Delete" }),
+          .getByRole('dialog', { name: 'Delete note' })
+          .getByRole('button', { name: 'Delete' }),
       );
-      await page.getByText("Note deleted.", { exact: true }).first().waitFor({
-        state: "visible",
+      await page.getByText('Note deleted.', { exact: true }).first().waitFor({
+        state: 'visible',
         timeout: 90000,
       });
       await driver.captionKey(
-        "deletedNote",
-        "The temporary walkthrough note is removed, leaving the app clean after the demo.",
+        'deletedNote',
+        'The temporary walkthrough note is removed, leaving the app clean after the demo.',
       );
     }
   } else {
     await driver.captionKey(
-      "readOnlyEditPrompt",
-      "In read-only mode, Dashnote can display remembered notes, but edit actions prompt for sign-in.",
+      'readOnlyEditPrompt',
+      'In read-only mode, Dashnote can display remembered notes, but edit actions prompt for sign-in.',
     );
   }
 
-  const activityButton = page.getByRole("button", { name: /Activity/ });
+  const activityButton = page.getByRole('button', { name: /Activity/ });
   if ((await activityButton.count()) === 1) {
     await driver.captionKey(
-      "activityDrawer",
-      "The activity drawer captures SDK operations and status messages as the app works.",
+      'activityDrawer',
+      'The activity drawer captures SDK operations and status messages as the app works.',
     );
     await driver.clickLocator(activityButton);
-    await page.getByRole("dialog", { name: "Activity log" }).waitFor({
-      state: "visible",
+    await page.getByRole('dialog', { name: 'Activity log' }).waitFor({
+      state: 'visible',
       timeout: 10000,
     });
     await driver.delay(1200);
-    await page.keyboard.press("Escape");
+    await page.keyboard.press('Escape');
     await driver.delay(700);
   }
 
   await driver.captionKey(
-    "howItWorks",
-    "How it works maps the UI back to the note contract and SDK helper files.",
+    'howItWorks',
+    'How it works maps the UI back to the note contract and SDK helper files.',
   );
-  await driver.clickLocator(page.getByRole("button", { name: "How it works" }));
+  await driver.clickLocator(page.getByRole('button', { name: 'How it works' }));
   await driver.delay(1400);
-  await page.evaluate(() => window.scrollTo({ top: 320, behavior: "smooth" }));
+  await page.evaluate(() => window.scrollTo({ top: 320, behavior: 'smooth' }));
   await driver.delay(1200);
 
   await driver.captionKey(
-    "settings",
-    "Settings collects identity, contract, local cache, and appearance controls in one place.",
+    'settings',
+    'Settings collects identity, contract, local cache, and appearance controls in one place.',
   );
-  await driver.clickLocator(page.getByRole("button", { name: "Settings" }));
-  await page.evaluate(() => window.scrollTo({ top: 0, behavior: "smooth" }));
+  await driver.clickLocator(page.getByRole('button', { name: 'Settings' }));
+  await page.evaluate(() => window.scrollTo({ top: 0, behavior: 'smooth' }));
   await driver.delay(1400);
   await driver.captionKey(
-    "settingsRememberedIdentity",
-    "Remembered identity keeps the identity ID and cached note bodies on this device, so notes are viewable read-only after logout.",
+    'settingsRememberedIdentity',
+    'Remembered identity keeps the identity ID and cached note bodies on this device, so notes are viewable read-only after logout.',
   );
-  await driver.moveToLocator(page.getByTestId("settings-identity-block"));
+  await driver.moveToLocator(page.getByTestId('settings-identity-block'));
   await driver.delay(700);
   await driver.moveToLocator(
-    page.getByText("Clear local cache for this device", { exact: true }),
+    page.getByText('Clear local cache for this device', { exact: true }),
   );
   await driver.captionKey(
-    "settingsClearCache",
-    "Clear local cache removes browser-stored note bodies only; Platform documents are not deleted and the cache rebuilds on refresh.",
+    'settingsClearCache',
+    'Clear local cache removes browser-stored note bodies only; Platform documents are not deleted and the cache rebuilds on refresh.',
   );
-  if ((await page.getByText("Forget this device", { exact: true }).count()) === 1) {
+  if (
+    (await page.getByText('Forget this device', { exact: true }).count()) === 1
+  ) {
     await driver.moveToLocator(
-      page.getByText("Forget this device", { exact: true }),
+      page.getByText('Forget this device', { exact: true }),
     );
     await driver.captionKey(
-      "settingsForgetDevice",
-      "Forget this device removes the remembered identity and clears its cached notes from this browser.",
+      'settingsForgetDevice',
+      'Forget this device removes the remembered identity and clears its cached notes from this browser.',
     );
   }
   await driver.moveToLocator(
     page.locator('input[placeholder="Paste a note contract ID"]'),
   );
   await driver.captionKey(
-    "settingsContractOptions",
-    "Contract controls let you paste a different note contract ID, switch with Use this ID, or register a fresh testnet contract.",
+    'settingsContractOptions',
+    'Contract controls let you paste a different note contract ID, switch with Use this ID, or register a fresh testnet contract.',
   );
-  await driver.moveToLocator(page.getByRole("button", { name: "Use this ID" }));
+  await driver.moveToLocator(page.getByRole('button', { name: 'Use this ID' }));
   await driver.delay(600);
   await driver.moveToLocator(
-    page.getByRole("button", { name: "Register a fresh contract" }),
+    page.getByRole('button', { name: 'Register a fresh contract' }),
   );
   await driver.delay(1000);
   await driver.captionKey(
-    "outro",
-    "That is Dashnote: read-friendly, write-capable, and careful about identity state and local cache.",
+    'outro',
+    'That is Dashnote: read-friendly, write-capable, and careful about identity state and local cache.',
     1800,
   );
 }
 
 async function runDashmintLab(page) {
+  page.logStep('Navigating to app');
   await page.goto(page.walkthroughUrl, {
-    waitUntil: "domcontentloaded",
+    waitUntil: 'domcontentloaded',
     timeout: 15000,
   });
-  await page.locator("h1", { hasText: "Collection" }).waitFor({
-    state: "visible",
+  page.logStep('Waiting for Collection heading');
+  await page.locator('h1', { hasText: 'Collection' }).waitFor({
+    state: 'visible',
     timeout: 10000,
   });
-  await page.getByText("Connected", { exact: true }).waitFor({
-    state: "visible",
+  page.logStep('Waiting for SDK Connected indicator');
+  await page.getByText('Connected', { exact: true }).waitFor({
+    state: 'visible',
     timeout: 20000,
   });
-  await page.getByText("Frost Warden", { exact: true }).first().waitFor({
-    state: "visible",
+  page.logStep('Waiting for first card (Frost Warden) to load');
+  await page.getByText('Frost Warden', { exact: true }).first().waitFor({
+    state: 'visible',
     timeout: 30000,
   });
-  await addWalkthroughOverlay(page, "#34d399");
+  await addWalkthroughOverlay(page, '#34d399');
 
   const driver = makeDriver(page);
   await driver.delay(900);
   await driver.captionKey(
-    "intro",
-    "DashMint Lab opens directly into browse-only mode on Dash Platform testnet.",
+    'intro',
+    'DashMint Lab opens directly into browse-only mode on Dash Platform testnet.',
   );
   if (page.walkthroughCredentials) {
+    page.logStep('Signing in with walkthrough mnemonic');
     await driver.captionKey(
-      "signInUnlocks",
-      "Signing in unlocks account-specific actions alongside the public marketplace data.",
+      'signInUnlocks',
+      'Signing in unlocks account-specific actions alongside the public marketplace data.',
     );
-    await driver.clickLastLocator(page.getByRole("button", { name: "Login" }));
+    await driver.clickLastLocator(page.getByRole('button', { name: 'Login' }));
     await page.locator('input[type="password"]').waitFor({
-      state: "visible",
+      state: 'visible',
       timeout: 10000,
     });
     await page
@@ -824,117 +846,132 @@ async function runDashmintLab(page) {
       .fill(page.walkthroughCredentials.mnemonic);
     if (page.walkthroughCredentials.identityIndex !== 0) {
       await driver.clickLocator(
-        page.getByRole("button", { name: "Advanced settings" }),
+        page.getByRole('button', { name: 'Advanced settings' }),
       );
       await page
         .locator('input[type="number"]')
         .fill(String(page.walkthroughCredentials.identityIndex));
     }
     const submitLogin = page
-      .locator("form")
-      .getByRole("button", { name: "Login" });
+      .locator('form')
+      .getByRole('button', { name: 'Login' });
     await driver.clickLocator(submitLogin);
-    await page.getByRole("button", { name: "Yours" }).waitFor({
-      state: "visible",
+    page.logStep('Waiting for signed-in UI (Yours tab)');
+    await page.getByRole('button', { name: 'Yours' }).waitFor({
+      state: 'visible',
       timeout: 60000,
     });
     await driver.captionKey(
-      "afterLogin",
-      "After login, the Yours tab and account balance become available alongside browse-only data.",
+      'afterLogin',
+      'After login, the Yours tab and account balance become available alongside browse-only data.',
     );
     await driver.delay(900);
-    await driver.clickLocator(page.getByRole("button", { name: "All" }));
+    await driver.clickLocator(page.getByRole('button', { name: 'All' }));
     await driver.delay(900);
   }
   await driver.captionKey(
-    "collectionLive",
-    "The Collection tab is live without signing in: cards are queried from the shared contract.",
+    'collectionLive',
+    'The Collection tab is live without signing in: cards are queried from the shared contract.',
   );
   await driver.moveCursor(514, 247);
   await driver.delay(900);
   await driver.captionKey(
-    "cardDetails",
-    "Each card shows rarity, document id, stats, owner, and marketplace actions when a price exists.",
+    'cardDetails',
+    'Each card shows rarity, document id, stats, owner, and marketplace actions when a price exists.',
   );
   await driver.moveCursor(1060, 700);
   await driver.delay(900);
   await driver.captionKey(
-    "marketplace",
-    "Switch to Marketplace to focus on cards that are listed for purchase.",
+    'marketplace',
+    'Switch to Marketplace to focus on cards that are listed for purchase.',
   );
-  await driver.clickLocator(page.getByRole("button", { name: "Marketplace" }));
+  page.logStep('Switching to Marketplace tab');
+  await driver.clickLocator(page.getByRole('button', { name: 'Marketplace' }));
   await driver.delay(1200);
   await driver.captionKey(
-    "sorting",
-    "Sorting is available in browse mode too; here it cycles the card grid ordering.",
+    'sorting',
+    'Sorting is available in browse mode too; here it cycles the card grid ordering.',
   );
-  await driver.clickLocator(page.getByRole("button", { name: /Sort:/ }));
+  await driver.clickLocator(page.getByRole('button', { name: /Sort:/ }));
   await driver.delay(1100);
   await driver.captionKey(
-    page.walkthroughCredentials ? "mintUnlocked" : "mintReadOnly",
+    page.walkthroughCredentials ? 'mintUnlocked' : 'mintReadOnly',
     page.walkthroughCredentials
-      ? "The Mint tab is unlocked after login; the form shows token balance and available mint actions."
-      : "The Mint tab exposes the full form, but write operations are gated until login.",
+      ? 'The Mint tab is unlocked after login; the form shows token balance and available mint actions.'
+      : 'The Mint tab exposes the full form, but write operations are gated until login.',
   );
-  await driver.clickLocator(page.getByRole("button", { name: "Mint" }));
+  page.logStep('Switching to Mint tab');
+  await driver.clickLocator(page.getByRole('button', { name: 'Mint' }));
   if (page.walkthroughCredentials) {
-    await page.getByRole("button", { name: "Mint Card" }).waitFor({
-      state: "visible",
+    await page.getByRole('button', { name: 'Mint Card' }).waitFor({
+      state: 'visible',
       timeout: 10000,
     });
   } else {
-    await page.getByText("Login to burn DashMint tokens").waitFor({
-      state: "visible",
+    await page.getByText('Login to burn DashMint tokens').waitFor({
+      state: 'visible',
       timeout: 10000,
     });
   }
   await driver.delay(1300);
   if (page.walkthroughCredentials) {
     await driver.captionKey(
-      "noMintDefault",
-      "The default walkthrough does not mint cards; it stops before any token burn or testnet mutation.",
+      'noMintDefault',
+      'The default walkthrough does not mint cards; it stops before any token burn or testnet mutation.',
     );
-    await page.locator('input[placeholder="e.g. Fire Dragon"]').fill("Demo Card");
     await page
-      .locator('textarea[placeholder="e.g. A legendary beast from the volcanic plains"]')
-      .fill("Filled locally for the walkthrough, but not minted.");
+      .locator('input[placeholder="e.g. Fire Dragon"]')
+      .fill('Demo Card');
+    await page
+      .locator(
+        'textarea[placeholder="e.g. A legendary beast from the volcanic plains"]',
+      )
+      .fill('Filled locally for the walkthrough, but not minted.');
     await driver.moveCursor(748, 409);
     await driver.delay(1200);
   } else {
     await driver.captionKey(
-      "loginPath",
-      "Opening Login shows the account access path without requiring a sign-in.",
+      'loginPath',
+      'Opening Login shows the account access path without requiring a sign-in.',
     );
-    const loginButtons = await page.getByRole("button", { name: "Login" }).all();
+    const loginButtons = await page
+      .getByRole('button', { name: 'Login' })
+      .all();
     const loginBox = await loginButtons[loginButtons.length - 1].boundingBox();
     await driver.clickCursor(
       loginBox.x + loginBox.width / 2,
       loginBox.y + loginBox.height / 2,
     );
     await page.locator('input[type="password"]').waitFor({
-      state: "visible",
+      state: 'visible',
       timeout: 10000,
     });
     await driver.delay(1000);
     await driver.captionKey(
-      "fundedIdentity",
-      "A real funded testnet identity unlocks mint, transfer, pricing, purchase, and burn.",
+      'fundedIdentity',
+      'A real funded testnet identity unlocks mint, transfer, pricing, purchase, and burn.',
     );
-    await page.keyboard.press("Escape");
+    await page.keyboard.press('Escape');
     await driver.delay(700);
   }
   await driver.captionKey(
-    "howItWorks",
-    "The How it works tab explains the SDK pieces behind the marketplace.",
+    'howItWorks',
+    'The How it works tab explains the SDK pieces behind the marketplace.',
   );
-  await driver.clickLocator(page.getByRole("button", { name: "How it works" }));
+  page.logStep('Switching to How it works tab');
+  await driver.clickLocator(page.getByRole('button', { name: 'How it works' }));
   await driver.delay(1400);
   await driver.captionKey(
-    "outro",
-    "DashMint Lab is useful as a live browse-only marketplace and as a map of every NFT operation.",
+    'outro',
+    'DashMint Lab is useful as a live browse-only marketplace and as a map of every NFT operation.',
   );
-  await page.evaluate(() => window.scrollTo({ top: 360, behavior: "smooth" }));
+  await page.evaluate(() => window.scrollTo({ top: 360, behavior: 'smooth' }));
   await driver.delay(1900);
+}
+
+function logStep(label) {
+  const ts = new Date().toISOString().slice(11, 19);
+  console.log(`[${ts}] ${label}`);
 }
 
 async function main() {
@@ -944,7 +981,7 @@ async function main() {
   const config = appConfigs[args.app];
   const captions = await loadCaptionCopy(args.app);
   const appDir = path.join(repoRoot, config.appDir);
-  const outDir = path.join(appDir, "walkthrough");
+  const outDir = path.join(appDir, 'walkthrough');
   const tmpVideoDir = path.join(
     os.tmpdir(),
     `${config.fileStem}-video-${Date.now()}`,
@@ -955,6 +992,7 @@ async function main() {
   await fs.mkdir(outDir, { recursive: true });
   await fs.mkdir(tmpVideoDir, { recursive: true });
 
+  logStep(`Launching ${args.headed ? 'headed' : 'headless'} browser`);
   const browser = await launchBrowser({ appDir, headed: args.headed });
   const context = await browser.newContext({
     viewport: { width: 1280, height: 800 },
@@ -965,9 +1003,12 @@ async function main() {
   page.walkthroughUrl = args.url;
   page.walkthroughCredentials = credentials;
   page.walkthroughCaptions = captions;
+  page.logStep = logStep;
 
+  logStep(`Recording ${config.title} at ${args.url}`);
   try {
     await config.run(page);
+    logStep('Capturing preview screenshot');
     await page.screenshot({ path: targetPreview, fullPage: false });
   } finally {
     const video = page.video();
