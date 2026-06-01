@@ -14,6 +14,11 @@ import {
 import { useSession } from "../session/useSession";
 import { OddsTable } from "./OddsTable";
 
+// Module-level cache so the supply count survives tab unmounts. When the
+// user navigates back to Mint we render the last known value immediately
+// and silently refetch — no "—" placeholder flash.
+const mintedCountCache = new Map<string, bigint>();
+
 export interface MintFormProps {
   contractId: string;
   dashMintTokenBalance?: bigint | null;
@@ -30,7 +35,9 @@ export function MintForm({
   const [description, setDescription] = useState("");
   const [submitting, setSubmitting] = useState(false);
   const [mintingPack, setMintingPack] = useState(false);
-  const [mintedCount, setMintedCount] = useState<bigint | null>(null);
+  const [mintedCount, setMintedCount] = useState<bigint | null>(
+    () => mintedCountCache.get(contractId) ?? null,
+  );
   const starterPackTokenCost = BigInt(STARTER_PACK_SIZE);
 
   useEffect(() => {
@@ -38,10 +45,12 @@ export function MintForm({
     let cancelled = false;
     fetchCardsMintedCount({ sdk: session.sdk, contractId })
       .then((count) => {
+        mintedCountCache.set(contractId, count);
         if (!cancelled) setMintedCount(count);
       })
       .catch(() => {
-        if (!cancelled) setMintedCount(null);
+        // Keep the previous (possibly cached) value on failure so the UI
+        // doesn't regress to "—" just because a refetch hiccuped.
       });
     return () => {
       cancelled = true;
