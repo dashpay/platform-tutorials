@@ -66,8 +66,9 @@ Each entry is a stable step name with the text shown in the video:
 ```
 
 Only edit the string values. The recorder keeps timing, clicks, waits, and
-testnet write behavior in code. If a key is missing or blank, the recorder falls
-back to its built-in copy for that step.
+testnet write behavior in code. The JSON file is the sole source of caption
+copy — the recorder errors out if the file is missing or a referenced key is
+absent or blank.
 
 ## Browser Setup
 

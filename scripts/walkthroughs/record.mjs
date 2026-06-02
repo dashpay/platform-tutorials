@@ -131,7 +131,9 @@ async function loadCaptionCopy(appName) {
   try {
     raw = await fs.readFile(filePath, 'utf8');
   } catch (err) {
-    if (err.code === 'ENOENT') return {};
+    if (err.code === 'ENOENT') {
+      throw new Error(`Missing caption file: ${filePath}`);
+    }
     throw err;
   }
 
@@ -283,9 +285,14 @@ async function addWalkthroughOverlay(page, accent = '#34d399') {
 function makeDriver(page) {
   const delay = (ms) => new Promise((resolve) => setTimeout(resolve, ms));
   const captionCopy = page.walkthroughCaptions ?? {};
-  const copy = (key, fallback) => {
+  const copy = (key) => {
     const value = captionCopy[key];
-    return typeof value === 'string' && value.trim() ? value : fallback;
+    if (typeof value !== 'string' || !value.trim()) {
+      throw new Error(
+        `Missing caption "${key}" in captions/${page.walkthroughApp}.json`,
+      );
+    }
+    return value;
   };
 
   return {
@@ -297,8 +304,8 @@ function makeDriver(page) {
       }, text);
       await delay(ms);
     },
-    async captionKey(key, fallback, ms) {
-      await this.caption(copy(key, fallback), ms);
+    async captionKey(key, ms) {
+      await this.caption(copy(key), ms);
     },
     async moveCursor(x, y) {
       await page.evaluate(
@@ -379,24 +386,12 @@ async function runDashnoteStarter(page) {
 
   const driver = makeDriver(page);
   await driver.delay(1000);
-  await driver.captionKey(
-    'intro',
-    'Dashnote Starter: a minimal React app for notes on Dash Platform testnet.',
-  );
-  await driver.captionKey(
-    'identityAccess',
-    'Start here: the app explains what it stores and asks for identity access only when you are ready.',
-  );
+  await driver.captionKey('intro');
+  await driver.captionKey('identityAccess');
   await driver.moveCursor(622, 348);
-  await driver.captionKey(
-    'signInForm',
-    'The sign-in form keeps access local and links to the testnet identity setup path.',
-  );
+  await driver.captionKey('signInForm');
   if (page.walkthroughCredentials) {
-    await driver.captionKey(
-      'signedInWriteAccess',
-      'Signing in unlocks the write actions that are otherwise unavailable in the starter preview.',
-    );
+    await driver.captionKey('signedInWriteAccess');
     await page.addStyleTag({
       content:
         '#mnemonic { color: transparent !important; caret-color: transparent !important; }',
@@ -408,16 +403,10 @@ async function runDashnoteStarter(page) {
       state: 'visible',
       timeout: 60000,
     });
-    await driver.captionKey(
-      'authenticatedWorkspace',
-      'Authenticated view shows the resolved identity, active contract, note editor, and note list.',
-    );
+    await driver.captionKey('authenticatedWorkspace');
     await driver.moveCursor(596, 158);
     await driver.delay(700);
-    await driver.captionKey(
-      'noWritesDefault',
-      'The default walkthrough does not create, update, or delete notes; it stops before any testnet write.',
-    );
+    await driver.captionKey('noWritesDefault');
     await driver.clickLocator(page.locator('#title'));
     await page.keyboard.type('Walkthrough draft', { delay: 35 });
     await driver.clickLocator(page.locator('#message'));
@@ -429,55 +418,32 @@ async function runDashnoteStarter(page) {
     );
     await driver.moveCursor(114, 405);
     await driver.delay(1400);
-    await driver.captionKey(
-      'writeAccessCrud',
-      'With write access, this same flow can exercise a full CRUD demo when needed.',
-      1800,
-    );
+    await driver.captionKey('writeAccessCrud', 1800);
     return;
   }
 
   await driver.clickLocator(page.locator('#mnemonic'));
   await page.keyboard.type('testnet mnemonic goes here', { delay: 45 });
   await driver.delay(600);
-  await driver.captionKey(
-    'readOnlyTour',
-    'Without sign-in, the walkthrough stops before write actions and tours the read-only starter screen.',
-  );
+  await driver.captionKey('readOnlyTour');
   await page.locator('#mnemonic').fill('');
   await driver.delay(500);
-  await driver.captionKey(
-    'sampleNotes',
-    'Sample notes preview the authenticated workspace without loading the SDK or touching the network first.',
-  );
+  await driver.captionKey('sampleNotes');
   await page.evaluate(() => window.scrollTo({ top: 470, behavior: 'smooth' }));
   await driver.delay(1400);
   await driver.moveCursor(336, 376);
-  await driver.captionKey(
-    'exampleConcepts',
-    'The examples call out the core concepts: identity-owned data, shared contracts, and revisions.',
-  );
+  await driver.captionKey('exampleConcepts');
   await page.evaluate(() => window.scrollTo({ top: 760, behavior: 'smooth' }));
   await driver.delay(1400);
-  await driver.captionKey(
-    'aboutSection',
-    'The About section summarizes how the starter maps React UI to a hardcoded Dash Platform contract.',
-  );
+  await driver.captionKey('aboutSection');
   await driver.clickLocator(
     page.getByText('About this starter app', { exact: true }),
   );
   await driver.delay(1200);
-  await driver.captionKey(
-    'fullAppFlow',
-    'With write access, the full app flow is create, list, edit, refresh, and delete notes.',
-  );
+  await driver.captionKey('fullAppFlow');
   await page.evaluate(() => window.scrollTo({ top: 0, behavior: 'smooth' }));
   await driver.delay(1500);
-  await driver.captionKey(
-    'outro',
-    'That is Dashnote Starter: deliberately small, readable, and focused on the SDK calls.',
-    1800,
-  );
+  await driver.captionKey('outro', 1800);
 }
 
 async function runDashnote(page) {
@@ -499,16 +465,10 @@ async function runDashnote(page) {
   const driver = makeDriver(page);
 
   await driver.delay(900);
-  await driver.captionKey(
-    'intro',
-    'Dashnote is the full notes app: a two-pane notebook backed by Dash Platform documents.',
-  );
+  await driver.captionKey('intro');
 
   if (page.walkthroughCredentials) {
-    await driver.captionKey(
-      'signInFullAccess',
-      'Signing in restores full write access for this identity.',
-    );
+    await driver.captionKey('signInFullAccess');
     if ((await page.getByText('Full access', { exact: true }).count()) === 0) {
       const identityButton = page
         .locator('button')
@@ -539,14 +499,8 @@ async function runDashnote(page) {
         timeout: 60000,
       });
     }
-    await driver.captionKey(
-      'identityFullAccess',
-      'After login, the identity card switches to full access and the note list loads for that identity.',
-    );
-    await driver.captionKey(
-      'identityMenu',
-      'The identity card menu exposes Settings, Switch identity, and Log out options.',
-    );
+    await driver.captionKey('identityFullAccess');
+    await driver.captionKey('identityMenu');
     await driver.clickLocator(
       page
         .locator('button[aria-haspopup="menu"]')
@@ -559,10 +513,7 @@ async function runDashnote(page) {
       state: 'visible',
       timeout: 10000,
     });
-    await driver.captionKey(
-      'rememberedReload',
-      'After logout, reloading uses the remembered identity to show cached notes without signing in.',
-    );
+    await driver.captionKey('rememberedReload');
     await page.reload({ waitUntil: 'domcontentloaded' });
     await addWalkthroughOverlay(page, '#d6a75b');
     await page.getByText('Read-only access', { exact: true }).waitFor({
@@ -573,10 +524,7 @@ async function runDashnote(page) {
       .getByText('Revisions prevent conflicts', { exact: true })
       .waitFor({ state: 'visible', timeout: 60000 });
     await driver.delay(1000);
-    await driver.captionKey(
-      'rememberedSearch',
-      'Search works in remembered read-only mode; these notes came from the starter preview messages.',
-    );
+    await driver.captionKey('rememberedSearch');
     await driver.clickLocator(page.getByPlaceholder('Search'));
     await page.getByPlaceholder('Search').fill('Revisions');
     await page
@@ -587,10 +535,7 @@ async function runDashnote(page) {
     await page.getByPlaceholder('Search').fill('');
     await driver.delay(900);
 
-    await driver.captionKey(
-      'signBackInCrud',
-      'Signing back in restores write access for the controlled CRUD demo.',
-    );
+    await driver.captionKey('signBackInCrud');
     await driver.clickLastLocator(
       page.locator('button').filter({ hasText: /Read-only access/ }),
     );
@@ -611,31 +556,19 @@ async function runDashnote(page) {
       timeout: 60000,
     });
   } else {
-    await driver.captionKey(
-      'readOnlyMode',
-      'Without sign-in, the recording stays in read-only mode.',
-    );
+    await driver.captionKey('readOnlyMode');
   }
 
   await driver.moveCursor(176, 258);
-  await driver.captionKey(
-    'leftPane',
-    'The left pane has search, note counts, cached results, and background refresh state.',
-  );
+  await driver.captionKey('leftPane');
   await driver.moveCursor(622, 350);
-  await driver.captionKey(
-    'editorPane',
-    'The editor pane shows title, body, revision metadata, timestamps, and a byte-budget progress bar.',
-  );
+  await driver.captionKey('editorPane');
 
   if (page.walkthroughCredentials) {
     const newButton = page.getByRole('button', { name: 'New note' });
     if ((await newButton.count()) === 1) {
       const uniqueTitle = `Walkthrough note ${Date.now().toString().slice(-6)}`;
-      await driver.captionKey(
-        'createNote',
-        'Now the walkthrough creates a real note document on testnet.',
-      );
+      await driver.captionKey('createNote');
       await driver.clickLocator(newButton);
       await page.getByLabel('Title').waitFor({
         state: 'visible',
@@ -650,10 +583,7 @@ async function runDashnote(page) {
       );
       await driver.moveCursor(1040, 740);
       await driver.delay(1200);
-      await driver.captionKey(
-        'saveCreate',
-        'Saving submits sdk.documents.create and the note appears with Platform metadata.',
-      );
+      await driver.captionKey('saveCreate');
       await driver.clickLocator(
         page.getByRole('button', { name: 'Create note' }),
       );
@@ -665,19 +595,13 @@ async function runDashnote(page) {
         state: 'visible',
         timeout: 30000,
       });
-      await driver.captionKey(
-        'createdMetadata',
-        'The editor now shows the created note, including a revision chip and created/updated timestamps.',
-      );
+      await driver.captionKey('createdMetadata');
       await driver.moveCursor(508, 188);
       await driver.delay(900);
       await driver.moveCursor(688, 739);
       await driver.delay(900);
 
-      await driver.captionKey(
-        'updateNote',
-        'Next the walkthrough updates the body, which bumps the document revision.',
-      );
+      await driver.captionKey('updateNote');
       await driver.clickLocator(page.getByLabel('Body'));
       await page.keyboard.press('End');
       await page.keyboard.type(
@@ -689,17 +613,11 @@ async function runDashnote(page) {
         state: 'visible',
         timeout: 90000,
       });
-      await driver.captionKey(
-        'updatedMetadata',
-        'After update, the revision metadata reflects the newer on-chain document state.',
-      );
+      await driver.captionKey('updatedMetadata');
       await driver.moveCursor(506, 188);
       await driver.delay(1200);
 
-      await driver.captionKey(
-        'deleteNote',
-        'Finally, the delete flow uses a confirmation modal before calling sdk.documents.delete.',
-      );
+      await driver.captionKey('deleteNote');
       await driver.clickLocator(page.getByRole('button', { name: 'Delete' }));
       await page.getByRole('dialog', { name: 'Delete note' }).waitFor({
         state: 'visible',
@@ -714,24 +632,15 @@ async function runDashnote(page) {
         state: 'visible',
         timeout: 90000,
       });
-      await driver.captionKey(
-        'deletedNote',
-        'The temporary walkthrough note is removed, leaving the app clean after the demo.',
-      );
+      await driver.captionKey('deletedNote');
     }
   } else {
-    await driver.captionKey(
-      'readOnlyEditPrompt',
-      'In read-only mode, Dashnote can display remembered notes, but edit actions prompt for sign-in.',
-    );
+    await driver.captionKey('readOnlyEditPrompt');
   }
 
   const activityButton = page.getByRole('button', { name: /Activity/ });
   if ((await activityButton.count()) === 1) {
-    await driver.captionKey(
-      'activityDrawer',
-      'The activity drawer captures SDK operations and status messages as the app works.',
-    );
+    await driver.captionKey('activityDrawer');
     await driver.clickLocator(activityButton);
     await page.getByRole('dialog', { name: 'Activity log' }).waitFor({
       state: 'visible',
@@ -742,64 +651,42 @@ async function runDashnote(page) {
     await driver.delay(700);
   }
 
-  await driver.captionKey(
-    'howItWorks',
-    'How it works maps the UI back to the note contract and SDK helper files.',
-  );
+  await driver.captionKey('howItWorks');
   await driver.clickLocator(page.getByRole('button', { name: 'How it works' }));
   await driver.delay(1400);
   await page.evaluate(() => window.scrollTo({ top: 320, behavior: 'smooth' }));
   await driver.delay(1200);
 
-  await driver.captionKey(
-    'settings',
-    'Settings collects identity, contract, local cache, and appearance controls in one place.',
-  );
+  await driver.captionKey('settings');
   await driver.clickLocator(page.getByRole('button', { name: 'Settings' }));
   await page.evaluate(() => window.scrollTo({ top: 0, behavior: 'smooth' }));
   await driver.delay(1400);
-  await driver.captionKey(
-    'settingsRememberedIdentity',
-    'Remembered identity keeps the identity ID and cached note bodies on this device, so notes are viewable read-only after logout.',
-  );
+  await driver.captionKey('settingsRememberedIdentity');
   await driver.moveToLocator(page.getByTestId('settings-identity-block'));
   await driver.delay(700);
   await driver.moveToLocator(
     page.getByText('Clear local cache for this device', { exact: true }),
   );
-  await driver.captionKey(
-    'settingsClearCache',
-    'Clear local cache removes browser-stored note bodies only; Platform documents are not deleted and the cache rebuilds on refresh.',
-  );
+  await driver.captionKey('settingsClearCache');
   if (
     (await page.getByText('Forget this device', { exact: true }).count()) === 1
   ) {
     await driver.moveToLocator(
       page.getByText('Forget this device', { exact: true }),
     );
-    await driver.captionKey(
-      'settingsForgetDevice',
-      'Forget this device removes the remembered identity and clears its cached notes from this browser.',
-    );
+    await driver.captionKey('settingsForgetDevice');
   }
   await driver.moveToLocator(
     page.locator('input[placeholder="Paste a note contract ID"]'),
   );
-  await driver.captionKey(
-    'settingsContractOptions',
-    'Contract controls let you paste a different note contract ID, switch with Use this ID, or register a fresh testnet contract.',
-  );
+  await driver.captionKey('settingsContractOptions');
   await driver.moveToLocator(page.getByRole('button', { name: 'Use this ID' }));
   await driver.delay(600);
   await driver.moveToLocator(
     page.getByRole('button', { name: 'Register a fresh contract' }),
   );
   await driver.delay(1000);
-  await driver.captionKey(
-    'outro',
-    'That is Dashnote: read-friendly, write-capable, and careful about identity state and local cache.',
-    1800,
-  );
+  await driver.captionKey('outro', 1800);
 }
 
 async function runDashmintLab(page) {
@@ -833,26 +720,14 @@ async function runDashmintLab(page) {
 
   const driver = makeDriver(page);
   await driver.delay(900);
-  await driver.captionKey(
-    'intro',
-    'DashMint Lab opens directly into browse-only mode on Dash Platform testnet.',
-  );
-  await driver.captionKey(
-    'collectionLive',
-    'The Collection tab is live without signing in: cards are queried from the shared contract.',
-  );
+  await driver.captionKey('intro');
+  await driver.captionKey('collectionLive');
   await driver.moveCursor(514, 247);
   await driver.delay(900);
-  await driver.captionKey(
-    'cardDetails',
-    'Each card shows rarity, price, stats, owner, and marketplace actions when a price exists.',
-  );
+  await driver.captionKey('cardDetails');
   await driver.moveCursor(1060, 700);
   await driver.delay(900);
-  await driver.captionKey(
-    'marketplace',
-    'Switch to Marketplace to see cards that are listed for purchase.',
-  );
+  await driver.captionKey('marketplace');
   page.logStep('Switching to Marketplace tab');
   await driver.clickLocator(page.getByRole('button', { name: 'Marketplace' }));
   await driver.delay(1200);
@@ -863,18 +738,12 @@ async function runDashmintLab(page) {
     await buyButton
       .waitFor({ state: 'visible', timeout: 5000 })
       .catch(() => {});
-    await driver.captionKey(
-      'marketplaceBuy',
-      'Listed cards expose a Buy action that opens a purchase confirmation when signed in.',
-    );
+    await driver.captionKey('marketplaceBuy');
     page.logStep('Hovering Buy button');
     await driver.moveToLocator(buyButton);
     await driver.delay(1200);
   }
-  await driver.captionKey(
-    'sorting',
-    'Sorting is available on all Collection views; here it cycles the card grid ordering.',
-  );
+  await driver.captionKey('sorting');
   await driver.clickLocator(page.getByRole('button', { name: /Sort:/ }));
   await driver.clickLocator(page.getByRole('button', { name: /Sort:/ }));
   await driver.clickLocator(page.getByRole('button', { name: /Sort:/ }));
@@ -884,10 +753,7 @@ async function runDashmintLab(page) {
   await driver.delay(900);
   if (page.walkthroughCredentials) {
     page.logStep('Signing in with walkthrough mnemonic');
-    await driver.captionKey(
-      'signInUnlocks',
-      'Signing in unlocks account-specific actions alongside the public marketplace data.',
-    );
+    await driver.captionKey('signInUnlocks');
     await driver.clickLastLocator(page.getByRole('button', { name: 'Login' }));
     await page.locator('input[type="password"]').waitFor({
       state: 'visible',
@@ -913,10 +779,7 @@ async function runDashmintLab(page) {
       state: 'visible',
       timeout: 60000,
     });
-    await driver.captionKey(
-      'afterLogin',
-      'After login, the Yours tab and account balance become available alongside browse-only data.',
-    );
+    await driver.captionKey('afterLogin');
     await driver.delay(900);
     page.logStep('Switching to Yours tab');
     await driver.clickLocator(page.getByRole('button', { name: 'Yours' }));
@@ -924,10 +787,7 @@ async function runDashmintLab(page) {
     const ownedCard = page.getByRole('article').first();
     if ((await ownedCard.count()) > 0) {
       await ownedCard.waitFor({ state: 'visible', timeout: 10000 });
-      await driver.captionKey(
-        'ownedCardMenu',
-        'Cards you own expose owner-only actions through the ⋯ menu: Transfer, Copy ID, View on Explorer, and Burn.',
-      );
+      await driver.captionKey('ownedCardMenu');
       const menuButton = ownedCard.getByRole('button', {
         name: 'More actions',
       });
@@ -958,9 +818,6 @@ async function runDashmintLab(page) {
   }
   await driver.captionKey(
     page.walkthroughCredentials ? 'mintUnlocked' : 'mintReadOnly',
-    page.walkthroughCredentials
-      ? 'The Mint tab is unlocked after login; the form shows token balance and available mint actions.'
-      : 'The Mint tab exposes the full form, but write operations are gated until login.',
   );
   page.logStep('Switching to Mint tab');
   await driver.clickLocator(page.getByRole('button', { name: 'Mint' }));
@@ -977,10 +834,7 @@ async function runDashmintLab(page) {
   }
   await driver.delay(1300);
   if (page.walkthroughCredentials) {
-    await driver.captionKey(
-      'noMintDefault',
-      'The default walkthrough does not mint cards; it stops before any token burn or testnet mutation.',
-    );
+    await driver.captionKey('noMintDefault');
     await page
       .locator('input[placeholder="e.g. Fire Dragon"]')
       .fill('Demo Card');
@@ -992,10 +846,7 @@ async function runDashmintLab(page) {
     await driver.moveCursor(748, 409);
     await driver.delay(1200);
   } else {
-    await driver.captionKey(
-      'loginPath',
-      'Opening Login shows the account access path without requiring a sign-in.',
-    );
+    await driver.captionKey('loginPath');
     const loginButtons = await page
       .getByRole('button', { name: 'Login' })
       .all();
@@ -1009,24 +860,15 @@ async function runDashmintLab(page) {
       timeout: 10000,
     });
     await driver.delay(1000);
-    await driver.captionKey(
-      'fundedIdentity',
-      'A real funded testnet identity unlocks mint, transfer, pricing, purchase, and burn.',
-    );
+    await driver.captionKey('fundedIdentity');
     await page.keyboard.press('Escape');
     await driver.delay(700);
   }
-  await driver.captionKey(
-    'howItWorks',
-    'The How it works tab explains the SDK pieces behind the marketplace.',
-  );
+  await driver.captionKey('howItWorks');
   page.logStep('Switching to How it works tab');
   await driver.clickLocator(page.getByRole('button', { name: 'How it works' }));
   await driver.delay(1400);
-  await driver.captionKey(
-    'outro',
-    'DashMint Lab is useful as a live browse-only marketplace and as a map of every NFT operation.',
-  );
+  await driver.captionKey('outro');
   await page.evaluate(() => window.scrollTo({ top: 360, behavior: 'smooth' }));
   await driver.delay(1900);
 }
@@ -1063,6 +905,7 @@ async function main() {
   });
   const page = await context.newPage();
   page.walkthroughUrl = args.url;
+  page.walkthroughApp = args.app;
   page.walkthroughCredentials = credentials;
   page.walkthroughCaptions = captions;
   page.logStep = logStep;
