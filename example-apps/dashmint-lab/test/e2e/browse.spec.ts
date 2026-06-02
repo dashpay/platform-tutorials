@@ -190,13 +190,23 @@ test("Price sort puts the highest-priced card first in the Marketplace", async (
 
   const inspect = Math.min(count, 8);
   const prices: number[] = [];
+  const SUFFIX_SCALE: Record<string, number> = {
+    K: 1e3,
+    M: 1e6,
+    B: 1e9,
+    T: 1e12,
+    Q: 1e15,
+  };
   for (let i = 0; i < inspect; i += 1) {
     const text = await cards.nth(i).innerText();
-    const match = text.match(/([\d,]+)\s*cr/);
+    // Matches both `1,234 cr` and compact forms like `999.9B cr`.
+    const match = text.match(/([\d,]+(?:\.\d+)?)\s*([KMBTQ])?\s*cr/);
     if (!match) {
       throw new Error(`Could not parse price chip for card ${i}: ${text}`);
     }
-    prices.push(Number(match[1].replace(/,/g, "")));
+    const base = Number(match[1].replace(/,/g, ""));
+    const scale = match[2] ? SUFFIX_SCALE[match[2]] : 1;
+    prices.push(base * scale);
   }
 
   for (let i = 1; i < prices.length; i += 1) {
@@ -246,8 +256,10 @@ rawTest.describe("Mobile viewport", () => {
     await hamburger.click();
     await expect(collectionNavBtn).toBeInViewport();
 
-    // Click outside the drawer to close.
-    await page.mouse.click(380, 10);
+    // Click the backdrop to close the drawer. The drawer is 208px wide and
+    // the mobile top bar covers roughly the first 52px vertically — aim well
+    // outside both so the click lands on the backdrop, not the hamburger.
+    await page.mouse.click(360, 400);
     await expect(collectionNavBtn).not.toBeInViewport();
   });
 

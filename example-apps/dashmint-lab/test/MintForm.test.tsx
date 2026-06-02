@@ -7,18 +7,22 @@ import {
   screen,
   waitFor,
 } from "@testing-library/react";
-import { afterEach, describe, expect, it, vi } from "vitest";
+import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 
 import { MintForm } from "../src/components/MintForm";
 import type { DashKeyManager, DashSdk } from "../src/dash/types";
 
-const { mockUseSession, mockMintCard, mockDrawStarterPack } = vi.hoisted(
-  () => ({
-    mockUseSession: vi.fn(),
-    mockMintCard: vi.fn(),
-    mockDrawStarterPack: vi.fn(),
-  }),
-);
+const {
+  mockUseSession,
+  mockMintCard,
+  mockDrawStarterPack,
+  mockFetchCardsMintedCount,
+} = vi.hoisted(() => ({
+  mockUseSession: vi.fn(),
+  mockMintCard: vi.fn(),
+  mockDrawStarterPack: vi.fn(),
+  mockFetchCardsMintedCount: vi.fn(),
+}));
 
 vi.mock("../src/session/useSession", () => ({
   useSession: mockUseSession,
@@ -27,6 +31,16 @@ vi.mock("../src/session/useSession", () => ({
 vi.mock("../src/dash/mintCard", () => ({
   mintCard: mockMintCard,
 }));
+
+vi.mock("../src/dash/dashMintToken", async () => {
+  const actual = await vi.importActual<
+    typeof import("../src/dash/dashMintToken")
+  >("../src/dash/dashMintToken");
+  return {
+    ...actual,
+    fetchCardsMintedCount: mockFetchCardsMintedCount,
+  };
+});
 
 vi.mock("../src/data/starterPack", () => ({
   STARTER_PACK_SIZE: 3,
@@ -59,6 +73,14 @@ const starterPackCards = [
 afterEach(() => {
   cleanup();
   vi.clearAllMocks();
+});
+
+beforeEach(() => {
+  // Test stub: a never-resolving promise so `mintedCount` stays at its
+  // initial `null` (the "supply unknown" branch — full form visible, no
+  // sold-out gating). Tests that need a concrete count override this with
+  // `mockResolvedValueOnce(...)`.
+  mockFetchCardsMintedCount.mockReturnValue(new Promise(() => {}));
 });
 
 describe("MintForm", () => {
@@ -242,7 +264,7 @@ describe("MintForm", () => {
         /Mint a unique collectible card\. Costs 1 DashMint token\./,
       ),
     ).toBeTruthy();
-    expect(screen.getByText("DashMint tokens")).toBeTruthy();
+    expect(screen.getByText("Your DashMint token balance")).toBeTruthy();
     expect(screen.getByText("0")).toBeTruthy();
     expect(
       screen.getByText("You need at least 1 DashMint token to mint a card."),
@@ -301,5 +323,86 @@ describe("MintForm", () => {
         `You need ${STARTER_PACK_SIZE} DashMint tokens to open a Starter Pack.`,
       ),
     ).toBeTruthy();
+  });
+
+  it("shows the supply count and progress once the minted count loads", async () => {
+    mockUseSession.mockReturnValue(sessionValue);
+    mockFetchCardsMintedCount.mockResolvedValueOnce(42n);
+
+    render(
+      <MintForm
+        contractId="contract-1"
+        dashMintTokenBalance={5n}
+        onMinted={vi.fn()}
+      />,
+    );
+
+    expect(await screen.findByText("42 / 100 minted")).toBeTruthy();
+    // Mint form still rendered while supply remains.
+    expect(screen.getByRole("button", { name: "Mint Card" })).toBeTruthy();
+  });
+
+  it("collapses to the supply notice and hides the form when sold out", async () => {
+    mockUseSession.mockReturnValue(sessionValue);
+    mockFetchCardsMintedCount.mockResolvedValueOnce(100n);
+
+    render(
+      <MintForm
+        contractId="contract-1"
+        dashMintTokenBalance={0n}
+        onMinted={vi.fn()}
+      />,
+    );
+
+    expect(await screen.findByText("100 / 100 minted")).toBeTruthy();
+    expect(screen.getByText("All cards have been minted.")).toBeTruthy();
+
+    // Form, token-balance block, and both mint buttons should be gone.
+    expect(screen.queryByRole("button", { name: "Mint Card" })).toBeNull();
+    expect(
+      screen.queryByRole("button", { name: "Open Starter Pack" }),
+    ).toBeNull();
+    expect(screen.queryByPlaceholderText("e.g. Fire Dragon")).toBeNull();
+    expect(screen.queryByText("Your DashMint token balance")).toBeNull();
+    expect(
+      screen.queryByText("You need at least 1 DashMint token to mint a card."),
+    ).toBeNull();
+  });
+
+  it("disables the starter pack when fewer than pack-size mints remain", async () => {
+    mockUseSession.mockReturnValue(sessionValue);
+    // 2 mints left, pack size is 3.
+    mockFetchCardsMintedCount.mockResolvedValueOnce(98n);
+
+    render(
+      <MintForm
+        contractId="contract-1"
+        dashMintTokenBalance={10n}
+        onMinted={vi.fn()}
+      />,
+    );
+
+    expect(await screen.findByText("98 / 100 minted")).toBeTruthy();
+    expect(
+      screen.getByText("Not enough remaining supply for a Starter Pack."),
+    ).toBeTruthy();
+    expect(
+      (
+        screen.getByRole("button", {
+          name: "Sold out",
+        }) as HTMLButtonElement
+      ).disabled,
+    ).toBe(true);
+    // Single-card mint is still available once the name is filled in.
+    fireEvent.change(screen.getByPlaceholderText("e.g. Fire Dragon"), {
+      target: { value: "Sky Hunter" },
+    });
+    expect(
+      (
+        screen.getByRole("button", {
+          name: "Mint Card",
+        }) as HTMLButtonElement
+      ).disabled,
+    ).toBe(false);
   });
 });

@@ -38,3 +38,21 @@ export async function fetchDashMintTokenBalance({
   const balances = await sdk.tokens.identityBalances(identityId, [tokenId]);
   return balances.get(tokenId) ?? 0n;
 }
+
+// Every mint burns exactly one DashMint token (manual burns/mints are locked
+// in the contract), so cards minted = SUPPLY - current circulating supply.
+export async function fetchCardsMintedCount({
+  sdk,
+  contractId,
+}: {
+  sdk: DashSdk;
+  contractId: string;
+}): Promise<bigint> {
+  const tokenId = await sdk.tokens.calculateId(
+    contractId,
+    DASHMINT_TOKEN_POSITION,
+  );
+  const supply = await sdk.tokens.totalSupply(tokenId);
+  const remaining = supply?.totalSupply ?? DASHMINT_TOKEN_SUPPLY;
+  return DASHMINT_TOKEN_SUPPLY - remaining;
+}

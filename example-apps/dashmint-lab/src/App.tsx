@@ -89,6 +89,14 @@ function App() {
     else if (status === "browsing") setSubTab("all");
   }, [status]);
 
+  // Re-fetch token balance whenever the Mint tab becomes active. The balance
+  // effect in SessionContext only runs on login/logout/contract change, so
+  // without this prompt the value could be stale (read-after-write lag from
+  // a recent mint elsewhere, or simply a value from many minutes ago).
+  useEffect(() => {
+    if (tab === "mint" && status === "authenticated") refreshBalance();
+  }, [tab, status, refreshBalance]);
+
   // Load cards for the current sub-tab whenever dependencies change.
   // Keeps any previously-cached results visible while refetching so tab
   // switches don't tear down the grid — only the first load shows the
