@@ -1,4 +1,4 @@
-import { useState, type FormEvent } from "react";
+import { useEffect, useState, type FormEvent } from "react";
 import {
   classifyRecipientInput,
   type RecipientMode,
@@ -36,6 +36,13 @@ export function TokenTransferScreen({
   const [amountInput, setAmountInput] = useState("");
   const [submitting, setSubmitting] = useState(false);
   const [result, setResult] = useState<OperationResult | null>(null);
+
+  useEffect(() => {
+    setRecipient("");
+    setAmountInput("");
+    setResult(null);
+    setSubmitting(false);
+  }, [contractId, session.identityId, session.status]);
 
   const trimmedRecipient = recipient.trim();
   const recipientMode: RecipientMode = trimmedRecipient
@@ -93,7 +100,6 @@ export function TokenTransferScreen({
         contractId,
         recipientId,
         amount,
-        availableBalance: dashMintTokenBalance,
         log: session.log,
       });
       setResult({

@@ -4,17 +4,21 @@ import { transferDashMintTokens } from "../src/dash/transferDashMintTokens";
 import type { DashKeyManager, DashSdk } from "../src/dash/types";
 
 function makeKeyManager(senderId = "sender-1") {
+  const getTransfer = vi.fn(async () => ({
+    identity: { id: { toString: () => senderId } },
+    identityKey: { id: "transfer-key" },
+    signer: { id: "transfer-signer" },
+  }));
   return {
+    identityId: senderId,
     async getAuth() {
-      throw new Error("getAuth should not be used for token transfers");
-    },
-    async getTransfer() {
       return {
         identity: { id: { toString: () => senderId } },
-        identityKey: { id: "transfer-key" },
-        signer: { id: "transfer-signer" },
+        identityKey: { id: "auth-key" },
+        signer: { id: "auth-signer" },
       };
     },
+    getTransfer,
   } as unknown as DashKeyManager;
 }
 
@@ -27,7 +31,7 @@ function makeSdk() {
 }
 
 describe("transferDashMintTokens", () => {
-  it("uses the transfer key and submits the DashMint token transfer", async () => {
+  it("uses the app's transfer signer and submits the DashMint token transfer", async () => {
     const sdk = makeSdk();
     const keyManager = makeKeyManager("sender-1");
     const log = vi.fn();
@@ -38,7 +42,6 @@ describe("transferDashMintTokens", () => {
       contractId: "contract-1",
       recipientId: "recipient-1",
       amount: 3n,
-      availableBalance: 5n,
       log,
     });
 
@@ -86,24 +89,7 @@ describe("transferDashMintTokens", () => {
     expect(sdk.tokens.transfer).not.toHaveBeenCalled();
   });
 
-  it("rejects amounts above the known local balance", async () => {
-    const sdk = makeSdk();
-    const keyManager = makeKeyManager();
-
-    await expect(
-      transferDashMintTokens({
-        sdk,
-        keyManager,
-        contractId: "contract-1",
-        recipientId: "recipient-1",
-        amount: 6n,
-        availableBalance: 5n,
-      }),
-    ).rejects.toThrow("Not enough DashMint tokens.");
-    expect(sdk.tokens.transfer).not.toHaveBeenCalled();
-  });
-
-  it("rejects self-transfers after resolving the sender identity", async () => {
+  it("rejects known self-transfers before resolving the signer", async () => {
     const sdk = makeSdk();
     const keyManager = makeKeyManager("sender-1");
 
@@ -116,6 +102,27 @@ describe("transferDashMintTokens", () => {
         amount: 1n,
       }),
     ).rejects.toThrow("Cannot transfer tokens to yourself.");
+    expect(keyManager.getTransfer).not.toHaveBeenCalled();
+    expect(sdk.tokens.transfer).not.toHaveBeenCalled();
+  });
+
+  it("still rejects self-transfers after resolving the sender identity", async () => {
+    const sdk = makeSdk();
+    const keyManager = {
+      ...makeKeyManager("sender-1"),
+      identityId: null,
+    } as unknown as DashKeyManager;
+
+    await expect(
+      transferDashMintTokens({
+        sdk,
+        keyManager,
+        contractId: "contract-1",
+        recipientId: "sender-1",
+        amount: 1n,
+      }),
+    ).rejects.toThrow("Cannot transfer tokens to yourself.");
+    expect(keyManager.getTransfer).toHaveBeenCalledTimes(1);
     expect(sdk.tokens.transfer).not.toHaveBeenCalled();
   });
 });

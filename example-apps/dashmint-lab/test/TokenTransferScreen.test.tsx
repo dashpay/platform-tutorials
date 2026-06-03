@@ -42,8 +42,10 @@ vi.mock("../src/hooks/useResolvedRecipient", () => ({
 }));
 
 const sessionValue = {
+  status: "authenticated",
   sdk: {} as DashSdk,
   keyManager: {} as DashKeyManager,
+  identityId: "sender-1",
   log: vi.fn(),
 };
 
@@ -132,7 +134,6 @@ describe("TokenTransferScreen", () => {
         contractId: "contract-1",
         recipientId: SAMPLE_ID,
         amount: 2n,
-        availableBalance: 10n,
         log: sessionValue.log,
       });
     });
@@ -140,7 +141,7 @@ describe("TokenTransferScreen", () => {
 
   it("submits trimmed raw identity input through ambiguous fallback", async () => {
     mockUseSession.mockReturnValue(sessionValue);
-    mockUseDpnsName.mockReturnValue("alice");
+    mockUseDpnsName.mockReturnValue(null);
     mockUseResolvedRecipient.mockReturnValue({ status: "not-found" });
     mockTransferDashMintTokens.mockResolvedValueOnce(undefined);
 
@@ -154,7 +155,7 @@ describe("TokenTransferScreen", () => {
     fireEvent.change(screen.getByLabelText("Amount"), {
       target: { value: "3" },
     });
-    fireEvent.change(screen.getByLabelText("Recipient identity or DPNS name"), {
+    fireEvent.change(screen.getByPlaceholderText("alice.dash or identity ID"), {
       target: { value: `  ${SAMPLE_ID}  ` },
     });
     fireEvent.click(screen.getByRole("button", { name: "Transfer" }));
@@ -167,6 +168,122 @@ describe("TokenTransferScreen", () => {
         }),
       );
     });
+  });
+
+  it("trims whole-token amount input before submitting", async () => {
+    mockUseSession.mockReturnValue(sessionValue);
+    mockUseDpnsName.mockReturnValue(null);
+    mockUseResolvedRecipient.mockReturnValue(resolved(SAMPLE_ID));
+    mockTransferDashMintTokens.mockResolvedValueOnce(undefined);
+
+    render(
+      <TokenTransferScreen
+        contractId="contract-1"
+        dashMintTokenBalance={10n}
+      />,
+    );
+
+    fireEvent.change(screen.getByLabelText("Amount"), {
+      target: { value: "  7  " },
+    });
+    fireEvent.change(screen.getByLabelText("Recipient identity or DPNS name"), {
+      target: { value: "alice.dash" },
+    });
+    fireEvent.click(screen.getByRole("button", { name: "Transfer" }));
+
+    await waitFor(() => {
+      expect(mockTransferDashMintTokens).toHaveBeenCalledWith(
+        expect.objectContaining({ amount: 7n }),
+      );
+    });
+  });
+
+  it("rejects non-whole amount formats", () => {
+    const invalidAmounts = ["1e3", "-1", "0x10", "1.5", "0"];
+
+    for (const invalidAmount of invalidAmounts) {
+      cleanup();
+      vi.clearAllMocks();
+      mockUseSession.mockReturnValue(sessionValue);
+      mockUseDpnsName.mockReturnValue(null);
+      mockUseResolvedRecipient.mockReturnValue(resolved(SAMPLE_ID));
+
+      render(
+        <TokenTransferScreen
+          contractId="contract-1"
+          dashMintTokenBalance={10n}
+        />,
+      );
+
+      fireEvent.change(screen.getByLabelText("Amount"), {
+        target: { value: invalidAmount },
+      });
+      fireEvent.change(
+        screen.getByLabelText("Recipient identity or DPNS name"),
+        {
+          target: { value: "alice.dash" },
+        },
+      );
+
+      expect(screen.getByText("Enter a positive whole amount.")).toBeTruthy();
+      expect(
+        (screen.getByRole("button", { name: "Transfer" }) as HTMLButtonElement)
+          .disabled,
+      ).toBe(true);
+      expect(mockTransferDashMintTokens).not.toHaveBeenCalled();
+    }
+  });
+
+  it("passes trimmed name and ambiguous inputs to the resolver hook", () => {
+    mockUseSession.mockReturnValue(sessionValue);
+    mockUseDpnsName.mockReturnValue(null);
+    mockUseResolvedRecipient.mockReturnValue(idle);
+
+    render(
+      <TokenTransferScreen
+        contractId="contract-1"
+        dashMintTokenBalance={10n}
+      />,
+    );
+
+    fireEvent.change(screen.getByLabelText("Recipient identity or DPNS name"), {
+      target: { value: "  Alice.dash  " },
+    });
+    expect(mockUseResolvedRecipient).toHaveBeenLastCalledWith(
+      sessionValue.sdk,
+      "Alice.dash",
+    );
+
+    fireEvent.change(screen.getByPlaceholderText("alice.dash or identity ID"), {
+      target: { value: `  ${SAMPLE_ID}  ` },
+    });
+    expect(mockUseResolvedRecipient).toHaveBeenLastCalledWith(
+      sessionValue.sdk,
+      SAMPLE_ID,
+    );
+  });
+
+  it("does not resolve invalid recipient input", () => {
+    mockUseSession.mockReturnValue(sessionValue);
+    mockUseDpnsName.mockReturnValue(null);
+    mockUseResolvedRecipient.mockReturnValue(idle);
+
+    render(
+      <TokenTransferScreen
+        contractId="contract-1"
+        dashMintTokenBalance={10n}
+      />,
+    );
+
+    fireEvent.change(screen.getByLabelText("Recipient identity or DPNS name"), {
+      target: { value: "alice@dash" },
+    });
+
+    expect(mockUseResolvedRecipient).toHaveBeenLastCalledWith(
+      sessionValue.sdk,
+      null,
+    );
+    expect(mockUseDpnsName).toHaveBeenLastCalledWith(sessionValue.sdk, null);
   });
 
   it("shows success, clears fields, and notifies the parent", async () => {
@@ -200,6 +317,56 @@ describe("TokenTransferScreen", () => {
     expect(amount.value).toBe("");
     expect(recipient.value).toBe("");
     expect(onTransferred).toHaveBeenCalledTimes(1);
+  });
+
+  it("clears a success notice across logout and login", async () => {
+    mockUseSession.mockReturnValue(sessionValue);
+    mockUseDpnsName.mockReturnValue(null);
+    mockUseResolvedRecipient.mockReturnValue(resolved(SAMPLE_ID));
+    mockTransferDashMintTokens.mockResolvedValueOnce(undefined);
+
+    const view = render(
+      <TokenTransferScreen
+        contractId="contract-1"
+        dashMintTokenBalance={10n}
+      />,
+    );
+
+    fireEvent.change(screen.getByLabelText("Amount"), {
+      target: { value: "4" },
+    });
+    fireEvent.change(screen.getByLabelText("Recipient identity or DPNS name"), {
+      target: { value: "alice.dash" },
+    });
+    fireEvent.click(screen.getByRole("button", { name: "Transfer" }));
+
+    await screen.findByRole("status");
+    expect(screen.getByRole("status").textContent).toContain(
+      "DashMint tokens transferred successfully.",
+    );
+
+    mockUseSession.mockReturnValue({
+      ...sessionValue,
+      status: "browsing",
+      identityId: null,
+      keyManager: null,
+    });
+    view.rerender(
+      <TokenTransferScreen
+        contractId="contract-1"
+        dashMintTokenBalance={null}
+      />,
+    );
+    expect(screen.queryByRole("status")).toBeNull();
+
+    mockUseSession.mockReturnValue({
+      ...sessionValue,
+      identityId: "sender-2",
+    });
+    view.rerender(
+      <TokenTransferScreen contractId="contract-1" dashMintTokenBalance={8n} />,
+    );
+    expect(screen.queryByRole("status")).toBeNull();
   });
 
   it("shows inline errors and preserves form values", async () => {

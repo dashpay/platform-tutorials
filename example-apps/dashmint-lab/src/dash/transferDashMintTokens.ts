@@ -2,7 +2,8 @@
  * Transfer DashMint tokens from the signed-in identity to another identity.
  *
  * DashMint lives at token position 0 on the active app contract. Token
- * transfers use the identity transfer key, unlike card document operations.
+ * single-transfer transitions can be signed by a critical auth or transfer
+ * purpose key; this app keeps explicit token sends on the transfer key.
  *
  * SDK method: sdk.tokens.transfer({ dataContractId, tokenPosition, amount, senderId, recipientId, identityKey, signer })
  */
@@ -16,7 +17,6 @@ export interface TransferDashMintTokensInput {
   contractId: string;
   recipientId: string;
   amount: bigint;
-  availableBalance?: bigint | null;
   log?: Logger;
 }
 
@@ -26,7 +26,6 @@ export async function transferDashMintTokens({
   contractId,
   recipientId,
   amount,
-  availableBalance,
   log,
 }: TransferDashMintTokensInput): Promise<void> {
   const trimmedRecipientId = recipientId.trim();
@@ -36,10 +35,10 @@ export async function transferDashMintTokens({
   if (amount <= 0n) {
     throw new Error("Amount must be greater than 0.");
   }
-  if (availableBalance !== null && availableBalance !== undefined) {
-    if (amount > availableBalance) {
-      throw new Error(`Not enough ${DASHMINT_TOKEN_NAME} tokens.`);
-    }
+
+  const knownSenderId = keyManager.identityId?.toString();
+  if (knownSenderId && trimmedRecipientId === knownSenderId) {
+    throw new Error("Cannot transfer tokens to yourself.");
   }
 
   const { identity, identityKey, signer } = await keyManager.getTransfer();
