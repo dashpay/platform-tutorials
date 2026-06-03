@@ -91,8 +91,8 @@ export function CardTile({
         style={{ background: RARITY_RAIL_COLORS[rarity] }}
       />
 
-      {/* Header: rarity tag + price */}
-      <div className="flex items-center justify-between">
+      {/* Header: reserves chip height so listed and unlisted cards align */}
+      <div className="flex min-h-[22px] items-center justify-between">
         <RarityTag rarity={rarity} />
         {hasPrice && (
           <span
