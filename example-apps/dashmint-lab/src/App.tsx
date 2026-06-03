@@ -22,6 +22,7 @@ import { MintForm } from "./components/MintForm";
 import { PurchaseModal } from "./components/PurchaseModal";
 import { SetPriceModal } from "./components/SetPriceModal";
 import { SubTabs, type CollectionSubTab, type TopTab } from "./components/Tabs";
+import { TokenTransferScreen } from "./components/TokenTransferScreen";
 import { TransferModal } from "./components/TransferModal";
 import { HowItWorks } from "./components/HowItWorks";
 import { errorMessage } from "./dash/logger";
@@ -89,12 +90,14 @@ function App() {
     else if (status === "browsing") setSubTab("all");
   }, [status]);
 
-  // Re-fetch token balance whenever the Mint tab becomes active. The balance
+  // Re-fetch token balance whenever token-related tabs become active. The balance
   // effect in SessionContext only runs on login/logout/contract change, so
   // without this prompt the value could be stale (read-after-write lag from
   // a recent mint elsewhere, or simply a value from many minutes ago).
   useEffect(() => {
-    if (tab === "mint" && status === "authenticated") refreshBalance();
+    if ((tab === "mint" || tab === "tokens") && status === "authenticated") {
+      refreshBalance();
+    }
   }, [tab, status, refreshBalance]);
 
   // Load cards for the current sub-tab whenever dependencies change.
@@ -172,6 +175,10 @@ function App() {
       title: "Mint",
       subtitle:
         "Create collectible cards on Dash Platform using DashMint tokens.",
+    },
+    tokens: {
+      title: "Tokens",
+      subtitle: "Send DashMint tokens to another identity on Dash Platform.",
     },
     "how-it-works": {
       title: "How it works",
@@ -299,6 +306,33 @@ function App() {
                   onMinted={refresh}
                 />
               </div>
+            )}
+          </section>
+        )}
+
+        {/* ── Tokens ────────────────────────────────────────────────── */}
+        {tab === "tokens" && (
+          <section className="relative">
+            {status !== "authenticated" && (
+              <div className="absolute inset-0 z-10 flex flex-col items-center justify-center gap-3 rounded-lg bg-bg/55 backdrop-blur-sm">
+                <p className="text-sm text-ink-2">
+                  Login to transfer DashMint tokens
+                </p>
+                <button
+                  type="button"
+                  onClick={() => setLoginOpen(true)}
+                  className="rounded-md bg-accent px-6 py-2.5 text-sm font-semibold text-bg transition hover:bg-accent-dim"
+                >
+                  Login
+                </button>
+              </div>
+            )}
+            {contractId && (
+              <TokenTransferScreen
+                contractId={contractId}
+                dashMintTokenBalance={dashMintTokenBalance}
+                onTransferred={refresh}
+              />
             )}
           </section>
         )}

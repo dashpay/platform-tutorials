@@ -64,6 +64,15 @@ export function AppShell({
         }}
       />
       <NavButton
+        label="Tokens"
+        glyph="$"
+        active={tab === "tokens"}
+        onClick={() => {
+          onTabChange("tokens");
+          closeDrawer();
+        }}
+      />
+      <NavButton
         label="How it works"
         glyph="?"
         active={tab === "how-it-works"}

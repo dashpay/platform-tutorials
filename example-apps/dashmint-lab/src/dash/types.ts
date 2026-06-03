@@ -13,6 +13,7 @@ export interface DashAuth {
 export interface DashKeyManager {
   readonly identityId: string | null | undefined;
   getAuth(): Promise<DashAuth>;
+  getTransfer(): Promise<DashAuth>;
 }
 
 export interface DashDocumentLike {
@@ -111,6 +112,15 @@ export interface DashSdk {
     totalSupply(
       tokenId: string,
     ): Promise<{ totalSupply: bigint; tokenId: string } | undefined>;
+    transfer(args: {
+      dataContractId: string;
+      tokenPosition: number;
+      amount: bigint;
+      senderId: string;
+      recipientId: string;
+      identityKey: IdentityPublicKey | undefined;
+      signer: IdentitySigner;
+    }): Promise<unknown>;
   };
   dpns: {
     username(identityId: string): Promise<string | null | undefined>;

@@ -4,7 +4,7 @@
  * Top-level navigation is handled by NavButton in the AppShell sidebar.
  */
 
-export type TopTab = "collection" | "mint" | "how-it-works";
+export type TopTab = "collection" | "mint" | "tokens" | "how-it-works";
 export type CollectionSubTab = "my" | "all" | "marketplace";
 
 export interface SubTabsProps {

@@ -16,6 +16,7 @@ import type { TransferModalProps } from "../src/components/TransferModal";
 import type { SetPriceModalProps } from "../src/components/SetPriceModal";
 import type { PurchaseModalProps } from "../src/components/PurchaseModal";
 import type { BurnModalProps } from "../src/components/BurnModal";
+import type { TokenTransferScreenProps } from "../src/components/TokenTransferScreen";
 
 const {
   mockUseSession,
@@ -51,7 +52,9 @@ vi.mock("../src/components/AppShell", () => ({
   }: {
     children: React.ReactNode;
     onLoginOpen: () => void;
-    onTabChange: (tab: "collection" | "mint" | "how-it-works") => void;
+    onTabChange: (
+      tab: "collection" | "mint" | "tokens" | "how-it-works",
+    ) => void;
   }) => (
     <div>
       <button type="button" onClick={onLoginOpen}>
@@ -62,6 +65,9 @@ vi.mock("../src/components/AppShell", () => ({
       </button>
       <button type="button" onClick={() => onTabChange("mint")}>
         Mint Tab
+      </button>
+      <button type="button" onClick={() => onTabChange("tokens")}>
+        Tokens Tab
       </button>
       <button type="button" onClick={() => onTabChange("how-it-works")}>
         How Tab
@@ -209,6 +215,20 @@ vi.mock("../src/components/MintForm", () => ({
   }: {
     dashMintTokenBalance?: bigint | null;
   }) => <div>Mint Form tokens:{String(dashMintTokenBalance)}</div>,
+}));
+
+vi.mock("../src/components/TokenTransferScreen", () => ({
+  TokenTransferScreen: ({
+    dashMintTokenBalance,
+    onTransferred,
+  }: TokenTransferScreenProps) => (
+    <div>
+      Token Transfer Screen tokens:{String(dashMintTokenBalance)}
+      <button type="button" onClick={() => onTransferred?.()}>
+        Trigger Token Transfer Refresh
+      </button>
+    </div>
+  ),
 }));
 
 vi.mock("../src/components/HowItWorks", () => ({
@@ -558,6 +578,43 @@ describe("App", () => {
     expect(
       screen.queryByText(/Only the contract owner can mint new cards/),
     ).toBeNull();
+  });
+
+  it("shows the login gate on the tokens screen when not authenticated", async () => {
+    const session = makeSession({ status: "browsing" as const });
+    mockUseSession.mockReturnValue(session);
+    mockListAllCards.mockResolvedValue(cards);
+
+    render(<App />);
+
+    fireEvent.click(screen.getByRole("button", { name: "Tokens Tab" }));
+
+    expect(screen.getByText("Login to transfer DashMint tokens")).toBeTruthy();
+    fireEvent.click(screen.getByRole("button", { name: "Login" }));
+    expect(screen.getByTestId("login-modal").textContent).toContain(
+      "open:true",
+    );
+    expect(screen.getByText("Token Transfer Screen tokens:null")).toBeTruthy();
+  });
+
+  it("renders the token transfer screen and refreshes after token transfers", async () => {
+    const session = makeSession({
+      status: "authenticated" as const,
+      identityId: "identity-1",
+      dashMintTokenBalance: 7n,
+    });
+    mockUseSession.mockReturnValue(session);
+    mockListMyCards.mockResolvedValue([cards[1]]);
+
+    render(<App />);
+
+    fireEvent.click(screen.getByRole("button", { name: "Tokens Tab" }));
+
+    expect(screen.getByText("Token Transfer Screen tokens:7")).toBeTruthy();
+    fireEvent.click(
+      screen.getByRole("button", { name: "Trigger Token Transfer Refresh" }),
+    );
+    expect(session.refreshBalance).toHaveBeenCalled();
   });
 
   it("does not show a gate on the mint screen for the contract owner", async () => {
