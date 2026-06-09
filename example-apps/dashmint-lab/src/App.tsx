@@ -38,6 +38,12 @@ const SORT_LABELS: Record<SortKey, string> = {
 };
 const SORT_ORDER: SortKey[] = ["rarity", "name", "owner", "price"];
 
+function cardPriceValue(card: Card): bigint | null {
+  const price = card.$price;
+  if (price === undefined || price === 0 || price === 0n) return null;
+  return typeof price === "bigint" ? price : BigInt(Math.trunc(price));
+}
+
 function App() {
   const session = useSession();
   const {
@@ -154,9 +160,12 @@ function App() {
       );
     } else if (sortKey === "price") {
       return [...cards].sort((a, b) => {
-        const pa = a.$price ? Number(a.$price) : -1;
-        const pb = b.$price ? Number(b.$price) : -1;
-        return pb - pa;
+        const pa = cardPriceValue(a);
+        const pb = cardPriceValue(b);
+        if (pa === pb) return 0;
+        if (pa === null) return 1;
+        if (pb === null) return -1;
+        return pa > pb ? -1 : 1;
       });
     }
     return cards;

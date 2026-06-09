@@ -433,6 +433,42 @@ describe("App", () => {
     );
   });
 
+  it("sorts prices by exact bigint value above Number.MAX_SAFE_INTEGER", async () => {
+    const session = makeSession();
+    const largePriceCards: Card[] = [
+      {
+        id: "lower",
+        ownerId: "owner-1",
+        data: { name: "Lower Price", attack: 1, defense: 1 },
+        $price: 9_007_199_254_740_992n,
+      },
+      {
+        id: "higher",
+        ownerId: "owner-2",
+        data: { name: "Higher Price", attack: 1, defense: 1 },
+        $price: 9_007_199_254_740_993n,
+      },
+    ];
+    mockUseSession.mockReturnValue(session);
+    mockListAllCards.mockResolvedValue(largePriceCards);
+
+    render(<App />);
+
+    await waitFor(() => {
+      expect(screen.getByTestId("cards").textContent).toBe(
+        "Lower Price|Higher Price",
+      );
+    });
+
+    fireEvent.click(screen.getByRole("button", { name: "Sort: Rarity" }));
+    fireEvent.click(screen.getByRole("button", { name: "Sort: Name" }));
+    fireEvent.click(screen.getByRole("button", { name: "Sort: Owner" }));
+
+    expect(screen.getByTestId("cards").textContent).toBe(
+      "Higher Price|Lower Price",
+    );
+  });
+
   it("wires modal state into child props for login and card actions", async () => {
     const session = makeSession();
     mockUseSession.mockReturnValue(session);
