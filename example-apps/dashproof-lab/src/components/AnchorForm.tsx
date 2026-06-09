@@ -55,6 +55,7 @@ export function AnchorForm({
   const [existingAnchor, setExistingAnchor] = useState<AnchorRecord | null>(
     null,
   );
+  const [anchoredCurrentFile, setAnchoredCurrentFile] = useState(false);
   const [dragActive, setDragActive] = useState(false);
   const inputId = "anchor-file-input";
   const inputRef = useRef<HTMLInputElement | null>(null);
@@ -82,6 +83,7 @@ export function AnchorForm({
     setHashCopied(false);
     setCheckingDuplicate(false);
     setExistingAnchor(null);
+    setAnchoredCurrentFile(false);
     if (!file) {
       if (chainIdAutoManagedRef.current) setChainId("");
       return;
@@ -192,7 +194,8 @@ export function AnchorForm({
       !contractId ||
       chainId.trim().length === 0 ||
       checkingDuplicate ||
-      existingAnchor
+      existingAnchor ||
+      anchoredCurrentFile
     ) {
       return null;
     }
@@ -232,6 +235,7 @@ export function AnchorForm({
       setStatusText(
         "Proof created and anchored on Dash Platform. Duplicate hashes are rejected by design.",
       );
+      setAnchoredCurrentFile(true);
       onAnchored();
     } catch (err) {
       setStatusTone("error");

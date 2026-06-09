@@ -157,6 +157,20 @@ describe("AnchorForm", () => {
       );
     });
     expect(onAnchored).toHaveBeenCalled();
+
+    await waitFor(() => {
+      expect(
+        (
+          screen.getByRole("button", {
+            name: /create proof/i,
+          }) as HTMLButtonElement
+        ).disabled,
+      ).toBe(true);
+    });
+    const form = screen.getByLabelText(/chain id/i).closest("form");
+    expect(form).toBeTruthy();
+    fireEvent.submit(form as HTMLFormElement);
+    expect(mockCreateAnchor).toHaveBeenCalledTimes(1);
   });
 
   it("auto-fills from the filename, preserves manual edits, and resumes after clearing", async () => {

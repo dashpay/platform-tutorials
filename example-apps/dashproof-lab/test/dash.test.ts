@@ -17,7 +17,10 @@ vi.mock("@dashevo/evo-sdk", () => ({
   },
 }));
 
-import { createAnchor } from "../src/dash/createAnchor";
+import {
+  createAnchor,
+  DUPLICATE_ANCHOR_MESSAGE,
+} from "../src/dash/createAnchor";
 import {
   clearStoredContractId,
   loadStoredContractId,
@@ -295,6 +298,38 @@ describe("dashproof helpers", () => {
         },
       }),
     ).rejects.toThrow("entryHash must be a 32-byte SHA-256 digest.");
+  });
+
+  it("createAnchor explains duplicate hash rejections", async () => {
+    const mockDocumentsCreate = vi
+      .fn()
+      .mockRejectedValue(
+        new Error("Invalid transition: duplicate unique index violation"),
+      );
+
+    await expect(
+      createAnchor({
+        sdk: {
+          documents: {
+            create: mockDocumentsCreate,
+          },
+        },
+        keyManager: {
+          async getAuth() {
+            return {
+              identity: { id: "identity-1" },
+              identityKey: undefined,
+              signer: undefined,
+            };
+          },
+        },
+        contractId: "contract-1",
+        anchor: {
+          entryHash: new Uint8Array(32),
+          chainId: "chain-1",
+        },
+      }),
+    ).rejects.toThrow(DUPLICATE_ANCHOR_MESSAGE);
   });
 
   it("createAnchor rejects a previousId that is not 32 bytes", async () => {

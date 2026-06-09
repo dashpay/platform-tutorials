@@ -6,7 +6,7 @@
 import { Document } from "@dashevo/evo-sdk";
 
 import { bytesToBase64, bytesToDocumentArray } from "../lib/hash";
-import type { Logger } from "./logger";
+import { errorMessage, type Logger } from "./logger";
 import type { DashKeyManager, DashSdk } from "./types";
 
 export interface CreateAnchorInput {
@@ -25,6 +25,18 @@ export interface CreateAnchorParams {
   contractId: string;
   anchor: CreateAnchorInput;
   log?: Logger;
+}
+
+export const DUPLICATE_ANCHOR_MESSAGE =
+  "This file is already anchored. The proof contract rejects duplicate SHA-256 hashes.";
+
+function isDuplicateAnchorError(err: unknown): boolean {
+  const message = errorMessage(err).toLowerCase();
+  return (
+    message.includes("duplicate") ||
+    message.includes("unique") ||
+    message.includes("already exists")
+  );
 }
 
 export async function createAnchor({
@@ -73,6 +85,13 @@ export async function createAnchor({
     dataContractId: contractId,
     ownerId: identity.id,
   });
-  await sdk.documents.create({ document, identityKey, signer });
+  try {
+    await sdk.documents.create({ document, identityKey, signer });
+  } catch (err) {
+    if (isDuplicateAnchorError(err)) {
+      throw new Error(DUPLICATE_ANCHOR_MESSAGE);
+    }
+    throw err;
+  }
   log?.("Proof anchor submitted.", "success");
 }
