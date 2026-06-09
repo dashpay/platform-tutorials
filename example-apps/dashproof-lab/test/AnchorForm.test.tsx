@@ -13,11 +13,13 @@ import { AnchorForm } from "../src/components/AnchorForm";
 import { EXAMPLE_FILE_FIXTURES } from "../src/data/exampleFiles";
 import { formatHashBlocks } from "../src/lib/format";
 
-const { mockUseSession, mockHashFile, mockCreateAnchor } = vi.hoisted(() => ({
-  mockUseSession: vi.fn(),
-  mockHashFile: vi.fn(),
-  mockCreateAnchor: vi.fn(),
-}));
+const { mockUseSession, mockHashFile, mockCreateAnchor, mockFindAnchorByHash } =
+  vi.hoisted(() => ({
+    mockUseSession: vi.fn(),
+    mockHashFile: vi.fn(),
+    mockCreateAnchor: vi.fn(),
+    mockFindAnchorByHash: vi.fn(),
+  }));
 
 vi.mock("../src/session/useSession", () => ({
   useSession: mockUseSession,
@@ -35,6 +37,10 @@ vi.mock("../src/dash/createAnchor", () => ({
   createAnchor: mockCreateAnchor,
 }));
 
+vi.mock("../src/dash/queries", () => ({
+  findAnchorByHash: mockFindAnchorByHash,
+}));
+
 function makeSession(overrides: Record<string, unknown> = {}) {
   return {
     status: "readonly",
@@ -49,6 +55,8 @@ beforeEach(() => {
   mockHashFile.mockReset();
   mockCreateAnchor.mockReset();
   mockUseSession.mockReset();
+  mockFindAnchorByHash.mockReset();
+  mockFindAnchorByHash.mockResolvedValue(null);
 });
 
 afterEach(() => {
@@ -242,5 +250,98 @@ describe("AnchorForm", () => {
     await screen.findByText("SHA-256 computed locally in the browser.");
     expect(screen.getByText("drop-proof.txt")).toBeTruthy();
     expect(mockHashFile).toHaveBeenCalledWith(file);
+  });
+
+  it("warns and blocks submit when the file is already anchored", async () => {
+    mockUseSession.mockReturnValue(
+      makeSession({
+        status: "authenticated",
+        keyManager: { getAuth: vi.fn() },
+      }),
+    );
+    mockHashFile.mockResolvedValue(new Uint8Array(32).fill(1));
+    mockFindAnchorByHash.mockResolvedValue({
+      id: "anchor-1",
+      ownerId: "ownerabcdef0123456789",
+      createdAt: 1700000000000,
+      entryHash: new Uint8Array(32).fill(1),
+      entryHashHex: "01".repeat(32),
+      chainId: "existing-chain",
+    });
+    const onViewChainHistory = vi.fn();
+
+    render(
+      <AnchorForm
+        contractId="contract-1"
+        onAnchored={vi.fn()}
+        onLoginPrompt={vi.fn()}
+        onViewChainHistory={onViewChainHistory}
+      />,
+    );
+
+    fireEvent.change(screen.getByLabelText(/select file/i), {
+      target: {
+        files: [new File(["proof"], "dupe.txt", { type: "text/plain" })],
+      },
+    });
+    fireEvent.change(screen.getByLabelText(/chain id/i), {
+      target: { value: "chain-1" },
+    });
+
+    await screen.findByText("Already anchored");
+    expect(mockFindAnchorByHash).toHaveBeenCalledWith(
+      expect.objectContaining({ contractId: "contract-1" }),
+    );
+    // The submit CTA is removed entirely while a duplicate is detected.
+    expect(screen.queryByRole("button", { name: /create proof/i })).toBeNull();
+    const form = screen.getByLabelText(/chain id/i).closest("form");
+    expect(form).toBeTruthy();
+    fireEvent.submit(form as HTMLFormElement);
+    expect(mockCreateAnchor).not.toHaveBeenCalled();
+
+    // The chain ID links into that chain's history.
+    fireEvent.click(screen.getByRole("button", { name: "existing-chain" }));
+    expect(onViewChainHistory).toHaveBeenCalledWith("existing-chain");
+  });
+
+  it("allows submit and shows no warning when the file is not yet anchored", async () => {
+    mockUseSession.mockReturnValue(
+      makeSession({
+        status: "authenticated",
+        keyManager: { getAuth: vi.fn() },
+      }),
+    );
+    mockHashFile.mockResolvedValue(new Uint8Array(32).fill(2));
+    mockFindAnchorByHash.mockResolvedValue(null);
+
+    render(
+      <AnchorForm
+        contractId="contract-1"
+        onAnchored={vi.fn()}
+        onLoginPrompt={vi.fn()}
+      />,
+    );
+
+    fireEvent.change(screen.getByLabelText(/select file/i), {
+      target: {
+        files: [new File(["fresh"], "fresh.txt", { type: "text/plain" })],
+      },
+    });
+    fireEvent.change(screen.getByLabelText(/chain id/i), {
+      target: { value: "chain-1" },
+    });
+
+    await screen.findByText("SHA-256 computed locally in the browser.");
+
+    await waitFor(() => {
+      expect(
+        (
+          screen.getByRole("button", {
+            name: /create proof/i,
+          }) as HTMLButtonElement
+        ).disabled,
+      ).toBe(false);
+    });
+    expect(screen.queryByText("Already anchored")).toBeNull();
   });
 });

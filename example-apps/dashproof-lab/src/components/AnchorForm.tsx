@@ -11,8 +11,14 @@ import {
 
 import { createAnchor } from "../dash/createAnchor";
 import { errorMessage } from "../dash/logger";
+import { findAnchorByHash, type AnchorRecord } from "../dash/queries";
 import { suggestChainId } from "../lib/chainId";
-import { formatBytes, formatHashBlocks, formatTimestamp } from "../lib/format";
+import {
+  formatBytes,
+  formatHashBlocks,
+  formatTimestamp,
+  truncateId,
+} from "../lib/format";
 import { bytesToHex, hashFile } from "../lib/hash";
 import { useSession } from "../session/useSession";
 import { OperationResultNotice } from "./OperationResultNotice";
@@ -21,12 +27,14 @@ interface AnchorFormProps {
   contractId: string | null;
   onAnchored: () => void;
   onLoginPrompt: () => void;
+  onViewChainHistory?: (chainId: string) => void;
 }
 
 export function AnchorForm({
   contractId,
   onAnchored,
   onLoginPrompt,
+  onViewChainHistory,
 }: AnchorFormProps) {
   const session = useSession();
   const [selectedFile, setSelectedFile] = useState<File | null>(null);
@@ -43,6 +51,10 @@ export function AnchorForm({
   const [hashCopied, setHashCopied] = useState(false);
   const [submitting, setSubmitting] = useState(false);
   const [hashing, setHashing] = useState(false);
+  const [checkingDuplicate, setCheckingDuplicate] = useState(false);
+  const [existingAnchor, setExistingAnchor] = useState<AnchorRecord | null>(
+    null,
+  );
   const [dragActive, setDragActive] = useState(false);
   const inputId = "anchor-file-input";
   const inputRef = useRef<HTMLInputElement | null>(null);
@@ -68,6 +80,8 @@ export function AnchorForm({
     setEntryHash(null);
     setHashHex("");
     setHashCopied(false);
+    setCheckingDuplicate(false);
+    setExistingAnchor(null);
     if (!file) {
       if (chainIdAutoManagedRef.current) setChainId("");
       return;
@@ -90,11 +104,39 @@ export function AnchorForm({
       }
       setStatusTone("info");
       setStatusText("SHA-256 computed locally in the browser.");
+      setHashing(false);
+
+      if (!session.sdk || !contractId) return;
+
+      setCheckingDuplicate(true);
+      try {
+        const match = await findAnchorByHash({
+          sdk: session.sdk,
+          contractId,
+          entryHash: digest,
+          log: session.log,
+        });
+        if (fileSelectionRef.current !== requestId) return;
+        setExistingAnchor(match);
+      } catch (err) {
+        // The unique hash index is the real duplicate guard; a failed
+        // pre-flight lookup must not block the local hash preview.
+        if (fileSelectionRef.current === requestId) {
+          session.log?.(errorMessage(err), "error");
+        }
+      } finally {
+        if (fileSelectionRef.current === requestId) {
+          setCheckingDuplicate(false);
+        }
+      }
     } catch (err) {
+      if (fileSelectionRef.current !== requestId) return;
       setStatusTone("error");
       setStatusText(errorMessage(err));
     } finally {
-      setHashing(false);
+      if (fileSelectionRef.current === requestId) {
+        setHashing(false);
+      }
     }
   }
 
@@ -140,32 +182,49 @@ export function AnchorForm({
     setHashCopied(true);
   }
 
-  async function handleSubmit(event: FormEvent) {
-    event.preventDefault();
+  function getSubmitPayload() {
     if (
+      session.status !== "authenticated" ||
       !session.sdk ||
       !session.keyManager ||
       !selectedFile ||
       !entryHash ||
-      !contractId
+      !contractId ||
+      chainId.trim().length === 0 ||
+      checkingDuplicate ||
+      existingAnchor
     ) {
-      return;
+      return null;
     }
+
+    return {
+      sdk: session.sdk,
+      keyManager: session.keyManager,
+      selectedFile,
+      entryHash,
+      contractId,
+    };
+  }
+
+  async function handleSubmit(event: FormEvent) {
+    event.preventDefault();
+    const submitPayload = getSubmitPayload();
+    if (!submitPayload) return;
 
     setSubmitting(true);
     setStatusText(null);
     try {
       await createAnchor({
-        sdk: session.sdk,
-        keyManager: session.keyManager,
-        contractId,
+        sdk: submitPayload.sdk,
+        keyManager: submitPayload.keyManager,
+        contractId: submitPayload.contractId,
         log: session.log,
         anchor: {
-          entryHash,
+          entryHash: submitPayload.entryHash,
           chainId,
-          filename: selectedFile.name,
-          mimeType: selectedFile.type,
-          size: selectedFile.size,
+          filename: submitPayload.selectedFile.name,
+          mimeType: submitPayload.selectedFile.type,
+          size: submitPayload.selectedFile.size,
           note,
         },
       });
@@ -182,14 +241,7 @@ export function AnchorForm({
     }
   }
 
-  const canSubmit =
-    session.status === "authenticated" &&
-    !!session.sdk &&
-    !!session.keyManager &&
-    !!selectedFile &&
-    !!entryHash &&
-    !!contractId &&
-    chainId.trim().length > 0;
+  const canSubmit = getSubmitPayload() !== null;
 
   return (
     <section className="mx-auto max-w-[1000px] rounded-lg border border-line bg-surface p-5">
@@ -314,6 +366,11 @@ export function AnchorForm({
               <span className="h-4 w-4 animate-spin rounded-full border-2 border-line border-t-accent" />
               <span>Computing hash…</span>
             </div>
+          ) : checkingDuplicate ? (
+            <div className="mt-3 flex items-center gap-3 text-[13px] text-ink">
+              <span className="h-4 w-4 animate-spin rounded-full border-2 border-line border-t-accent" />
+              <span>Checking for existing proof…</span>
+            </div>
           ) : (
             <>
               <div className="mt-3 whitespace-pre-wrap font-mono text-[11px] leading-6 text-ink">
@@ -338,13 +395,32 @@ export function AnchorForm({
           />
         </label>
 
+        {existingAnchor && (
+          <OperationResultNotice tone="error" title="Already anchored">
+            This file already has a proof on Dash Platform (chain{" "}
+            <button
+              type="button"
+              onClick={() => onViewChainHistory?.(existingAnchor.chainId)}
+              className="font-medium underline underline-offset-2 transition hover:opacity-80"
+            >
+              {existingAnchor.chainId}
+            </button>
+            , anchored {formatTimestamp(existingAnchor.createdAt)} by{" "}
+            <span className="font-mono">
+              {truncateId(existingAnchor.ownerId, 12)}
+            </span>
+            ). The hash index rejects duplicates, so a new proof can&rsquo;t be
+            created for it.
+          </OperationResultNotice>
+        )}
+
         {statusText && (
           <OperationResultNotice tone={statusTone} title="Proof status">
             {statusText}
           </OperationResultNotice>
         )}
 
-        {session.status !== "authenticated" ? (
+        {existingAnchor ? null : session.status !== "authenticated" ? (
           <div className="rounded-lg border border-dashed border-line px-4 py-4">
             <div className="text-[13px] font-semibold text-ink">
               Login required for submission

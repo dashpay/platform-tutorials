@@ -112,6 +112,7 @@ function App() {
               contractId={session.contractId}
               onLoginPrompt={() => setLoginOpen(true)}
               onAnchored={() => setRefreshKey((value) => value + 1)}
+              onViewChainHistory={openHistoryForChain}
             />
           )}
           {tab === "verify" && (
