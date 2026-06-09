@@ -34,6 +34,10 @@ export interface Card {
   $price?: number | bigint;
 }
 
+function hasSalePrice(card: Card): boolean {
+  return card.$price != null && card.$price !== 0 && card.$price !== 0n;
+}
+
 function toCard(id: string | null, raw: DashCardQueryDocument): Card {
   const j: Record<string, unknown> =
     typeof raw?.toJSON === "function" ? raw.toJSON() : raw;
@@ -112,7 +116,7 @@ export async function listMarketplaceCards({
     documentTypeName: "card",
     limit,
   });
-  const cards = normalizeCards(results).filter((c) => c.$price);
+  const cards = normalizeCards(results).filter(hasSalePrice);
   log?.(`Found ${cards.length} card(s) for sale.`);
   return cards;
 }
