@@ -216,6 +216,13 @@ describe("App token transfer navigation", () => {
     expect(screen.getByRole("status").textContent).toContain(
       "DashMint tokens transferred successfully.",
     );
+    expect(mockTransferDashMintTokens).toHaveBeenCalledWith(
+      expect.objectContaining({
+        contractId: "contract-1",
+        recipientId: SAMPLE_ID,
+        amount: 2n,
+      }),
+    );
 
     fireEvent.click(screen.getByRole("button", { name: "Collection Tab" }));
     await waitFor(() => {
