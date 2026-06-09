@@ -105,6 +105,15 @@ interface ConnectedDashClientLike {
     totalSupply(
       tokenId: string,
     ): Promise<{ totalSupply: bigint; tokenId: string } | undefined>;
+    transfer(args: {
+      dataContractId: string;
+      tokenPosition: number;
+      amount: bigint;
+      senderId: string;
+      recipientId: string;
+      identityKey: IdentityPublicKey | undefined;
+      signer: IdentitySigner;
+    }): Promise<unknown>;
   };
   dpns: {
     username(identityId: string): Promise<string | null | undefined>;
@@ -122,6 +131,11 @@ export declare class IdentityKeyManager {
   }): Promise<IdentityKeyManager>;
   readonly identityId: string | null | undefined;
   getAuth(): Promise<{
+    identity: Identity;
+    identityKey: IdentityPublicKey | undefined;
+    signer: IdentitySigner;
+  }>;
+  getTransfer(): Promise<{
     identity: Identity;
     identityKey: IdentityPublicKey | undefined;
     signer: IdentitySigner;

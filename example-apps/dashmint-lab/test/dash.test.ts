@@ -102,6 +102,9 @@ describe("dashmint helpers", () => {
           signer: { id: "signer-1" },
         };
       },
+      async getTransfer() {
+        throw new Error("getTransfer should not be used here");
+      },
     };
     const sdk = {
       documents: {
@@ -145,6 +148,9 @@ describe("dashmint helpers", () => {
           signer: { id: "signer-1" },
         };
       },
+      async getTransfer() {
+        throw new Error("getTransfer should not be used here");
+      },
     };
     const sdk = {
       documents: {
@@ -179,6 +185,9 @@ describe("dashmint helpers", () => {
           signer: { id: "signer-1" },
         };
       },
+      async getTransfer() {
+        throw new Error("getTransfer should not be used here");
+      },
     };
     const sdk = {
       documents: {
@@ -212,6 +221,9 @@ describe("dashmint helpers", () => {
           identityKey: { id: "key-1" },
           signer: { id: "signer-1" },
         };
+      },
+      async getTransfer() {
+        throw new Error("getTransfer should not be used here");
       },
     };
     const sdk = {
