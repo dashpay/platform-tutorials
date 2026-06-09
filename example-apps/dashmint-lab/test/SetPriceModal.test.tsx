@@ -9,7 +9,10 @@ import {
 } from "@testing-library/react";
 import { afterEach, describe, expect, it, vi } from "vitest";
 
-import { SetPriceModal } from "../src/components/SetPriceModal";
+import {
+  MAX_PRICE_CREDITS,
+  SetPriceModal,
+} from "../src/components/SetPriceModal";
 import type { Card } from "../src/dash/queries";
 import type { DashKeyManager, DashSdk } from "../src/dash/types";
 
@@ -126,6 +129,25 @@ describe("SetPriceModal", () => {
 
     expect(onPriced).toHaveBeenCalledTimes(1);
     expect(onClose).toHaveBeenCalledTimes(1);
+  });
+
+  it("sets a maximum price and blocks larger values", async () => {
+    mockUseSession.mockReturnValue(sessionValue);
+
+    render(<SetPriceModal card={unlistedCard} onClose={vi.fn()} />);
+
+    const priceInput = screen.getByLabelText("Price");
+    expect(priceInput.getAttribute("max")).toBe(String(MAX_PRICE_CREDITS));
+
+    fireEvent.change(priceInput, {
+      target: { value: String(MAX_PRICE_CREDITS + 1) },
+    });
+    fireEvent.click(screen.getByRole("button", { name: "List for sale" }));
+
+    expect(mockSetPrice).not.toHaveBeenCalled();
+    expect(screen.getByRole("alert").textContent).toContain(
+      "Price must be between 1 and 1,000,000,000,000,000 credits.",
+    );
   });
 
   it("treats $price === 0n as unlisted (zero is not a valid price)", () => {

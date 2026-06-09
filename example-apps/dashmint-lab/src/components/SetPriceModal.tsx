@@ -18,6 +18,10 @@ export interface SetPriceModalProps {
 }
 
 const SUCCESS_CLOSE_DELAY_MS = 700;
+// TODO(dashpay/platform#3786): Remove this app-level cap after the SDK can
+// safely serialize document prices above Number.MAX_SAFE_INTEGER.
+export const MAX_PRICE_CREDITS = 1_000_000_000_000_000;
+const MAX_PRICE_ERROR = `Price must be between 1 and ${formatCredits(MAX_PRICE_CREDITS)} credits.`;
 
 export function SetPriceModal({ card, onClose, onPriced }: SetPriceModalProps) {
   const session = useSession();
@@ -66,8 +70,13 @@ export function SetPriceModal({ card, onClose, onPriced }: SetPriceModalProps) {
 
   async function handleSubmit(e: FormEvent) {
     e.preventDefault();
-    const n = parseInt(amount, 10);
-    if (!Number.isFinite(n) || n < 1) return;
+    const value = amount.trim();
+    const n = Number(value);
+    if (!/^\d+$/.test(value) || !Number.isFinite(n) || n < 1) return;
+    if (n > MAX_PRICE_CREDITS) {
+      setResult({ kind: "error", message: MAX_PRICE_ERROR });
+      return;
+    }
     await submitPrice(n);
   }
 
@@ -80,7 +89,11 @@ export function SetPriceModal({ card, onClose, onPriced }: SetPriceModalProps) {
       onClose={onClose}
     >
       {card && (
-        <form onSubmit={handleSubmit} className="flex flex-col gap-4">
+        <form
+          onSubmit={handleSubmit}
+          noValidate
+          className="flex flex-col gap-4"
+        >
           <CardSummary card={card}>
             {hasCurrentPrice && (
               <div className="mb-3 text-[12px] text-accent">
@@ -95,6 +108,7 @@ export function SetPriceModal({ card, onClose, onPriced }: SetPriceModalProps) {
               <input
                 type="number"
                 min={1}
+                max={MAX_PRICE_CREDITS}
                 value={amount}
                 onChange={(e) => {
                   setAmount(e.target.value);
