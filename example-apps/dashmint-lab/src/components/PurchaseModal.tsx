@@ -28,6 +28,10 @@ export function PurchaseModal({
   const [submitting, setSubmitting] = useState(false);
   const [result, setResult] = useState<OperationResult | null>(null);
 
+  const price = card?.$price ?? null;
+  const insufficientCredits =
+    session.balance !== null && price !== null && session.balance < price;
+
   useEffect(() => {
     if (card) {
       setResult(null);
@@ -42,7 +46,8 @@ export function PurchaseModal({
       !session.keyManager ||
       !session.contractId ||
       card.$price === undefined ||
-      card.$price === null
+      card.$price === null ||
+      insufficientCredits
     )
       return;
     setSubmitting(true);
@@ -82,16 +87,41 @@ export function PurchaseModal({
               </span>
             </div>
 
+            <div className="flex items-center justify-between">
+              <span className="text-[10px] font-semibold uppercase tracking-[0.12em] text-ink-4">
+                Your balance
+              </span>
+              <span className="text-[13px] font-bold text-ink-2">
+                {session.balance === null
+                  ? "—"
+                  : `${formatCredits(session.balance)} credits`}
+              </span>
+            </div>
+
+            {insufficientCredits && (
+              <p className="rounded-md border border-[oklch(30%_0.08_25)] bg-[oklch(22%_0.04_25)] px-3 py-2 text-[12px] font-medium leading-[1.45] text-danger">
+                Not enough credits to buy this card.
+              </p>
+            )}
+
             {result && <OperationResultNotice result={result} />}
 
             <div className="mt-3 flex gap-2">
               <button
                 type="button"
                 onClick={handleBuy}
-                disabled={submitting || result?.kind === "success"}
+                disabled={
+                  submitting ||
+                  insufficientCredits ||
+                  result?.kind === "success"
+                }
                 className="flex-1 rounded-md bg-accent px-4 py-2 text-[13px] font-semibold text-bg transition hover:bg-accent-dim disabled:cursor-not-allowed disabled:bg-surface-2 disabled:text-ink-4"
               >
-                {submitting ? "Purchasing…" : "Buy"}
+                {submitting
+                  ? "Purchasing…"
+                  : insufficientCredits
+                    ? "Insufficient credits"
+                    : "Buy"}
               </button>
               <button
                 type="button"

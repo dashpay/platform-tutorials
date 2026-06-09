@@ -41,6 +41,7 @@ const sessionValue = {
   sdk: {} as DashSdk,
   keyManager: {} as DashKeyManager,
   contractId: "contract-1",
+  balance: null as bigint | null,
   log: vi.fn(),
 };
 
@@ -108,5 +109,45 @@ describe("PurchaseModal", () => {
 
     expect(onPurchased).toHaveBeenCalledTimes(1);
     expect(onClose).toHaveBeenCalledTimes(1);
+  });
+
+  it("disables Buy and warns when balance is below the price", () => {
+    mockUseSession.mockReturnValue({ ...sessionValue, balance: 10n });
+
+    render(<PurchaseModal card={card} onClose={vi.fn()} />);
+
+    const buyButton = screen.getByRole("button", {
+      name: "Insufficient credits",
+    });
+    expect(buyButton.hasAttribute("disabled")).toBe(true);
+    expect(
+      screen.getByText("Not enough credits to buy this card."),
+    ).toBeTruthy();
+
+    fireEvent.click(buyButton);
+    expect(mockPurchaseCard).not.toHaveBeenCalled();
+  });
+
+  it("enables Buy with no warning when balance covers the price", () => {
+    mockUseSession.mockReturnValue({ ...sessionValue, balance: 25n });
+
+    render(<PurchaseModal card={card} onClose={vi.fn()} />);
+
+    const buyButton = screen.getByRole("button", { name: "Buy" });
+    expect(buyButton.hasAttribute("disabled")).toBe(false);
+    expect(
+      screen.queryByText("Not enough credits to buy this card."),
+    ).toBeNull();
+  });
+
+  it("does not warn while the balance is still loading (null)", () => {
+    mockUseSession.mockReturnValue({ ...sessionValue, balance: null });
+
+    render(<PurchaseModal card={card} onClose={vi.fn()} />);
+
+    expect(screen.getByRole("button", { name: "Buy" })).toBeTruthy();
+    expect(
+      screen.queryByText("Not enough credits to buy this card."),
+    ).toBeNull();
   });
 });
