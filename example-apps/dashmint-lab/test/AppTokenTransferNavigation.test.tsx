@@ -191,7 +191,6 @@ beforeEach(() => {
 
 afterEach(() => {
   cleanup();
-  vi.clearAllMocks();
 });
 
 describe("App token transfer navigation", () => {
