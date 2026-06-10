@@ -3,6 +3,7 @@ import assert from 'node:assert/strict';
 import { runTutorial } from './run-tutorial.mjs';
 import {
   assertTutorialSuccess,
+  extractFromOutput,
   extractId,
   extractKeyId,
 } from './assertions.mjs';
@@ -352,6 +353,127 @@ describe('Write tutorials (sequential)', { concurrency: 1 }, () => {
     assertTutorialSuccess(result, {
       name: 'document-delete',
       expectedPatterns: ['Document deleted successfully'],
+      errorPatterns: ['Something went wrong'],
+    });
+  });
+
+  // -----------------------------------------------------------------------
+  // Phase 4: Tokens
+  // -----------------------------------------------------------------------
+
+  it('token-register', { timeout: 180_000 }, async () => {
+    const result = await runTutorial('3-Tokens/token-register.mjs', {
+      timeoutMs: 180_000,
+    });
+    assertTutorialSuccess(result, {
+      name: 'token-register',
+      expectedPatterns: ['Token contract registered:', 'Token ID:'],
+      errorPatterns: ['Something went wrong'],
+    });
+
+    const id =
+      extractId(result.stdout) ??
+      extractFromOutput(
+        result.stdout,
+        /Token contract registered:\s*([1-9A-HJ-NP-Za-km-z]+)/,
+      );
+    assert.ok(
+      id,
+      `Failed to extract token contract ID from stdout:\n${result.stdout}`,
+    );
+    state.tokenContractId = id;
+  });
+
+  it('token-info', { timeout: 120_000 }, async (ctx) => {
+    if (!state.tokenContractId) {
+      ctx.skip('No TOKEN_CONTRACT_ID (token-register must pass first)');
+      return;
+    }
+
+    const result = await runTutorial('3-Tokens/token-info.mjs', {
+      env: {
+        TOKEN_CONTRACT_ID: state.tokenContractId,
+      },
+      timeoutMs: 120_000,
+    });
+    assertTutorialSuccess(result, {
+      name: 'token-info',
+      expectedPatterns: [
+        'Token ID:',
+        'Token contract info:',
+        'Token status:',
+        'Total token supply:',
+        'Identity token balance:',
+        'Recipient token balance:',
+      ],
+      errorPatterns: ['Something went wrong'],
+    });
+
+    // Guard against the regression where contract info / status printed
+    // `undefined` because the result objects were logged without resolving
+    // their getters or handling absent on-chain records.
+    assert.ok(
+      !/:\s*undefined/.test(result.stdout),
+      `token-info printed an undefined field:\n${result.stdout}`,
+    );
+  });
+
+  it('token-mint', { timeout: 120_000 }, async (ctx) => {
+    if (!state.tokenContractId) {
+      ctx.skip('No TOKEN_CONTRACT_ID (token-register must pass first)');
+      return;
+    }
+
+    const result = await runTutorial('3-Tokens/token-mint.mjs', {
+      env: {
+        TOKEN_CONTRACT_ID: state.tokenContractId,
+      },
+      timeoutMs: 120_000,
+    });
+    assertTutorialSuccess(result, {
+      name: 'token-mint',
+      expectedPatterns: ['Minted 10 tokens', 'Total token supply:'],
+      errorPatterns: ['Something went wrong'],
+    });
+  });
+
+  it('token-transfer', { timeout: 120_000 }, async (ctx) => {
+    if (!state.tokenContractId) {
+      ctx.skip('No TOKEN_CONTRACT_ID (token-register must pass first)');
+      return;
+    }
+
+    const result = await runTutorial('3-Tokens/token-transfer.mjs', {
+      env: {
+        TOKEN_CONTRACT_ID: state.tokenContractId,
+      },
+      timeoutMs: 120_000,
+    });
+    assertTutorialSuccess(result, {
+      name: 'token-transfer',
+      expectedPatterns: [
+        'Transferred 1 token',
+        'Recipient token balance after transfer:',
+      ],
+      errorPatterns: ['Something went wrong'],
+    });
+  });
+
+  it('token-burn', { timeout: 120_000 }, async (ctx) => {
+    if (!state.tokenContractId) {
+      ctx.skip('No TOKEN_CONTRACT_ID (token-register must pass first)');
+      return;
+    }
+
+    const result = await runTutorial('3-Tokens/token-burn.mjs', {
+      env: {
+        TOKEN_CONTRACT_ID: state.tokenContractId,
+      },
+      timeoutMs: 120_000,
+    });
+    assertTutorialSuccess(result, {
+      name: 'token-burn',
+      expectedPatterns: ['Burned 1 token', 'Total token supply:'],
       errorPatterns: ['Something went wrong'],
     });
   });

@@ -109,6 +109,7 @@ Copy `.env.example` to `.env`. Key variables:
 | `NETWORK` | `testnet` (default) or `mainnet` |
 | `DATA_CONTRACT_ID` | Output of `contract-register-minimal.mjs` |
 | `DOCUMENT_ID` | Output of `document-submit.mjs` |
+| `TOKEN_CONTRACT_ID` | Output of `token-register.mjs`; required by the other `3-Tokens/` tutorials |
 | `RECIPIENT_ID` | Identity ID for credit transfers |
 | `RECIPIENT_PLATFORM_ADDRESS` | `tdash1...` address for send-funds |
 
@@ -119,6 +120,7 @@ Read-only tests skip gracefully when `PLATFORM_MNEMONIC` is unset.
 - **Root** — shared utilities (`setupDashClient.mjs`, `connect.mjs`, `create-wallet.mjs`, `view-wallet.mjs`, `send-funds.mjs`)
 - **`1-Identities-and-Names/`** — identity registration, top-up, key management, DPNS name registration/lookup
 - **`2-Contracts-and-Documents/`** — data contract variants (minimal, indexed, binary, timestamps, history, NFT), document CRUD, NFT operations
+- **`3-Tokens/`** — token contract registration, info queries, minting, burning, and transfers
 - **`test/`** — test runner, assertions, read-only and read-write test suites
 - **`docs/`** — HTML/JS interactive tutorial runner (separate from Node tutorials)
 - **`example-apps/`** — Standalone applications (Vite + React + TypeScript) that consume the tutorial SDK code. Each has its own `package.json`, tsconfig, and toolchain — the conventions in this file (Node16 modules, `airbnb-base`, etc.) describe the **root** tutorial code only and do not apply inside `example-apps/`. See each app's local `CLAUDE.md` for its conventions.

@@ -105,6 +105,25 @@ interface ConnectedDashClientLike {
     totalSupply(
       tokenId: string,
     ): Promise<{ totalSupply: bigint; tokenId: string } | undefined>;
+    statuses(tokenIds: string[]): Promise<Map<string, unknown>>;
+    contractInfo(contractId: string): Promise<unknown>;
+    mint(args: {
+      dataContractId: string;
+      tokenPosition: number;
+      amount: bigint;
+      identityId: string;
+      recipientId?: string;
+      identityKey: IdentityPublicKey | undefined;
+      signer: IdentitySigner;
+    }): Promise<unknown>;
+    burn(args: {
+      dataContractId: string;
+      tokenPosition: number;
+      amount: bigint;
+      identityId: string;
+      identityKey: IdentityPublicKey | undefined;
+      signer: IdentitySigner;
+    }): Promise<unknown>;
     transfer(args: {
       dataContractId: string;
       tokenPosition: number;
