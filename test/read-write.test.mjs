@@ -234,47 +234,6 @@ describe('Write tutorials (sequential)', { concurrency: 1 }, () => {
     });
   });
 
-  it('contract-register-token', { timeout: 180_000 }, async () => {
-    const result = await runTutorial(
-      '2-Contracts-and-Documents/contract-register-token.mjs',
-      { timeoutMs: 180_000 },
-    );
-    assertTutorialSuccess(result, {
-      name: 'contract-register-token',
-      expectedPatterns: ['Token contract registered:', 'Token ID:'],
-      errorPatterns: ['Something went wrong'],
-    });
-
-    const id = extractId(result.stdout);
-    assert.ok(
-      id,
-      `Failed to extract token contract ID from stdout:\n${result.stdout}`,
-    );
-    state.tokenContractId = id;
-  });
-
-  it('identity-transfer-tokens', { timeout: 120_000 }, async (ctx) => {
-    if (!state.tokenContractId) {
-      ctx.skip('No TOKEN_CONTRACT_ID (contract-register-token must pass first)');
-      return;
-    }
-
-    const result = await runTutorial(
-      '1-Identities-and-Names/identity-transfer-tokens.mjs',
-      {
-        env: {
-          TOKEN_CONTRACT_ID: state.tokenContractId,
-        },
-        timeoutMs: 120_000,
-      },
-    );
-    assertTutorialSuccess(result, {
-      name: 'identity-transfer-tokens',
-      expectedPatterns: ['Recipient token balance after transfer:'],
-      errorPatterns: ['Something went wrong'],
-    });
-  });
-
   it('contract-update-minimal', { timeout: 120_000 }, async (ctx) => {
     if (!state.dataContractId) {
       ctx.skip(
@@ -393,6 +352,47 @@ describe('Write tutorials (sequential)', { concurrency: 1 }, () => {
     assertTutorialSuccess(result, {
       name: 'document-delete',
       expectedPatterns: ['Document deleted successfully'],
+      errorPatterns: ['Something went wrong'],
+    });
+  });
+
+  // -----------------------------------------------------------------------
+  // Phase 4: Tokens
+  // -----------------------------------------------------------------------
+
+  it('token-register', { timeout: 180_000 }, async () => {
+    const result = await runTutorial('3-Tokens/token-register.mjs', {
+      timeoutMs: 180_000,
+    });
+    assertTutorialSuccess(result, {
+      name: 'token-register',
+      expectedPatterns: ['Token contract registered:', 'Token ID:'],
+      errorPatterns: ['Something went wrong'],
+    });
+
+    const id = extractId(result.stdout);
+    assert.ok(
+      id,
+      `Failed to extract token contract ID from stdout:\n${result.stdout}`,
+    );
+    state.tokenContractId = id;
+  });
+
+  it('token-transfer', { timeout: 120_000 }, async (ctx) => {
+    if (!state.tokenContractId) {
+      ctx.skip('No TOKEN_CONTRACT_ID (token-register must pass first)');
+      return;
+    }
+
+    const result = await runTutorial('3-Tokens/token-transfer.mjs', {
+      env: {
+        TOKEN_CONTRACT_ID: state.tokenContractId,
+      },
+      timeoutMs: 120_000,
+    });
+    assertTutorialSuccess(result, {
+      name: 'token-transfer',
+      expectedPatterns: ['Recipient token balance after transfer:'],
       errorPatterns: ['Something went wrong'],
     });
   });

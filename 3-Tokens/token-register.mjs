@@ -1,4 +1,4 @@
-// See https://docs.dash.org/projects/platform/en/stable/docs/tutorials/contracts-and-documents/register-a-token-contract.html
+// See https://docs.dash.org/projects/platform/en/stable/docs/tutorials/tokens/register-a-token-contract.html
 import {
   AuthorizedActionTakers,
   ChangeControlRules,

@@ -1,10 +1,10 @@
-// See https://docs.dash.org/projects/platform/en/stable/docs/tutorials/identities-and-names/transfer-tokens-to-an-identity.html
+// See https://docs.dash.org/projects/platform/en/stable/docs/tutorials/tokens/transfer-tokens-to-an-identity.html
 import { setupDashClient } from '../setupDashClient.mjs';
 
 const { sdk, keyManager } = await setupDashClient();
 const { identity, identityKey, signer } = await keyManager.getTransfer();
 
-// TOKEN_CONTRACT_ID comes from contract-register-token.mjs.
+// TOKEN_CONTRACT_ID comes from token-register.mjs.
 const dataContractId = process.env.TOKEN_CONTRACT_ID;
 const tokenPosition = 0;
 
@@ -16,7 +16,7 @@ const amount = 1n;
 try {
   if (!dataContractId) {
     throw new Error(
-      'Set TOKEN_CONTRACT_ID in .env from contract-register-token.mjs output.',
+      'Set TOKEN_CONTRACT_ID in .env from token-register.mjs output.',
     );
   }
 
