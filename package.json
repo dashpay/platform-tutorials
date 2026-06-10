@@ -4,8 +4,8 @@
   "description": "Tutorial code for https://docs.dash.org/platform",
   "main": "connect.mjs",
   "scripts": {
-    "fmt": "npx prettier@3.8.1 --write '**/*.{js,mjs}'",
-    "lint": "npx -p typescript@4 tsc",
+    "fmt": "prettier --write '**/*.{js,mjs}'",
+    "lint": "tsc",
     "test": "node --test --test-timeout=120000 test/read-only.test.mjs",
     "test:read-only": "node --test --test-timeout=120000 test/read-only.test.mjs",
     "test:read-write": "node --test --test-timeout=300000 --test-concurrency=1 test/read-write.test.mjs",
@@ -31,6 +31,8 @@
     "@types/node": "25.5.0",
     "chai": "6.2.2",
     "eslint": "8.45.0",
-    "mocha": "11.7.5"
+    "mocha": "11.7.5",
+    "prettier": "3.8.1",
+    "typescript": "4.9.5"
   }
 }
