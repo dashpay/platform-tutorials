@@ -85,6 +85,9 @@ The identity ID is automatically resolved from your mnemonic, so there is no nee
 manually. After [registering a data
 contract](./2-Contracts-and-Documents/contract-register-minimal.mjs), set `DATA_CONTRACT_ID` in your
 `.env` file to the new contract ID for use in subsequent document tutorials.
+For token tutorials, run
+[`contract-register-token.mjs`](./2-Contracts-and-Documents/contract-register-token.mjs), then set
+`TOKEN_CONTRACT_ID` in `.env` to the newly registered contract ID.
 
 Some client configuration options are included as comments in
 [`setupDashClient.mjs`](./setupDashClient.mjs) if more advanced configuration is required.
