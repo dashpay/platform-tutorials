@@ -22,6 +22,7 @@ try {
   const { bech32m, path } = addressKeyManager.primaryAddress;
 
   let identityId = 'No identity found for this mnemonic';
+  let balance = null;
   try {
     const keyManager = await IdentityKeyManager.create({
       sdk,
@@ -29,6 +30,8 @@ try {
       network,
     });
     identityId = keyManager.identityId;
+    const identity = await sdk.identities.fetch(identityId);
+    balance = identity.balance;
   } catch (e) {
     if (!e.message?.includes('No identity found for the given mnemonic'))
       throw e;
@@ -43,6 +46,14 @@ try {
     `https://bridge.thepasta.org/?address=${bech32m}`,
   );
   console.log('Identity ID:     ', identityId);
+  if (balance !== null) {
+    // 1000 credits = 1 duff, 100_000_000 duffs = 1 Dash
+    const dash = Number(balance) / 1e11;
+    console.log(
+      'Identity balance:',
+      `${balance} credits (${dash.toFixed(8)} DASH)`,
+    );
+  }
 } catch (e) {
   console.error('Something went wrong:\n', e.message);
 }
