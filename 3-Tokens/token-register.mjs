@@ -19,7 +19,8 @@ const { identity, identityKey, signer } = await keyManager.getAuth();
 const TOKEN_POSITION = 0;
 const TOKEN_NAME = 'TutorialToken';
 const TOKEN_PLURAL = 'TutorialTokens';
-const TOKEN_BASE_SUPPLY = 1000n; // Token amounts are bigint values
+const TOKEN_BASE_SUPPLY = 100n; // Token amounts are bigint values
+const TOKEN_MAX_SUPPLY = 1000n;
 
 // This contract includes one small document type so learners can still use the
 // standard document tutorials with the same contract if they want to.
@@ -36,7 +37,7 @@ const documentSchemas = {
   },
 };
 
-function createTutorialTokenConfiguration(ownerId, tokenBaseSupply) {
+function createTutorialTokenConfiguration(ownerId) {
   const contractOwner = AuthorizedActionTakers.ContractOwner();
   const noOne = AuthorizedActionTakers.NoOne();
 
@@ -55,19 +56,16 @@ function createTutorialTokenConfiguration(ownerId, tokenBaseSupply) {
   return new TokenConfiguration({
     conventions: new TokenConfigurationConvention(
       {
-        en: new TokenConfigurationLocalization(
-          false,
-          TOKEN_NAME,
-          TOKEN_PLURAL,
-        ),
+        en: new TokenConfigurationLocalization(false, TOKEN_NAME, TOKEN_PLURAL),
       },
       0,
     ),
     conventionsChangeRules: ownerRules,
-    baseSupply: tokenBaseSupply,
-    maxSupply: tokenBaseSupply,
+    baseSupply: TOKEN_BASE_SUPPLY,
+    maxSupply: TOKEN_MAX_SUPPLY,
     keepsHistory: new TokenKeepsHistoryRules({
       isKeepingBurningHistory: true,
+      isKeepingMintingHistory: true,
       isKeepingTransferHistory: true,
     }),
     maxSupplyChangeRules: lockedRules,
@@ -83,14 +81,16 @@ function createTutorialTokenConfiguration(ownerId, tokenBaseSupply) {
       TokenTradeMode.NotTradeable(),
       lockedRules,
     ),
-    manualMintingRules: lockedRules,
-    manualBurningRules: lockedRules,
+    // Minting and burning are enabled so the next tutorials can demonstrate
+    // the normal issuer-managed token lifecycle.
+    manualMintingRules: ownerRules,
+    manualBurningRules: ownerRules,
     freezeRules: lockedRules,
     unfreezeRules: lockedRules,
     destroyFrozenFundsRules: lockedRules,
     emergencyActionRules: lockedRules,
     mainControlGroupCanBeModified: noOne,
-    description: 'Fixed-supply token for Platform token tutorials.',
+    description: 'Issuer-managed token for Platform token tutorials.',
   });
 }
 
@@ -104,7 +104,6 @@ try {
     tokens: {
       [TOKEN_POSITION]: createTutorialTokenConfiguration(
         identity.id.toString(),
-        TOKEN_BASE_SUPPLY,
       ),
     },
     fullValidation: true,
@@ -132,6 +131,7 @@ try {
   console.log('Token position:', TOKEN_POSITION);
   console.log('Token ID:', tokenId);
   console.log('Initial owner token balance:', TOKEN_BASE_SUPPLY.toString());
+  console.log('Maximum token supply:', TOKEN_MAX_SUPPLY.toString());
 } catch (e) {
   console.error('Something went wrong:\n', e.message);
 }

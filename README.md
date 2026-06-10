@@ -87,7 +87,8 @@ contract](./2-Contracts-and-Documents/contract-register-minimal.mjs), set `DATA_
 `.env` file to the new contract ID for use in subsequent document tutorials.
 For token tutorials, run
 [`token-register.mjs`](./3-Tokens/token-register.mjs), then set
-`TOKEN_CONTRACT_ID` in `.env` to the newly registered contract ID.
+`TOKEN_CONTRACT_ID` in `.env` to the newly registered contract ID. The token tutorials then follow
+the normal lifecycle: info, mint, transfer, and burn.
 
 Some client configuration options are included as comments in
 [`setupDashClient.mjs`](./setupDashClient.mjs) if more advanced configuration is required.
