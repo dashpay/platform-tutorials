@@ -3,6 +3,7 @@ import assert from 'node:assert/strict';
 import { runTutorial } from './run-tutorial.mjs';
 import {
   assertTutorialSuccess,
+  extractFromOutput,
   extractId,
   extractKeyId,
 } from './assertions.mjs';
@@ -370,7 +371,12 @@ describe('Write tutorials (sequential)', { concurrency: 1 }, () => {
       errorPatterns: ['Something went wrong'],
     });
 
-    const id = extractId(result.stdout);
+    const id =
+      extractId(result.stdout) ??
+      extractFromOutput(
+        result.stdout,
+        /Token contract registered:\s*([1-9A-HJ-NP-Za-km-z]+)/,
+      );
     assert.ok(
       id,
       `Failed to extract token contract ID from stdout:\n${result.stdout}`,
@@ -445,7 +451,10 @@ describe('Write tutorials (sequential)', { concurrency: 1 }, () => {
     });
     assertTutorialSuccess(result, {
       name: 'token-transfer',
-      expectedPatterns: ['Recipient token balance after transfer:'],
+      expectedPatterns: [
+        'Transferred 1 token',
+        'Recipient token balance after transfer:',
+      ],
       errorPatterns: ['Something went wrong'],
     });
   });
