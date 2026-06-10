@@ -22,10 +22,10 @@ try {
   const contractInfo = await sdk.tokens.contractInfo(tokenId);
   const totalSupply = await sdk.tokens.totalSupply(tokenId);
   const statuses = await sdk.tokens.statuses([tokenId]);
-  const identity = await sdk.identities.fetch(keyManager.identityId);
-  const identityBalances = await sdk.tokens.identityBalances(identity.id, [
-    tokenId,
-  ]);
+  const identityBalances = await sdk.tokens.identityBalances(
+    keyManager.identityId,
+    [tokenId],
+  );
   const recipientBalances = await sdk.tokens.identityBalances(recipientId, [
     tokenId,
   ]);
