@@ -1,9 +1,20 @@
 import type {
   DataContract,
+  EvoSDK,
   Identity,
   IdentityPublicKey,
   IdentitySigner,
+  PlatformAddress,
+  PlatformAddressInfo,
+  PlatformAddressSigner,
 } from "@dashevo/evo-sdk";
+
+interface AddressEntry {
+  address: PlatformAddress;
+  bech32m: string;
+  privateKeyWif: string;
+  path: string;
+}
 
 interface ConnectedDocumentLike {
   revision?: bigint | number | string;
@@ -25,7 +36,7 @@ interface ConnectedDocumentTokenPaymentInfo {
     | 2;
 }
 
-interface ConnectedDashClientLike {
+export interface ConnectedDashClientLike {
   contracts: {
     fetch(contractId: string): Promise<{
       toJSON?: () => Record<string, unknown>;
@@ -148,6 +159,12 @@ export declare class IdentityKeyManager {
     network?: string;
     identityIndex?: number;
   }): Promise<IdentityKeyManager>;
+  static createForNewIdentity(opts: {
+    sdk: ConnectedDashClientLike;
+    mnemonic: string;
+    network?: string;
+    identityIndex?: number;
+  }): Promise<IdentityKeyManager>;
   readonly identityId: string | null | undefined;
   getAuth(): Promise<{
     identity: Identity;
@@ -161,6 +178,29 @@ export declare class IdentityKeyManager {
   }>;
 }
 
+export declare class AddressKeyManager {
+  static create(opts: {
+    sdk: ConnectedDashClientLike;
+    mnemonic: string;
+    network?: string;
+    count?: number;
+  }): Promise<AddressKeyManager>;
+  readonly addresses: AddressEntry[];
+  readonly primaryAddress: AddressEntry;
+  getSigner(): PlatformAddressSigner;
+  getFullSigner(): PlatformAddressSigner;
+  getInfo(): Promise<PlatformAddressInfo | undefined>;
+  getInfoAt(index: number): Promise<PlatformAddressInfo | undefined>;
+}
+
+export declare const KEY_SPECS: readonly unknown[];
+
+export declare function dip13KeyPath(
+  network: string,
+  identityIndex: number,
+  keyIndex: number,
+): Promise<string>;
+
 export declare function createClient(
   network?: string,
-): Promise<ConnectedDashClientLike>;
+): Promise<ConnectedDashClientLike & EvoSDK>;
