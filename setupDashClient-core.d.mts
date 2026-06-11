@@ -153,14 +153,14 @@ export interface ConnectedDashClientLike {
 
 export declare class IdentityKeyManager {
   static create(opts: {
-    sdk: ConnectedDashClientLike;
+    sdk: unknown;
     identityId?: string;
     mnemonic: string;
     network?: string;
     identityIndex?: number;
   }): Promise<IdentityKeyManager>;
   static createForNewIdentity(opts: {
-    sdk: ConnectedDashClientLike;
+    sdk: unknown;
     mnemonic: string;
     network?: string;
     identityIndex?: number;
@@ -180,7 +180,7 @@ export declare class IdentityKeyManager {
 
 export declare class AddressKeyManager {
   static create(opts: {
-    sdk: ConnectedDashClientLike;
+    sdk: unknown;
     mnemonic: string;
     network?: string;
     count?: number;
@@ -194,6 +194,8 @@ export declare class AddressKeyManager {
 }
 
 export declare const KEY_SPECS: readonly unknown[];
+
+export declare const PLATFORM_VERSION_OVERRIDE: number;
 
 export declare function dip13KeyPath(
   network: string,
