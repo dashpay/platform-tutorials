@@ -332,6 +332,43 @@ describe("dashproof helpers", () => {
     ).rejects.toThrow(DUPLICATE_ANCHOR_MESSAGE);
   });
 
+  it("createAnchor logs non-duplicate document creation failures before rethrowing", async () => {
+    const originalError = new Error("transport unavailable");
+    const mockDocumentsCreate = vi.fn().mockRejectedValue(originalError);
+    const log = vi.fn();
+
+    await expect(
+      createAnchor({
+        sdk: {
+          documents: {
+            create: mockDocumentsCreate,
+          },
+        },
+        keyManager: {
+          async getAuth() {
+            return {
+              identity: { id: "identity-1" },
+              identityKey: undefined,
+              signer: undefined,
+            };
+          },
+        },
+        contractId: "contract-1",
+        anchor: {
+          entryHash: new Uint8Array(32),
+          chainId: "chain-1",
+        },
+        log,
+      }),
+    ).rejects.toBe(originalError);
+
+    expect(log).toHaveBeenCalledWith(
+      "Anchor submission failed: transport unavailable",
+      "error",
+      { err: originalError },
+    );
+  });
+
   it("createAnchor rejects a previousId that is not 32 bytes", async () => {
     await expect(
       createAnchor({
