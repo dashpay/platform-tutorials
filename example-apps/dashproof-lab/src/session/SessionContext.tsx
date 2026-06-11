@@ -51,10 +51,14 @@ export function SessionProvider({ children }: { children: ReactNode }) {
     loadStoredContractId(),
   );
 
-  const log = useCallback<Logger>((message, level = "info") => {
+  const log = useCallback<Logger>((message, level = "info", details) => {
     const method =
       level === "error" ? "error" : level === "success" ? "info" : "log";
-    console[method](`[${level}] ${message}`);
+    if (details) {
+      console[method](`[${level}] ${message}`, details);
+    } else {
+      console[method](`[${level}] ${message}`);
+    }
     if (level === "success") toast.success(message);
     if (level === "error") toast.error(message);
   }, []);

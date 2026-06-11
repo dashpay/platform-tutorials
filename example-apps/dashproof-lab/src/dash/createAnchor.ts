@@ -91,6 +91,7 @@ export async function createAnchor({
     if (isDuplicateAnchorError(err)) {
       throw new Error(DUPLICATE_ANCHOR_MESSAGE);
     }
+    log?.(`Anchor submission failed: ${errorMessage(err)}`, "error", { err });
     throw err;
   }
   log?.("Proof anchor submitted.", "success");

@@ -3,7 +3,11 @@
  */
 export type LogLevel = "info" | "success" | "error";
 
-export type Logger = (message: string, level?: LogLevel) => void;
+export type Logger = (
+  message: string,
+  level?: LogLevel,
+  details?: Record<string, unknown>,
+) => void;
 
 export function errorMessage(err: unknown): string {
   if (err instanceof Error) return err.message;
