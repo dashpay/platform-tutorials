@@ -18,7 +18,7 @@
     "preview": "vite preview"
   },
   "dependencies": {
-    "@dashevo/evo-sdk": "4.0.0-rc.1",
+    "@dashevo/evo-sdk": "4.0.0-rc.2",
     "@tailwindcss/vite": "^4.2.2",
     "react": "^19.2.4",
     "react-dom": "^19.2.4",
