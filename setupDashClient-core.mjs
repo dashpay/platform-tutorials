@@ -25,6 +25,7 @@ import {
   SecurityLevel,
   wallet,
 } from '@dashevo/evo-sdk';
+import { PLATFORM_VERSION_OVERRIDE } from './platformVersion.mjs';
 
 /** @typedef {import('@dashevo/evo-sdk').Identity} Identity */
 /** @typedef {import('@dashevo/evo-sdk').IdentityPublicKey} IdentityPublicKey */
@@ -102,9 +103,7 @@ export async function dip13KeyPath(network, identityIndex, keyIndex) {
 // SDK client helpers
 // ---------------------------------------------------------------------------
 
-// Workaround: pin platform protocol version for @dashevo/evo-sdk dev.6.
-// Remove once a fixed SDK release lands.
-export const PLATFORM_VERSION_OVERRIDE = 11;
+export { PLATFORM_VERSION_OVERRIDE };
 
 /**
  * Create and connect an EvoSDK client for the selected network.

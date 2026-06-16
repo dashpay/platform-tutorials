@@ -151,16 +151,21 @@ export interface ConnectedDashClientLike {
   };
 }
 
+// `sdk` is intentionally `unknown`, not `EvoSDK`: this core is transitional
+// scaffolding meant to be removed once the SDK provides key management
+// directly, so the seam is kept loose — example apps pass either the full
+// EvoSDK or a narrowed local shape without a lockstep type change here. The
+// implementation JSDoc documents the runtime expectation as EvoSDK.
 export declare class IdentityKeyManager {
   static create(opts: {
-    sdk: ConnectedDashClientLike;
+    sdk: unknown;
     identityId?: string;
     mnemonic: string;
     network?: string;
     identityIndex?: number;
   }): Promise<IdentityKeyManager>;
   static createForNewIdentity(opts: {
-    sdk: ConnectedDashClientLike;
+    sdk: unknown;
     mnemonic: string;
     network?: string;
     identityIndex?: number;
@@ -180,7 +185,7 @@ export declare class IdentityKeyManager {
 
 export declare class AddressKeyManager {
   static create(opts: {
-    sdk: ConnectedDashClientLike;
+    sdk: unknown;
     mnemonic: string;
     network?: string;
     count?: number;
@@ -194,6 +199,8 @@ export declare class AddressKeyManager {
 }
 
 export declare const KEY_SPECS: readonly unknown[];
+
+export declare const PLATFORM_VERSION_OVERRIDE: number;
 
 export declare function dip13KeyPath(
   network: string,

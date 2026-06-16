@@ -72,6 +72,8 @@ The central helper (~500 lines) that all tutorials import. It handles:
 `keyManager.identityId` resolves automatically from the mnemonic. `keyManager.getAuth()` returns the identity, key, and signer needed for signing transactions.
 
 > **Note:** The in-memory key pattern in `setupDashClient` is for tutorials only — not suitable for production.
+>
+> **Transitional scaffolding:** `setupDashClient-core.mjs` is expected to be removed once the SDK provides key management directly. Its declarations (`setupDashClient-core.d.mts`) deliberately type the `sdk` factory params as `unknown` rather than `EvoSDK` so example apps can pass their own SDK shape without a lockstep type change. Don't tighten it — it breaks the dashnote / dashnote-starter builds.
 
 ### Test Framework
 
