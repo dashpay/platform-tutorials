@@ -151,6 +151,11 @@ export interface ConnectedDashClientLike {
   };
 }
 
+// `sdk` is intentionally `unknown`, not `EvoSDK`: this core is transitional
+// scaffolding meant to be removed once the SDK provides key management
+// directly, so the seam is kept loose — example apps pass either the full
+// EvoSDK or a narrowed local shape without a lockstep type change here. The
+// implementation JSDoc documents the runtime expectation as EvoSDK.
 export declare class IdentityKeyManager {
   static create(opts: {
     sdk: unknown;
