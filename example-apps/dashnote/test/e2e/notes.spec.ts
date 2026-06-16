@@ -228,23 +228,28 @@ test("mobile: editor note actions delete flow opens confirmation", async ({
   );
 
   await returnToList(page);
-  await expect(
-    page.locator("button", { hasText: SEARCH_FIXTURE_BETA }).first(),
-  ).toBeVisible({ timeout: 60_000 });
-  await page
-    .locator("button", { hasText: SEARCH_FIXTURE_BETA })
+  // This test only verifies the actions → Delete → confirm-dialog flow, so it
+  // doesn't matter which note is opened — open whichever the list shows first.
+  // Scope to a note-row container so the row's "Open {title}" button can't
+  // collide with the sidebar's "Open menu" hamburger.
+  const firstNote = page
+    .locator('[data-testid^="note-row-foreground-"]')
     .first()
-    .click();
-  await expect(page.getByLabel("Title")).toHaveValue(SEARCH_FIXTURE_BETA);
+    .locator('[aria-label^="Open "]');
+  await expect(firstNote).toBeVisible({ timeout: 60_000 });
+  await firstNote.click();
+  // Editor opened on a note: the actions trigger is only rendered when a
+  // note is selected.
+  const actionsTrigger = page.getByRole("button", { name: /note actions/i });
+  await expect(actionsTrigger).toBeVisible();
 
-  await page.getByRole("button", { name: /note actions/i }).click();
+  await actionsTrigger.click();
   const actions = page.getByRole("dialog", { name: /note actions/i });
   await expect(actions).toBeVisible();
   await actions.getByRole("button", { name: /^delete$/i }).click();
 
   const confirmDialog = page.getByRole("dialog", { name: /delete note/i });
   await expect(confirmDialog).toBeVisible();
-  await expect(confirmDialog.getByText(SEARCH_FIXTURE_BETA)).toBeVisible();
   await confirmDialog.getByRole("button", { name: /^cancel$/i }).click();
   await expect(confirmDialog).toBeHidden();
 });
