@@ -25,7 +25,7 @@ your `.env` file to begin the tutorials.
 
 ## Install
 
-Note: [NodeJS](https://nodejs.org/en/download/) (v20+) must be installed to run the tutorial code.
+Note: [NodeJS](https://nodejs.org/en/download/) (v22.22+) must be installed to run the tutorial code.
 
 ### Clone this repository
 

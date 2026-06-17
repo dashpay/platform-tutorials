@@ -6,7 +6,7 @@ The app stays close to the tutorial `note` contract shape, but extends it with a
 
 ## Prerequisites
 
-- Node >= 20
+- Node 22.22+
 - A funded Dash Platform testnet identity for write operations. Login accepts either a BIP-39 mnemonic (with an optional identity index for DIP-13 derivation) or a WIF private key for an existing HIGH/CRITICAL authentication key on that identity.
 - Read-only mode works without any identity — visitors can read notes for any identity ID against the bundled contract. A previously-logged-in identity can also be re-browsed without re-auth via the remembered-identity flow.
 
