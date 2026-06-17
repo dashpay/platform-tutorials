@@ -18,6 +18,9 @@
   },
   "author": "thephez",
   "license": "MIT",
+  "engines": {
+    "node": ">=22.22.0 <22.23.0"
+  },
   "bugs": {
     "url": "https://github.com/dashpay/platform-tutorials/issues"
   },
