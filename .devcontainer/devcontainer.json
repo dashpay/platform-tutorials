@@ -1,6 +1,6 @@
 {
   "name": "Dash Platform Tutorials",
-  "image": "mcr.microsoft.com/devcontainers/javascript-node:20",
+  "image": "mcr.microsoft.com/devcontainers/javascript-node:22",
   "remoteUser": "node",
 
   "onCreateCommand": "cp -n .env.example .env",

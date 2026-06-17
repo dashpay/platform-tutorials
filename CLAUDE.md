@@ -18,6 +18,7 @@ Run `node view-wallet.mjs` to confirm the identity is found before proceeding.
 ## Commands
 
 ```bash
+nvm use                 # Use the repo's tested Node 22.22.x toolchain
 npm test                # Read-only tests (~2min, safe to run anytime)
 npm run test:read-write # Write tests (destructive, consumes testnet credits, ~5min)
 npm run test:all        # Both suites sequentially
@@ -26,6 +27,17 @@ npm run test:setup      # Mocha tests for setupDashClient configuration
 npm run lint            # TypeScript type-check all JS files (tsc)
 npm run fmt             # Format with Prettier
 ```
+
+## Node / npm Toolchain
+
+Use the repo-root `.nvmrc` before installing dependencies or updating lockfiles:
+
+```bash
+nvm use
+npm ci
+```
+
+The root package and each standalone example app declare `engines.node` for the tested Node minor version. The example apps have their own `package-lock.json` files, and npm's optional native/WASM dependency resolution can differ across Node/npm versions. For contributor work, prefer `npm ci` under `nvm use`; do not commit lockfile rewrites from another Node/npm version.
 
 **Running a single tutorial directly:**
 
