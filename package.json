@@ -18,12 +18,15 @@
   },
   "author": "thephez",
   "license": "MIT",
+  "engines": {
+    "node": ">=22.22.0 <22.23.0"
+  },
   "bugs": {
     "url": "https://github.com/dashpay/platform-tutorials/issues"
   },
   "homepage": "https://github.com/dashpay/platform-tutorials#readme",
   "dependencies": {
-    "@dashevo/evo-sdk": "4.0.0-rc.1",
+    "@dashevo/evo-sdk": "4.0.0-rc.2",
     "dotenv": "17.3.1"
   },
   "devDependencies": {

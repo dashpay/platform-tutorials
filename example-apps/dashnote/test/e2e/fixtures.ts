@@ -204,6 +204,11 @@ export async function returnToList(page: Page) {
   if (!isMobile(page)) return;
   const back = page.getByRole("button", { name: /back to notes/i });
   if (await back.isVisible().catch(() => false)) {
+    // A lingering sonner success toast (e.g. "Note saved") renders above the
+    // header and intercepts pointer events on "Back to notes". Best-effort
+    // wait for it to auto-dismiss before clicking; don't fail cleanup if it
+    // outlives the wait.
+    await waitForToastsToClear(page).catch(() => {});
     await back.click();
   }
   // List view shows the Search input; wait for it to render.
@@ -242,7 +247,14 @@ export async function waitForSaveComplete(page: Page) {
     return;
   }
 
-  await expect(page.getByRole("button", { name: /^save$/i })).toBeDisabled({
+  // The button reads "Create note" while the editor still has selectedId ===
+  // "new" and only flips to "Save" once the post-create reload re-selects the
+  // note by its real id — which can lag behind testnet eventual consistency.
+  // Either way the editor is clean once the button is disabled (dirty=false),
+  // so match both labels rather than waiting on the id flip.
+  await expect(
+    page.getByRole("button", { name: /^(save|create note)$/i }),
+  ).toBeDisabled({
     timeout: 60_000,
   });
 }
@@ -305,6 +317,7 @@ export async function deleteNoteByTitle(page: Page, title: string) {
   await expect(confirmDialog).toBeVisible();
   await waitForToastsToClear(page);
   await confirmDialog.getByRole("button", { name: /^delete$/i }).click();
+  await expect(confirmDialog).toBeHidden({ timeout: 60_000 });
 
   // Item leaves the list after reloadNotes resolves.
   await expect(page.locator("button", { hasText: title })).toHaveCount(0, {

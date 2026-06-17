@@ -80,15 +80,6 @@ test.describe("Authenticated flows (auth-gated)", () => {
   }) => {
     await loginViaModal(page);
 
-    // Read the truncated identity id from the IdentityCard so we can skip
-    // self-listings.
-    const myIdSnippet = await page
-      .locator("aside")
-      .getByText(/[1-9A-HJ-NP-Za-km-z]{6}…[1-9A-HJ-NP-Za-km-z]{6}/)
-      .first()
-      .textContent();
-    const myPrefix = myIdSnippet?.split("…")[0]?.trim();
-
     await page.getByRole("button", { name: "Marketplace" }).click();
     await expect(page.getByText(/loading…/i)).toBeHidden({ timeout: 90_000 });
 
@@ -98,10 +89,16 @@ test.describe("Authenticated flows (auth-gated)", () => {
       test.skip(true, "Marketplace is empty.");
     }
 
+    // A listing the test identity could purchase is exactly one rendered with
+    // a "Buy" button — CardTile only shows it for non-owner listings (owned
+    // listings get "Sell"/"Edit price" instead). Selecting by this button
+    // sidesteps owner-chip string matching, which breaks when the test
+    // identity has a DPNS name (the chip shows "@username", not the truncated
+    // identity id we used to compare against).
     let target = -1;
     for (let i = 0; i < count; i += 1) {
-      const text = await cards.nth(i).innerText();
-      if (!myPrefix || !text.includes(myPrefix)) {
+      const buyBtn = cards.nth(i).getByRole("button", { name: /^buy$/i });
+      if (await buyBtn.isVisible().catch(() => false)) {
         target = i;
         break;
       }
@@ -122,7 +119,13 @@ test.describe("Authenticated flows (auth-gated)", () => {
     await expect(
       dialog.getByText(/\d[\d,]*\s*(cr|credits)/i).first(),
     ).toBeVisible();
-    await expect(dialog.getByRole("button", { name: /^Buy/ })).toBeVisible();
+    // The primary button is enabled "Buy" for an affordable listing, or
+    // disabled "Insufficient credits" when the listing's price exceeds the
+    // test identity's balance (PurchaseModal does the affordability check, not
+    // CardTile). Either state confirms the modal mounted correctly.
+    await expect(
+      dialog.getByRole("button", { name: /^(Buy|Insufficient credits)$/ }),
+    ).toBeVisible();
 
     await dialog.getByRole("button", { name: /^Cancel$/ }).click();
     await expect(dialog).toBeHidden();
