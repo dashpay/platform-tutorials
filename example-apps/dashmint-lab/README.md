@@ -4,7 +4,7 @@ A React + TypeScript + Vite app demonstrating every Dash Platform NFT operation:
 
 ## Prerequisites
 
-- Node >= 20 (developed on v20.19.5, npm 10.8.2)
+- Node 22.22+
 - A funded Dash Platform testnet identity (BIP-39 mnemonic + identity index)
 - (Optional) A second funded identity for testing cross-profile transfer and purchase
 - Browse-only mode works without any identity — visitors can explore the marketplace
