@@ -105,8 +105,7 @@ code {
 .brand h1,
 .detail h2,
 .panel h2,
-.rating-score strong,
-.rating-stat strong {
+.rating-score strong {
   font-family:
     "Space Grotesk", "Public Sans", ui-sans-serif, system-ui, sans-serif;
 }
@@ -343,29 +342,28 @@ form > * + * {
 }
 
 .rating-summary {
-  align-items: center;
   border-radius: 12px;
   box-shadow:
     inset 0 0 0 1px #e7ece7,
     0 12px 32px rgb(23 35 31 / 0.05);
-  display: flex;
-  gap: 24px;
+  display: grid;
+  gap: 6px;
   padding: 20px 24px;
 }
 
 .rating-score {
-  border-right: 1px solid #e7ece7;
-  min-width: 150px;
-  padding-right: 24px;
+  align-items: baseline;
+  display: flex;
+  flex-wrap: wrap;
+  gap: 12px;
 }
 
 .rating-score strong {
-  display: block;
-  font-size: 3rem;
-  line-height: 1;
+  font-size: 1.6rem;
+  line-height: 1.1;
 }
 
-.rating-score span,
+.rating-stars,
 .review-rating,
 .star.active,
 .star:hover:not(:disabled),
@@ -373,27 +371,14 @@ form > * + * {
   color: #e1aa2b;
 }
 
-.rating-score span {
-  display: block;
-  font-size: 1.05rem;
+.rating-stars {
+  font-size: 1.5rem;
   letter-spacing: 0;
-  margin-top: 8px;
-}
-
-.rating-stat strong {
-  display: block;
-  font-size: 1.4rem;
   line-height: 1;
 }
 
-.rating-stat span {
-  color: #697771;
-  display: block;
-  font-size: 0.8rem;
-  font-weight: 700;
-  letter-spacing: 0.06em;
-  margin-top: 6px;
-  text-transform: uppercase;
+.rating-detail {
+  font-size: 0.9rem;
 }
 
 .review-form,
@@ -466,16 +451,15 @@ textarea {
   margin: 8px 0;
 }
 
-.review-card-head {
-  align-items: flex-start;
-  display: flex;
-  gap: 12px;
-  justify-content: space-between;
+.review-card-owner {
+  display: block;
+  font-weight: 600;
 }
 
-.review-card-head code {
+.review-card-meta {
   color: #697771;
-  flex: 0 0 auto;
+  display: block;
+  font-size: 0.85rem;
 }
 
 .review-rating {
@@ -580,19 +564,6 @@ textarea {
 
   .panel {
     margin: 18px;
-  }
-
-  .rating-summary {
-    align-items: flex-start;
-    flex-direction: column;
-  }
-
-  .rating-score {
-    border-right: 0;
-    border-bottom: 1px solid #e7ece7;
-    padding-bottom: 18px;
-    padding-right: 0;
-    width: 100%;
   }
 
   .panel-head,

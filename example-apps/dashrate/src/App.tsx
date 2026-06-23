@@ -63,7 +63,8 @@ function starGlyphs(value: number | null): string {
 
 function ratingLine(summary: RatingSummary): string {
   if (summary.count === 0n || summary.average === null) return "No reviews yet";
-  return `${formatAverage(summary.average)} · ${summary.count.toString()}`;
+  const noun = summary.count === 1n ? "review" : "reviews";
+  return `${formatAverage(summary.average)} · ${summary.count.toString()} ${noun}`;
 }
 
 export default function App() {
@@ -356,8 +357,17 @@ export default function App() {
   const displayRating = hoverRating ?? rating ?? 0;
   const averageText =
     selectedSummary.average === null
-      ? "No rating"
-      : formatAverage(selectedSummary.average);
+      ? "No rating yet"
+      : `${formatAverage(selectedSummary.average)} out of 5`;
+  const reviewCount = selectedSummary.count.toString();
+  const reviewCountText =
+    selectedSummary.count === 1n
+      ? "Based on 1 review"
+      : `Based on ${reviewCount} reviews`;
+  const summaryDetail =
+    selectedSummary.count === 0n
+      ? "No reviews yet"
+      : `${reviewCountText} · ${selectedSummary.sum.toString()} total rating points`;
   const myReviewsAverage =
     myReviews.length === 0
       ? null
@@ -470,24 +480,17 @@ export default function App() {
             <p>{selectedResource.summary}</p>
 
             <div className="rating-summary" aria-label="Aggregate rating stats">
-              <div className="rating-score">
+              <p className="rating-score">
+                <span className="rating-stars">
+                  {starGlyphs(selectedSummary.average)}
+                </span>
                 <strong>{averageText}</strong>
-                <span>{starGlyphs(selectedSummary.average)}</span>
-              </div>
-              <div className="rating-stat">
-                <strong>{selectedSummary.count.toString()}</strong>
-                <span>Reviews</span>
-              </div>
-              <div className="rating-stat">
-                <strong>{selectedSummary.sum.toString()}</strong>
-                <span>Points</span>
-              </div>
+              </p>
+              <p className="rating-detail muted">{summaryDetail}</p>
             </div>
 
             <form className="review-form" onSubmit={handleSaveReview}>
-              <h3>
-                {mySelectedReview ? "Edit your review" : "Add your review"}
-              </h3>
+              <h3>Your review</h3>
               {!session ? (
                 <p className="auth-prompt">
                   Sign in with a mnemonic in Settings to write a review.
@@ -495,7 +498,9 @@ export default function App() {
               ) : (
                 <>
                   <div>
-                    <span className="field-label">Rating</span>
+                    <span className="field-label">
+                      How would you rate this resource?
+                    </span>
                     <div
                       className="star-picker"
                       role="radiogroup"
@@ -524,12 +529,12 @@ export default function App() {
                     </div>
                   </div>
                   <label>
-                    Review
+                    Optional notes
                     <textarea
                       value={reviewText}
                       onChange={(event) => setReviewText(event.target.value)}
                       maxLength={1000}
-                      rows={5}
+                      rows={3}
                       disabled={busy}
                     />
                   </label>
@@ -744,7 +749,7 @@ function MyReviewCard({
           <time>edited {formatDate(review.updatedAt ?? review.createdAt)}</time>
         </div>
       </div>
-      <p>{review.reviewText || "No review text."}</p>
+      <p>{review.reviewText || "No written review."}</p>
       <div className="my-review-actions">
         <button type="button" onClick={() => onEdit(review)}>
           Edit review
@@ -760,18 +765,14 @@ function MyReviewCard({
 }
 
 function ReviewCard({ review }: { review: ReviewRecord }) {
-  const resource = RESOURCES.find((item) => item.id === review.resourceId);
   return (
     <article className="review-card">
-      <div className="review-card-head">
-        <div>
-          <strong className="review-rating">{stars(review.rating)}</strong>
-          {resource && <p className="muted">{resource.title}</p>}
-        </div>
-        <code>{shortId(review.ownerId)}</code>
-      </div>
-      <p>{review.reviewText || "No review text."}</p>
-      <time>{formatDate(review.updatedAt ?? review.createdAt)}</time>
+      <code className="review-card-owner">{shortId(review.ownerId)}</code>
+      <strong className="review-rating">{stars(review.rating)}</strong>
+      <p>{review.reviewText || "No written review."}</p>
+      <time className="review-card-meta">
+        {formatDate(review.updatedAt ?? review.createdAt)}
+      </time>
     </article>
   );
 }
