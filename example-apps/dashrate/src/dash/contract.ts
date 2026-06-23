@@ -58,7 +58,8 @@ export const REVIEW_SCHEMAS = {
 
 const STORAGE_KEY = "dashrate.contractId";
 
-export const DEFAULT_CONTRACT_ID = "";
+export const DEFAULT_CONTRACT_ID =
+  "BxkwU2skmYz8a6ixj1FwBCf6v8t5WsNxB4LN4EYcDuET";
 
 export function loadStoredContractId(): string {
   try {

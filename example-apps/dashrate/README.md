@@ -46,5 +46,7 @@ The read paths are intentionally index-shaped:
 - aggregate count/sum/average queries use the standalone `resourceId` index with `countable:
   "countable"` and `summable: "rating"`
 
-`DEFAULT_CONTRACT_ID` is intentionally empty until a v4 DashRate contract is published and verified
-on testnet.
+`DEFAULT_CONTRACT_ID` is set to a published testnet DashRate contract
+(`BxkwU2skmYz8a6ixj1FwBCf6v8t5WsNxB4LN4EYcDuET`), so fresh installs can read aggregates and reviews
+immediately. The active ID is stored under `localStorage['dashrate.contractId']`; clearing it falls
+back to this default. Register your own contract from the Settings tab to override it.
