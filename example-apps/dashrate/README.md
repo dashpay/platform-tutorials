@@ -3,17 +3,20 @@
 DashRate is a React + TypeScript + Vite example app for rating Platform tutorial resources on Dash
 Platform testnet.
 
-It is intentionally small and centered on Platform v4 document features:
+It is intentionally small and centered on Platform v4's relational document queries:
 
-- `sdk.documents.query` for resource reviews, identity reviews, and existing review lookup
-- `sdk.documents.count` for review count
-- `sdk.documents.sum` for total rating points
-- `sdk.documents.average` for average rating
+- `sdk.documents.query` for resource reviews, identity reviews, and existing-review lookup
+- `sdk.documents.count` for the total review count per resource (a plain countable index)
+- `sdk.documents.count` with `groupBy: ["rating"]` for the per-star rating distribution — the
+  count/sum/average shown per resource is derived in JS from this one grouped count, not a separate
+  `sum`/`average` query
+- a `where rating == N` clause for filtering reviews by star rating
 - `sdk.documents.history` for review edit history
 
 Users sign in with a mnemonic only. After signing in, they can register a local testnet contract,
 paste an existing DashRate contract ID, create one review per resource, edit that review, and
-inspect its document history.
+inspect its document history. Read-only browsing (resources, aggregates, reviews) works without
+signing in.
 
 ## Quick start
 
@@ -43,10 +46,15 @@ The read paths are intentionally index-shaped:
 - resource detail and recent reviews query by `resourceId`
 - My reviews queries by `$ownerId` and sorts by `$updatedAt`
 - edit detection queries by `$ownerId + resourceId`
-- aggregate count/sum/average queries use the standalone `resourceId` index with `countable:
-  "countable"` and `summable: "rating"`
+- the total review count uses the standalone `resourceId` index (`countable: "countable"`)
+- the rating distribution and the `rating == N` filter use the compound `resourceId + rating` index
+  (`countable: "countable"` plus `rangeCountable: true`)
+
+Neither aggregate index uses `summable`: the count/sum/average shown per resource is computed in JS
+from the grouped distribution count, so a single grouped `count` query backs both the histogram and
+the average.
 
 `DEFAULT_CONTRACT_ID` is set to a published testnet DashRate contract
-(`BxkwU2skmYz8a6ixj1FwBCf6v8t5WsNxB4LN4EYcDuET`), so fresh installs can read aggregates and reviews
+(`BdgTqaTAPYMyhp1WdeWdcvYSgoD7AuJ7tVCaCSXyQgyP`), so fresh installs can read aggregates and reviews
 immediately. The active ID is stored under `localStorage['dashrate.contractId']`; clearing it falls
 back to this default. Register your own contract from the Settings tab to override it.

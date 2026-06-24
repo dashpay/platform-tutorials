@@ -340,9 +340,7 @@ export default function App() {
     for (const review of reviews) candidates.add(review.ownerId);
     for (const review of myReviews) candidates.add(review.ownerId);
     if (session) candidates.add(session.identityId);
-    const pending = [...candidates].filter(
-      (id) => id && !(id in dpnsNames),
-    );
+    const pending = [...candidates].filter((id) => id && !(id in dpnsNames));
     if (pending.length === 0) return;
 
     let cancelled = false;
@@ -350,13 +348,15 @@ export default function App() {
       try {
         const activeSdk = session?.sdk ?? (await connectReadOnly());
         const resolved = await Promise.all(
-          pending.map(async (id) => [
-            id,
-            await resolveDpnsName(activeSdk, id),
-          ] as const),
+          pending.map(
+            async (id) => [id, await resolveDpnsName(activeSdk, id)] as const,
+          ),
         );
         if (!cancelled) {
-          setDpnsNames((prev) => ({ ...prev, ...Object.fromEntries(resolved) }));
+          setDpnsNames((prev) => ({
+            ...prev,
+            ...Object.fromEntries(resolved),
+          }));
         }
       } catch {
         // Name resolution is best-effort; the UI falls back to short IDs.

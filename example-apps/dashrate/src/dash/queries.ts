@@ -3,9 +3,11 @@
  *
  * SDK methods:
  *   sdk.documents.query(...)
- *   sdk.documents.count(...)
- *   sdk.documents.sum(...)
- *   sdk.documents.average(...)
+ *   sdk.documents.count(...)        // plain and grouped (GROUP BY rating)
+ *
+ * The count/sum/average shown per resource is derived in JS from the grouped
+ * count distribution — there is no `sum`/`average` query (see
+ * summaryFromDistribution).
  */
 import { consoleLogger, errorMessage, type Logger } from "../lib/logger";
 import type {
@@ -132,8 +134,7 @@ export function normalizeSingleReview(
  *   average = sum / count
  * So no separate `sum`/`average` query is needed — the grouped count that
  * draws the histogram also yields the average. (Dropping `summable` from
- * the contract is what avoids the index-aggregation conflict; see
- * PLATFORM_ISSUE_index_aggregation_conflict.md.)
+ * the contract is what avoids the index-aggregation conflict.)
  */
 export function summaryFromDistribution(
   resourceId: string,
