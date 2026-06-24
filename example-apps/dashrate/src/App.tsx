@@ -439,6 +439,18 @@ export default function App() {
       });
       await loadResourceData(session.sdk);
       setMyReviews(await fetchMyReviews(session));
+      // Refresh the recent-reviews list so the edited review shows up
+      // without navigating away. Swaps the list in place (no clear), so
+      // the existing rows don't flash to a loading state.
+      setReviews(
+        await listResourceReviews({
+          sdk: session.sdk,
+          contractId,
+          resourceId: selectedResource.id,
+          ratingFilter: reviewFilter ?? undefined,
+          log,
+        }),
+      );
       setStatus("");
     } catch (err) {
       setStatus(`Save failed: ${errorMessage(err)}`);
