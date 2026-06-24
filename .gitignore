@@ -7,4 +7,5 @@ node_modules/
 example-apps/*/node_modules/
 example-apps/*/dist/
 example-apps/*/dist-ssr/
+example-apps/*/coverage/
 example-apps/*/*.local
