@@ -56,15 +56,43 @@ function stars(value: number | null): string {
   return "★★★★★".slice(0, rounded) + "☆☆☆☆☆".slice(0, 5 - rounded);
 }
 
-function starGlyphs(value: number | null): string {
-  if (value === null) return "☆☆☆☆☆";
-  return stars(value);
+// Renders five stars with the gold fill clipped to the exact average,
+// so 2.5 shows as a half-filled third star. Used for aggregate ratings
+// (sidebar + detail), not the whole-number picker or individual reviews.
+function StarMeter({
+  value,
+  className,
+}: {
+  value: number | null;
+  className?: string;
+}) {
+  const fillPercent =
+    value === null ? 0 : Math.max(0, Math.min(5, value)) * 20;
+  const label = value === null ? "No rating yet" : `${formatAverage(value)} out of 5`;
+  return (
+    <span
+      className={className ? `star-meter ${className}` : "star-meter"}
+      role="img"
+      aria-label={label}
+    >
+      <span className="star-meter-track" aria-hidden="true">
+        ★★★★★
+      </span>
+      <span
+        className="star-meter-fill"
+        aria-hidden="true"
+        style={{ width: `${fillPercent}%` }}
+      >
+        ★★★★★
+      </span>
+    </span>
+  );
 }
 
-function ratingLine(summary: RatingSummary): string {
+function reviewCountLine(summary: RatingSummary): string {
   if (summary.count === 0n || summary.average === null) return "No reviews yet";
   const noun = summary.count === 1n ? "review" : "reviews";
-  return `${formatAverage(summary.average)} · ${summary.count.toString()} ${noun}`;
+  return `${summary.count.toString()} ${noun}`;
 }
 
 export default function App() {
@@ -355,19 +383,6 @@ export default function App() {
   const selectedSummary =
     summaries[selectedResource.id] ?? emptySummary(selectedResource.id);
   const displayRating = hoverRating ?? rating ?? 0;
-  const averageText =
-    selectedSummary.average === null
-      ? "No rating yet"
-      : `${formatAverage(selectedSummary.average)} out of 5`;
-  const reviewCount = selectedSummary.count.toString();
-  const reviewCountText =
-    selectedSummary.count === 1n
-      ? "Based on 1 review"
-      : `Based on ${reviewCount} reviews`;
-  const summaryDetail =
-    selectedSummary.count === 0n
-      ? "No reviews yet"
-      : `${reviewCountText} · ${selectedSummary.sum.toString()} total rating points`;
   const myReviewsAverage =
     myReviews.length === 0
       ? null
@@ -448,11 +463,12 @@ export default function App() {
                     }
                   >
                     {summary.count > 0n && (
-                      <span className="mini-stars">
-                        {starGlyphs(summary.average)}
-                      </span>
+                      <StarMeter
+                        className="mini-stars"
+                        value={summary.average}
+                      />
                     )}
-                    {ratingLine(summary)}
+                    {reviewCountLine(summary)}
                   </small>
                 </button>
               );
@@ -461,40 +477,61 @@ export default function App() {
 
           <section className="detail">
             <div className="detail-head">
-              <div>
-                <p className="eyebrow">{selectedResource.category}</p>
-                <h2>{selectedResource.title}</h2>
-              </div>
-              <div className="detail-actions">
+              <p className="eyebrow eyebrow-row">
+                <span>{selectedResource.category}</span>
                 {loadingRatings && (
                   <span className="inline-loading" role="status">
                     <span className="mini-spinner" aria-hidden="true" />
                     Refreshing
                   </span>
                 )}
-                <a className="resource-open" href={selectedResource.href}>
-                  Open ↗
-                </a>
+              </p>
+              <div className="detail-title-row">
+                <h2>{selectedResource.title}</h2>
+                <div className="detail-actions">
+                  <a
+                    className="resource-open"
+                    href={selectedResource.href}
+                    target="_blank"
+                    rel="noopener noreferrer"
+                  >
+                    Open ↗
+                  </a>
+                </div>
+              </div>
+              <div className="detail-rating" aria-label="Aggregate rating stats">
+                <strong className="detail-rating-score">
+                  {selectedSummary.average === null
+                    ? "—"
+                    : formatAverage(selectedSummary.average)}
+                </strong>
+                <StarMeter
+                  className="detail-rating-stars"
+                  value={selectedSummary.average}
+                />
+                <span className="detail-rating-count muted">
+                  {reviewCountLine(selectedSummary)}
+                </span>
               </div>
             </div>
             <p>{selectedResource.summary}</p>
 
-            <div className="rating-summary" aria-label="Aggregate rating stats">
-              <p className="rating-score">
-                <span className="rating-stars">
-                  {starGlyphs(selectedSummary.average)}
-                </span>
-                <strong>{averageText}</strong>
-              </p>
-              <p className="rating-detail muted">{summaryDetail}</p>
-            </div>
-
-            <form className="review-form" onSubmit={handleSaveReview}>
+            <form
+              className="resource-section review-form"
+              onSubmit={handleSaveReview}
+            >
               <h3>Your review</h3>
               {!session ? (
-                <p className="auth-prompt">
-                  Sign in with a mnemonic in Settings to write a review.
-                </p>
+                <div className="signin-cta">
+                  <p>Sign in to review this resource</p>
+                  <button
+                    type="button"
+                    className="signin-cta-button"
+                    onClick={() => setView("settings")}
+                  >
+                    Sign in
+                  </button>
+                </div>
               ) : (
                 <>
                   <div>
@@ -560,31 +597,42 @@ export default function App() {
             </form>
 
             {history.length > 0 && (
-              <section className="history">
+              <section className="resource-section">
                 <h3>Review history</h3>
-                {history.map((entry) => (
-                  <article key={`${entry.blockTimeMs}-${entry.revision}`}>
-                    <strong>
-                      Revision {entry.revision || "-"}: {entry.rating} stars
-                    </strong>
-                    <time>{formatDate(entry.blockTimeMs)}</time>
-                    <p>{entry.reviewText || "No review text."}</p>
-                  </article>
-                ))}
+                <ul className="review-list">
+                  {history.map((entry) => (
+                    <li
+                      key={`${entry.blockTimeMs}-${entry.revision}`}
+                      className="review-row"
+                    >
+                      <div className="review-row-head">
+                        <strong className="review-row-owner">
+                          Revision {entry.revision || "-"}: {entry.rating} stars
+                        </strong>
+                        <time className="review-row-meta">
+                          {formatDate(entry.blockTimeMs)}
+                        </time>
+                      </div>
+                      <p className="review-row-text">
+                        {entry.reviewText || "No review text."}
+                      </p>
+                    </li>
+                  ))}
+                </ul>
               </section>
             )}
 
-            <section>
+            <section className="resource-section">
               <h3>Recent reviews</h3>
-              <div className="reviews">
-                {reviews.length === 0 ? (
-                  <p>No reviews yet.</p>
-                ) : (
-                  reviews.map((review) => (
-                    <ReviewCard key={review.id} review={review} />
-                  ))
-                )}
-              </div>
+              {reviews.length === 0 ? (
+                <p>No reviews yet.</p>
+              ) : (
+                <ul className="review-list">
+                  {reviews.map((review) => (
+                    <ReviewRow key={review.id} review={review} />
+                  ))}
+                </ul>
+              )}
             </section>
           </section>
         </section>
@@ -738,7 +786,7 @@ function MyReviewCard({
   const resource = RESOURCES.find((item) => item.id === review.resourceId);
   const title = resource?.title ?? review.resourceId;
   return (
-    <article className="review-card my-review-card">
+    <article className="my-review-card">
       <div className="my-review-head">
         <div className="my-review-title">
           {resource && <span>{resource.category}</span>}
@@ -755,7 +803,12 @@ function MyReviewCard({
           Edit review
         </button>
         {resource && (
-          <a className="secondary-action" href={resource.href}>
+          <a
+            className="secondary-action"
+            href={resource.href}
+            target="_blank"
+            rel="noopener noreferrer"
+          >
             Open resource ↗
           </a>
         )}
@@ -764,15 +817,22 @@ function MyReviewCard({
   );
 }
 
-function ReviewCard({ review }: { review: ReviewRecord }) {
+function ReviewRow({ review }: { review: ReviewRecord }) {
   return (
-    <article className="review-card">
-      <code className="review-card-owner">{shortId(review.ownerId)}</code>
-      <strong className="review-rating">{stars(review.rating)}</strong>
-      <p>{review.reviewText || "No written review."}</p>
-      <time className="review-card-meta">
+    <li className="review-row">
+      <div className="review-row-head">
+        <code className="review-row-owner">{shortId(review.ownerId)}</code>
+        <span className="review-row-sep" aria-hidden="true">
+          ·
+        </span>
+        <strong className="review-rating">{stars(review.rating)}</strong>
+      </div>
+      <p className="review-row-text">
+        {review.reviewText || "No written review."}
+      </p>
+      <time className="review-row-meta">
         {formatDate(review.updatedAt ?? review.createdAt)}
       </time>
-    </article>
+    </li>
   );
 }

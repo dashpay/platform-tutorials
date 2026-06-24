@@ -75,13 +75,24 @@ code {
 }
 
 .topbar,
-.detail-head,
 .row,
 .section-head {
   align-items: center;
   display: flex;
   gap: 12px;
   justify-content: space-between;
+}
+
+/* Title and Open share one row; the rating line sits beneath the title. */
+.detail-title-row {
+  align-items: center;
+  display: flex;
+  gap: 24px;
+  justify-content: space-between;
+}
+
+.detail-title-row h2 {
+  min-width: 0;
 }
 
 .topbar {
@@ -105,7 +116,7 @@ code {
 .brand h1,
 .detail h2,
 .panel h2,
-.rating-score strong {
+.detail-rating-score {
   font-family:
     "Space Grotesk", "Public Sans", ui-sans-serif, system-ui, sans-serif;
 }
@@ -168,6 +179,7 @@ code {
   align-items: center;
   display: flex;
   gap: 12px;
+  justify-content: flex-end;
 }
 
 .inline-loading {
@@ -210,6 +222,21 @@ time {
   text-transform: uppercase;
 }
 
+/* Category on the left, refreshing indicator beside it on the same line.
+   Reserve the indicator's height so toggling it doesn't shift the layout. */
+.eyebrow-row {
+  align-items: center;
+  display: flex;
+  gap: 12px;
+  min-height: 24px;
+}
+
+.eyebrow-row .inline-loading {
+  font-weight: 400;
+  letter-spacing: normal;
+  text-transform: none;
+}
+
 .status,
 .notice {
   border-radius: 10px;
@@ -234,8 +261,7 @@ time {
 }
 
 .resource-list,
-.reviews,
-.history {
+.reviews {
   display: grid;
   gap: 10px;
 }
@@ -259,9 +285,21 @@ time {
   text-align: left;
 }
 
-.resource-card.selected {
+/* Cards are <button>s; override the global green button hover with a
+   subtle tint so hovering doesn't flood the whole card. */
+.resource-card:hover:not(:disabled) {
+  background: #f4f8f5;
   border-color: #cfe4db;
+}
+
+.resource-card.selected {
+  background: #f0f6f2;
+  border-color: #b6d6c8;
   box-shadow: 0 10px 26px rgb(47 133 107 / 0.12);
+}
+
+.resource-card.selected:hover:not(:disabled) {
+  background: #eaf2ed;
 }
 
 .resource-card .resource-category {
@@ -292,8 +330,28 @@ time {
   white-space: nowrap;
 }
 
-.resource-card .mini-stars {
+/* Five stars with the gold fill clipped to the average, so 2.5 shows
+   as a half-filled third star. Track is the empty (gray) stars; fill is
+   the gold overlay sized by inline width. */
+.star-meter {
+  display: inline-block;
+  position: relative;
+  white-space: nowrap;
+  vertical-align: middle;
+}
+
+.star-meter-track {
+  color: #d4ddd6;
+}
+
+.star-meter-fill {
   color: #e1aa2b;
+  inset: 0;
+  overflow: hidden;
+  position: absolute;
+}
+
+.resource-card .mini-stars {
   margin-right: 4px;
 }
 
@@ -316,7 +374,7 @@ form > * + * {
 }
 
 .detail > p {
-  margin-bottom: 22px;
+  margin-bottom: 0;
 }
 
 .panel-head {
@@ -341,29 +399,39 @@ form > * + * {
   text-decoration: none;
 }
 
-.rating-summary {
-  border-radius: 12px;
-  box-shadow:
-    inset 0 0 0 1px #e7ece7,
-    0 12px 32px rgb(23 35 31 / 0.05);
-  display: grid;
-  gap: 6px;
-  padding: 20px 24px;
+/* Rating, your review, and recent reviews are sections of one resource.
+   A hairline rule plus generous space groups them — no per-section boxes.
+   24px above the rule (from the sibling margin), 28px below to the heading. */
+.resource-section {
+  border-top: 1px solid #e7ece7;
+  padding-top: 28px;
 }
 
-.rating-score {
+/* Aggregate rating sits directly under the title: score, stars, count
+   on one compact line so it reads as part of the heading. */
+.detail-rating {
   align-items: baseline;
   display: flex;
   flex-wrap: wrap;
-  gap: 12px;
+  gap: 8px;
+  margin-top: 8px;
 }
 
-.rating-score strong {
-  font-size: 1.6rem;
-  line-height: 1.1;
+.detail-rating-score {
+  font-size: 1.3rem;
+  line-height: 1;
 }
 
-.rating-stars,
+.detail-rating-stars {
+  font-size: 1.05rem;
+  letter-spacing: 0;
+  line-height: 1;
+}
+
+.detail-rating-count {
+  font-size: 0.85rem;
+}
+
 .review-rating,
 .star.active,
 .star:hover:not(:disabled),
@@ -371,19 +439,6 @@ form > * + * {
   color: #e1aa2b;
 }
 
-.rating-stars {
-  font-size: 1.5rem;
-  letter-spacing: 0;
-  line-height: 1;
-}
-
-.rating-detail {
-  font-size: 0.9rem;
-}
-
-.review-form,
-.review-card,
-.history article,
 .settings form {
   border: 0;
   border-radius: 12px;
@@ -393,10 +448,26 @@ form > * + * {
   padding: 20px;
 }
 
-.auth-prompt {
+/* Signed-out prompt under "Your review": a soft tinted box with the
+   call to action on the left and a button that jumps to Settings. */
+.signin-cta {
+  align-items: center;
+  background: #f7faf8;
+  border: 1px dashed #d2ddd5;
+  border-radius: 12px;
+  display: flex;
+  gap: 16px;
+  justify-content: space-between;
+  padding: 16px 20px;
+}
+
+.signin-cta p {
   color: #697771;
-  max-width: 42rem;
-  overflow-wrap: anywhere;
+  margin: 0;
+}
+
+.signin-cta-button {
+  flex: 0 0 auto;
 }
 
 label {
@@ -447,19 +518,59 @@ textarea {
   background: transparent;
 }
 
-.review-card p {
-  margin: 8px 0;
+/* A feed of reviews reads as one continuous list: rows separated by thin
+   dividers, with the identity and stars together on one line. */
+.review-list {
+  display: grid;
+  list-style: none;
+  margin: 0;
+  padding: 0;
 }
 
-.review-card-owner {
-  display: block;
+.review-row {
+  padding: 16px 0;
+}
+
+.review-row + .review-row {
+  border-top: 1px solid #eef2ee;
+}
+
+.review-row:first-child {
+  padding-top: 0;
+}
+
+.review-row-head {
+  align-items: baseline;
+  display: flex;
+  flex-wrap: wrap;
+  gap: 8px;
+}
+
+/* History rows keep the revision label left and the date pushed right. */
+.review-row-head .review-row-meta {
+  margin-left: auto;
+}
+
+.review-row-sep {
+  color: #b6c1b8;
+}
+
+.review-row-owner {
   font-weight: 600;
 }
 
-.review-card-meta {
+.review-row-text {
+  margin: 6px 0 0;
+}
+
+.review-row-meta {
   color: #697771;
   display: block;
   font-size: 0.85rem;
+}
+
+.review-row > .review-row-meta {
+  margin-top: 4px;
 }
 
 .review-rating {
@@ -470,6 +581,10 @@ textarea {
 }
 
 .my-review-card {
+  border-radius: 12px;
+  box-shadow:
+    inset 0 0 0 1px #e7ece7,
+    0 12px 32px rgb(23 35 31 / 0.05);
   display: grid;
   gap: 14px;
   padding: 18px;
@@ -547,8 +662,7 @@ textarea {
     min-height: 100vh;
   }
 
-  .topbar,
-  .detail-head {
+  .topbar {
     align-items: flex-start;
     flex-direction: column;
   }
