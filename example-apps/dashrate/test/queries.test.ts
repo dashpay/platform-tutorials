@@ -96,7 +96,11 @@ describe("DashRate query normalization", () => {
     const review = normalizeSingleReview("doc-1", {
       toJSON: () => ({ $ownerId: "owner-1", rating: 5 }),
     });
-    expect(review).toMatchObject({ id: "doc-1", ownerId: "owner-1", rating: 5 });
+    expect(review).toMatchObject({
+      id: "doc-1",
+      ownerId: "owner-1",
+      rating: 5,
+    });
   });
 
   it("derives count, sum and average from a rating distribution", () => {

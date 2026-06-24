@@ -151,7 +151,11 @@ describe("saveReview update branch", () => {
     expect(sdk.documents.replace).toHaveBeenCalledOnce();
     expect(sdk.documents.create).not.toHaveBeenCalled();
     // The existing revision is read via get(contractId, type, id).
-    expect(sdk.documents.get).toHaveBeenCalledWith("c1", "review", "existing-id");
+    expect(sdk.documents.get).toHaveBeenCalledWith(
+      "c1",
+      "review",
+      "existing-id",
+    );
     // Replacement keeps the existing id, bumps revision 4 → 5n, and carries
     // the edited rating AND text through (a dropped update text would slip
     // past an assertion that only checked resourceId/rating).

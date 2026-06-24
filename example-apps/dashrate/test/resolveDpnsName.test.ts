@@ -18,10 +18,23 @@ describe("resolveDpnsName", () => {
   });
 
   it("returns null for an empty or non-string result", async () => {
-    expect(await resolveDpnsName(sdkWith(async () => ""), "id-1")).toBeNull();
-    expect(await resolveDpnsName(sdkWith(async () => null), "id-1")).toBeNull();
     expect(
-      await resolveDpnsName(sdkWith(async () => undefined), "id-1"),
+      await resolveDpnsName(
+        sdkWith(async () => ""),
+        "id-1",
+      ),
+    ).toBeNull();
+    expect(
+      await resolveDpnsName(
+        sdkWith(async () => null),
+        "id-1",
+      ),
+    ).toBeNull();
+    expect(
+      await resolveDpnsName(
+        sdkWith(async () => undefined),
+        "id-1",
+      ),
     ).toBeNull();
     expect(
       await resolveDpnsName(

@@ -62,11 +62,19 @@ describe("fetchReviewHistory limit clamp", () => {
     expect(historyMock.mock.calls[0][0].limit).toBe(REVIEW_HISTORY_LIMIT);
   });
 
-  it.each([0, -1, -100])("clamps a non-positive limit %p up to 1", async (limit) => {
-    const { sdk, historyMock } = sdkCapturingLimit();
-    await fetchReviewHistory({ sdk, contractId: "c1", reviewId: "doc-1", limit });
-    expect(historyMock.mock.calls[0][0].limit).toBe(1);
-  });
+  it.each([0, -1, -100])(
+    "clamps a non-positive limit %p up to 1",
+    async (limit) => {
+      const { sdk, historyMock } = sdkCapturingLimit();
+      await fetchReviewHistory({
+        sdk,
+        contractId: "c1",
+        reviewId: "doc-1",
+        limit,
+      });
+      expect(historyMock.mock.calls[0][0].limit).toBe(1);
+    },
+  );
 
   it("passes an in-range limit through unchanged", async () => {
     const { sdk, historyMock } = sdkCapturingLimit();
