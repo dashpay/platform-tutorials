@@ -432,6 +432,68 @@ form > * + * {
   font-size: 0.85rem;
 }
 
+/* Rating distribution: one row per star value (5→1), each a clickable
+   bar that filters the review list. Rows are <button>s, so the global
+   green button style is overridden to a quiet, tappable row. */
+.rating-histogram {
+  display: grid;
+  gap: 4px;
+  list-style: none;
+  margin: 12px 0 0;
+  max-width: 360px;
+  padding: 0;
+}
+
+.histogram-row {
+  align-items: center;
+  background: transparent;
+  border-radius: 6px;
+  color: #485a52;
+  display: grid;
+  font-weight: 500;
+  gap: 10px;
+  grid-template-columns: 2.2rem 1fr 2rem;
+  padding: 3px 6px;
+  text-align: left;
+  width: 100%;
+}
+
+.histogram-row:hover:not(:disabled),
+.histogram-row:focus-visible {
+  background: #f4f8f5;
+}
+
+.histogram-row.active {
+  background: #f0f6f2;
+  color: #17231f;
+}
+
+.histogram-label {
+  color: #485a52;
+  font-size: 0.85rem;
+  white-space: nowrap;
+}
+
+.histogram-track {
+  background: #eef2ee;
+  border-radius: 999px;
+  height: 8px;
+  overflow: hidden;
+}
+
+.histogram-bar {
+  background: #e1aa2b;
+  border-radius: 999px;
+  display: block;
+  height: 100%;
+  min-width: 2px;
+}
+
+.histogram-count {
+  font-size: 0.85rem;
+  text-align: right;
+}
+
 .review-rating,
 .star.active,
 .star:hover:not(:disabled),
@@ -518,12 +580,38 @@ textarea {
   background: transparent;
 }
 
+/* Header above the review list: section title plus an active-filter
+   clear affordance. */
+.review-list-head {
+  align-items: baseline;
+  display: flex;
+  gap: 12px;
+  justify-content: space-between;
+}
+
+.review-list-head h3 {
+  margin: 0;
+}
+
+.filter-clear {
+  background: transparent;
+  box-shadow: inset 0 0 0 1px #dbe4dc;
+  color: #2f856b;
+  flex: 0 0 auto;
+  font-size: 0.82rem;
+  padding: 0.4rem 0.7rem;
+}
+
+.filter-clear:hover:not(:disabled) {
+  background: #f4f8f5;
+}
+
 /* A feed of reviews reads as one continuous list: rows separated by thin
    dividers, with the identity and stars together on one line. */
 .review-list {
   display: grid;
   list-style: none;
-  margin: 0;
+  margin: 12px 0 0;
   padding: 0;
 }
 

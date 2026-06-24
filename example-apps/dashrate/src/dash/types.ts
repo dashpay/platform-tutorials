@@ -55,6 +55,7 @@ export interface DashSdk {
       documentTypeName: string;
       where?: unknown[][];
       orderBy?: [string, "asc" | "desc"][];
+      groupBy?: string[];
     }): Promise<Map<string, bigint>>;
     sum(
       args: {

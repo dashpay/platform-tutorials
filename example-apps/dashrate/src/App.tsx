@@ -9,9 +9,12 @@ import {
 import { fetchReviewHistory, type ReviewHistoryEntry } from "./dash/history";
 import {
   findMyReviewForResource,
-  getRatingSummary,
+  getRatingCount,
+  getRatingDistribution,
   listMyReviews,
   listResourceReviews,
+  summaryFromDistribution,
+  type RatingDistribution,
   type RatingSummary,
   type ReviewRecord,
 } from "./dash/queries";
@@ -50,6 +53,17 @@ const emptySummary = (resourceId: string): RatingSummary => ({
   average: null,
 });
 
+const emptyDistribution = (): RatingDistribution => ({
+  1: 0n,
+  2: 0n,
+  3: 0n,
+  4: 0n,
+  5: 0n,
+});
+
+// Histogram rows render high-to-low, matching the convention of 5★ on top.
+const RATING_ROWS = [5, 4, 3, 2, 1] as const;
+
 function stars(value: number | null): string {
   if (value === null) return "No rating";
   const rounded = Math.round(value);
@@ -66,9 +80,9 @@ function StarMeter({
   value: number | null;
   className?: string;
 }) {
-  const fillPercent =
-    value === null ? 0 : Math.max(0, Math.min(5, value)) * 20;
-  const label = value === null ? "No rating yet" : `${formatAverage(value)} out of 5`;
+  const fillPercent = value === null ? 0 : Math.max(0, Math.min(5, value)) * 20;
+  const label =
+    value === null ? "No rating yet" : `${formatAverage(value)} out of 5`;
   return (
     <span
       className={className ? `star-meter ${className}` : "star-meter"}
@@ -97,10 +111,17 @@ function reviewCountLine(summary: RatingSummary): string {
 
 export default function App() {
   const [contractId, setContractId] = useState(loadStoredContractId);
+  // Mirrors the Contract ID input. Kept in sync with `contractId` so that
+  // registering or clearing updates the field, not just the active id.
+  const [contractInput, setContractInput] = useState(contractId);
   const [session, setSession] = useState<Session | null>(null);
   const [selectedResourceId, setSelectedResourceId] = useState(RESOURCES[0].id);
   const [summaries, setSummaries] = useState<Record<string, RatingSummary>>({});
+  const [distributions, setDistributions] = useState<
+    Record<string, RatingDistribution>
+  >({});
   const [reviews, setReviews] = useState<ReviewRecord[]>([]);
+  const [reviewFilter, setReviewFilter] = useState<number | null>(null);
   const [myReviews, setMyReviews] = useState<ReviewRecord[]>([]);
   const [myReviewsLoading, setMyReviewsLoading] = useState(false);
   const [mySelectedReview, setMySelectedReview] = useState<ReviewRecord | null>(
@@ -158,28 +179,62 @@ export default function App() {
             ]),
           ),
         );
+        setDistributions(
+          Object.fromEntries(
+            RESOURCES.map((resource) => [resource.id, emptyDistribution()]),
+          ),
+        );
         setReviews([]);
         setMySelectedReview(null);
         return;
       }
 
       const activeSdk = sdk ?? session?.sdk ?? (await connectReadOnly());
-      const summaryList = await Promise.all(
-        RESOURCES.map((resource) =>
-          getRatingSummary({
-            sdk: activeSdk,
-            contractId,
+      const perResource = await Promise.all(
+        RESOURCES.map(async (resource) => {
+          // Two count patterns per resource: a plain total count() and a
+          // grouped count() for the distribution. The summary (average +
+          // total) is derived from the distribution; the plain count is a
+          // cross-check and a basic-countable-index demonstration.
+          const [totalCount, distribution] = await Promise.all([
+            getRatingCount({
+              sdk: activeSdk,
+              contractId,
+              resourceId: resource.id,
+              log,
+            }),
+            getRatingDistribution({
+              sdk: activeSdk,
+              contractId,
+              resourceId: resource.id,
+              log,
+            }),
+          ]);
+          const summary = summaryFromDistribution(resource.id, distribution);
+          return {
             resourceId: resource.id,
-            log,
-          }),
-        ),
+            summary: { ...summary, count: totalCount },
+            distribution,
+          };
+        }),
       );
       setSummaries(
         Object.fromEntries(
-          summaryList.map((summary) => [summary.resourceId, summary]),
+          perResource.map(({ resourceId, summary }) => [resourceId, summary]),
+        ),
+      );
+      setDistributions(
+        Object.fromEntries(
+          perResource.map(({ resourceId, distribution }) => [
+            resourceId,
+            distribution,
+          ]),
         ),
       );
 
+      // Bulk load always shows the unfiltered list for the selected
+      // resource; the rating filter is applied by a separate effect so
+      // changing it doesn't re-run every resource's aggregate queries.
       const fetchedReviews = await listResourceReviews({
         sdk: activeSdk,
         contractId,
@@ -222,6 +277,39 @@ export default function App() {
       cancelled = true;
     };
   }, [contractId, loadResourceData]);
+
+  // Re-fetch just the reviews list when the rating filter changes. The
+  // bulk load already fetched the unfiltered list, so skip the no-filter
+  // case to avoid a redundant query.
+  useEffect(() => {
+    if (!contractId || reviewFilter == null) return;
+    let cancelled = false;
+    (async () => {
+      try {
+        const activeSdk = session?.sdk ?? (await connectReadOnly());
+        const filtered = await listResourceReviews({
+          sdk: activeSdk,
+          contractId,
+          resourceId: selectedResourceId,
+          ratingFilter: reviewFilter,
+          log,
+        });
+        if (!cancelled) setReviews(filtered);
+      } catch (err) {
+        if (!cancelled) setStatus(`Filter failed: ${errorMessage(err)}`);
+      }
+    })();
+    return () => {
+      cancelled = true;
+    };
+  }, [
+    connectReadOnly,
+    contractId,
+    log,
+    reviewFilter,
+    selectedResourceId,
+    session,
+  ]);
 
   useEffect(() => {
     if (!session || !contractId) return;
@@ -318,7 +406,8 @@ export default function App() {
         log,
       });
       setContractId(id);
-      setStatus("");
+      setContractInput(id);
+      setStatus(`Registered new contract: ${id}`);
     } catch (err) {
       setStatus(`Registration failed: ${errorMessage(err)}`);
     } finally {
@@ -347,17 +436,18 @@ export default function App() {
 
   function handleContractSubmit(event: React.FormEvent<HTMLFormElement>) {
     event.preventDefault();
-    const formData = new FormData(event.currentTarget);
-    const nextId = String(formData.get("contractId") ?? "").trim();
+    const nextId = contractInput.trim();
     if (!nextId) return;
     saveContractId(nextId);
     setContractId(nextId);
+    setContractInput(nextId);
     setMyReviews([]);
   }
 
   function clearContract() {
     clearStoredContractId();
     setContractId("");
+    setContractInput("");
     setHistory([]);
     setMyReviews([]);
     setMySelectedReview(null);
@@ -372,6 +462,7 @@ export default function App() {
 
   function handleEditMyReview(review: ReviewRecord) {
     setSelectedResourceId(review.resourceId);
+    setReviewFilter(null);
     setMySelectedReview(review);
     setRating(review.rating);
     setHoverRating(null);
@@ -382,6 +473,12 @@ export default function App() {
 
   const selectedSummary =
     summaries[selectedResource.id] ?? emptySummary(selectedResource.id);
+  const selectedDistribution =
+    distributions[selectedResource.id] ?? emptyDistribution();
+  const distributionMax = RATING_ROWS.reduce<bigint>((max, value) => {
+    const count = selectedDistribution[value] ?? 0n;
+    return count > max ? count : max;
+  }, 0n);
   const displayRating = hoverRating ?? rating ?? 0;
   const myReviewsAverage =
     myReviews.length === 0
@@ -452,6 +549,7 @@ export default function App() {
                   }
                   onClick={() => {
                     setSelectedResourceId(resource.id);
+                    setReviewFilter(null);
                     setHistory([]);
                   }}
                 >
@@ -499,7 +597,10 @@ export default function App() {
                   </a>
                 </div>
               </div>
-              <div className="detail-rating" aria-label="Aggregate rating stats">
+              <div
+                className="detail-rating"
+                aria-label="Aggregate rating stats"
+              >
                 <strong className="detail-rating-score">
                   {selectedSummary.average === null
                     ? "—"
@@ -513,6 +614,44 @@ export default function App() {
                   {reviewCountLine(selectedSummary)}
                 </span>
               </div>
+              {selectedSummary.count > 0n && (
+                <ul
+                  className="rating-histogram"
+                  aria-label="Rating distribution"
+                >
+                  {RATING_ROWS.map((value) => {
+                    const count = selectedDistribution[value] ?? 0n;
+                    const widthPercent =
+                      distributionMax > 0n
+                        ? Number((count * 100n) / distributionMax)
+                        : 0;
+                    const active = reviewFilter === value;
+                    return (
+                      <li key={value}>
+                        <button
+                          type="button"
+                          className={
+                            active ? "histogram-row active" : "histogram-row"
+                          }
+                          aria-pressed={active}
+                          onClick={() => setReviewFilter(active ? null : value)}
+                        >
+                          <span className="histogram-label">{value}★</span>
+                          <span className="histogram-track" aria-hidden="true">
+                            <span
+                              className="histogram-bar"
+                              style={{ width: `${widthPercent}%` }}
+                            />
+                          </span>
+                          <span className="histogram-count">
+                            {count.toString()}
+                          </span>
+                        </button>
+                      </li>
+                    );
+                  })}
+                </ul>
+              )}
             </div>
             <p>{selectedResource.summary}</p>
 
@@ -623,9 +762,28 @@ export default function App() {
             )}
 
             <section className="resource-section">
-              <h3>Recent reviews</h3>
+              <div className="review-list-head">
+                <h3>
+                  {reviewFilter == null
+                    ? "Recent reviews"
+                    : `${reviewFilter}★ reviews`}
+                </h3>
+                {reviewFilter != null && (
+                  <button
+                    type="button"
+                    className="filter-clear"
+                    onClick={() => setReviewFilter(null)}
+                  >
+                    Clear filter
+                  </button>
+                )}
+              </div>
               {reviews.length === 0 ? (
-                <p>No reviews yet.</p>
+                <p>
+                  {reviewFilter == null
+                    ? "No reviews yet."
+                    : `No ${reviewFilter}★ reviews yet.`}
+                </p>
               ) : (
                 <ul className="review-list">
                   {reviews.map((review) => (
@@ -718,7 +876,11 @@ export default function App() {
             </p>
             <label>
               Contract ID
-              <input name="contractId" defaultValue={contractId} />
+              <input
+                name="contractId"
+                value={contractInput}
+                onChange={(event) => setContractInput(event.target.value)}
+              />
             </label>
             <div className="row">
               <button type="submit">Use contract</button>
@@ -751,19 +913,23 @@ export default function App() {
               <code>documents.query</code> loads recent reviews by{" "}
               <code>resourceId</code>, My reviews by <code>$ownerId</code>, and
               the current user's review by <code>$ownerId + resourceId</code>.
+              Adding a <code>rating == N</code> clause filters the list to a
+              single star value — covered by the{" "}
+              <code>[resourceId, rating]</code> index.
             </li>
             <li>
-              <code>documents.count</code> returns how many reviews a resource
-              has through the countable <code>resourceId</code> index.
+              <code>documents.count</code> on the countable{" "}
+              <code>resourceId</code> index returns a resource's total review
+              count — the basic count pattern.
             </li>
             <li>
-              <code>documents.sum("rating")</code> returns total rating points.
-            </li>
-            <li>
-              <code>documents.average("rating")</code> returns count and sum,
-              which the UI renders as an average star score. Sum and average use
-              the same <code>resourceId</code> index with{" "}
-              <code>summable: "rating"</code>.
+              <code>documents.count</code> with <code>groupBy: ["rating"]</code>{" "}
+              returns one count per star value — the rating distribution shown
+              as bars. The <code>rating between [1, 5]</code> range over the
+              countable <code>[resourceId, rating]</code> index drives the
+              grouped walk. The average is computed from these per-star counts,
+              so no separate <code>sum</code> / <code>average</code> query is
+              needed.
             </li>
             <li>
               <code>documents.history</code> shows how a user's review changed

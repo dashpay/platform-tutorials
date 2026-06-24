@@ -34,10 +34,31 @@ export interface RatingSummary {
   average: number | null;
 }
 
+/** Per-star review counts for a resource, keyed by rating value 1–5. */
+export type RatingDistribution = Record<number, bigint>;
+
 const REVIEW_LIMIT = 50;
+
+/** The valid rating values, used to build distribution lookup keys. */
+const RATING_VALUES = [1, 2, 3, 4, 5] as const;
 
 export function firstMapValue<T>(map: Map<string, T>): T | undefined {
   return map.values().next().value as T | undefined;
+}
+
+/**
+ * Index-key for an integer rating in a grouped `count` result map.
+ *
+ * Platform encodes an integer index key in its order-preserving form: the
+ * sign bit is flipped so negatives sort before positives. For a small
+ * positive rating that's a single byte `0x80 | rating`, hex-encoded — e.g.
+ * rating 5 → `0x85` → "85". (Verified against the live contract: a grouped
+ * count over ratings returns keys "81".."85", NOT 8-byte big-endian.) The
+ * client builds the expected keys by encoding each known rating rather than
+ * decoding the returned keys.
+ */
+export function ratingKeyHex(rating: number): string {
+  return (0x80 | rating).toString(16);
 }
 
 function toTimestamp(
@@ -103,26 +124,29 @@ export function normalizeSingleReview(
   return toReview(id, raw as DashReviewQueryDocument);
 }
 
-export function summaryFromAggregateMaps({
-  resourceId,
-  countMap,
-  sumMap,
-  averageMap,
-}: {
-  resourceId: string;
-  countMap: Map<string, bigint>;
-  sumMap: Map<string, bigint>;
-  averageMap: Map<string, { count: bigint; sum: bigint }>;
-}): RatingSummary {
-  const count = firstMapValue(countMap) ?? 0n;
-  const sum = firstMapValue(sumMap) ?? 0n;
-  const averageParts = firstMapValue(averageMap);
-  const average =
-    averageParts && averageParts.count > 0n
-      ? Number(averageParts.sum) / Number(averageParts.count)
-      : count > 0n
-        ? Number(sum) / Number(count)
-        : null;
+/**
+ * Build a RatingSummary from a rating distribution. The per-star counts
+ * carry everything the summary needs, exactly for the 1–5 integer scale:
+ *   count   = Σ dist[r]
+ *   sum     = Σ (r × dist[r])
+ *   average = sum / count
+ * So no separate `sum`/`average` query is needed — the grouped count that
+ * draws the histogram also yields the average. (Dropping `summable` from
+ * the contract is what avoids the index-aggregation conflict; see
+ * PLATFORM_ISSUE_index_aggregation_conflict.md.)
+ */
+export function summaryFromDistribution(
+  resourceId: string,
+  distribution: RatingDistribution,
+): RatingSummary {
+  let count = 0n;
+  let sum = 0n;
+  for (const rating of RATING_VALUES) {
+    const c = distribution[rating] ?? 0n;
+    count += c;
+    sum += BigInt(rating) * c;
+  }
+  const average = count > 0n ? Number(sum) / Number(count) : null;
   return { resourceId, count, sum, average };
 }
 
@@ -135,7 +159,14 @@ function resourceAggregateQuery(contractId: string, resourceId: string) {
   };
 }
 
-export async function getRatingSummary({
+/**
+ * Total review count for a resource — a plain ungrouped `count()` over the
+ * single-property `resourceRatingAggregate` index. This is the basic
+ * countable-index pattern (contrast with getRatingDistribution's grouped
+ * count). The ungrouped result is a one-entry map keyed by "" — read it
+ * with firstMapValue.
+ */
+export async function getRatingCount({
   sdk,
   contractId,
   resourceId,
@@ -145,52 +176,112 @@ export async function getRatingSummary({
   contractId: string;
   resourceId: string;
   log?: Logger;
-}): Promise<RatingSummary> {
+}): Promise<bigint> {
   const query = resourceAggregateQuery(contractId, resourceId);
-  log(`Aggregating ratings for ${resourceId}...`);
+  log(`Counting reviews for ${resourceId}...`);
   try {
-    const [countMap, sumMap, averageMap] = await Promise.all([
-      sdk.documents.count(query),
-      sdk.documents.sum(query, "rating"),
-      sdk.documents.average(query, "rating"),
-    ]);
-    log(
-      `Aggregate maps for ${resourceId}: count=${countMap.size}, sum=${sumMap.size}, average=${averageMap.size}`,
-    );
-    return summaryFromAggregateMaps({
-      resourceId,
-      countMap,
-      sumMap,
-      averageMap,
+    const counts = await sdk.documents.count(query);
+    const total = firstMapValue(counts) ?? 0n;
+    log(`Count for ${resourceId}: ${total}`);
+    return total;
+  } catch (err) {
+    log(`Count query failed for ${resourceId}: ${errorMessage(err)}`, "error");
+    throw err;
+  }
+}
+
+/**
+ * Per-star review counts for a resource, from a single grouped count
+ * query: `count` GROUP BY `rating` over the `[resourceId, rating]`
+ * index. The `between` range on `rating` is what puts the query in
+ * RangeDistinct mode (one map entry per distinct rating); the
+ * `resourceId == X` equality prefix scopes it to this resource.
+ */
+export async function getRatingDistribution({
+  sdk,
+  contractId,
+  resourceId,
+  log = consoleLogger,
+}: {
+  sdk: DashSdk;
+  contractId: string;
+  resourceId: string;
+  log?: Logger;
+}): Promise<RatingDistribution> {
+  log(`Loading rating distribution for ${resourceId}...`);
+  try {
+    const counts = await sdk.documents.count({
+      dataContractId: contractId,
+      documentTypeName: "review",
+      where: [
+        ["resourceId", "==", resourceId],
+        ["rating", "between", [1, 5]],
+      ],
+      orderBy: [["rating", "asc"]],
+      groupBy: ["rating"],
     });
+    const distribution: RatingDistribution = {};
+    for (const rating of RATING_VALUES) {
+      distribution[rating] = counts.get(ratingKeyHex(rating)) ?? 0n;
+    }
+    log(`Distribution for ${resourceId}: ${distributionLabel(distribution)}`);
+    return distribution;
   } catch (err) {
     log(
-      `Aggregate query failed for ${resourceId}: ${errorMessage(err)}`,
+      `Distribution query failed for ${resourceId}: ${errorMessage(err)}`,
       "error",
     );
     throw err;
   }
 }
 
+function distributionLabel(distribution: RatingDistribution): string {
+  return RATING_VALUES.map(
+    (rating) => `${rating}★=${distribution[rating] ?? 0n}`,
+  ).join(" ");
+}
+
 export async function listResourceReviews({
   sdk,
   contractId,
   resourceId,
+  ratingFilter,
   limit = REVIEW_LIMIT,
   log = consoleLogger,
 }: {
   sdk: DashSdk;
   contractId: string;
   resourceId: string;
+  ratingFilter?: number;
   limit?: number;
   log?: Logger;
 }): Promise<ReviewRecord[]> {
-  log(`Loading reviews for ${resourceId}...`);
+  // Filtering by rating is done server-side via a `rating == N` clause —
+  // the data is already fetched, so this is to demonstrate Platform
+  // `where`-filtering and to stay correct past the fetch limit.
+  //
+  // The `orderBy` must align with the index that serves the query, and
+  // its field must be the index's trailing property (the matcher reserves
+  // the order-by field from the back of the index). So:
+  //  - no filter → resourceId equality on [resourceId] → order by resourceId
+  //  - filter    → resourceId+rating equalities on [resourceId, rating] →
+  //                order by rating (the last index property)
+  // Ordering by resourceId in the filtered case strips `rating` out of the
+  // usable index prefix and the query is rejected as "non indexed".
+  const where: unknown[][] = [["resourceId", "==", resourceId]];
+  let orderBy: [string, "asc" | "desc"][] = [["resourceId", "asc"]];
+  if (ratingFilter != null) {
+    where.push(["rating", "==", ratingFilter]);
+    orderBy = [["rating", "asc"]];
+    log(`Loading ${ratingFilter}-star reviews for ${resourceId}...`);
+  } else {
+    log(`Loading reviews for ${resourceId}...`);
+  }
   const results = await sdk.documents.query({
     dataContractId: contractId,
     documentTypeName: "review",
-    where: [["resourceId", "==", resourceId]],
-    orderBy: [["resourceId", "asc"]],
+    where,
+    orderBy,
     limit,
   });
   const reviews = normalizeReviews(results).sort(

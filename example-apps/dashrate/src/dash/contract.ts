@@ -47,10 +47,22 @@ export const REVIEW_SCHEMAS = {
         properties: [{ $ownerId: "asc" }, { $updatedAt: "asc" }],
       },
       {
+        // Total review count per resource — the basic countable-index + count() pattern.
+        // Count-only: no `summable`, because a count+sum value tree at this shared `resourceId`
+        // prefix can't host the count-only `rating` continuation that resourceRatingDistribution
+        // needs (the drive rejects the insert). See dashpay/platform#3960
         name: "resourceRatingAggregate",
         properties: [{ resourceId: "asc" }],
         countable: "countable",
-        summable: "rating",
+      },
+      {
+        // Grouped/range count for the rating distribution (count GROUP BY
+        // rating) and the `rating == N` filter. `rating` is the last
+        // property and carries the range walk via rangeCountable.
+        name: "resourceRatingDistribution",
+        properties: [{ resourceId: "asc" }, { rating: "asc" }],
+        countable: "countable",
+        rangeCountable: true,
       },
     ],
   },
@@ -59,7 +71,7 @@ export const REVIEW_SCHEMAS = {
 const STORAGE_KEY = "dashrate.contractId";
 
 export const DEFAULT_CONTRACT_ID =
-  "BxkwU2skmYz8a6ixj1FwBCf6v8t5WsNxB4LN4EYcDuET";
+  "BdgTqaTAPYMyhp1WdeWdcvYSgoD7AuJ7tVCaCSXyQgyP";
 
 export function loadStoredContractId(): string {
   try {
