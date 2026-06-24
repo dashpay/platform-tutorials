@@ -182,6 +182,56 @@ code {
   justify-content: flex-end;
 }
 
+.field-note {
+  color: #697771;
+  font-size: 0.85rem;
+  margin: 0 0 12px;
+}
+
+.advanced-toggle {
+  align-items: center;
+  background: none;
+  box-shadow: none;
+  color: #2f856b;
+  display: inline-flex;
+  font-size: 0.85rem;
+  gap: 6px;
+  margin-top: 16px;
+  padding: 0;
+}
+
+/* One uniform card holding the optional identity index + contract controls.
+   The inner contract form sheds its own .settings-form card so the group
+   reads as a single panel, not a box inside a box. */
+.advanced-section {
+  border-radius: 12px;
+  box-shadow: inset 0 0 0 1px #e7ece7;
+  display: flex;
+  flex-direction: column;
+  gap: 20px;
+  margin-top: 12px;
+  padding: 20px;
+}
+
+.advanced-section form {
+  border-radius: 0;
+  box-shadow: none;
+  padding: 0;
+}
+
+.advanced-section h3 {
+  margin-top: 0;
+}
+
+/* Identity index is a small numeric field, not a full-width input. */
+.advanced-index input {
+  max-width: 120px;
+}
+
+.advanced-index .field-note {
+  margin: 6px 0 0;
+}
+
 .inline-loading {
   align-items: center;
   color: #657268;

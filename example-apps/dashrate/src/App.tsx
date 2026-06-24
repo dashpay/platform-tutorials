@@ -155,6 +155,7 @@ export default function App() {
   const [view, setView] = useState<View>("resources");
   const [mnemonic, setMnemonic] = useState("");
   const [identityIndex, setIdentityIndex] = useState("0");
+  const [showAdvanced, setShowAdvanced] = useState(false);
   const [rating, setRating] = useState<number | null>(null);
   const [hoverRating, setHoverRating] = useState<number | null>(null);
   const [reviewText, setReviewText] = useState("");
@@ -896,7 +897,7 @@ export default function App() {
         <section className="panel settings">
           <h2>Settings</h2>
           <form onSubmit={handleSignIn}>
-            <h3>Mnemonic login</h3>
+            <h3>Login</h3>
             {session ? (
               <div>
                 <p>
@@ -916,21 +917,23 @@ export default function App() {
               </div>
             ) : (
               <>
+                <p className="field-note">
+                  Need an identity? Create one for testing with the{" "}
+                  <a
+                    href="https://bridge.thepasta.org/"
+                    target="_blank"
+                    rel="noopener noreferrer"
+                  >
+                    Dash bridge
+                  </a>
+                  .
+                </p>
                 <label>
-                  Mnemonic
+                  Identity Mnemonic
                   <textarea
                     value={mnemonic}
                     onChange={(event) => setMnemonic(event.target.value)}
                     rows={3}
-                    disabled={busy}
-                  />
-                </label>
-                <label>
-                  Identity index
-                  <input
-                    value={identityIndex}
-                    onChange={(event) => setIdentityIndex(event.target.value)}
-                    inputMode="numeric"
                     disabled={busy}
                   />
                 </label>
@@ -941,33 +944,65 @@ export default function App() {
             )}
           </form>
 
-          <form onSubmit={handleContractSubmit}>
-            <h3>Contract</h3>
-            <p>
-              Current: <code>{contractId || "none"}</code>
-            </p>
-            <label>
-              Contract ID
-              <input
-                name="contractId"
-                value={contractInput}
-                onChange={(event) => setContractInput(event.target.value)}
-              />
-            </label>
-            <div className="row">
-              <button type="submit">Use contract</button>
-              <button type="button" onClick={clearContract}>
-                Clear
-              </button>
-              <button
-                type="button"
-                onClick={handleRegisterContract}
-                disabled={busy || !session}
-              >
-                Register new
-              </button>
+          <button
+            type="button"
+            className="advanced-toggle"
+            aria-expanded={showAdvanced}
+            onClick={() => setShowAdvanced((open) => !open)}
+          >
+            <span aria-hidden="true">{showAdvanced ? "▾" : "▸"}</span> Advanced
+            settings
+          </button>
+
+          {showAdvanced && (
+            <div className="advanced-section">
+              {!session && (
+                <label className="advanced-index">
+                  Identity index
+                  <input
+                    type="number"
+                    min={0}
+                    value={identityIndex}
+                    onChange={(event) => setIdentityIndex(event.target.value)}
+                    inputMode="numeric"
+                    disabled={busy}
+                  />
+                  <span className="field-note">
+                    Usually 0. Only change this if you have multiple identities
+                    derived from the same mnemonic.
+                  </span>
+                </label>
+              )}
+
+              <form onSubmit={handleContractSubmit}>
+                <h3>Contract</h3>
+                <p>
+                  Current: <code>{contractId || "none"}</code>
+                </p>
+                <label>
+                  Contract ID (optional)
+                  <input
+                    name="contractId"
+                    value={contractInput}
+                    onChange={(event) => setContractInput(event.target.value)}
+                  />
+                </label>
+                <div className="row">
+                  <button type="submit">Use contract</button>
+                  <button type="button" onClick={clearContract}>
+                    Clear
+                  </button>
+                  <button
+                    type="button"
+                    onClick={handleRegisterContract}
+                    disabled={busy || !session}
+                  >
+                    Register new
+                  </button>
+                </div>
+              </form>
             </div>
-          </form>
+          )}
         </section>
       )}
 
