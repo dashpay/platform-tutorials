@@ -1,8 +1,12 @@
 import { describe, expect, it, vi } from "vitest";
 import {
+  findMyReviewForResource,
+  getRatingCount,
   getRatingDistribution,
+  listMyReviews,
   listResourceReviews,
   normalizeReviews,
+  normalizeSingleReview,
   ratingKeyHex,
   summaryFromDistribution,
 } from "../src/dash/queries";
@@ -41,6 +45,58 @@ describe("DashRate query normalization", () => {
         revision: 2,
       },
     ]);
+  });
+
+  it("normalizes an array of documents, taking ids from $id", () => {
+    const reviews = normalizeReviews([
+      { toJSON: () => ({ $id: "doc-a", $ownerId: "o", rating: 5 }) },
+      { toJSON: () => ({ $id: "doc-b", $ownerId: "o", rating: 1 }) },
+    ]);
+
+    expect(reviews.map((review) => review.id)).toEqual(["doc-a", "doc-b"]);
+    expect(reviews.map((review) => review.rating)).toEqual([5, 1]);
+  });
+
+  it("normalizes a plain-object map keyed by document id", () => {
+    const reviews = normalizeReviews({
+      "doc-1": { toJSON: () => ({ $ownerId: "owner-1", rating: 3 }) },
+    });
+
+    expect(reviews).toEqual([
+      {
+        id: "doc-1",
+        ownerId: "owner-1",
+        resourceId: "",
+        rating: 3,
+        reviewText: "",
+        createdAt: null,
+        updatedAt: null,
+        revision: 0,
+      },
+    ]);
+  });
+
+  it("skips null/undefined documents in any shape", () => {
+    expect(
+      normalizeReviews([
+        null as never,
+        { toJSON: () => ({ $id: "doc-a", rating: 4 }) },
+      ]),
+    ).toHaveLength(1);
+    expect(
+      normalizeReviews({
+        empty: undefined,
+        "doc-b": { toJSON: () => ({ rating: 2 }) },
+      }),
+    ).toHaveLength(1);
+  });
+
+  it("normalizes (or rejects) a single review", () => {
+    expect(normalizeSingleReview("doc-1", undefined)).toBeNull();
+    const review = normalizeSingleReview("doc-1", {
+      toJSON: () => ({ $ownerId: "owner-1", rating: 5 }),
+    });
+    expect(review).toMatchObject({ id: "doc-1", ownerId: "owner-1", rating: 5 });
   });
 
   it("derives count, sum and average from a rating distribution", () => {
@@ -177,5 +233,141 @@ describe("DashRate review list filtering", () => {
         orderBy: [["rating", "asc"]],
       }),
     );
+  });
+});
+
+describe("DashRate getRatingCount", () => {
+  it("reads the single total from the ungrouped (empty-key) count map", async () => {
+    const countMock = vi.fn().mockResolvedValue(new Map([["", 7n]]));
+    const sdk = { documents: { count: countMock } } as unknown as DashSdk;
+
+    const total = await getRatingCount({
+      sdk,
+      contractId: "c1",
+      resourceId: "tokens",
+      log: () => {},
+    });
+
+    expect(total).toBe(7n);
+    expect(countMock).toHaveBeenCalledWith({
+      dataContractId: "c1",
+      documentTypeName: "review",
+      where: [["resourceId", "==", "tokens"]],
+      orderBy: [["resourceId", "asc"]],
+    });
+  });
+
+  it("returns 0n when the count map is empty", async () => {
+    const countMock = vi.fn().mockResolvedValue(new Map());
+    const sdk = { documents: { count: countMock } } as unknown as DashSdk;
+
+    expect(
+      await getRatingCount({
+        sdk,
+        contractId: "c1",
+        resourceId: "tokens",
+        log: () => {},
+      }),
+    ).toBe(0n);
+  });
+});
+
+describe("DashRate listMyReviews", () => {
+  const reviewDoc = (updatedAt: number) => ({
+    toJSON: () => ({
+      $ownerId: "owner-1",
+      resourceId: "tokens",
+      rating: 4,
+      reviewText: "",
+      $createdAt: 1,
+      $updatedAt: updatedAt,
+      $revision: 1,
+    }),
+  });
+
+  it("queries by owner and re-sorts results by updatedAt descending", async () => {
+    // Server orderBy is ascending; the helper re-sorts newest-first in JS.
+    const queryMock = vi
+      .fn()
+      .mockResolvedValue([reviewDoc(100), reviewDoc(300), reviewDoc(200)]);
+    const sdk = { documents: { query: queryMock } } as unknown as DashSdk;
+
+    const reviews = await listMyReviews({
+      sdk,
+      contractId: "c1",
+      ownerId: "owner-1",
+      log: () => {},
+    });
+
+    expect(reviews.map((review) => review.updatedAt)).toEqual([300, 200, 100]);
+    expect(queryMock).toHaveBeenCalledWith({
+      dataContractId: "c1",
+      documentTypeName: "review",
+      where: [["$ownerId", "==", "owner-1"]],
+      orderBy: [
+        ["$ownerId", "asc"],
+        ["$updatedAt", "asc"],
+      ],
+      limit: 50,
+    });
+  });
+});
+
+describe("DashRate findMyReviewForResource", () => {
+  const reviewDoc = {
+    toJSON: () => ({
+      $id: "doc-1",
+      $ownerId: "owner-1",
+      resourceId: "tokens",
+      rating: 4,
+      reviewText: "",
+      $createdAt: 1,
+      $updatedAt: 1,
+      $revision: 1,
+    }),
+  };
+
+  it("queries by owner+resource with limit 1 and returns the match", async () => {
+    // saveReview relies on this to decide create vs. update.
+    const queryMock = vi.fn().mockResolvedValue([reviewDoc]);
+    const sdk = { documents: { query: queryMock } } as unknown as DashSdk;
+
+    const review = await findMyReviewForResource({
+      sdk,
+      contractId: "c1",
+      resourceId: "tokens",
+      ownerId: "owner-1",
+      log: () => {},
+    });
+
+    expect(review?.id).toBe("doc-1");
+    expect(queryMock).toHaveBeenCalledWith({
+      dataContractId: "c1",
+      documentTypeName: "review",
+      where: [
+        ["$ownerId", "==", "owner-1"],
+        ["resourceId", "==", "tokens"],
+      ],
+      orderBy: [
+        ["$ownerId", "asc"],
+        ["resourceId", "asc"],
+      ],
+      limit: 1,
+    });
+  });
+
+  it("returns null when no review exists for the pair", async () => {
+    const queryMock = vi.fn().mockResolvedValue([]);
+    const sdk = { documents: { query: queryMock } } as unknown as DashSdk;
+
+    expect(
+      await findMyReviewForResource({
+        sdk,
+        contractId: "c1",
+        resourceId: "tokens",
+        ownerId: "owner-1",
+        log: () => {},
+      }),
+    ).toBeNull();
   });
 });

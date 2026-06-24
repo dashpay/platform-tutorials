@@ -1,5 +1,5 @@
 import { useCallback, useEffect, useMemo, useState } from "react";
-import { RESOURCES } from "./catalog/resources";
+import { RESOURCES, findResource } from "./catalog/resources";
 import {
   clearStoredContractId,
   loadStoredContractId,
@@ -163,9 +163,7 @@ export default function App() {
   const [loadingRatings, setLoadingRatings] = useState(false);
 
   const selectedResource = useMemo(
-    () =>
-      RESOURCES.find((resource) => resource.id === selectedResourceId) ??
-      RESOURCES[0],
+    () => findResource(selectedResourceId) ?? RESOURCES[0],
     [selectedResourceId],
   );
 
@@ -1023,7 +1021,7 @@ function MyReviewCard({
   review: ReviewRecord;
   onEdit: (review: ReviewRecord) => void;
 }) {
-  const resource = RESOURCES.find((item) => item.id === review.resourceId);
+  const resource = findResource(review.resourceId);
   const title = resource?.title ?? review.resourceId;
   return (
     <article className="my-review-card">
