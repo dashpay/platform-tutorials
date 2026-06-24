@@ -222,21 +222,6 @@ time {
   text-transform: uppercase;
 }
 
-/* Category on the left, refreshing indicator beside it on the same line.
-   Reserve the indicator's height so toggling it doesn't shift the layout. */
-.eyebrow-row {
-  align-items: center;
-  display: flex;
-  gap: 12px;
-  min-height: 24px;
-}
-
-.eyebrow-row .inline-loading {
-  font-weight: 400;
-  letter-spacing: normal;
-  text-transform: none;
-}
-
 .status,
 .notice {
   border-radius: 10px;
@@ -409,6 +394,13 @@ form > * + * {
 .resource-section {
   border-top: 1px solid #e7ece7;
   padding-top: 28px;
+}
+
+/* Section headings sit flush against the section's top padding — drop the
+   default <h3> top margin so "Your review" / "Review history" align with
+   "Recent reviews" (whose h3 is already reset in .review-list-head). */
+.resource-section > h3 {
+  margin-top: 0;
 }
 
 /* Aggregate rating sits directly under the title: score, stars, count

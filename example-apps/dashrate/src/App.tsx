@@ -132,6 +132,17 @@ export default function App() {
   >({});
   const [reviews, setReviews] = useState<ReviewRecord[]>([]);
   const [reviewFilter, setReviewFilter] = useState<number | null>(null);
+  // The (resource, filter) the current `reviews` belong to. When either
+  // changes we clear the list during render so a tab/filter switch shows an
+  // empty "loading" state instead of the previous selection's reviews while
+  // the (slower) document query is in flight. React's documented
+  // "adjust state during render" reset pattern.
+  const reviewsKey = `${selectedResourceId}::${reviewFilter ?? "all"}`;
+  const [reviewsKeyShown, setReviewsKeyShown] = useState(reviewsKey);
+  if (reviewsKeyShown !== reviewsKey) {
+    setReviewsKeyShown(reviewsKey);
+    setReviews([]);
+  }
   // DPNS names by identity ID, resolved lazily and cached across resources
   // (a reviewer's name doesn't change). `null` = looked up, none registered.
   const [dpnsNames, setDpnsNames] = useState<Record<string, string | null>>({});
@@ -620,15 +631,7 @@ export default function App() {
 
           <section className="detail">
             <div className="detail-head">
-              <p className="eyebrow eyebrow-row">
-                <span>{selectedResource.category}</span>
-                {loadingRatings && (
-                  <span className="inline-loading" role="status">
-                    <span className="mini-spinner" aria-hidden="true" />
-                    Refreshing
-                  </span>
-                )}
-              </p>
+              <p className="eyebrow">{selectedResource.category}</p>
               <div className="detail-title-row">
                 <h2>{selectedResource.title}</h2>
                 <div className="detail-actions">
@@ -824,11 +827,18 @@ export default function App() {
                 )}
               </div>
               {reviews.length === 0 ? (
-                <p>
-                  {reviewFilter == null
-                    ? "No reviews yet."
-                    : `No ${reviewFilter}★ reviews yet.`}
-                </p>
+                loadingRatings ? (
+                  <p className="inline-loading" role="status">
+                    <span className="mini-spinner" aria-hidden="true" />
+                    Loading reviews…
+                  </p>
+                ) : (
+                  <p>
+                    {reviewFilter == null
+                      ? "No reviews yet."
+                      : `No ${reviewFilter}★ reviews yet.`}
+                  </p>
+                )
               ) : (
                 <ul className="review-list">
                   {reviews.map((review) => (
