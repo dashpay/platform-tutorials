@@ -393,6 +393,10 @@ form > * + * {
   color: #17231f;
 }
 
+.panel-head p.panel-identity {
+  margin-top: 4px;
+}
+
 .resource-open {
   box-shadow: inset 0 0 0 1px #dbe4dc;
   padding: 0.55rem 0.85rem;

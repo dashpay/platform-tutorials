@@ -18,6 +18,7 @@ import {
   type RatingSummary,
   type ReviewRecord,
 } from "./dash/queries";
+import { resolveDpnsName } from "./dash/resolveDpnsName";
 import { saveReview } from "./dash/review";
 import type { DashKeyManager, DashSdk } from "./dash/types";
 import { consoleLogger, errorMessage, type LogLevel } from "./lib/logger";
@@ -63,6 +64,15 @@ const emptyDistribution = (): RatingDistribution => ({
 
 // Histogram rows render high-to-low, matching the convention of 5★ on top.
 const RATING_ROWS = [5, 4, 3, 2, 1] as const;
+
+// Display an identity as its DPNS name (if resolved) or a short ID fallback.
+function ownerLabel(
+  ownerId: string,
+  dpnsNames: Record<string, string | null>,
+): string {
+  const name = dpnsNames[ownerId];
+  return name ? name : shortId(ownerId);
+}
 
 function stars(value: number | null): string {
   if (value === null) return "No rating";
@@ -122,6 +132,9 @@ export default function App() {
   >({});
   const [reviews, setReviews] = useState<ReviewRecord[]>([]);
   const [reviewFilter, setReviewFilter] = useState<number | null>(null);
+  // DPNS names by identity ID, resolved lazily and cached across resources
+  // (a reviewer's name doesn't change). `null` = looked up, none registered.
+  const [dpnsNames, setDpnsNames] = useState<Record<string, string | null>>({});
   const [myReviews, setMyReviews] = useState<ReviewRecord[]>([]);
   const [myReviewsLoading, setMyReviewsLoading] = useState(false);
   const [mySelectedReview, setMySelectedReview] = useState<ReviewRecord | null>(
@@ -232,16 +245,10 @@ export default function App() {
         ),
       );
 
-      // Bulk load always shows the unfiltered list for the selected
-      // resource; the rating filter is applied by a separate effect so
-      // changing it doesn't re-run every resource's aggregate queries.
-      const fetchedReviews = await listResourceReviews({
-        sdk: activeSdk,
-        contractId,
-        resourceId: selectedResourceId,
-        log,
-      });
-      setReviews(fetchedReviews);
+      // The reviews list itself is owned by the dedicated reviews effect
+      // (keyed on resource + filter) so it's fetched once per
+      // (resource, filter) and clearing the filter re-fetches the full
+      // list. Bulk load only handles the per-resource aggregates here.
 
       if (session) {
         const mine = await findMyReviewForResource({
@@ -278,25 +285,26 @@ export default function App() {
     };
   }, [contractId, loadResourceData]);
 
-  // Re-fetch just the reviews list when the rating filter changes. The
-  // bulk load already fetched the unfiltered list, so skip the no-filter
-  // case to avoid a redundant query.
+  // Owns the recent-reviews list: (re)fetches it for the current resource
+  // and rating filter. Runs on resource change, filter set, AND filter
+  // clear (reviewFilter back to null) so clearing restores the full list.
   useEffect(() => {
-    if (!contractId || reviewFilter == null) return;
+    // No contract → loadResourceData already cleared the list to [].
+    if (!contractId) return;
     let cancelled = false;
     (async () => {
       try {
         const activeSdk = session?.sdk ?? (await connectReadOnly());
-        const filtered = await listResourceReviews({
+        const list = await listResourceReviews({
           sdk: activeSdk,
           contractId,
           resourceId: selectedResourceId,
-          ratingFilter: reviewFilter,
+          ratingFilter: reviewFilter ?? undefined,
           log,
         });
-        if (!cancelled) setReviews(filtered);
+        if (!cancelled) setReviews(list);
       } catch (err) {
-        if (!cancelled) setStatus(`Filter failed: ${errorMessage(err)}`);
+        if (!cancelled) setStatus(`Reviews failed: ${errorMessage(err)}`);
       }
     })();
     return () => {
@@ -310,6 +318,43 @@ export default function App() {
     selectedResourceId,
     session,
   ]);
+
+  // Resolve DPNS names for the identities currently on screen (review
+  // authors, my-review owners, the signed-in user). Lazy: the lists render
+  // with short IDs first and names swap in as they arrive. Only distinct,
+  // not-yet-cached owners are looked up, in parallel, so revisiting a
+  // resource costs nothing and a feed of N rows by M reviewers is M calls.
+  useEffect(() => {
+    const candidates = new Set<string>();
+    for (const review of reviews) candidates.add(review.ownerId);
+    for (const review of myReviews) candidates.add(review.ownerId);
+    if (session) candidates.add(session.identityId);
+    const pending = [...candidates].filter(
+      (id) => id && !(id in dpnsNames),
+    );
+    if (pending.length === 0) return;
+
+    let cancelled = false;
+    (async () => {
+      try {
+        const activeSdk = session?.sdk ?? (await connectReadOnly());
+        const resolved = await Promise.all(
+          pending.map(async (id) => [
+            id,
+            await resolveDpnsName(activeSdk, id),
+          ] as const),
+        );
+        if (!cancelled) {
+          setDpnsNames((prev) => ({ ...prev, ...Object.fromEntries(resolved) }));
+        }
+      } catch {
+        // Name resolution is best-effort; the UI falls back to short IDs.
+      }
+    })();
+    return () => {
+      cancelled = true;
+    };
+  }, [connectReadOnly, dpnsNames, myReviews, reviews, session]);
 
   useEffect(() => {
     if (!session || !contractId) return;
@@ -787,7 +832,11 @@ export default function App() {
               ) : (
                 <ul className="review-list">
                   {reviews.map((review) => (
-                    <ReviewRow key={review.id} review={review} />
+                    <ReviewRow
+                      key={review.id}
+                      review={review}
+                      ownerName={ownerLabel(review.ownerId, dpnsNames)}
+                    />
                   ))}
                 </ul>
               )}
@@ -799,7 +848,14 @@ export default function App() {
       {view === "my-reviews" && (
         <section className="panel">
           <div className="panel-head">
-            <h2>My reviews</h2>
+            <div>
+              <h2>My reviews</h2>
+              {session && (
+                <p className="panel-identity">
+                  <code>{ownerLabel(session.identityId, dpnsNames)}</code>
+                </p>
+              )}
+            </div>
             {session && myReviews.length > 0 && (
               <p>
                 {myReviews.length.toString()}{" "}
@@ -836,7 +892,15 @@ export default function App() {
             {session ? (
               <div>
                 <p>
-                  Identity: <code>{shortId(session.identityId)}</code>
+                  Identity:{" "}
+                  {dpnsNames[session.identityId] ? (
+                    <>
+                      <strong>{dpnsNames[session.identityId]}</strong>{" "}
+                      <code>{shortId(session.identityId)}</code>
+                    </>
+                  ) : (
+                    <code>{shortId(session.identityId)}</code>
+                  )}
                 </p>
                 <button type="button" onClick={signOut} disabled={busy}>
                   Sign out
@@ -983,11 +1047,17 @@ function MyReviewCard({
   );
 }
 
-function ReviewRow({ review }: { review: ReviewRecord }) {
+function ReviewRow({
+  review,
+  ownerName,
+}: {
+  review: ReviewRecord;
+  ownerName: string;
+}) {
   return (
     <li className="review-row">
       <div className="review-row-head">
-        <code className="review-row-owner">{shortId(review.ownerId)}</code>
+        <code className="review-row-owner">{ownerName}</code>
         <span className="review-row-sep" aria-hidden="true">
           ·
         </span>
