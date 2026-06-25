@@ -1,4 +1,4 @@
-import type { FormEvent } from "react";
+import { useRef, type FormEvent } from "react";
 import { RESOURCES, type RatedResource } from "../catalog/resources";
 import type {
   RatingDistribution,
@@ -66,6 +66,19 @@ export function ResourcesView({
   onReviewTextChange: (text: string) => void;
   onLoadHistory: () => void;
 }) {
+  const detailRef = useRef<HTMLElement>(null);
+
+  // On the stacked mobile layout the resource list sits above the detail
+  // panel, so a tap leaves the rating/reviews off-screen. Scroll the detail
+  // into view there; on the two-column desktop layout both are already
+  // visible, so leave the scroll position alone.
+  function handleSelectResource(resourceId: string) {
+    onSelectResource(resourceId);
+    if (window.matchMedia("(max-width: 820px)").matches) {
+      detailRef.current?.scrollIntoView({ behavior: "smooth", block: "start" });
+    }
+  }
+
   const selectedSummary =
     summaries[selectedResource.id] ?? emptySummary(selectedResource.id);
   const selectedDistribution =
@@ -88,7 +101,7 @@ export function ResourcesView({
                   ? "resource-card selected"
                   : "resource-card"
               }
-              onClick={() => onSelectResource(resource.id)}
+              onClick={() => handleSelectResource(resource.id)}
             >
               <span className="resource-category">{resource.category}</span>
               <strong>{resource.title}</strong>
@@ -107,7 +120,7 @@ export function ResourcesView({
         })}
       </aside>
 
-      <section className="detail">
+      <section className="detail" ref={detailRef}>
         <div className="detail-head">
           <p className="eyebrow">{selectedResource.category}</p>
           <div className="detail-title-row">

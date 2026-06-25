@@ -865,16 +865,34 @@ textarea {
   .shell {
     border-radius: 0;
     min-height: 100vh;
+    /* The desktop shell clips overflow for its rounded corners, but that
+       traps position: sticky. Corners are square here, so clip only the
+       horizontal axis and let the sticky topbar stick vertically. */
+    overflow: visible;
+    overflow-x: clip;
   }
 
   .topbar {
     align-items: flex-start;
+    /* Keep the nav reachable: the scroll-to-detail jump would otherwise
+       push these tabs off-screen on the stacked layout. */
+    background: white;
     flex-direction: column;
+    position: sticky;
+    top: 0;
+    z-index: 10;
   }
 
   .workspace {
     grid-template-columns: 1fr;
     padding: 18px;
+  }
+
+  /* The scroll-to-detail jump (ResourcesView) aligns the detail's top with
+     the viewport top; offset it so the sticky topbar doesn't cover the
+     resource heading. */
+  .detail {
+    scroll-margin-top: 120px;
   }
 
   .topbar {
