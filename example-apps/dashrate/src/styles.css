@@ -569,10 +569,19 @@ form > * + * {
   white-space: nowrap;
 }
 
-.histogram-row:hover:not(:disabled) .histogram-count,
 .histogram-row:focus-visible .histogram-count,
 .histogram-row.active .histogram-count {
   opacity: 1;
+}
+
+/* Hover-reveal only on devices with a real hovering pointer. On touch,
+   `:hover` latches when a tap/scroll passes over the row and stays stuck,
+   so the count would linger after scrolling — gate it behind a true hover
+   pointer and let touch rely on the active/focus rules above. */
+@media (hover: hover) {
+  .histogram-row:hover:not(:disabled) .histogram-count {
+    opacity: 1;
+  }
 }
 
 .review-rating,
@@ -905,8 +914,9 @@ textarea {
   }
 
   /* The scroll-to-detail jump (ResourcesView) aligns the detail's top with
-     the viewport top; offset it so the sticky topbar doesn't cover the
-     resource heading. */
+     the viewport top; it sets scroll-margin-top inline from the sticky
+     topbar's measured height so the wrapped header doesn't cover the
+     heading. This is the fallback if that measurement is unavailable. */
   .detail {
     scroll-margin-top: 120px;
   }

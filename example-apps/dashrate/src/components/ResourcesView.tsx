@@ -74,9 +74,18 @@ export function ResourcesView({
   // visible, so leave the scroll position alone.
   function handleSelectResource(resourceId: string) {
     onSelectResource(resourceId);
-    if (window.matchMedia("(max-width: 820px)").matches) {
-      detailRef.current?.scrollIntoView({ behavior: "smooth", block: "start" });
-    }
+    if (!window.matchMedia("(max-width: 820px)").matches) return;
+    const detail = detailRef.current;
+    if (!detail) return;
+    // The sticky topbar wraps to a variable height on mobile (brand stacks
+    // above the nav, and the nav itself wraps to 1–2 lines by viewport
+    // width). Measure its real height so the scroll offset matches the
+    // wrapped header instead of a hardcoded guess that over/undershoots.
+    const topbar = document.querySelector<HTMLElement>(".topbar");
+    detail.style.scrollMarginTop = topbar
+      ? `${topbar.offsetHeight + 12}px`
+      : "";
+    detail.scrollIntoView({ behavior: "smooth", block: "start" });
   }
 
   const selectedSummary =
@@ -176,9 +185,7 @@ export function ResourcesView({
                       <span className="histogram-track" aria-hidden="true">
                         <span
                           className={
-                            count > 0n
-                              ? "histogram-bar"
-                              : "histogram-bar empty"
+                            count > 0n ? "histogram-bar" : "histogram-bar empty"
                           }
                           style={{ width: `${widthPercent}%` }}
                         />
