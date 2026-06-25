@@ -9,3 +9,7 @@ example-apps/*/dist/
 example-apps/*/dist-ssr/
 example-apps/*/coverage/
 example-apps/*/*.local
+
+# Example apps (Playwright artifacts)
+example-apps/*/playwright-report/
+example-apps/*/test-results/
