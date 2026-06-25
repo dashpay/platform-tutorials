@@ -13,8 +13,10 @@ This app is the showcase for Platform 4.0's relational query features — provab
 - `npm run dev` — start Vite dev server
 - `npm run build` — typecheck (`tsc -b`) then bundle
 - `npm run lint` — ESLint
-- `npm run test` — Vitest suite in [test/](test/)
+- `npm run test` — Vitest suite in [test/](test/) (unit, component, and hook tests)
 - `npm run test:coverage` — Vitest suite under v8 coverage
+- `npm run test:e2e` — Playwright suite in [test/e2e/](test/e2e/) (auto-boots Vite on :5182)
+- `npm run test:e2e:ui` — Playwright with the interactive UI runner
 - `npm run format` / `format:check` — Prettier
 - `npm run preview` — serve production build locally
 
@@ -29,7 +31,8 @@ This app is the showcase for Platform 4.0's relational query features — provab
 - **[src/components/](src/components/)** — presentational components, props-only (no SDK imports): the four view shells [ResourcesView](src/components/ResourcesView.tsx), [MyReviewsView](src/components/MyReviewsView.tsx), [SettingsView](src/components/SettingsView.tsx), [HowItWorks](src/components/HowItWorks.tsx); [TopNav](src/components/TopNav.tsx) (owns the `View` type); [AppNotices](src/components/AppNotices.tsx) (status banner + "no contract" notice); and the pieces [ReviewForm](src/components/ReviewForm.tsx), [RecentReviews](src/components/RecentReviews.tsx), [ReviewRow](src/components/ReviewRow.tsx), [MyReviewCard](src/components/MyReviewCard.tsx), [ReviewHistory](src/components/ReviewHistory.tsx), [StarMeter](src/components/StarMeter.tsx) (partial-fill star renderer).
 - **[src/session/types.ts](src/session/types.ts)** — the `Session` shape (`{ sdk, keyManager, identityId }`) shared by App and the hooks.
 - **[src/lib/](src/lib/)** — pure utilities, no SDK references: [logger.ts](src/lib/logger.ts) (`Logger`/`LogLevel` types, `errorMessage`, `consoleLogger`), [format.ts](src/lib/format.ts) (`formatAverage`, `formatDate`, `shortId`), [ratings.ts](src/lib/ratings.ts) (`RATING_ROWS`, `emptySummary`/`emptyDistribution`, `ownerLabel`, `reviewCountLine`, text `stars`).
-- **[test/](test/)** — Vitest, flat directory, named after the subject ([queries](test/queries.test.ts), [contract](test/contract.test.ts), [history](test/history.test.ts), [review](test/review.test.ts), [resolveDpnsName](test/resolveDpnsName.test.ts), [resources](test/resources.test.ts), [format](test/format.test.ts), [logger](test/logger.test.ts)). Env is `node`. Tests stub the `DashSdk` shape rather than hitting the network. `npm run test:coverage` runs the suite under v8 coverage.
+- **[test/](test/)** — Vitest + Testing Library, flat directory, named after the subject. Three kinds: unit tests over `src/dash/` and `src/lib/` that stub the `DashSdk` shape (`*.test.ts`); component tests rendered with Testing Library (`*.test.tsx`); and hook tests via `renderHook`. Default Vitest env is `node`; component/hook tests opt into DOM with a `// @vitest-environment jsdom` pragma at the top of the file (the vitest `include` covers `**/*.test.{ts,tsx}`). Component/hook tests **mock the SDK loaders** (`vi.mock("../src/dash/sdkModule", …)` / `vi.mock("../src/dash/sdkCore", …)`) so the 8 MB bundle never imports — never let a test pull `@dashevo/evo-sdk` into the jsdom process. [tsconfig.app.json](tsconfig.app.json) includes `test`, so `tsc -b` (run by `build`) strict-typechecks the `.test.tsx` files — keep mock factories and stub props fully typed. `npm run test:coverage` runs the suite under v8 coverage.
+- **[test/e2e/](test/e2e/)** — Playwright specs plus shared `fixtures.ts`, driven by [playwright.config.ts](playwright.config.ts), which auto-starts `npx vite` on port 5182. Two projects (`chromium-desktop` / `chromium-mobile`) so every spec exercises both layouts. Runs against real testnet — no SDK mocks. The specs are read-only shell smoke tests ([smoke](test/e2e/smoke.spec.ts) — navigation, browse a resource, How-it-works; [settings](test/e2e/settings.spec.ts) — the sign-in form renders/gates without signing in); they assert rendering, not live rating data. Run locally via `npm run test:e2e`. [tsconfig.app.json](tsconfig.app.json)'s `exclude: ["test/e2e"]` keeps these out of the app `tsc -b` (Playwright typechecks them itself).
 
 ## Review contract
 
