@@ -30,6 +30,7 @@ Other scripts:
 ```bash
 npm run build
 npm run test
+npm run test:coverage
 npm run lint
 npm run preview
 ```
