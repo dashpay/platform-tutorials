@@ -9,6 +9,7 @@ Start the target app first, then run one of:
 npm run walkthrough:dashmint-lab
 npm run walkthrough:dashnote
 npm run walkthrough:dashnote-starter
+npm run walkthrough:dashrate
 ```
 
 The recorder assumes the app is available at `http://127.0.0.1:5173/`. Override
@@ -55,6 +56,7 @@ the recorder code:
 scripts/walkthroughs/captions/dashnote.json
 scripts/walkthroughs/captions/dashnote-starter.json
 scripts/walkthroughs/captions/dashmint-lab.json
+scripts/walkthroughs/captions/dashrate.json
 ```
 
 Each entry is a stable step name with the text shown in the video:
@@ -66,14 +68,14 @@ Each entry is a stable step name with the text shown in the video:
 ```
 
 Only edit the string values. The recorder keeps timing, clicks, waits, and
-testnet write behavior in code. The JSON file is the sole source of caption
-copy — the recorder errors out if the file is missing or a referenced key is
-absent or blank.
+testnet write behavior in code. The JSON file is the sole source of caption copy
+— the recorder errors out if the file is missing or a referenced key is absent
+or blank.
 
 ## Browser Setup
 
-The script looks for Playwright in the app's dependencies and the repo root.
-If Playwright lives somewhere else, set `PLAYWRIGHT_REQUIRE_PATH` to that
+The script looks for Playwright in the app's dependencies and the repo root. If
+Playwright lives somewhere else, set `PLAYWRIGHT_REQUIRE_PATH` to that
 `node_modules/playwright` location.
 
 If the normal Playwright browser cache is not available, point at a Chromium

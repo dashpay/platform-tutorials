@@ -32,6 +32,14 @@ const appConfigs = {
     previewAfter: 'how it works',
     run: runDashmintLab,
   },
+  dashrate: {
+    appDir: 'example-apps/dashrate',
+    fileStem: 'dashrate',
+    title: 'DashRate',
+    previewAfter: 'my reviews',
+    run: runDashrate,
+    viewport: { width: 1440, height: 1000 },
+  },
 };
 
 const usage = `Usage:
@@ -41,6 +49,7 @@ Apps:
   dashnote-starter
   dashnote
   dashmint-lab
+  dashrate
 
 Output:
   example-apps/<app>/walkthrough/<app>-walkthrough.webm
@@ -233,6 +242,7 @@ async function addWalkthroughOverlay(page, accent = '#34d399') {
         left: calc(50% + var(--walkthrough-caption-offset, 0px));
         top: 8px;
         z-index: 999999;
+        pointer-events: none;
         max-width: 560px;
         width: min(560px, calc(100vw - 540px));
         padding: 10px 16px;
@@ -351,6 +361,29 @@ function makeDriver(page) {
       const box = await locator.boundingBox();
       if (!box) throw new Error('Locator is not visible');
       await this.moveCursor(box.x + box.width / 2, box.y + box.height / 2);
+    },
+    async scrollToLocator(locator, block = 'center') {
+      const count = await locator.count();
+      if (count !== 1)
+        throw new Error(`Expected 1 locator match, found ${count}`);
+      await locator.evaluate((el, scrollBlock) => {
+        el.scrollIntoView({ behavior: 'smooth', block: scrollBlock });
+      }, block);
+      await delay(1000);
+    },
+    async scrollToFirstLocator(locator, block = 'center') {
+      const count = await locator.count();
+      if (count < 1) throw new Error('Expected at least 1 locator match');
+      await locator.first().evaluate((el, scrollBlock) => {
+        el.scrollIntoView({ behavior: 'smooth', block: scrollBlock });
+      }, block);
+      await delay(1000);
+    },
+    async scrollToTop() {
+      await page.evaluate(() =>
+        window.scrollTo({ top: 0, behavior: 'smooth' }),
+      );
+      await delay(900);
     },
     async clickFirstLocator(locator) {
       const count = await locator.count();
@@ -873,6 +906,239 @@ async function runDashmintLab(page) {
   await driver.delay(1900);
 }
 
+async function runDashrate(page) {
+  page.logStep('Navigating to app');
+  await page.goto(page.walkthroughUrl, {
+    waitUntil: 'domcontentloaded',
+    timeout: 15000,
+  });
+  await page.getByRole('heading', { name: 'DashRate', level: 1 }).waitFor({
+    state: 'visible',
+    timeout: 10000,
+  });
+  await page
+    .locator('aside[aria-label="Tutorial resources"] button')
+    .first()
+    .waitFor({ state: 'visible', timeout: 10000 });
+
+  await addWalkthroughOverlay(page, '#0ea5e9');
+  await page.evaluate(() => {
+    document.documentElement.style.setProperty(
+      '--walkthrough-caption-offset',
+      '90px',
+    );
+  });
+
+  const driver = makeDriver(page);
+  const saveButton = page
+    .locator('.review-form')
+    .getByRole('button', { name: 'Save review' });
+  const reviewTextarea = page.locator('#review-comment');
+  const reviewText = (label) =>
+    `Walkthrough ${label} ${new Date().toISOString().slice(0, 19)}Z`;
+  const waitForSaveToFinish = async () => {
+    await page.waitForFunction(
+      () => {
+        const button = [...document.querySelectorAll('button')].find(
+          (candidate) => candidate.textContent?.trim() === 'Save review',
+        );
+        return Boolean(button && !button.disabled);
+      },
+      null,
+      { timeout: 90000 },
+    );
+  };
+  const saveCurrentReview = async (captionKey) => {
+    await driver.captionKey(captionKey);
+    await driver.clickLocator(saveButton);
+    await waitForSaveToFinish();
+    await driver.delay(1200);
+  };
+  const navButton = (name) =>
+    page
+      .locator('nav[aria-label="Primary navigation"]')
+      .getByRole('button', { name, exact: true });
+  const goToNav = async (name, heading) => {
+    await driver.scrollToTop();
+    await driver.clickLocator(navButton(name));
+    await driver.scrollToTop();
+    await heading.waitFor({ state: 'visible', timeout: 15000 });
+  };
+
+  await driver.delay(900);
+  await driver.captionKey('intro');
+  await driver.moveToLocator(
+    page.locator('aside[aria-label="Tutorial resources"] button').first(),
+  );
+  await driver.captionKey('resourceList');
+
+  const preferredResource = page
+    .locator('aside[aria-label="Tutorial resources"] button')
+    .filter({ hasText: 'Dashnote' });
+  if ((await preferredResource.count()) === 1) {
+    await driver.clickLocator(preferredResource);
+  }
+  await page.getByRole('heading', { name: 'Dashnote', level: 2 }).waitFor({
+    state: 'visible',
+    timeout: 10000,
+  });
+  await driver.captionKey('resourceDetail');
+  await driver.moveToLocator(
+    page.locator('[aria-label="Aggregate rating stats"]'),
+  );
+  await driver.captionKey('aggregateStats');
+
+  const histogramRows = page.locator('.histogram-row');
+  if ((await histogramRows.count()) > 0) {
+    await driver.captionKey('histogram');
+    await driver.clickFirstLocator(histogramRows);
+    await page.getByRole('heading', { name: /reviews$/ }).waitFor({
+      state: 'visible',
+      timeout: 10000,
+    });
+    await driver.scrollToFirstLocator(
+      page.locator('.review-list-head'),
+      'center',
+    );
+    await driver.captionKey('filteredReviews');
+    const clearFilter = page.getByRole('button', { name: 'Clear filter' });
+    if ((await clearFilter.count()) === 1) {
+      await driver.clickLocator(clearFilter);
+    }
+  } else {
+    await driver.captionKey('noHistogram');
+  }
+
+  await driver.scrollToFirstLocator(
+    page.locator('.review-list-head'),
+    'center',
+  );
+  await driver.captionKey('recentReviews');
+  await driver.moveToLocator(
+    page.getByRole('heading', { name: 'Recent reviews' }),
+  );
+  await driver.delay(700);
+
+  if (page.walkthroughCredentials) {
+    page.logStep('Signing in with walkthrough mnemonic');
+    await driver.captionKey('settingsLogin');
+    await goToNav('Settings', page.getByRole('heading', { name: 'Settings' }));
+    await page.addStyleTag({
+      content:
+        '.settings input[type="password"] { color: transparent !important; caret-color: transparent !important; }',
+    });
+    await driver.clickLocator(page.locator('.settings input[type="password"]'));
+    await page
+      .locator('.settings input[type="password"]')
+      .fill(page.walkthroughCredentials.mnemonic);
+    if (page.walkthroughCredentials.identityIndex !== 0) {
+      await driver.clickLocator(
+        page.getByRole('button', { name: 'Advanced settings' }),
+      );
+      await page
+        .locator('.settings input[type="number"]')
+        .fill(String(page.walkthroughCredentials.identityIndex));
+    }
+    await driver.clickLocator(
+      page.locator('.settings form').first().getByRole('button', {
+        name: 'Sign in',
+      }),
+    );
+    await page.getByRole('button', { name: 'Sign out' }).waitFor({
+      state: 'visible',
+      timeout: 60000,
+    });
+    await driver.captionKey('signedIn');
+    await driver.captionKey('contractSettings');
+    const advanced = page.getByRole('button', { name: 'Advanced settings' });
+    const expanded = await advanced.getAttribute('aria-expanded');
+    if (expanded !== 'true') await driver.clickLocator(advanced);
+    await driver.moveToLocator(page.locator('input[name="contractId"]'));
+    await driver.delay(800);
+
+    page.logStep('Switching to My reviews');
+    await goToNav(
+      'My reviews',
+      page.getByRole('heading', { name: 'My reviews' }),
+    );
+    await driver.captionKey('myReviews');
+
+    const reviewCards = page.locator('.my-review-card');
+    await Promise.race([
+      reviewCards.first().waitFor({ state: 'visible', timeout: 12000 }),
+      page
+        .getByText('No reviews from this identity yet.')
+        .waitFor({ state: 'visible', timeout: 12000 }),
+    ]).catch(() => {});
+
+    if ((await reviewCards.count()) > 0) {
+      await driver.moveToLocator(reviewCards.first());
+      await driver.captionKey('myReviewCards');
+      await driver.captionKey('editReview');
+      await driver.clickFirstLocator(
+        page.getByRole('button', { name: 'Edit review' }),
+      );
+      await driver.scrollToTop();
+      await page.getByRole('heading', { name: 'Your review' }).waitFor({
+        state: 'visible',
+        timeout: 10000,
+      });
+      await driver.scrollToLocator(page.locator('.review-form'), 'center');
+      await driver.captionKey('prefilledReview');
+      await driver.clickLocator(reviewTextarea);
+      await reviewTextarea.fill(reviewText('review update'));
+      await saveCurrentReview('saveUpdatedReview');
+    } else {
+      await driver.captionKey('emptyMyReviews');
+      await goToNav(
+        'Resources',
+        page.getByRole('heading', { name: 'Dashnote', level: 2 }),
+      );
+      await driver.scrollToLocator(page.locator('.review-form'), 'center');
+      await driver.captionKey('createReview');
+      await driver.clickLocator(
+        page.getByRole('radio', { name: '5 stars', exact: true }),
+      );
+      await driver.clickLocator(reviewTextarea);
+      await reviewTextarea.fill(reviewText('review create'));
+      await saveCurrentReview('saveCreatedReview');
+      await driver.clickLocator(reviewTextarea);
+      await reviewTextarea.fill(reviewText('review edit'));
+      await saveCurrentReview('saveUpdatedReview');
+    }
+
+    await driver.scrollToLocator(page.locator('.review-form'), 'center');
+    const versionsButton = page.getByRole('button', {
+      name: 'Show previous versions',
+    });
+    try {
+      await versionsButton.waitFor({ state: 'visible', timeout: 30000 });
+    } catch {
+      // If the network has not returned the freshly saved review yet, continue
+      // with the visible edit form instead of stalling the recording.
+    }
+    if ((await versionsButton.count()) === 1) {
+      await driver.captionKey('showHistory');
+      await driver.clickLocator(versionsButton);
+      await page.locator('.review-history').waitFor({
+        state: 'visible',
+        timeout: 60000,
+      });
+      await driver.scrollToLocator(page.locator('.review-history'), 'center');
+      await driver.captionKey('previousVersions');
+    }
+  } else {
+    await driver.captionKey('readOnlyLoginPath');
+    await goToNav('Settings', page.getByRole('heading', { name: 'Settings' }));
+    await driver.moveToLocator(
+      page.locator('.settings input[type="password"]'),
+    );
+    await driver.delay(1000);
+  }
+
+  await driver.captionKey('outro', 1900);
+}
+
 function logStep(label) {
   const ts = new Date().toISOString().slice(11, 19);
   console.log(`[${ts}] ${label}`);
@@ -898,10 +1164,11 @@ async function main() {
 
   logStep(`Launching ${args.headed ? 'headed' : 'headless'} browser`);
   const browser = await launchBrowser({ appDir, headed: args.headed });
+  const viewport = config.viewport ?? { width: 1280, height: 800 };
   const context = await browser.newContext({
-    viewport: { width: 1280, height: 800 },
+    viewport,
     deviceScaleFactor: 1,
-    recordVideo: { dir: tmpVideoDir, size: { width: 1280, height: 800 } },
+    recordVideo: { dir: tmpVideoDir, size: viewport },
   });
   const page = await context.newPage();
   page.walkthroughUrl = args.url;
