@@ -179,12 +179,9 @@ export async function getRatingCount({
   log?: Logger;
 }): Promise<bigint> {
   const query = resourceAggregateQuery(contractId, resourceId);
-  log(`Counting reviews for ${resourceId}...`);
   try {
     const counts = await sdk.documents.count(query);
-    const total = firstMapValue(counts) ?? 0n;
-    log(`Count for ${resourceId}: ${total}`);
-    return total;
+    return firstMapValue(counts) ?? 0n;
   } catch (err) {
     log(`Count query failed for ${resourceId}: ${errorMessage(err)}`, "error");
     throw err;
@@ -209,7 +206,6 @@ export async function getRatingDistribution({
   resourceId: string;
   log?: Logger;
 }): Promise<RatingDistribution> {
-  log(`Loading rating distribution for ${resourceId}...`);
   try {
     const counts = await sdk.documents.count({
       dataContractId: contractId,
@@ -225,7 +221,6 @@ export async function getRatingDistribution({
     for (const rating of RATING_VALUES) {
       distribution[rating] = counts.get(ratingKeyHex(rating)) ?? 0n;
     }
-    log(`Distribution for ${resourceId}: ${distributionLabel(distribution)}`);
     return distribution;
   } catch (err) {
     log(
@@ -234,12 +229,6 @@ export async function getRatingDistribution({
     );
     throw err;
   }
-}
-
-function distributionLabel(distribution: RatingDistribution): string {
-  return RATING_VALUES.map(
-    (rating) => `${rating}★=${distribution[rating] ?? 0n}`,
-  ).join(" ");
 }
 
 export async function listResourceReviews({
@@ -274,9 +263,6 @@ export async function listResourceReviews({
   if (ratingFilter != null) {
     where.push(["rating", "==", ratingFilter]);
     orderBy = [["rating", "asc"]];
-    log(`Loading ${ratingFilter}-star reviews for ${resourceId}...`);
-  } else {
-    log(`Loading reviews for ${resourceId}...`);
   }
   const results = await sdk.documents.query({
     dataContractId: contractId,
@@ -305,7 +291,6 @@ export async function listMyReviews({
   limit?: number;
   log?: Logger;
 }): Promise<ReviewRecord[]> {
-  log(`Loading reviews for identity ${ownerId}...`);
   const results = await sdk.documents.query({
     dataContractId: contractId,
     documentTypeName: "review",
@@ -328,15 +313,12 @@ export async function findMyReviewForResource({
   contractId,
   resourceId,
   ownerId,
-  log = consoleLogger,
 }: {
   sdk: DashSdk;
   contractId: string;
   resourceId: string;
   ownerId: string;
-  log?: Logger;
 }): Promise<ReviewRecord | null> {
-  log(`Checking existing review for ${resourceId} by ${ownerId}...`);
   const results = await sdk.documents.query({
     dataContractId: contractId,
     documentTypeName: "review",
@@ -350,11 +332,5 @@ export async function findMyReviewForResource({
     ],
     limit: 1,
   });
-  const review = normalizeReviews(results)[0] ?? null;
-  log(
-    review
-      ? `Found existing review ${review.id}.`
-      : "No existing review found.",
-  );
-  return review;
+  return normalizeReviews(results)[0] ?? null;
 }

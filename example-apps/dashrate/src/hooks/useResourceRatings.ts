@@ -133,6 +133,7 @@ export function useResourceRatings({
           ]),
         ),
       );
+      scopedLog(`Loaded ratings for ${perResource.length} resources.`);
 
       if (session) {
         const mine = await findMyReviewForResource({
@@ -140,7 +141,6 @@ export function useResourceRatings({
           contractId,
           resourceId: selectedResourceId,
           ownerId: session.identityId,
-          log: scopedLog,
         });
         if (!isCurrentRequest()) return;
         setMySelectedReview(mine);

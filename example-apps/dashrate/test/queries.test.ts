@@ -341,7 +341,6 @@ describe("DashRate findMyReviewForResource", () => {
       contractId: "c1",
       resourceId: "tokens",
       ownerId: "owner-1",
-      log: () => {},
     });
 
     expect(review?.id).toBe("doc-1");
@@ -370,7 +369,6 @@ describe("DashRate findMyReviewForResource", () => {
         contractId: "c1",
         resourceId: "tokens",
         ownerId: "owner-1",
-        log: () => {},
       }),
     ).toBeNull();
   });

@@ -895,4 +895,62 @@ textarea {
     justify-items: start;
     text-align: left;
   }
+
+  /* Notices use the desktop 28px topbar inset; pull them in to align with
+     the panels, which drop to an 18px margin here. */
+  .status,
+  .notice {
+    margin: 16px 18px 0;
+  }
+}
+
+/* Small-phone tier, layered under the 820px breakpoint: extra tightening of
+   spacing and a few row→column stacks that the wider breakpoint leaves alone
+   (those rules are right for tablet/landscape). */
+@media (max-width: 480px) {
+  .workspace {
+    gap: 18px;
+    padding: 16px 14px 24px;
+  }
+
+  .topbar {
+    padding: 14px;
+  }
+
+  .topbar nav {
+    gap: 12px 16px;
+  }
+
+  .panel {
+    margin: 14px;
+  }
+
+  .status,
+  .notice {
+    margin: 14px 14px 0;
+  }
+
+  /* Never let the distribution chart exceed a narrow viewport. */
+  .rating-histogram {
+    max-width: 100%;
+  }
+
+  /* Stack the title and the "Open ↗" action instead of squeezing them onto
+     one row. */
+  .detail-title-row {
+    align-items: flex-start;
+    flex-direction: column;
+    gap: 8px;
+  }
+
+  .detail-actions {
+    justify-content: flex-start;
+  }
+
+  /* Stack the signed-out prompt above its "Go to Settings" button. */
+  .signin-cta {
+    align-items: flex-start;
+    flex-direction: column;
+    gap: 12px;
+  }
 }
