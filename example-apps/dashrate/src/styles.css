@@ -75,8 +75,7 @@ code {
 }
 
 .topbar,
-.row,
-.section-head {
+.row {
   align-items: center;
   display: flex;
   gap: 12px;
@@ -201,8 +200,9 @@ code {
 }
 
 /* One uniform card holding the optional identity index + contract controls.
-   The inner contract form sheds its own .settings-form card so the group
-   reads as a single panel, not a box inside a box. */
+   The nested form sheds its `.settings form` card chrome (see
+   `.advanced-section form` below) so the group reads as a single panel,
+   not a box inside a box. */
 .advanced-section {
   border-radius: 12px;
   box-shadow: inset 0 0 0 1px #e7ece7;
@@ -255,6 +255,22 @@ code {
   to {
     transform: rotate(360deg);
   }
+}
+
+/* Visually hidden but exposed to screen readers — for labels that are
+   redundant visually (e.g. a placeholder-described field) but still needed
+   for assistive tech. */
+.sr-only {
+  border: 0;
+  clip: rect(0 0 0 0);
+  clip-path: inset(50%);
+  height: 1px;
+  margin: -1px;
+  overflow: hidden;
+  padding: 0;
+  position: absolute;
+  white-space: nowrap;
+  width: 1px;
 }
 
 .eyebrow,
@@ -447,10 +463,13 @@ form > * + * {
 }
 
 /* Section headings sit flush against the section's top padding — drop the
-   default <h3> top margin so "Your review" / "Review history" align with
-   "Recent reviews" (whose h3 is already reset in .review-list-head). */
+   default <h3> top margin so "Rate this resource" / "Review history" align
+   with "Recent reviews" (whose h3 is already reset in .review-list-head).
+   Trim the default ~18px bottom margin so content (e.g. the star picker)
+   sits close under the heading. */
 .resource-section > h3 {
   margin-top: 0;
+  margin-bottom: 8px;
 }
 
 /* Aggregate rating sits directly under the title: score, stars, count
@@ -583,11 +602,6 @@ label {
   gap: 6px;
 }
 
-.field-label {
-  display: block;
-  margin-bottom: 6px;
-}
-
 input,
 select,
 textarea {
@@ -597,17 +611,39 @@ textarea {
   width: 100%;
 }
 
+input:focus,
+select:focus,
+textarea:focus {
+  background: #fff;
+  border-color: #2f856b;
+  box-shadow: 0 0 0 3px rgb(47 133 107 / 0.12);
+  outline: none;
+}
+
 textarea {
+  background: #fbfdfb;
+  line-height: 1.5;
+  min-height: 96px;
+  padding: 14px 16px;
   resize: vertical;
 }
 
 .star-picker {
-  display: inline-flex;
+  display: flex;
   gap: 4px;
+  margin-top: 8px;
+}
+
+/* The form's default 24px child rhythm (`form > * + *`) leaves too big a gap
+   between the stars and the comment box — they're one review action, so pull
+   the textarea up. The sr-only <label> between them is position:absolute, so
+   the textarea is the visible child that carries the gap. */
+.review-form textarea {
+  margin-top: 12px;
 }
 
 .star {
-  align-items: center;
+  align-items: flex-start;
   background: transparent;
   border: 0;
   color: #8b938b;
@@ -650,6 +686,41 @@ textarea {
 
 .filter-clear:hover:not(:disabled) {
   background: #f4f8f5;
+}
+
+/* A quiet text-link toggle for secondary display actions (e.g. show/hide
+   revision history) — not a peer to the form's primary buttons, so it drops
+   the global button chrome (fill, border-radius, padding). */
+.text-toggle {
+  background: transparent;
+  border-radius: 0;
+  color: #2f856b;
+  flex: 0 0 auto;
+  font-size: 0.82rem;
+  font-weight: 600;
+  padding: 0;
+}
+
+.text-toggle:hover:not(:disabled) {
+  background: transparent;
+  text-decoration: underline;
+}
+
+/* Revision history is secondary context for the user's own review, not a peer
+   section: nest it under "Your review" with a left rule and indent instead of
+   the full-width top divider that separates peer sections. */
+.review-history {
+  border-left: 2px solid #e7ece7;
+  margin-top: 16px;
+  padding-left: 16px;
+}
+
+.review-history .review-list {
+  margin-top: 4px;
+}
+
+.review-history .review-row {
+  padding: 10px 0;
 }
 
 /* A feed of reviews reads as one continuous list: rows separated by thin

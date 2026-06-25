@@ -15,7 +15,6 @@ import {
 import { formatAverage } from "../lib/format";
 import { StarMeter } from "./StarMeter";
 import { ReviewForm } from "./ReviewForm";
-import { ReviewHistory } from "./ReviewHistory";
 import { RecentReviews } from "./RecentReviews";
 
 export function ResourcesView({
@@ -124,6 +123,7 @@ export function ResourcesView({
               </a>
             </div>
           </div>
+          <p className="detail-summary">{selectedResource.summary}</p>
           <div className="detail-rating" aria-label="Aggregate rating stats">
             <strong className="detail-rating-score">
               {selectedSummary.average === null
@@ -176,7 +176,6 @@ export function ResourcesView({
             </ul>
           )}
         </div>
-        <p>{selectedResource.summary}</p>
 
         <ReviewForm
           signedIn={signedIn}
@@ -186,6 +185,7 @@ export function ResourcesView({
           hoverRating={hoverRating}
           reviewText={reviewText}
           hasSelectedReview={hasSelectedReview}
+          history={history}
           onSubmit={onSaveReview}
           onOpenSettings={onOpenSettings}
           onRatingChange={onRatingChange}
@@ -193,8 +193,6 @@ export function ResourcesView({
           onReviewTextChange={onReviewTextChange}
           onLoadHistory={onLoadHistory}
         />
-
-        <ReviewHistory history={history} />
 
         <RecentReviews
           reviews={reviews}

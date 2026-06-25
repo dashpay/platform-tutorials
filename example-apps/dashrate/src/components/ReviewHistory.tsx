@@ -5,8 +5,7 @@ export function ReviewHistory({ history }: { history: ReviewHistoryEntry[] }) {
   if (history.length === 0) return null;
 
   return (
-    <section className="resource-section">
-      <h3>Review history</h3>
+    <section className="review-history">
       <ul className="review-list">
         {history.map((entry) => (
           <li

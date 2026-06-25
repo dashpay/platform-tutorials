@@ -253,6 +253,10 @@ export default function App() {
           onHoverRatingChange={ratings.setHoverRating}
           onReviewTextChange={ratings.setReviewText}
           onLoadHistory={() => {
+            if (history.length > 0) {
+              setHistory([]);
+              return;
+            }
             if (ratings.mySelectedReview) {
               void handleLoadHistory(ratings.mySelectedReview.id);
             }
