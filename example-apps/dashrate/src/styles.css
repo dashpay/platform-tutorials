@@ -998,3 +998,24 @@ textarea {
     gap: 12px;
   }
 }
+
+.app-footer {
+  border-top: 1px solid rgb(23 35 31 / 0.1);
+  display: flex;
+  justify-content: center;
+  padding: 20px;
+}
+
+.app-footer a {
+  align-items: center;
+  color: rgb(23 35 31 / 0.55);
+  display: inline-flex;
+  font-size: 0.85rem;
+  font-weight: 600;
+  gap: 6px;
+  text-decoration: none;
+}
+
+.app-footer a:hover {
+  color: #2f856b;
+}
