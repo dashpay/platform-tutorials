@@ -319,13 +319,17 @@ time {
 
 .resource-list {
   align-content: start;
+  /* Tighter than the shared 10px gap — with borders gone, the cards read
+     as one continuous list rather than separate tiles. */
+  gap: 4px;
   grid-auto-rows: 104px;
 }
 
 .resource-card {
-  background: white;
-  border: 1px solid #e4ebe5;
-  box-shadow: 0 8px 22px rgb(23 35 31 / 0.04);
+  background: transparent;
+  /* Transparent border holds the same box size as the selected card so
+     selecting one doesn't nudge the layout. */
+  border: 1px solid transparent;
   color: #17231f;
   display: grid;
   gap: 4px;
@@ -340,7 +344,6 @@ time {
    subtle tint so hovering doesn't flood the whole card. */
 .resource-card:hover:not(:disabled) {
   background: #f4f8f5;
-  border-color: #cfe4db;
 }
 
 .resource-card.selected {
@@ -505,7 +508,7 @@ form > * + * {
   gap: 4px;
   list-style: none;
   margin: 12px 0 0;
-  max-width: 360px;
+  max-width: calc(360px + 10ch - 2rem);
   padding: 0;
 }
 
@@ -517,7 +520,7 @@ form > * + * {
   display: grid;
   font-weight: 500;
   gap: 10px;
-  grid-template-columns: 2.2rem 1fr 2rem;
+  grid-template-columns: 2.2rem minmax(0, 1fr) 10ch;
   padding: 3px 6px;
   text-align: left;
   width: 100%;
@@ -554,9 +557,22 @@ form > * + * {
   min-width: 2px;
 }
 
+.histogram-bar.empty {
+  min-width: 0;
+}
+
 .histogram-count {
   font-size: 0.85rem;
+  opacity: 0;
   text-align: right;
+  transition: opacity 0.12s ease;
+  white-space: nowrap;
+}
+
+.histogram-row:hover:not(:disabled) .histogram-count,
+.histogram-row:focus-visible .histogram-count,
+.histogram-row.active .histogram-count {
+  opacity: 1;
 }
 
 .review-rating,

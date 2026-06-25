@@ -175,12 +175,16 @@ export function ResourcesView({
                       <span className="histogram-label">{value}★</span>
                       <span className="histogram-track" aria-hidden="true">
                         <span
-                          className="histogram-bar"
+                          className={
+                            count > 0n
+                              ? "histogram-bar"
+                              : "histogram-bar empty"
+                          }
                           style={{ width: `${widthPercent}%` }}
                         />
                       </span>
                       <span className="histogram-count">
-                        {count.toString()}
+                        {count.toString()} {count === 1n ? "review" : "reviews"}
                       </span>
                     </button>
                   </li>
