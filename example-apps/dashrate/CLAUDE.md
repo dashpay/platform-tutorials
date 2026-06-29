@@ -1,0 +1,80 @@
+# CLAUDE.md
+
+This file provides guidance to Claude Code when working in [example-apps/dashrate/](.).
+
+## Project Overview
+
+React + TypeScript + Vite app for rating and reviewing Dash Platform resources (tutorials and example apps) on testnet. A review has a required integer `rating` (1–5), an optional `reviewText`, and a `resourceId` pointing at a catalog entry. One review per identity per resource (enforced by a unique index) — saving again edits the existing document. The shell is a four-view app (`resources` / `my-reviews` / `settings` / `how`): the Resources view is a sidebar resource list + a detail panel showing the aggregate rating, a per-star distribution histogram, a review form, and recent reviews. Read-only browse works without auth; writing a review requires signing in with a mnemonic in Settings.
+
+This app is the showcase for Platform 4.0's relational query features — provable `count`, grouped `count` (`GROUP BY`), range counts, and `where` filtering. See [SDK query patterns](#sdk-query-patterns).
+
+## Commands
+
+- `npm run dev` — start Vite dev server
+- `npm run build` — typecheck (`tsc -b`) then bundle
+- `npm run lint` — ESLint
+- `npm run test` — Vitest suite in [test/](test/) (unit, component, and hook tests)
+- `npm run test:coverage` — Vitest suite under v8 coverage
+- `npm run test:e2e` — Playwright suite in [test/e2e/](test/e2e/) (auto-boots Vite on :5182)
+- `npm run test:e2e:ui` — Playwright with the interactive UI runner
+- `npm run format` / `format:check` — Prettier
+- `npm run preview` — serve production build locally
+
+## Architecture
+
+`App.tsx` is the orchestrator: it owns the cross-cutting state and handlers, calls the data hooks, and renders one presentational view component per `view`. The layers:
+
+- **[src/dash/](src/dash/)** — one file per Platform SDK concern, each with a leading JSDoc block naming the SDK method it wraps: [contract.ts](src/dash/contract.ts) (schema + register/store contract ID), [queries.ts](src/dash/queries.ts) (all reads — count, grouped count, document query, normalization, summary derivation), [review.ts](src/dash/review.ts) (create/replace a review), [history.ts](src/dash/history.ts) (document revision history), [resolveDpnsName.ts](src/dash/resolveDpnsName.ts) (DPNS username lookup for reviewer names, via `sdk.dpns.username`), [types.ts](src/dash/types.ts) (shared SDK type aliases incl. the `DashSdk` shape), [sdkModule.ts](src/dash/sdkModule.ts) (cached dynamic `import("@dashevo/evo-sdk")`), [sdkCore.ts](src/dash/sdkCore.ts) (cached dynamic `import` of the shared core at `../../../../setupDashClient-core.mjs`, exposing `loadSdkCore()`), [client.ts](src/dash/client.ts) / [keyManager.ts](src/dash/keyManager.ts) (re-export `createClient` / `IdentityKeyManager` from that shared core).
+- **[src/catalog/resources.ts](src/catalog/resources.ts)** — the hardcoded `RESOURCES` list (tutorials + example apps). Each has `id` (used as `resourceId`), `title`, `category`, `summary`, `href`. Resources are compile-time static — there's no user-facing "add a resource" flow.
+- **[src/App.tsx](src/App.tsx)** — owns top-level state (session, `contractId`/`contractInput`, `selectedResourceId`, `view`, sign-in form fields, `history`, `status`, `busy`), the action handlers (`handleSignIn`, `handleSaveReview`, `handleRegisterContract`, `handleLoadHistory`, contract submit/clear, sign-out, resource select, edit-my-review), and the `connectReadOnly` read-only SDK factory. It loads the shared SDK core via [sdkCore.ts](src/dash/sdkCore.ts)'s `loadSdkCore()`.
+- **[src/hooks/](src/hooks/)** — data-fetching hooks, each returning state plus refresh callbacks: [useResourceRatings.ts](src/hooks/useResourceRatings.ts) (per-resource summaries/distributions, recent reviews, the review-composer state — `rating`/`hoverRating`/`reviewText`/`mySelectedReview` — `reviewFilter`, and the `loadResourceData`/`refreshReviews` effects with request-id guards against stale responses), [useMyReviews.ts](src/hooks/useMyReviews.ts) (the signed-in user's reviews + derived average, loaded lazily when the `my-reviews` view is active), [useDpnsNames.ts](src/hooks/useDpnsNames.ts) (best-effort DPNS name cache keyed by owner ID, resolved lazily for reviewers in view).
+- **[src/components/](src/components/)** — presentational components, props-only (no SDK imports): the four view shells [ResourcesView](src/components/ResourcesView.tsx), [MyReviewsView](src/components/MyReviewsView.tsx), [SettingsView](src/components/SettingsView.tsx), [HowItWorks](src/components/HowItWorks.tsx); [TopNav](src/components/TopNav.tsx) (owns the `View` type); [AppNotices](src/components/AppNotices.tsx) (status banner + "no contract" notice); and the pieces [ReviewForm](src/components/ReviewForm.tsx), [RecentReviews](src/components/RecentReviews.tsx), [ReviewRow](src/components/ReviewRow.tsx), [MyReviewCard](src/components/MyReviewCard.tsx), [ReviewHistory](src/components/ReviewHistory.tsx), [StarMeter](src/components/StarMeter.tsx) (partial-fill star renderer).
+- **[src/session/types.ts](src/session/types.ts)** — the `Session` shape (`{ sdk, keyManager, identityId }`) shared by App and the hooks.
+- **[src/lib/](src/lib/)** — pure utilities, no SDK references: [logger.ts](src/lib/logger.ts) (`Logger`/`LogLevel` types, `errorMessage`, `consoleLogger`), [format.ts](src/lib/format.ts) (`formatAverage`, `formatDate`, `shortId`), [ratings.ts](src/lib/ratings.ts) (`RATING_ROWS`, `emptySummary`/`emptyDistribution`, `ownerLabel`, `reviewCountLine`, text `stars`).
+- **[test/](test/)** — Vitest + Testing Library, flat directory, named after the subject. Three kinds: unit tests over `src/dash/` and `src/lib/` that stub the `DashSdk` shape (`*.test.ts`); component tests rendered with Testing Library (`*.test.tsx`); and hook tests via `renderHook`. Default Vitest env is `node`; component/hook tests opt into DOM with a `// @vitest-environment jsdom` pragma at the top of the file (the vitest `include` covers `**/*.test.{ts,tsx}`). Component/hook tests **mock the SDK loaders** (`vi.mock("../src/dash/sdkModule", …)` / `vi.mock("../src/dash/sdkCore", …)`) so the 8 MB bundle never imports — never let a test pull `@dashevo/evo-sdk` into the jsdom process. [tsconfig.app.json](tsconfig.app.json) includes `test`, so `tsc -b` (run by `build`) strict-typechecks the `.test.tsx` files — keep mock factories and stub props fully typed. `npm run test:coverage` runs the suite under v8 coverage.
+- **[test/e2e/](test/e2e/)** — Playwright specs plus shared `fixtures.ts`, driven by [playwright.config.ts](playwright.config.ts), which auto-starts `npx vite` on port 5182. Two projects (`chromium-desktop` / `chromium-mobile`) so every spec exercises both layouts. Runs against real testnet — no SDK mocks. The specs are read-only shell smoke tests ([smoke](test/e2e/smoke.spec.ts) — navigation, browse a resource, How-it-works; [settings](test/e2e/settings.spec.ts) — the sign-in form renders/gates without signing in); they assert rendering, not live rating data. Run locally via `npm run test:e2e`. [tsconfig.app.json](tsconfig.app.json)'s `exclude: ["test/e2e"]` keeps these out of the app `tsc -b` (Playwright typechecks them itself).
+
+## Review contract
+
+Schema lives in [src/dash/contract.ts](src/dash/contract.ts) as `REVIEW_SCHEMAS`. One document type, `review`:
+
+- `resourceId` — required string, 1–63 chars, position 0
+- `rating` — required integer, 1–5, position 1
+- `reviewText` — optional string, max 1000 chars, position 2
+- `$createdAt`, `$updatedAt` — required (Platform-managed)
+- `documentsMutable: true`, `documentsKeepHistory: true`, `canBeDeleted: false` — reviews are editable, keep revision history, and can't be deleted
+
+Indices:
+
+- `ownerAndResource` — unique (`$ownerId`, `resourceId`); enforces one review per identity per resource
+- `ownerReviews` — (`$ownerId`, `$updatedAt`); lists a user's reviews
+- `resourceRatingAggregate` — (`resourceId`), `countable`; total review count per resource
+- `resourceRatingDistribution` — (`resourceId`, `rating`), `countable` + `rangeCountable: true`; backs the grouped rating distribution AND the `rating == N` filter
+
+`DEFAULT_CONTRACT_ID` is `BdgTqaTAPYMyhp1WdeWdcvYSgoD7AuJ7tVCaCSXyQgyP`. Overrides are stored under `localStorage['dashrate.contractId']`. Settings can register a fresh contract and switch to it; the contract-ID input is controlled and auto-fills on register.
+
+## SDK query patterns
+
+This app deliberately demonstrates the relational query surface. The query types in play:
+
+- **Total count** — `sdk.documents.count({ where: [["resourceId","==",id]] })` over the single-property `resourceRatingAggregate` index. Ungrouped result is a one-entry `Map` keyed `""`; read with `firstMapValue`. (`getRatingCount` in [queries.ts](src/dash/queries.ts).)
+- **Grouped distribution count** — `sdk.documents.count({ where: [["resourceId","==",id], ["rating","between",[1,5]]], groupBy: ["rating"], orderBy: [["rating","asc"]] })` over `resourceRatingDistribution`. Returns one entry per present rating. The average is **derived in JS** from these per-star counts (`summaryFromDistribution`) — there is no `sum`/`average` query. (`getRatingDistribution` in [queries.ts](src/dash/queries.ts).)
+- **Filter by rating** — `listResourceReviews` adds `["rating","==",N]` to the `where` (a point lookup covered by `[resourceId, rating]`). Server-side on purpose, to demonstrate `where` filtering and stay correct past the fetch limit.
+- **Document query / history** — `sdk.documents.query` for the review list; `sdk.documents.history` for revisions.
+
+`normalizeReviews` / `normalizeSingleReview` in [queries.ts](src/dash/queries.ts) flatten whatever shape `query`/`get` returns (array, Map, plain object) into `ReviewRecord[]`.
+
+## Performance — load-anchor rules
+
+Same as the sibling apps: the `@dashevo/evo-sdk` browser bundle is ~8 MB and must stay off the boot critical path. **Never add a top-level value import from `@dashevo/evo-sdk`** to any file reachable from `App.tsx` — go through [sdkModule.ts](src/dash/sdkModule.ts)'s cached dynamic import (type-only imports are fine). The shared core is loaded via [sdkCore.ts](src/dash/sdkCore.ts)'s `loadSdkCore()` — two distinct loaders, don't merge. The `modulePreload.resolveDependencies` filter in [vite.config.ts](vite.config.ts) strips the `evo-sdk` chunk so Vite doesn't inject a `<link rel="modulepreload">` that re-blocks first paint. The synchronous exports of [contract.ts](src/dash/contract.ts) (`REVIEW_SCHEMAS`, `loadStoredContractId`, `saveContractId`, `clearStoredContractId`, `DEFAULT_CONTRACT_ID`) must stay synchronous — they run during initial render before the SDK loads.
+
+## Gotchas
+
+- **Grouped-count map keys are raw index-key bytes, NOT the value.** `count` with `groupBy: ["rating"]` returns a `Map` keyed by the hex of the property's order-preserving index-key encoding, not the integer. For a small positive integer that's the sign-flipped single byte `0x80 | value` → rating 5 is key `"85"`, rating 1 is `"81"` (verified against the live contract — it is _not_ an 8-byte big-endian form). `ratingKeyHex(r) = (0x80 | r).toString(16)` in [queries.ts](src/dash/queries.ts) re-encodes each known rating to look it up. The SDK exposes no decoder, so the client encodes the values it's looking for rather than decoding what comes back.
+- **`rangeCountable` is a separate flag from `countable`, required for range/grouped counts.** A range count (the `between` on `rating` that drives the grouped distinct walk) needs `rangeCountable: true` on the index, with the range field as the **last** index property. A `countable`-only index fails at query time with `range count requires a range_countable: true index whose last property matches the range field`.
+- **Don't mix `summable` and a deeper count-only index on a shared prefix** — it registers fine but breaks every document insert (`NotCountedOrSummed-wrapping is only supported for the six sum-bearing tree variants`). `resourceRatingAggregate` is intentionally count-only (no `summable`) so its `resourceId` value tree isn't count+sum and can host `resourceRatingDistribution`'s count-only `rating` continuation. The average is derived from the distribution instead of a `sum`/`average` query. Full analysis: [dashpay/platform#3960](https://github.com/dashpay/platform/issues/3960).
+- **`between` value is a 2-element array, inclusive.** `["rating","between",[1,5]]` matches `1 <= rating <= 5`. The drive expects exactly two bounds.
+- **A document query's `orderBy` field must be the serving index's TRAILING property — even for equality filters.** The index matcher (`Index::matches`) reserves the order-by field from the _back_ of the index. So filtering reviews by rating (`where resourceId== AND rating==`) must use `orderBy: [["rating","asc"]]` (the last property of `[resourceId, rating]`); ordering by `resourceId` there strips `rating` from the usable prefix and the query is rejected as `where clause on non indexed property … query must be for valid indexes`. `listResourceReviews` switches `orderBy` based on whether a `ratingFilter` is set. (Server `orderBy` only drives index selection here; the list is re-sorted client-side by `createdAt`.)
+- **Update flow** (`saveReview` replacing an existing review) bumps the revision off the fetched document; the unique `ownerAndResource` index means a second save edits rather than duplicates.
+- **The contract-ID input is controlled** (`contractInput` state in `App.tsx`). Register/Use/Clear all sync it; an uncontrolled `defaultValue` would not reflect a freshly-registered ID.
+- The Evo SDK WASM bundle is ~8 MB; that's expected, not a build error. See [Performance](#performance--load-anchor-rules).
