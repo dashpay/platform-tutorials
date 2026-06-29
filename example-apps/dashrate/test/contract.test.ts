@@ -1,5 +1,13 @@
-import { describe, expect, it } from "vitest";
-import { REVIEW_SCHEMAS } from "../src/dash/contract";
+import { afterEach, describe, expect, it, vi } from "vitest";
+import {
+  clearStoredContractId,
+  DEFAULT_CONTRACT_ID,
+  loadStoredContractId,
+  REVIEW_SCHEMAS,
+  saveContractId,
+} from "../src/dash/contract";
+
+const STORAGE_KEY = "dashrate.contractId";
 
 describe("DashRate review contract schema", () => {
   it("keeps review documents mutable with history enabled", () => {
@@ -45,5 +53,62 @@ describe("DashRate review contract schema", () => {
       rangeCountable: true,
     });
     expect(distribution).not.toHaveProperty("summable");
+  });
+});
+
+describe("contract id storage helpers", () => {
+  afterEach(() => {
+    vi.unstubAllGlobals();
+  });
+
+  function stubStorage(impl: Partial<Storage>): Storage {
+    const storage = {
+      getItem: vi.fn<Storage["getItem"]>(() => null),
+      setItem: vi.fn<Storage["setItem"]>(),
+      removeItem: vi.fn<Storage["removeItem"]>(),
+      ...impl,
+    } as unknown as Storage;
+    vi.stubGlobal("localStorage", storage);
+    return storage;
+  }
+
+  it("reads a stored id, falling back to the default", () => {
+    stubStorage({ getItem: vi.fn(() => "stored-id") });
+    expect(loadStoredContractId()).toBe("stored-id");
+
+    stubStorage({ getItem: vi.fn(() => null) });
+    expect(loadStoredContractId()).toBe(DEFAULT_CONTRACT_ID);
+  });
+
+  it("returns the default when reading throws", () => {
+    stubStorage({
+      getItem: vi.fn(() => {
+        throw new Error("storage disabled");
+      }),
+    });
+    expect(loadStoredContractId()).toBe(DEFAULT_CONTRACT_ID);
+  });
+
+  it("writes and clears the stored id", () => {
+    const storage = stubStorage({});
+    saveContractId("abc");
+    expect(storage.setItem).toHaveBeenCalledWith(STORAGE_KEY, "abc");
+    clearStoredContractId();
+    expect(storage.removeItem).toHaveBeenCalledWith(STORAGE_KEY);
+  });
+
+  it("swallows write/clear failures so persistence stays best-effort", () => {
+    stubStorage({
+      setItem: vi.fn(() => {
+        throw new Error("quota exceeded");
+      }),
+      removeItem: vi.fn(() => {
+        throw new Error("storage disabled");
+      }),
+    });
+    // A failed persist must not surface as an error (e.g. Safari private mode
+    // must not turn a successful contract publish into a failure).
+    expect(() => saveContractId("abc")).not.toThrow();
+    expect(() => clearStoredContractId()).not.toThrow();
   });
 });

@@ -82,11 +82,21 @@ export function loadStoredContractId(): string {
 }
 
 export function saveContractId(contractId: string): void {
-  localStorage.setItem(STORAGE_KEY, contractId);
+  try {
+    localStorage.setItem(STORAGE_KEY, contractId);
+  } catch {
+    // Persistence is best-effort (e.g. Safari private mode disables writes).
+    // The in-memory contract id still drives the session; don't fail the
+    // caller — a successful contract publish must not look like a failure.
+  }
 }
 
 export function clearStoredContractId(): void {
-  localStorage.removeItem(STORAGE_KEY);
+  try {
+    localStorage.removeItem(STORAGE_KEY);
+  } catch {
+    // See saveContractId: storage writes are best-effort.
+  }
 }
 
 export async function registerContract({
