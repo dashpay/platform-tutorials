@@ -76,21 +76,12 @@ export function SettingsView({
             </p>
             <label>
               Identity Mnemonic
-              <textarea
+              <input
+                type="password"
+                autoComplete="off"
+                placeholder="Mnemonic phrase"
                 value={mnemonic}
                 onChange={(event) => onMnemonicChange(event.target.value)}
-                onKeyDown={(event) => {
-                  if (
-                    event.key === "Enter" &&
-                    !event.shiftKey &&
-                    !busy &&
-                    mnemonic.trim()
-                  ) {
-                    event.preventDefault();
-                    onSignIn(event);
-                  }
-                }}
-                rows={3}
                 disabled={busy}
               />
             </label>

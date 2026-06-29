@@ -13,7 +13,7 @@ test.describe("settings", () => {
       page.getByRole("heading", { name: /^settings$/i }),
     ).toBeVisible();
 
-    const mnemonic = page.getByRole("textbox");
+    const mnemonic = page.getByLabel(/identity mnemonic/i);
     await expect(mnemonic).toBeVisible();
 
     const signIn = page.getByRole("button", { name: /^sign in$/i });

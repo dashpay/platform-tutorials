@@ -52,8 +52,8 @@ describe("SettingsView (signed out)", () => {
         .disabled,
     ).toBe(true);
 
-    const textarea = screen.getByRole("textbox");
-    fireEvent.change(textarea, { target: { value: "alpha bravo" } });
+    const input = screen.getByLabelText(/identity mnemonic/i);
+    fireEvent.change(input, { target: { value: "alpha bravo" } });
     expect(onMnemonicChange).toHaveBeenCalledWith("alpha bravo");
 
     rerender(<SettingsView {...makeProps({ mnemonic: "alpha bravo" })} />);
@@ -69,10 +69,12 @@ describe("SettingsView (signed out)", () => {
     expect(link.getAttribute("rel")).toBe("noopener noreferrer");
   });
 
-  it("submits sign-in on Enter without Shift", () => {
+  it("submits sign-in when the form is submitted", () => {
     const onSignIn = vi.fn((event) => event.preventDefault());
     renderView({ mnemonic: "alpha bravo", onSignIn });
-    fireEvent.keyDown(screen.getByRole("textbox"), { key: "Enter" });
+    // A single-line input submits the form natively (Enter / Sign in button);
+    // assert the form's submit handler is wired up.
+    fireEvent.submit(screen.getByLabelText(/identity mnemonic/i));
     expect(onSignIn).toHaveBeenCalledOnce();
   });
 });
