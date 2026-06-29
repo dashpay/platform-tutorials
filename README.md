@@ -1,7 +1,7 @@
-# platform-readme-tutorials
+# platform-tutorials
 
 [![SDK
-Version](https://img.shields.io/github/package-json/dependency-version/dashpay/platform-readme-tutorials/%40dashevo%2Fevo-sdk)](https://github.com/dashpay/platform-readme-tutorials/blob/main/package.json)
+Version](https://img.shields.io/github/package-json/dependency-version/dashpay/platform-tutorials/%40dashevo%2Fevo-sdk)](https://github.com/dashpay/platform-tutorials/blob/main/package.json)
 
 Code for the tutorials found on the [Platform documentation
 site](http://docs.dash.org/projects/platform/en/stable/docs/tutorials/introduction.html). This repo
