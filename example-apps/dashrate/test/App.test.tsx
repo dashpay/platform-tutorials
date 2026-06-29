@@ -262,7 +262,7 @@ describe("App contract notice", () => {
   it("renders the no-contract notice when nothing is stored", () => {
     loadStoredContractId.mockReturnValue("");
     render(<App />);
-    expect(screen.getByText(/No default contract is bundled yet/)).toBeTruthy();
+    expect(screen.getByText(/No active contract is set/)).toBeTruthy();
   });
 
   it("hides the notice when a contract id is stored", () => {

@@ -51,9 +51,9 @@ The read paths are intentionally index-shaped:
 - the rating distribution and the `rating == N` filter use the compound `resourceId + rating` index
   (`countable: "countable"` plus `rangeCountable: true`)
 
-Neither aggregate index uses `summable`: the count/sum/average shown per resource is computed in JS
-from the grouped distribution count, so a single grouped `count` query backs both the histogram and
-the average.
+Neither aggregate index uses `summable`: the average shown per resource is computed in JS from the
+grouped distribution count (which also backs the histogram), while the total review count comes from
+the standalone `resourceId` count index.
 
 `DEFAULT_CONTRACT_ID` is set to a published testnet DashRate contract
 (`BdgTqaTAPYMyhp1WdeWdcvYSgoD7AuJ7tVCaCSXyQgyP`), so fresh installs can read aggregates and reviews

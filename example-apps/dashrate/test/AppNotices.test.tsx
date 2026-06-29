@@ -16,17 +16,18 @@ describe("AppNotices", () => {
     expect(container.querySelector(".notice")).toBeNull();
   });
 
-  it("shows the status text when present", () => {
+  it("shows the status text in a polite live region when present", () => {
     render(<AppNotices status="Save failed: boom" hasContract />);
     const status = screen.getByText("Save failed: boom");
     expect(status.className).toBe("status");
+    expect(status.getAttribute("aria-live")).toBe("polite");
   });
 
   it("shows the no-contract notice when no contract is configured", () => {
     const { container } = render(<AppNotices status="" hasContract={false} />);
     const notice = container.querySelector(".notice");
     expect(notice).not.toBeNull();
-    expect(notice?.textContent).toContain("No default contract is bundled yet");
+    expect(notice?.textContent).toContain("No active contract is set");
   });
 
   it("can show both the status and the no-contract notice", () => {

@@ -25,4 +25,10 @@ export default tseslint.config(
       ],
     },
   },
+  {
+    files: ["playwright.config.ts", "test/e2e/**/*.ts"],
+    languageOptions: {
+      globals: { ...globals.node },
+    },
+  },
 );

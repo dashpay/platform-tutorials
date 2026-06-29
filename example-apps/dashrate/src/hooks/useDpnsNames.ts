@@ -1,5 +1,5 @@
 import { useEffect, useState } from "react";
-import { resolveDpnsName } from "../dash/resolveDpnsName";
+import { lookupDpnsName } from "../dash/resolveDpnsName";
 import type { DashSdk } from "../dash/types";
 import type { ReviewRecord } from "../dash/queries";
 import type { Session } from "../session/types";
@@ -29,22 +29,30 @@ export function useDpnsNames({
 
     let cancelled = false;
     (async () => {
+      let activeSdk: DashSdk;
       try {
-        const activeSdk = session?.sdk ?? (await connectReadOnly());
-        const resolved = await Promise.all(
-          pending.map(
-            async (id) => [id, await resolveDpnsName(activeSdk, id)] as const,
-          ),
-        );
-        if (!cancelled) {
-          setDpnsNames((prev) => ({
-            ...prev,
-            ...Object.fromEntries(resolved),
-          }));
-        }
+        activeSdk = session?.sdk ?? (await connectReadOnly());
       } catch {
-        // Name resolution is best-effort; the UI falls back to short IDs.
+        // Couldn't get an SDK; leave every id pending so a later run retries.
+        return;
       }
+      // Cache confirmed hits/misses, but leave transient failures pending so a
+      // later render can retry instead of permanently falling back to short IDs.
+      const resolved = await Promise.all(
+        pending.map(async (id) => {
+          try {
+            return [id, await lookupDpnsName(activeSdk, id)] as const;
+          } catch {
+            return null;
+          }
+        }),
+      );
+      if (cancelled) return;
+      const entries = resolved.filter(
+        (entry): entry is readonly [string, string | null] => entry !== null,
+      );
+      if (entries.length === 0) return;
+      setDpnsNames((prev) => ({ ...prev, ...Object.fromEntries(entries) }));
     })();
     return () => {
       cancelled = true;

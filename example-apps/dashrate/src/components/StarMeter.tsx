@@ -7,9 +7,10 @@ export function StarMeter({
   value: number | null;
   className?: string;
 }) {
-  const fillPercent = value === null ? 0 : Math.max(0, Math.min(5, value)) * 20;
+  const clamped = value === null ? null : Math.max(0, Math.min(5, value));
+  const fillPercent = clamped === null ? 0 : clamped * 20;
   const label =
-    value === null ? "No rating yet" : `${formatAverage(value)} out of 5`;
+    clamped === null ? "No rating yet" : `${formatAverage(clamped)} out of 5`;
   return (
     <span
       className={className ? `star-meter ${className}` : "star-meter"}
