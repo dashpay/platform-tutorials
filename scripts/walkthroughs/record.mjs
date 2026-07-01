@@ -867,16 +867,49 @@ async function runDashmintLab(page) {
   }
   await driver.delay(1300);
   if (page.walkthroughCredentials) {
-    await driver.captionKey('noMintDefault');
+    const demoCardName = 'Token Forge Adept';
+    await driver.captionKey('mintPrepare');
     await page
       .locator('input[placeholder="e.g. Fire Dragon"]')
-      .fill('Demo Card');
+      .fill(demoCardName);
     await page
       .locator(
         'textarea[placeholder="e.g. A legendary beast from the volcanic plains"]',
       )
-      .fill('Filled locally for the walkthrough, but not minted.');
+      .fill('Forged with one DashMint token on Dash Platform testnet.');
     await driver.moveCursor(748, 409);
+    await driver.delay(900);
+    await driver.captionKey('mintSubmitting');
+    await driver.clickLocator(page.getByRole('button', { name: 'Mint Card' }));
+    await page.getByText(`Card "${demoCardName}" minted!`).waitFor({
+      state: 'visible',
+      timeout: 60000,
+    });
+    await driver.captionKey('mintComplete');
+    await driver.delay(1200);
+
+    page.logStep('Switching to Tokens tab');
+    await driver.clickLocator(page.getByRole('button', { name: 'Tokens' }));
+    await page.locator('h1', { hasText: 'Tokens' }).waitFor({
+      state: 'visible',
+      timeout: 10000,
+    });
+    const tokenBalanceLabel = page.getByText('Your DashMint balance', {
+      exact: true,
+    });
+    await tokenBalanceLabel.waitFor({
+      state: 'visible',
+      timeout: 10000,
+    });
+    await driver.captionKey('tokensIntro');
+    await driver.moveToLocator(tokenBalanceLabel);
+    await driver.delay(900);
+    await driver.captionKey('tokensTransfer');
+    await driver.moveToLocator(
+      page.getByRole('heading', {
+        name: 'Transfer tokens',
+      }),
+    );
     await driver.delay(1200);
   } else {
     await driver.captionKey('loginPath');

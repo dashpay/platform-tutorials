@@ -32,9 +32,11 @@ PLATFORM_TUTORIALS_IDENTITY_INDEX=0
 The recorder also accepts `WALKTHROUGH_MNEMONIC`, `PLATFORM_MNEMONIC`, or
 `MNEMONIC`.
 
-The default authenticated walkthroughs show the signed-in UI, but intentionally
-stop before writes such as creating notes, minting cards, purchasing, burning,
-or registering contracts. To force a browse-only/no-login recording:
+The default authenticated walkthroughs show the signed-in UI. DashMint Lab
+performs one card mint so the token-paid create flow is visible; the recorder
+still avoids token transfers, purchases, burns, and contract registration. Other
+walkthroughs stop before writes such as creating notes. To force a
+browse-only/no-login recording:
 
 ```sh
 npm run walkthrough:dashmint-lab -- --no-login
