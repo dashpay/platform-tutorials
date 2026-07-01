@@ -1,6 +1,6 @@
 {
   "name": "platform-tutorials",
-  "version": "4.0-rc",
+  "version": "4.0.0",
   "description": "Tutorial code for https://docs.dash.org/platform",
   "main": "connect.mjs",
   "scripts": {
@@ -26,7 +26,7 @@
   },
   "homepage": "https://github.com/dashpay/platform-tutorials#readme",
   "dependencies": {
-    "@dashevo/evo-sdk": "4.0.0-rc.2",
+    "@dashevo/evo-sdk": "4.0.0",
     "dotenv": "17.3.1"
   },
   "devDependencies": {
