@@ -1,0 +1,519 @@
+<!--
+  DashRate Lite - single-file, read-only ratings browser on Dash Platform testnet.
+
+  What it does
+  ------------
+  - Resources: browse the tutorial/example resource catalog.
+  - Aggregates: load total review count and per-star distribution with count().
+  - Reviews: list recent reviews for the selected resource, optionally filtered
+    by star rating.
+
+  How it works
+  ------------
+  - The "review" data contract on testnet stores: resourceId, rating, and
+    optional reviewText, plus Platform-managed timestamps/revisions.
+  - Reads need no identity or signing - just connect to testnet.
+  - Writes (sign in, contract registration, create/edit review) are NOT
+    implemented here. Use the React app at example-apps/dashrate/ for those.
+
+  Why single-file
+  ---------------
+  - No build step. Open it directly in a browser or host as a static file.
+  - SDK comes from esm.sh (CDN-served ES module).
+
+  Gotcha worth knowing
+  --------------------
+  - Average rating is computed in JS from a grouped count distribution. The
+    contract intentionally avoids a summable index because combining summable
+    and range-countable indices on the same resourceId prefix made inserts fail
+    on Platform testnet.
+-->
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>DashRate Lite</title>
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+  <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600&display=swap" rel="stylesheet">
+  <style>
+    body { font-family: 'Inter', -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif; margin: 0; line-height: 1.4; background: #fcfcfd; color: #1a1f2e; }
+    .shell { display: grid; grid-template-columns: 240px 1fr; min-height: 100vh; }
+    aside { border-right: 1px solid #e5e7eb; padding: 18px 14px; display: flex; flex-direction: column; }
+    aside h1 { font-size: 13px; font-weight: 600; letter-spacing: -0.01em; margin: 0 0 1rem; }
+    section h2 { font-size: 1.25rem; font-weight: 600; letter-spacing: -0.01em; margin: 0; }
+    nav { display: grid; gap: 0.25rem; margin-bottom: 1rem; }
+    nav button { display: block; width: 100%; text-align: left; padding: 0.45rem 0.6rem; border: none; border-left: 3px solid transparent; background: none; cursor: pointer; font: inherit; font-size: 0.86rem; }
+    nav button.active { border-left-color: #008de4; color: #008de4; font-weight: 500; background: #f2f8fc; }
+    nav .category { display: block; color: #6b7280; font-size: 0.68rem; margin-top: 0.1rem; }
+    main { padding: 1rem 1.5rem; max-width: 920px; }
+    .muted { color: #6b7280; }
+    section { border: 1px solid #e5e7eb; border-radius: 8px; padding: 1.25rem 1.5rem; margin: 1rem 0; background: #f4f5f9; box-shadow: 0 1px 2px rgba(0, 0, 0, 0.04); }
+    .head { display: flex; flex-wrap: wrap; justify-content: space-between; gap: 0.75rem; align-items: flex-start; }
+    .head a { color: #008de4; font-size: 0.85rem; text-decoration: none; }
+    .head a:hover { text-decoration: underline; }
+    .controls { display: flex; flex-wrap: wrap; align-items: center; gap: 0.5rem; margin-top: 0.75rem; }
+    select { padding: 0.4rem; font-family: inherit; }
+    button.action { padding: 0.4rem 0.9rem; cursor: pointer; }
+    button:disabled, select:disabled { cursor: not-allowed; opacity: 0.6; }
+    .hash { font-family: ui-monospace, SFMono-Regular, Menlo, monospace; font-size: 0.85rem; word-break: break-all; }
+    .summary-grid { display: grid; grid-template-columns: minmax(140px, 0.7fr) minmax(220px, 1.3fr); gap: 0.75rem; margin-top: 0.75rem; }
+    .score { border: 1px solid #e5e7eb; border-radius: 8px; background: #fff; padding: 0.8rem; }
+    .score .value { display: block; font-size: 2rem; line-height: 1.05; font-weight: 600; letter-spacing: -0.01em; }
+    .score .label { display: block; margin-top: 0.25rem; color: #6b7280; font-size: 0.8rem; }
+    .dist { display: grid; gap: 0.35rem; }
+    .dist-row { display: grid; grid-template-columns: 2.5rem 1fr 4rem; align-items: center; gap: 0.5rem; font-size: 0.8rem; }
+    .bar { height: 0.55rem; background: #e5e7eb; border-radius: 999px; overflow: hidden; }
+    .fill { height: 100%; background: #008de4; border-radius: inherit; min-width: 0; }
+    .review { border: 1px solid #e5e7eb; border-radius: 8px; margin: 0.5rem 0; background: #fff; padding: 0.6rem 0.85rem 0.7rem; }
+    .review .top { display: flex; flex-wrap: wrap; justify-content: space-between; gap: 0.5rem; font-size: 0.82rem; }
+    .review .rating { font-weight: 600; color: #1a1f2e; }
+    .review .text { font-size: 0.88rem; white-space: pre-wrap; word-wrap: break-word; margin: 0.35rem 0; color: #1f2937; }
+    .review .meta { color: #6b7280; font-size: 0.73rem; word-break: break-all; }
+    .summary-line { font-size: 0.8rem; color: #6b7280; margin: 0.5rem 0 0.25rem; }
+    .status-line { padding: 0.5rem 0.75rem; border: 1px solid #e5e7eb; border-radius: 4px; background: #f5f5f5; font-size: 0.85rem; margin-top: 0.5rem; }
+    .status-line.miss { border-color: #f0c987; background: #fff8e1; }
+    .status-line.err { border-color: #e8a09a; background: #fdecea; color: #b42318; }
+    #status { font-size: 0.75rem; color: #6b7280; margin-top: auto; padding-top: 0.75rem; border-top: 1px solid #e5e7eb; }
+    @media (max-width: 700px) {
+      .shell { grid-template-columns: 1fr; }
+      aside { border-right: none; border-bottom: 1px solid #e5e7eb; }
+      .summary-grid { grid-template-columns: 1fr; }
+    }
+  </style>
+</head>
+<body>
+  <div class="shell">
+    <aside>
+      <h1>DashRate Lite</h1>
+      <div class="muted" style="font-size: 0.65rem; text-transform: uppercase; letter-spacing: 0.1em; margin-top: -0.75rem; margin-bottom: 1rem;">Testnet</div>
+      <nav id="resource-nav" aria-label="Tutorial resources"></nav>
+      <div id="status">Connecting...</div>
+    </aside>
+
+    <main>
+      <section>
+        <div class="head">
+          <div>
+            <h2 id="resource-title">Resource</h2>
+            <p class="muted" id="resource-summary" style="margin: 0.35rem 0 0;"></p>
+          </div>
+          <a id="resource-link" href="#" target="_blank" rel="noreferrer">Open resource</a>
+        </div>
+
+        <div class="controls">
+          <label for="rating-filter" class="muted" style="font-size: 0.85rem;">Reviews</label>
+          <select id="rating-filter" disabled>
+            <option value="">All ratings</option>
+            <option value="5">5 stars</option>
+            <option value="4">4 stars</option>
+            <option value="3">3 stars</option>
+            <option value="2">2 stars</option>
+            <option value="1">1 star</option>
+          </select>
+          <button class="action" id="refresh-btn" disabled>Refresh</button>
+        </div>
+
+        <div id="aggregate-result"></div>
+      </section>
+
+      <section>
+        <h2 id="reviews-heading">Recent reviews</h2>
+        <div id="reviews-result"></div>
+      </section>
+
+      <p class="muted" style="font-size: 0.8rem;">
+        Contract: <span class="hash" id="contract-id"></span>
+      </p>
+    </main>
+  </div>
+
+  <script type="module">
+    // ============================================================================
+    // DASH PLATFORM SDK
+    // ----------------------------------------------------------------------------
+    // Everything in this section is the SDK surface this demo touches: the import,
+    // the contract identifier, the connection, count queries, and review query.
+    // The rest of the file (DOM wiring, render helpers) is plumbing.
+    // ============================================================================
+
+    import { EvoSDK } from 'https://esm.sh/@dashevo/evo-sdk@4.0.0';
+
+    const CONTRACT_ID = 'BdgTqaTAPYMyhp1WdeWdcvYSgoD7AuJ7tVCaCSXyQgyP';
+    const DOC_TYPE = 'review';
+    const REVIEW_LIMIT = 50;
+    const RATING_VALUES = [1, 2, 3, 4, 5];
+    const RESOURCES = [
+      {
+        id: 'intro',
+        title: 'Platform Introduction',
+        category: 'Tutorial',
+        summary: 'The starting point for connecting to Dash Platform testnet.',
+        href: 'https://docs.dash.org/projects/platform/en/stable/docs/tutorials/introduction.html',
+      },
+      {
+        id: 'identities-names',
+        title: 'Identities and Names',
+        category: 'Tutorial',
+        summary: 'Create identities, fund them, and register DPNS names.',
+        href: '../../1-Identities-and-Names/',
+      },
+      {
+        id: 'contracts-documents',
+        title: 'Contracts and Documents',
+        category: 'Tutorial',
+        summary: 'Register contracts and submit, query, update, and delete documents.',
+        href: '../../2-Contracts-and-Documents/',
+      },
+      {
+        id: 'tokens',
+        title: 'Tokens',
+        category: 'Tutorial',
+        summary: 'Register, mint, transfer, and burn Platform tokens.',
+        href: '../../3-Tokens/',
+      },
+      {
+        id: 'dashnote',
+        title: 'Dashnote',
+        category: 'Example App',
+        summary: 'A notes app that demonstrates mutable documents and history.',
+        href: '../dashnote/',
+      },
+      {
+        id: 'dashmint-lab',
+        title: 'DashMint Lab',
+        category: 'Example App',
+        summary: 'NFT-style collectible documents with token-gated creation.',
+        href: '../dashmint-lab/',
+      },
+      {
+        id: 'dashproof-lab',
+        title: 'DashProof Lab',
+        category: 'Example App',
+        summary: 'Proof-of-existence anchoring and verification on Platform.',
+        href: '../dashproof-lab/',
+      },
+    ];
+
+    async function connectSdk() {
+      const sdk = EvoSDK.testnetTrusted();
+      await sdk.connect();
+      return sdk;
+    }
+
+    function ratingKeyHex(rating) {
+      return (0x80 | rating).toString(16);
+    }
+
+    function firstMapValue(counts) {
+      if (!counts) return undefined;
+      if (counts instanceof Map) return counts.values().next().value;
+      return Object.values(counts)[0];
+    }
+
+    function countValue(counts, key) {
+      const value = counts instanceof Map ? counts.get(key) : counts?.[key];
+      return toBigInt(value, 0n);
+    }
+
+    function toBigInt(value, fallback = 0n) {
+      if (typeof value === 'bigint') return value;
+      if (typeof value === 'number' && Number.isFinite(value)) return BigInt(value);
+      if (typeof value === 'string' && value) return BigInt(value);
+      return fallback;
+    }
+
+    function toNumber(value, fallback = 0) {
+      if (typeof value === 'number' && Number.isFinite(value)) return value;
+      if (typeof value === 'bigint') return Number(value);
+      if (typeof value === 'string' && value) {
+        const n = Number(value);
+        if (Number.isFinite(n)) return n;
+      }
+      return fallback;
+    }
+
+    function toTimestamp(value) {
+      const n = toNumber(value, null);
+      return n != null ? n : null;
+    }
+
+    async function getRatingCount(sdk, resourceId) {
+      const counts = await sdk.documents.count({
+        dataContractId: CONTRACT_ID,
+        documentTypeName: DOC_TYPE,
+        where: [['resourceId', '==', resourceId]],
+        orderBy: [['resourceId', 'asc']],
+      });
+      return toBigInt(firstMapValue(counts), 0n);
+    }
+
+    async function getRatingDistribution(sdk, resourceId) {
+      const counts = await sdk.documents.count({
+        dataContractId: CONTRACT_ID,
+        documentTypeName: DOC_TYPE,
+        where: [
+          ['resourceId', '==', resourceId],
+          ['rating', 'between', [1, 5]],
+        ],
+        orderBy: [['rating', 'asc']],
+        groupBy: ['rating'],
+      });
+      return Object.fromEntries(RATING_VALUES.map((rating) => [
+        rating,
+        countValue(counts, ratingKeyHex(rating)),
+      ]));
+    }
+
+    async function listResourceReviews(sdk, resourceId, ratingFilter) {
+      const where = [['resourceId', '==', resourceId]];
+      let orderBy = [['resourceId', 'asc']];
+      if (ratingFilter != null) {
+        where.push(['rating', '==', ratingFilter]);
+        orderBy = [['rating', 'asc']];
+      }
+      const results = await sdk.documents.query({
+        dataContractId: CONTRACT_ID,
+        documentTypeName: DOC_TYPE,
+        where,
+        orderBy,
+        limit: REVIEW_LIMIT,
+      });
+      return normalizeReviews(results).sort((a, b) => (b.createdAt ?? 0) - (a.createdAt ?? 0));
+    }
+
+    function normalizeReviews(results) {
+      if (!results) return [];
+      if (Array.isArray(results)) return results.filter(Boolean).map((d) => toReview(null, d));
+      const entries = results instanceof Map ? Object.fromEntries(results) : results;
+      return Object.entries(entries)
+        .filter(([, d]) => Boolean(d))
+        .map(([id, d]) => toReview(id, d));
+    }
+
+    function toReview(id, doc) {
+      const data = (doc && typeof doc.toJSON === 'function') ? doc.toJSON() : doc;
+      return {
+        id: String(id ?? data.$id ?? data.id ?? ''),
+        ownerId: String(data.$ownerId ?? ''),
+        resourceId: String(data.resourceId ?? ''),
+        rating: toNumber(data.rating),
+        reviewText: typeof data.reviewText === 'string' ? data.reviewText : '',
+        createdAt: toTimestamp(data.$createdAt),
+        updatedAt: toTimestamp(data.$updatedAt),
+        revision: toNumber(data.$revision ?? doc?.revision, 0),
+      };
+    }
+
+    function summaryFromDistribution(resourceId, distribution) {
+      let count = 0n;
+      let sum = 0n;
+      for (const rating of RATING_VALUES) {
+        const c = distribution[rating] ?? 0n;
+        count += c;
+        sum += BigInt(rating) * c;
+      }
+      return {
+        resourceId,
+        count,
+        sum,
+        average: count > 0n ? Number(sum) / Number(count) : null,
+      };
+    }
+
+    // ============================================================================
+    // UI: DOM refs, render helpers, event handlers
+    // ============================================================================
+
+    const $ = (id) => document.getElementById(id);
+    $('contract-id').textContent = CONTRACT_ID;
+
+    const statusEl = $('status');
+    const navEl = $('resource-nav');
+    const titleEl = $('resource-title');
+    const summaryEl = $('resource-summary');
+    const linkEl = $('resource-link');
+    const filterEl = $('rating-filter');
+    const refreshBtn = $('refresh-btn');
+    const aggregateEl = $('aggregate-result');
+    const reviewsHeadingEl = $('reviews-heading');
+    const reviewsEl = $('reviews-result');
+
+    const makeDiv = (className, text) => {
+      const div = document.createElement('div');
+      div.className = className;
+      if (text != null) div.textContent = text;
+      return div;
+    };
+    const statusLine = (text, kind) => makeDiv('status-line' + (kind ? ' ' + kind : ''), text);
+    const summaryLine = (text) => makeDiv('summary-line', text);
+
+    let sdk;
+    let selectedResourceId = RESOURCES[0].id;
+
+    function currentResource() {
+      return RESOURCES.find((resource) => resource.id === selectedResourceId) ?? RESOURCES[0];
+    }
+
+    function shortId(id) {
+      if (!id) return '';
+      const s = String(id);
+      return s.length > 16 ? `${s.slice(0, 6)}...${s.slice(-6)}` : s;
+    }
+
+    function fmtDate(value) {
+      return value ? new Date(value).toISOString().slice(0, 19).replace('T', ' ') + 'Z' : null;
+    }
+
+    function formatAverage(value) {
+      return value == null ? '-' : value.toFixed(1);
+    }
+
+    function reviewCountLine(count) {
+      if (count === 0n) return 'No reviews yet';
+      return `${count.toString()} ${count === 1n ? 'review' : 'reviews'}`;
+    }
+
+    function renderResourceNav() {
+      navEl.replaceChildren(...RESOURCES.map((resource) => {
+        const button = document.createElement('button');
+        button.type = 'button';
+        button.className = resource.id === selectedResourceId ? 'active' : '';
+        button.dataset.resourceId = resource.id;
+        button.append(resource.title, makeDiv('category', resource.category));
+        return button;
+      }));
+    }
+
+    function renderResourceHead() {
+      const resource = currentResource();
+      titleEl.textContent = resource.title;
+      summaryEl.textContent = resource.summary;
+      linkEl.href = resource.href;
+    }
+
+    function renderAggregate(totalCount, distribution) {
+      const summary = summaryFromDistribution(selectedResourceId, distribution);
+      const count = totalCount ?? summary.count;
+      const max = Math.max(1, ...RATING_VALUES.map((r) => Number(distribution[r] ?? 0n)));
+      const score = makeDiv('score');
+      score.append(
+        makeDiv('value', formatAverage(summary.average)),
+        makeDiv('label', `${reviewCountLine(count)} on this resource`),
+      );
+
+      const dist = makeDiv('dist');
+      for (const rating of [...RATING_VALUES].reverse()) {
+        const countForRating = distribution[rating] ?? 0n;
+        const row = makeDiv('dist-row');
+        const bar = makeDiv('bar');
+        const fill = makeDiv('fill');
+        fill.style.width = `${Math.round((Number(countForRating) / max) * 100)}%`;
+        bar.appendChild(fill);
+        row.append(
+          makeDiv('stars', `${rating} star${rating === 1 ? '' : 's'}`),
+          bar,
+          makeDiv('muted', countForRating.toString()),
+        );
+        dist.appendChild(row);
+      }
+
+      const grid = makeDiv('summary-grid');
+      grid.append(score, dist);
+      aggregateEl.replaceChildren(summaryLine('Aggregate rating'), grid);
+    }
+
+    function renderReviews(reviews, ratingFilter) {
+      const label = ratingFilter == null ? 'recent review(s)' : `${ratingFilter}-star review(s)`;
+      reviewsHeadingEl.textContent = ratingFilter == null ? 'Recent reviews' : `${ratingFilter}-star reviews`;
+      if (reviews.length === 0) {
+        reviewsEl.replaceChildren(statusLine(
+          ratingFilter == null ? 'No reviews found for this resource.' : `No ${ratingFilter}-star reviews found for this resource.`,
+          'miss',
+        ));
+        return;
+      }
+      reviewsEl.replaceChildren(
+        summaryLine(`${reviews.length} ${label} (newest first)`),
+        ...reviews.map((review) => reviewCard(review)),
+      );
+    }
+
+    function reviewCard(review) {
+      const card = makeDiv('review');
+      const top = makeDiv('top');
+      top.append(
+        makeDiv('rating', `${review.rating} / 5`),
+        makeDiv('muted', fmtDate(review.updatedAt ?? review.createdAt) ?? 'no timestamp'),
+      );
+      card.appendChild(top);
+      card.appendChild(makeDiv('text', review.reviewText || 'No written review.'));
+      const meta = makeDiv('meta');
+      meta.textContent = `Owner ${shortId(review.ownerId)} - Document ${shortId(review.id)}${review.revision > 1 ? ` - rev ${review.revision}` : ''}`;
+      meta.title = `Owner ${review.ownerId} - Document ${review.id}`;
+      card.appendChild(meta);
+      return card;
+    }
+
+    async function loadResource() {
+      const resource = currentResource();
+      const ratingFilter = filterEl.value ? Number(filterEl.value) : null;
+      refreshBtn.disabled = true;
+      filterEl.disabled = true;
+      renderResourceNav();
+      renderResourceHead();
+      aggregateEl.replaceChildren(statusLine('Loading ratings...'));
+      reviewsEl.replaceChildren(statusLine('Loading reviews...'));
+      try {
+        const [totalCount, distribution, reviews] = await Promise.all([
+          getRatingCount(sdk, resource.id),
+          getRatingDistribution(sdk, resource.id),
+          listResourceReviews(sdk, resource.id, ratingFilter),
+        ]);
+        renderAggregate(totalCount, distribution);
+        renderReviews(reviews, ratingFilter);
+      } catch (err) {
+        const message = 'Error: ' + (err?.message ?? err);
+        aggregateEl.replaceChildren(statusLine(message, 'err'));
+        reviewsEl.replaceChildren(statusLine(message, 'err'));
+      } finally {
+        refreshBtn.disabled = false;
+        filterEl.disabled = false;
+      }
+    }
+
+    navEl.addEventListener('click', (event) => {
+      const button = event.target.closest('button[data-resource-id]');
+      if (!button || button.dataset.resourceId === selectedResourceId) return;
+      selectedResourceId = button.dataset.resourceId;
+      filterEl.value = '';
+      void loadResource();
+    });
+
+    filterEl.addEventListener('change', () => {
+      void loadResource();
+    });
+
+    refreshBtn.addEventListener('click', () => {
+      void loadResource();
+    });
+
+    renderResourceNav();
+    renderResourceHead();
+
+    try {
+      sdk = await connectSdk();
+      statusEl.textContent = 'Connected to testnet';
+      filterEl.disabled = false;
+      refreshBtn.disabled = false;
+      await loadResource();
+    } catch (err) {
+      statusEl.textContent = 'Connection failed';
+      aggregateEl.replaceChildren(statusLine('Connection failed: ' + (err?.message ?? err), 'err'));
+      reviewsEl.replaceChildren(statusLine('Connection failed: ' + (err?.message ?? err), 'err'));
+      throw err;
+    }
+  </script>
+</body>
+</html>
