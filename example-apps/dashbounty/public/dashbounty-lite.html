@@ -1,0 +1,364 @@
+<!--
+  DashBounty Lite — single-file, read-only bug-report + panel browser on
+  Dash Platform testnet.
+
+  What it does
+  ------------
+  - Browse: list bug reports filed against the bounty data contract.
+  - Panel: show the Triage Panel's members, required signing power, and any
+    pending freeze/unfreeze/slash proposals awaiting co-signatures.
+
+  How it works
+  ------------
+  - The "report" document type charges 1 Researcher Credit per submission
+    (tokenCost.create, transferred to the contract owner as a filing fee).
+    A "Triage Panel" group (2-of-3) can freeze then destroy a bad-faith
+    researcher's remaining credit balance — see the React app's Panel tab
+    for the full propose/co-sign mechanics. Reads need no identity or
+    signing — just connect to testnet.
+  - Writes (submit a report, propose/co-sign freeze/unfreeze/destroy, rotate
+    the panel roster) are NOT implemented here. Use the React app at
+    example-apps/dashbounty/ for those.
+
+  Why single-file
+  ---------------
+  - No build step. Open it directly in a browser or host as a static file.
+  - SDK comes from esm.sh (CDN-served ES module).
+
+  Gotcha worth knowing
+  --------------------
+  - Group actions are only visible while ACTIVE (still accumulating
+    signatures) — once a freeze/unfreeze/destroy executes, Platform closes
+    the action and it drops out of this view. There is no "recently closed
+    actions" query surfaced here; the React app's token-history queries
+    would be the place to add that.
+-->
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>DashBounty Lite</title>
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+  <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600&display=swap" rel="stylesheet">
+  <style>
+    body { font-family: 'Inter', -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif; margin: 0; line-height: 1.4; background: #fcfcfd; color: #1a1f2e; }
+    .shell { display: grid; grid-template-columns: 208px 1fr; min-height: 100vh; }
+    aside { border-right: 1px solid #e5e7eb; padding: 18px 14px; display: flex; flex-direction: column; }
+    aside h1 { font-size: 13px; font-weight: 600; letter-spacing: -0.01em; margin: 0 0 1rem; }
+    section h2 { font-size: 1.25rem; font-weight: 600; letter-spacing: -0.01em; margin-top: 0; }
+    main { padding: 1rem 1.5rem; max-width: 1100px; }
+    .muted { color: #6b7280; }
+    section { border: 1px solid #e5e7eb; border-radius: 8px; padding: 1.25rem 1.5rem; margin: 1rem 0; background: #f4f5f9; box-shadow: 0 1px 2px rgba(0, 0, 0, 0.04); }
+    .controls { display: flex; flex-wrap: wrap; align-items: center; gap: 1rem; margin-top: 0.5rem; }
+    .controls label { font-size: 0.9rem; cursor: pointer; }
+    .controls label input, .controls label select { margin-right: 0.3rem; }
+    button.action { padding: 0.4rem 0.9rem; cursor: pointer; }
+    button:disabled { cursor: not-allowed; opacity: 0.6; }
+    .hash { font-family: ui-monospace, SFMono-Regular, Menlo, monospace; font-size: 0.85rem; }
+    .list { display: flex; flex-direction: column; gap: 0.6rem; margin-top: 0.5rem; }
+    .item { border: 1px solid #e5e7eb; border-radius: 8px; background: #fff; padding: 0.75rem 0.9rem; box-shadow: 0 1px 2px rgba(0,0,0,0.04); }
+    .item .row { display: flex; align-items: center; justify-content: space-between; gap: 0.5rem; }
+    .item .title { font-weight: 600; font-size: 0.95rem; }
+    .badge { border-radius: 999px; font-size: 0.65rem; font-weight: 700; padding: 0.15rem 0.5rem; text-transform: uppercase; background: #f1f5f9; color: #475569; }
+    .badge.high, .badge.critical { background: #fdecea; color: #b42318; }
+    .badge.medium { background: #fff8e1; color: #92640a; }
+    .badge.low { background: #ecfdf5; color: #047857; }
+    .item .desc { font-size: 0.82rem; color: #4b5563; margin: 0.35rem 0; }
+    .item .meta { font-size: 0.72rem; color: #6b7280; }
+    .item .meta .value { font-family: ui-monospace, SFMono-Regular, Menlo, monospace; }
+    .summary-line { font-size: 0.8rem; color: #6b7280; margin: 0.5rem 0 0.25rem; }
+    .status-line { padding: 0.5rem 0.75rem; border: 1px solid #e5e7eb; border-radius: 4px; background: #f5f5f5; font-size: 0.85rem; margin-top: 0.5rem; }
+    .status-line.miss { border-color: #f0c987; background: #fff8e1; }
+    .status-line.err { border-color: #e8a09a; background: #fdecea; color: #b42318; }
+    #status { font-size: 0.75rem; color: #6b7280; margin-top: auto; padding-top: 0.75rem; border-top: 1px solid #e5e7eb; }
+    @media (max-width: 600px) {
+      .shell { grid-template-columns: 1fr; }
+      aside { border-right: none; border-bottom: 1px solid #e5e7eb; }
+    }
+  </style>
+</head>
+<body>
+  <div class="shell">
+    <aside>
+      <h1>DashBounty Lite</h1>
+      <div class="muted" style="font-size: 0.65rem; text-transform: uppercase; letter-spacing: 0.1em; margin-top: -0.75rem; margin-bottom: 1rem;">Testnet</div>
+      <div id="status">Connecting…</div>
+    </aside>
+
+    <main>
+      <section>
+        <h2>Bug reports</h2>
+        <p class="muted">Read-only listing of reports from the bounty data contract.</p>
+        <div class="controls">
+          <label>Severity
+            <select id="severity-filter">
+              <option value="">All</option>
+              <option value="low">Low</option>
+              <option value="medium">Medium</option>
+              <option value="high">High</option>
+              <option value="critical">Critical</option>
+            </select>
+          </label>
+          <button class="action" id="refresh-reports-btn" disabled>Refresh</button>
+        </div>
+        <div id="reports-result"></div>
+      </section>
+
+      <section>
+        <h2>Triage Panel</h2>
+        <p class="muted">Members, required signing power, and any pending group actions.</p>
+        <div id="panel-result"></div>
+      </section>
+
+      <p class="muted" style="font-size: 0.8rem;">
+        Contract: <span class="hash" id="contract-id"></span>
+      </p>
+    </main>
+  </div>
+
+  <script type="module">
+    // ============================================================================
+    // DASH PLATFORM SDK
+    // ----------------------------------------------------------------------------
+    // Everything in this section is the SDK surface this demo touches: the import,
+    // the contract identifier, the connection, and the read queries. The rest of
+    // the file (DOM wiring, render helpers) is plumbing.
+    // ============================================================================
+
+    // Pull the Evo SDK from esm.sh — no bundler needed. Pinned to the same
+    // version the React app's package.json depends on so both UIs behave
+    // identically against the same testnet contract.
+    import { EvoSDK } from 'https://esm.sh/@dashevo/evo-sdk@4.0.0';
+
+    // The bounty data contract, published on testnet by the React app. Anyone
+    // querying with the same contract id hits the same documents/group.
+    // Owned by identity index 0 (see scripts/bootstrap-identities.mjs),
+    // Triage Panel is identity indices 1-3 — matches DEFAULT_CONTRACT_ID in
+    // src/dash/contractStorage.ts.
+    const CONTRACT_ID = '4RS5tefgMLQN9ZsFkkhgoEqQwEvzMSppEGQBsqDGaHsq';
+    const DOC_TYPE = 'report';
+    const PANEL_GROUP_POSITION = 0;
+
+    // Connect to testnet. testnetTrusted() uses the SDK's bundled list of
+    // trusted nodes — no node URL or config needed. No identity or signing is
+    // required for read-only queries.
+    async function connectSdk() {
+      const sdk = EvoSDK.testnetTrusted();
+      await sdk.connect();
+      return sdk;
+    }
+
+    // List reports, optionally filtered by severity, capped at the Platform
+    // query limit (100).
+    async function listReports(sdk, severity) {
+      const args = {
+        dataContractId: CONTRACT_ID,
+        documentTypeName: DOC_TYPE,
+        limit: 100,
+      };
+      if (severity) {
+        args.where = [['severity', '==', severity]];
+        args.orderBy = [['severity', 'asc'], ['$createdAt', 'desc']];
+      }
+      const results = await sdk.documents.query(args);
+      return normalizeReports(results);
+    }
+
+    // sdk.documents.query() can return an array, a Map, or a plain object
+    // depending on SDK version. Flatten all three shapes to Report[].
+    function normalizeReports(results) {
+      if (!results) return [];
+      if (Array.isArray(results)) return results.map((d) => toReport(null, d));
+      const entries = results instanceof Map ? Object.fromEntries(results) : results;
+      return Object.entries(entries).map(([id, d]) => toReport(id, d));
+    }
+
+    function toReport(id, doc) {
+      const data = (doc && typeof doc.toJSON === 'function') ? doc.toJSON() : doc;
+      return {
+        id: id ?? data.$id ?? null,
+        ownerId: data.$ownerId ?? null,
+        title: data.title ?? null,
+        severity: data.severity ?? null,
+        component: data.component ?? null,
+        description: data.description ?? null,
+      };
+    }
+
+    // Panel composition: members map (identity -> power) + requiredPower.
+    async function fetchPanelInfo(sdk) {
+      const group = await sdk.group.info(CONTRACT_ID, PANEL_GROUP_POSITION);
+      if (!group) return null;
+      return { members: group.members, requiredPower: group.requiredPower };
+    }
+
+    // Pending (ACTIVE) group actions — freeze/unfreeze/destroy proposals
+    // still accumulating signatures.
+    async function listPendingActions(sdk) {
+      const actions = await sdk.group.actions({
+        dataContractId: CONTRACT_ID,
+        groupContractPosition: PANEL_GROUP_POSITION,
+        status: 'ACTIVE',
+      });
+      const pending = [];
+      for (const [actionId, action] of actions) {
+        if (!action) continue;
+        pending.push({
+          actionId,
+          proposerId: action.proposerId.toString(),
+          eventName: action.event.eventName(),
+        });
+      }
+      return pending;
+    }
+
+    async function fetchActionSignedPower(sdk, actionId) {
+      const signers = await sdk.group.actionSigners({
+        dataContractId: CONTRACT_ID,
+        groupContractPosition: PANEL_GROUP_POSITION,
+        status: 'ACTIVE',
+        actionId,
+      });
+      let power = 0n;
+      for (const p of signers.values()) power += p;
+      return power;
+    }
+
+    // ============================================================================
+    // UI: DOM refs, render helpers, event handlers
+    // ============================================================================
+
+    const $ = (id) => document.getElementById(id);
+    $('contract-id').textContent = CONTRACT_ID;
+
+    const statusEl = $('status');
+    const refreshReportsBtn = $('refresh-reports-btn');
+    const reportsResultEl = $('reports-result');
+    const panelResultEl = $('panel-result');
+    const severityFilterEl = $('severity-filter');
+
+    function makeDiv(className, text) {
+      const div = document.createElement('div');
+      div.className = className;
+      if (text != null) div.textContent = text;
+      return div;
+    }
+    const statusLine = (text, kind) => makeDiv('status-line' + (kind ? ' ' + kind : ''), text);
+    const summaryLine = (text) => makeDiv('summary-line', text);
+
+    function shortId(id) {
+      if (!id) return '';
+      const s = String(id);
+      return s.length > 16 ? `${s.slice(0, 6)}…${s.slice(-6)}` : s;
+    }
+
+    function describeAction(eventName) {
+      const lower = eventName.toLowerCase();
+      if (lower.includes('unfreeze')) return 'Unfreeze proposal';
+      if (lower.includes('freeze')) return 'Freeze proposal';
+      if (lower.includes('destroy')) return 'Slash (destroy) proposal';
+      return eventName;
+    }
+
+    function reportItemEl(r) {
+      const wrap = makeDiv('item');
+      const row = makeDiv('row');
+      row.append(makeDiv('title', r.title || '(untitled)'));
+      if (r.severity) row.appendChild(makeDiv(`badge ${r.severity}`, r.severity));
+      wrap.appendChild(row);
+      if (r.component) wrap.appendChild(makeDiv('muted', r.component));
+      if (r.description) wrap.appendChild(makeDiv('desc', r.description));
+      const meta = makeDiv('meta');
+      meta.textContent = `Owner: ${shortId(r.ownerId)}`;
+      wrap.appendChild(meta);
+      return wrap;
+    }
+
+    let sdk;
+
+    async function loadReports() {
+      refreshReportsBtn.disabled = true;
+      reportsResultEl.replaceChildren(statusLine('Querying…'));
+      try {
+        const severity = severityFilterEl.value || undefined;
+        const reports = await listReports(sdk, severity);
+        if (reports.length === 0) {
+          reportsResultEl.replaceChildren(statusLine('No reports found.', 'miss'));
+        } else {
+          const list = makeDiv('list');
+          for (const r of reports) list.appendChild(reportItemEl(r));
+          reportsResultEl.replaceChildren(
+            summaryLine(`${reports.length} report(s)`),
+            list,
+          );
+        }
+      } catch (err) {
+        reportsResultEl.replaceChildren(statusLine('Error: ' + (err?.message ?? err), 'err'));
+      } finally {
+        refreshReportsBtn.disabled = false;
+      }
+    }
+
+    async function loadPanel() {
+      panelResultEl.replaceChildren(statusLine('Querying…'));
+      try {
+        const info = await fetchPanelInfo(sdk);
+        if (!info) {
+          panelResultEl.replaceChildren(statusLine('No Triage Panel group found on this contract.', 'miss'));
+          return;
+        }
+
+        const membersList = makeDiv('list');
+        const membersItem = makeDiv('item');
+        membersItem.appendChild(
+          makeDiv('title', `${info.members.size} member(s), requires ${info.requiredPower} to act`),
+        );
+        for (const id of info.members.keys()) {
+          membersItem.appendChild(makeDiv('meta', shortId(id)));
+        }
+        membersList.appendChild(membersItem);
+
+        const pending = await listPendingActions(sdk);
+        const pendingList = makeDiv('list');
+        if (pending.length === 0) {
+          pendingList.appendChild(statusLine('No pending actions.', 'miss'));
+        } else {
+          for (const action of pending) {
+            const power = await fetchActionSignedPower(sdk, action.actionId);
+            const item = makeDiv('item');
+            item.appendChild(makeDiv('title', describeAction(action.eventName)));
+            item.appendChild(makeDiv('meta', `Proposed by ${shortId(action.proposerId)} · ${power}/${info.requiredPower} power signed`));
+            pendingList.appendChild(item);
+          }
+        }
+
+        panelResultEl.replaceChildren(
+          summaryLine('Members'),
+          membersList,
+          summaryLine('Pending actions'),
+          pendingList,
+        );
+      } catch (err) {
+        panelResultEl.replaceChildren(statusLine('Error: ' + (err?.message ?? err), 'err'));
+      }
+    }
+
+    // Connect on page load, then auto-run both queries.
+    try {
+      sdk = await connectSdk();
+      statusEl.textContent = 'Connected to testnet';
+      refreshReportsBtn.disabled = false;
+      await Promise.all([loadReports(), loadPanel()]);
+    } catch (err) {
+      statusEl.textContent = 'Connection failed';
+      reportsResultEl.replaceChildren(statusLine('Connection failed: ' + (err?.message ?? err), 'err'));
+      throw err;
+    }
+
+    refreshReportsBtn.addEventListener('click', loadReports);
+    severityFilterEl.addEventListener('change', loadReports);
+  </script>
+</body>
+</html>
