@@ -21,7 +21,6 @@
  */
 import { GroupStateTransitionInfoStatus } from "@dashevo/evo-sdk";
 
-import { PANEL_GROUP_POSITION } from "./contract";
 import { errorMessage, type Logger } from "./logger";
 import { RESEARCHER_CREDIT_POSITION } from "./researcherCredit";
 import type {
@@ -34,6 +33,7 @@ export async function destroyFrozenCredit({
   sdk,
   keyManager,
   contractId,
+  groupPosition,
   frozenIdentityId,
   actionId,
   publicNote,
@@ -42,6 +42,8 @@ export async function destroyFrozenCredit({
   sdk: DashSdk;
   keyManager: DashKeyManager;
   contractId: string;
+  /** The ACTIVE main-control-group position — see fetchActivePanelPosition. */
+  groupPosition: number;
   frozenIdentityId: string;
   /** Pass the pending action's ID to co-sign; omit to propose a new one. */
   actionId?: string;
@@ -52,11 +54,8 @@ export async function destroyFrozenCredit({
     const { identity, identityKey, signer } = await keyManager.getAuth();
 
     const groupInfo = actionId
-      ? GroupStateTransitionInfoStatus.otherSigner(
-          PANEL_GROUP_POSITION,
-          actionId,
-        )
-      : GroupStateTransitionInfoStatus.proposer(PANEL_GROUP_POSITION);
+      ? GroupStateTransitionInfoStatus.otherSigner(groupPosition, actionId)
+      : GroupStateTransitionInfoStatus.proposer(groupPosition);
 
     log?.(
       actionId

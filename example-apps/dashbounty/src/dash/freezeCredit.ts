@@ -2,9 +2,12 @@
  * Propose or co-sign a Triage Panel freeze of a researcher's Researcher
  * Credit balance.
  *
- * `report.freezeRules` gates this on `AuthorizedActionTakers.Group(0)` — the
- * Triage Panel, 2-of-3. A single call from `sdk.tokens.freeze(...)` covers
- * both roles depending on `groupInfo`:
+ * `freezeRules` gates this on `AuthorizedActionTakers.MainGroup()` — the
+ * token's current main control group, 2-of-3. That position is dynamic
+ * (group 0 at launch, higher after a roster rotation), so callers pass the
+ * active `groupPosition` they resolved via panel.ts's fetchPanelInfo /
+ * fetchActivePanelPosition. A single call from `sdk.tokens.freeze(...)`
+ * covers both roles depending on `groupInfo`:
  *   - Proposer (first signer): pass no `actionId`. Uses
  *     `GroupStateTransitionInfoStatus.proposer(groupContractPosition)`,
  *     which creates a new pending group action at power 1 — not yet
@@ -29,7 +32,6 @@
  */
 import { GroupStateTransitionInfoStatus } from "@dashevo/evo-sdk";
 
-import { PANEL_GROUP_POSITION } from "./contract";
 import { errorMessage, type Logger } from "./logger";
 import { RESEARCHER_CREDIT_POSITION } from "./researcherCredit";
 import type {
@@ -42,6 +44,7 @@ export async function freezeCredit({
   sdk,
   keyManager,
   contractId,
+  groupPosition,
   frozenIdentityId,
   actionId,
   publicNote,
@@ -50,6 +53,8 @@ export async function freezeCredit({
   sdk: DashSdk;
   keyManager: DashKeyManager;
   contractId: string;
+  /** The ACTIVE main-control-group position — see fetchActivePanelPosition. */
+  groupPosition: number;
   frozenIdentityId: string;
   /** Pass the pending action's ID to co-sign; omit to propose a new one. */
   actionId?: string;
@@ -60,11 +65,8 @@ export async function freezeCredit({
     const { identity, identityKey, signer } = await keyManager.getAuth();
 
     const groupInfo = actionId
-      ? GroupStateTransitionInfoStatus.otherSigner(
-          PANEL_GROUP_POSITION,
-          actionId,
-        )
-      : GroupStateTransitionInfoStatus.proposer(PANEL_GROUP_POSITION);
+      ? GroupStateTransitionInfoStatus.otherSigner(groupPosition, actionId)
+      : GroupStateTransitionInfoStatus.proposer(groupPosition);
 
     log?.(
       actionId

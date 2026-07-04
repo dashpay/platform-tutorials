@@ -11,9 +11,12 @@
  * `listActionSigners` is how the UI shows "1 of 2 required" progress and
  * disables the sign button for someone who already signed.
  *
+ * Group actions live under a specific group position, and the acting panel
+ * is the token's CURRENT main control group (dynamic after a rotation) —
+ * callers pass the active `groupPosition` resolved via panel.ts.
+ *
  * SDK methods: sdk.group.actions(...), sdk.group.actionSigners(...)
  */
-import { PANEL_GROUP_POSITION } from "./contract";
 import type { Logger } from "./logger";
 import type { DashSdk } from "./types";
 
@@ -41,16 +44,19 @@ export function describeGroupAction(eventName: string): string {
 export async function listPendingActions({
   sdk,
   contractId,
+  groupPosition,
   log,
 }: {
   sdk: DashSdk;
   contractId: string;
+  /** The ACTIVE main-control-group position — see fetchActivePanelPosition. */
+  groupPosition: number;
   log?: Logger;
 }): Promise<PendingAction[]> {
   log?.("Loading pending panel actions…");
   const actions = await sdk.group.actions({
     dataContractId: contractId,
-    groupContractPosition: PANEL_GROUP_POSITION,
+    groupContractPosition: groupPosition,
     status: "ACTIVE",
   });
 
@@ -77,19 +83,22 @@ export interface ActionSignerProgress {
 export async function listActionSigners({
   sdk,
   contractId,
+  groupPosition,
   actionId,
   requiredPower,
   log,
 }: {
   sdk: DashSdk;
   contractId: string;
+  /** The ACTIVE main-control-group position — see fetchActivePanelPosition. */
+  groupPosition: number;
   actionId: string;
   requiredPower: number;
   log?: Logger;
 }): Promise<ActionSignerProgress> {
   const signers = await sdk.group.actionSigners({
     dataContractId: contractId,
-    groupContractPosition: PANEL_GROUP_POSITION,
+    groupContractPosition: groupPosition,
     // Only ever called for actions surfaced by listPendingActions, which
     // queries status: 'ACTIVE' — no UI path queries signers for a closed
     // action, so this doesn't need to be a parameter (yet).

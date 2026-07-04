@@ -5,14 +5,14 @@
  * header for the full explanation of `groupInfo`. This is the safety valve:
  * if the panel froze the wrong researcher (or new evidence clears them),
  * unfreeze restores their ability to spend credits without needing a
- * destroy to have happened. `report.unfreezeRules` is gated on the same
- * Triage Panel group as freeze/destroy.
+ * destroy to have happened. `unfreezeRules` is gated on the same
+ * MainGroup() (current main control group) as freeze/destroy, so callers
+ * pass the same dynamically-resolved `groupPosition`.
  *
  * SDK method: sdk.tokens.unfreeze({ ..., groupInfo })
  */
 import { GroupStateTransitionInfoStatus } from "@dashevo/evo-sdk";
 
-import { PANEL_GROUP_POSITION } from "./contract";
 import { errorMessage, type Logger } from "./logger";
 import { RESEARCHER_CREDIT_POSITION } from "./researcherCredit";
 import type {
@@ -25,6 +25,7 @@ export async function unfreezeCredit({
   sdk,
   keyManager,
   contractId,
+  groupPosition,
   frozenIdentityId,
   actionId,
   publicNote,
@@ -33,6 +34,8 @@ export async function unfreezeCredit({
   sdk: DashSdk;
   keyManager: DashKeyManager;
   contractId: string;
+  /** The ACTIVE main-control-group position — see fetchActivePanelPosition. */
+  groupPosition: number;
   frozenIdentityId: string;
   /** Pass the pending action's ID to co-sign; omit to propose a new one. */
   actionId?: string;
@@ -43,11 +46,8 @@ export async function unfreezeCredit({
     const { identity, identityKey, signer } = await keyManager.getAuth();
 
     const groupInfo = actionId
-      ? GroupStateTransitionInfoStatus.otherSigner(
-          PANEL_GROUP_POSITION,
-          actionId,
-        )
-      : GroupStateTransitionInfoStatus.proposer(PANEL_GROUP_POSITION);
+      ? GroupStateTransitionInfoStatus.otherSigner(groupPosition, actionId)
+      : GroupStateTransitionInfoStatus.proposer(groupPosition);
 
     log?.(
       actionId

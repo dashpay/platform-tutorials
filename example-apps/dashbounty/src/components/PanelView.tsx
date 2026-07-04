@@ -31,6 +31,7 @@ async function runAction(
     sdk: NonNullable<ReturnType<typeof useSession>["sdk"]>;
     keyManager: NonNullable<ReturnType<typeof useSession>["keyManager"]>;
     contractId: string;
+    groupPosition: number;
     frozenIdentityId: string;
     actionId?: string;
     log: ReturnType<typeof useSession>["log"];
@@ -69,6 +70,9 @@ export function PanelView() {
     if (!session.sdk || !session.contractId) return;
     setError(null);
     try {
+      // fetchPanelInfo resolves the token's CURRENT main control group
+      // position (dynamic after a roster rotation) — every group query and
+      // action below must target that same position.
       const info = await fetchPanelInfo({
         sdk: session.sdk,
         contractId: session.contractId,
@@ -77,6 +81,7 @@ export function PanelView() {
       const actions = await listPendingActions({
         sdk: session.sdk,
         contractId: session.contractId,
+        groupPosition: info.groupPosition,
       });
       setPending(actions);
       const progress = new Map<string, ActionSignerProgress>();
@@ -85,6 +90,7 @@ export function PanelView() {
           const p = await listActionSigners({
             sdk: session.sdk!,
             contractId: session.contractId!,
+            groupPosition: info.groupPosition,
             actionId: action.actionId,
             requiredPower: info.requiredPower,
           });
@@ -111,7 +117,8 @@ export function PanelView() {
 
   async function handlePropose(event: React.FormEvent) {
     event.preventDefault();
-    if (!session.sdk || !session.keyManager || !session.contractId) return;
+    if (!session.sdk || !session.keyManager || !session.contractId || !panel)
+      return;
     setBusy(true);
     setError(null);
     try {
@@ -119,6 +126,7 @@ export function PanelView() {
         sdk: session.sdk,
         keyManager: session.keyManager,
         contractId: session.contractId,
+        groupPosition: panel.groupPosition,
         frozenIdentityId: targetIdentityId.trim(),
         log: session.log,
       });
@@ -133,7 +141,8 @@ export function PanelView() {
   }
 
   async function handleCosign(action: PendingAction) {
-    if (!session.sdk || !session.keyManager || !session.contractId) return;
+    if (!session.sdk || !session.keyManager || !session.contractId || !panel)
+      return;
     const kind = actionKindFromName(action.eventName);
     if (!kind) {
       setError(`Unrecognized action type: ${action.eventName}`);
@@ -151,6 +160,7 @@ export function PanelView() {
         sdk: session.sdk,
         keyManager: session.keyManager,
         contractId: session.contractId,
+        groupPosition: panel.groupPosition,
         frozenIdentityId,
         actionId: action.actionId,
         log: session.log,
@@ -179,7 +189,7 @@ export function PanelView() {
           <>
             <p className="muted">
               {panel.members.size} member(s), requires {panel.requiredPower} of
-              them to act.
+              them to act. Active group position: {panel.groupPosition}.
             </p>
             <ul>
               {[...panel.members.keys()].map((id) => (
