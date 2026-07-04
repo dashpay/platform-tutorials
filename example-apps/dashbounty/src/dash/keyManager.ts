@@ -6,8 +6,8 @@
  * tuples for each key purpose (auth, authHigh, transfer, master, encryption).
  *
  * This app only ever needs `getAuth()` — submitting a report, editing it,
- * and proposing/co-signing a freeze, unfreeze, or destroy all sign with
- * the CRITICAL auth key (key 2).
+ * proposing/co-signing a freeze, unfreeze, or destroy, and rotating the
+ * panel roster (owner-signed) all sign with the CRITICAL auth key (key 2).
  *
  * `identityIndex` (passed to `IdentityKeyManager.create`/`.createForNewIdentity`)
  * is what lets scripts/bootstrap-identities.mjs derive 4 distinct identities

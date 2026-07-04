@@ -16,11 +16,14 @@
     researcher's remaining credit balance — see the React app's Panel tab
     for the full propose/co-sign mechanics. Reads need no identity or
     signing — just connect to testnet.
-  - Writes (submit a report, propose/co-sign freeze/unfreeze/destroy) are
-    NOT implemented here. Use the React app at example-apps/dashbounty/ for
-    those. The panel roster itself is not writable anywhere — Platform
-    rejects contract updates that change an existing group, so the roster
-    is fixed when the contract is registered.
+  - Writes (submit a report, propose/co-sign freeze/unfreeze/destroy,
+    rotate the roster) are NOT implemented here. Use the React app at
+    example-apps/dashbounty/ for those. Note a published group is itself
+    immutable — Platform rejects contract updates that change an existing
+    group — so the React app "rotates" the panel by appending a NEW group
+    and repointing the token's main control group at it (owner-signed).
+    That's why this viewer resolves the active group position from the
+    token config instead of assuming group 0.
 
   Why single-file
   ---------------
@@ -141,7 +144,9 @@
     // src/dash/contractStorage.ts.
     const CONTRACT_ID = '4RS5tefgMLQN9ZsFkkhgoEqQwEvzMSppEGQBsqDGaHsq';
     const DOC_TYPE = 'report';
-    const PANEL_GROUP_POSITION = 0;
+    // Researcher Credit token position in the contract (NOT a group
+    // position — the active group position is resolved at runtime below).
+    const CREDIT_TOKEN_POSITION = 0;
 
     // Connect to testnet. testnetTrusted() uses the SDK's bundled list of
     // trusted nodes — no node URL or config needed. No identity or signing is
@@ -189,19 +194,27 @@
       };
     }
 
+    // The ACTIVE panel is whichever group the token's mainControlGroup
+    // points at — group 0 at launch, a higher appended position after the
+    // owner rotates the roster. Resolve it from the published contract.
+    async function resolveActivePanelPosition(sdk) {
+      const contract = await sdk.contracts.fetch(CONTRACT_ID);
+      return contract?.tokens?.[CREDIT_TOKEN_POSITION]?.mainControlGroup ?? 0;
+    }
+
     // Panel composition: members map (identity -> power) + requiredPower.
-    async function fetchPanelInfo(sdk) {
-      const group = await sdk.group.info(CONTRACT_ID, PANEL_GROUP_POSITION);
+    async function fetchPanelInfo(sdk, panelPosition) {
+      const group = await sdk.group.info(CONTRACT_ID, panelPosition);
       if (!group) return null;
       return { members: group.members, requiredPower: group.requiredPower };
     }
 
     // Pending (ACTIVE) group actions — freeze/unfreeze/destroy proposals
     // still accumulating signatures.
-    async function listPendingActions(sdk) {
+    async function listPendingActions(sdk, panelPosition) {
       const actions = await sdk.group.actions({
         dataContractId: CONTRACT_ID,
-        groupContractPosition: PANEL_GROUP_POSITION,
+        groupContractPosition: panelPosition,
         status: 'ACTIVE',
       });
       const pending = [];
@@ -216,10 +229,10 @@
       return pending;
     }
 
-    async function fetchActionSignedPower(sdk, actionId) {
+    async function fetchActionSignedPower(sdk, panelPosition, actionId) {
       const signers = await sdk.group.actionSigners({
         dataContractId: CONTRACT_ID,
-        groupContractPosition: PANEL_GROUP_POSITION,
+        groupContractPosition: panelPosition,
         status: 'ACTIVE',
         actionId,
       });
@@ -306,7 +319,8 @@
     async function loadPanel() {
       panelResultEl.replaceChildren(statusLine('Querying…'));
       try {
-        const info = await fetchPanelInfo(sdk);
+        const panelPosition = await resolveActivePanelPosition(sdk);
+        const info = await fetchPanelInfo(sdk, panelPosition);
         if (!info) {
           panelResultEl.replaceChildren(statusLine('No Triage Panel group found on this contract.', 'miss'));
           return;
@@ -315,20 +329,20 @@
         const membersList = makeDiv('list');
         const membersItem = makeDiv('item');
         membersItem.appendChild(
-          makeDiv('title', `${info.members.size} member(s), requires ${info.requiredPower} to act`),
+          makeDiv('title', `${info.members.size} member(s), requires ${info.requiredPower} to act (group ${panelPosition})`),
         );
         for (const id of info.members.keys()) {
           membersItem.appendChild(makeDiv('meta', shortId(id)));
         }
         membersList.appendChild(membersItem);
 
-        const pending = await listPendingActions(sdk);
+        const pending = await listPendingActions(sdk, panelPosition);
         const pendingList = makeDiv('list');
         if (pending.length === 0) {
           pendingList.appendChild(statusLine('No pending actions.', 'miss'));
         } else {
           for (const action of pending) {
-            const power = await fetchActionSignedPower(sdk, action.actionId);
+            const power = await fetchActionSignedPower(sdk, panelPosition, action.actionId);
             const item = makeDiv('item');
             item.appendChild(makeDiv('title', describeAction(action.eventName)));
             item.appendChild(makeDiv('meta', `Proposed by ${shortId(action.proposerId)} · ${power}/${info.requiredPower} power signed`));
