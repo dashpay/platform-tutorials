@@ -30,4 +30,19 @@ test.describe("Read-only browsing (no auth required)", () => {
       page.getByText(/Triage Panel|Configure a bounty contract first/),
     ).toBeVisible();
   });
+
+  test("Roster view is read-only — no roster mutation controls", async ({
+    page,
+  }) => {
+    await page.getByRole("button", { name: "Roster" }).click();
+    // With or without a configured contract, the view must never offer an
+    // "Update roster" action — Platform rejects contract updates that
+    // change an existing group, so the roster is fixed at registration.
+    await expect(
+      page.getByText(/panel members|Configure a bounty contract first/),
+    ).toBeVisible();
+    await expect(
+      page.getByRole("button", { name: /update roster/i }),
+    ).toHaveCount(0);
+  });
 });

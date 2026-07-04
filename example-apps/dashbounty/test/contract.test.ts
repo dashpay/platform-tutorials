@@ -117,6 +117,47 @@ describe("Researcher Credit token configuration", () => {
     expect(config.options.mainControlGroup).toBe(PANEL_GROUP_POSITION);
   });
 
+  it("keeps admin control of freeze/unfreeze/destroy on the panel group too", async () => {
+    const { createResearcherCreditConfiguration, PANEL_GROUP_POSITION } =
+      await import("../src/dash/contract");
+    const config = createResearcherCreditConfiguration(
+      "owner-1",
+    ) as unknown as {
+      options: {
+        freezeRules: { options: { adminActionTakers: unknown } };
+        unfreezeRules: { options: { adminActionTakers: unknown } };
+        destroyFrozenFundsRules: { options: { adminActionTakers: unknown } };
+      };
+    };
+
+    const groupSentinel = { type: "Group", position: PANEL_GROUP_POSITION };
+    expect(config.options.freezeRules.options.adminActionTakers).toEqual(
+      groupSentinel,
+    );
+    expect(config.options.unfreezeRules.options.adminActionTakers).toEqual(
+      groupSentinel,
+    );
+    expect(
+      config.options.destroyFrozenFundsRules.options.adminActionTakers,
+    ).toEqual(groupSentinel);
+  });
+
+  it("locks mainControlGroupCanBeModified to NoOne — the token can never be repointed at another group", async () => {
+    const { createResearcherCreditConfiguration } =
+      await import("../src/dash/contract");
+    const config = createResearcherCreditConfiguration(
+      "owner-1",
+    ) as unknown as {
+      options: { mainControlGroupCanBeModified: unknown };
+    };
+    // Combined with Platform's rule that existing groups can't be changed
+    // in a contract update, this fixes the Triage Panel roster for the
+    // contract's entire lifetime.
+    expect(config.options.mainControlGroupCanBeModified).toEqual({
+      type: "NoOne",
+    });
+  });
+
   it("locks manual burning to NoOne — the only way credits disappear is via destroyFrozen", async () => {
     const { createResearcherCreditConfiguration } =
       await import("../src/dash/contract");
