@@ -38,6 +38,7 @@ export interface DashContractLike {
     number,
     { members: Map<string, number>; requiredPower: number }
   >;
+  tokens?: Record<number, { mainControlGroup?: number }>;
   toJSON?: () => Record<string, unknown>;
   [key: string]: unknown;
 }
@@ -66,6 +67,11 @@ export interface DashSdk {
       id?: string | { toString(): string };
       toJSON?: () => { id?: string };
     }>;
+    update(args: {
+      dataContract: unknown;
+      identityKey: IdentityPublicKey | undefined;
+      signer: IdentitySigner;
+    }): Promise<void>;
   };
   documents: {
     query(args: {
@@ -151,6 +157,17 @@ export interface DashSdk {
       tokenPosition: number;
       authorityId: string;
       frozenIdentityId: string;
+      publicNote?: string;
+      identityKey: IdentityPublicKey | undefined;
+      signer: IdentitySigner;
+      groupInfo?: GroupStateTransitionInfoStatus;
+    }): Promise<DashTokenGroupActionResult>;
+    configUpdate(args: {
+      dataContractId: string;
+      tokenPosition: number;
+      identityId: string;
+      /** Built via TokenConfigurationChangeItem static methods. */
+      configurationChangeItem: unknown;
       publicNote?: string;
       identityKey: IdentityPublicKey | undefined;
       signer: IdentitySigner;
