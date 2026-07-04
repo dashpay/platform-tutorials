@@ -21,6 +21,7 @@ vi.mock("@dashevo/evo-sdk", () => ({
     ContractOwner: () => ({ type: "ContractOwner" }),
     NoOne: () => ({ type: "NoOne" }),
     Group: (position: number) => ({ type: "Group", position }),
+    MainGroup: () => ({ type: "MainGroup" }),
   },
   ChangeControlRules: class ChangeControlRules {
     constructor(public options: unknown) {}
@@ -85,7 +86,7 @@ describe("bounty contract schema", () => {
 });
 
 describe("Researcher Credit token configuration", () => {
-  it("gates freeze, unfreeze, and destroyFrozenFunds on the Triage Panel group", async () => {
+  it("gates freeze, unfreeze, and destroyFrozenFunds on MainGroup — not a hard-coded position", async () => {
     const { createResearcherCreditConfiguration, PANEL_GROUP_POSITION } =
       await import("../src/dash/contract");
 
@@ -104,21 +105,25 @@ describe("Researcher Credit token configuration", () => {
       };
     };
 
-    const groupSentinel = { type: "Group", position: PANEL_GROUP_POSITION };
+    // MainGroup() follows the token's CURRENT main control group, which is
+    // what lets a roster rotation (append group + repoint) move these
+    // powers without rewriting the rules.
+    const mainGroupSentinel = { type: "MainGroup" };
     expect(config.options.freezeRules.options.authorizedToMakeChange).toEqual(
-      groupSentinel,
+      mainGroupSentinel,
     );
     expect(config.options.unfreezeRules.options.authorizedToMakeChange).toEqual(
-      groupSentinel,
+      mainGroupSentinel,
     );
     expect(
       config.options.destroyFrozenFundsRules.options.authorizedToMakeChange,
-    ).toEqual(groupSentinel);
+    ).toEqual(mainGroupSentinel);
+    // …while governance STARTS at the founding panel, group 0.
     expect(config.options.mainControlGroup).toBe(PANEL_GROUP_POSITION);
   });
 
-  it("keeps admin control of freeze/unfreeze/destroy on the panel group too", async () => {
-    const { createResearcherCreditConfiguration, PANEL_GROUP_POSITION } =
+  it("keeps admin control of freeze/unfreeze/destroy on MainGroup too", async () => {
+    const { createResearcherCreditConfiguration } =
       await import("../src/dash/contract");
     const config = createResearcherCreditConfiguration(
       "owner-1",
@@ -130,19 +135,19 @@ describe("Researcher Credit token configuration", () => {
       };
     };
 
-    const groupSentinel = { type: "Group", position: PANEL_GROUP_POSITION };
+    const mainGroupSentinel = { type: "MainGroup" };
     expect(config.options.freezeRules.options.adminActionTakers).toEqual(
-      groupSentinel,
+      mainGroupSentinel,
     );
     expect(config.options.unfreezeRules.options.adminActionTakers).toEqual(
-      groupSentinel,
+      mainGroupSentinel,
     );
     expect(
       config.options.destroyFrozenFundsRules.options.adminActionTakers,
-    ).toEqual(groupSentinel);
+    ).toEqual(mainGroupSentinel);
   });
 
-  it("locks mainControlGroupCanBeModified to NoOne — the token can never be repointed at another group", async () => {
+  it("lets the contract owner repoint the main control group — the rotation escape hatch", async () => {
     const { createResearcherCreditConfiguration } =
       await import("../src/dash/contract");
     const config = createResearcherCreditConfiguration(
@@ -150,11 +155,11 @@ describe("Researcher Credit token configuration", () => {
     ) as unknown as {
       options: { mainControlGroupCanBeModified: unknown };
     };
-    // Combined with Platform's rule that existing groups can't be changed
-    // in a contract update, this fixes the Triage Panel roster for the
-    // contract's entire lifetime.
+    // Existing groups are immutable on-chain, so ContractOwner here is what
+    // makes roster rotation possible at all: the operator appends a new
+    // group, then repoints mainControlGroup at it (rotatePanelRoster.ts).
     expect(config.options.mainControlGroupCanBeModified).toEqual({
-      type: "NoOne",
+      type: "ContractOwner",
     });
   });
 

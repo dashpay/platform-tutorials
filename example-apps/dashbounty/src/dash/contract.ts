@@ -23,17 +23,20 @@
  * requiredPower (2), so it always takes exactly 2 signers to act.
  *
  * `freezeRules` / `unfreezeRules` / `destroyFrozenFundsRules` are gated on
- * `AuthorizedActionTakers.Group(PANEL_GROUP_POSITION)` — only the panel,
- * acting together, can freeze/unfreeze/destroy a researcher's credits.
- * The panel *roster* (who the 3 members are) is fixed at registration.
+ * `AuthorizedActionTakers.MainGroup()` — whichever group is the token's
+ * *current* main control group (initially group 0) can freeze/unfreeze/
+ * destroy a researcher's credits, acting together.
+ *
+ * The panel roster rotates via append-and-repoint, not in-place edits.
  * Platform's contract-update validation rejects any change to an existing
  * group — DataContractUpdateActionNotAllowedError, "change group at
- * position 0 is not allowed" — so there is no live add/remove/swap-member
- * operation at all, owner-signed or otherwise. New groups can be appended
- * at higher positions, but this token pins freeze/unfreeze/destroy to
- * group 0 and locks mainControlGroupCanBeModified to NoOne, so an appended
- * group could never take over. Changing the panel means registering (or
- * selecting) a new contract with the desired members.
+ * position 0 is not allowed" — so a published group is immutable forever.
+ * But new groups CAN be appended at the next contiguous position, and
+ * because the action rules point at MainGroup() (not a hard-coded
+ * position), repointing the token's mainControlGroup at an appended group
+ * hands governance to the new roster. mainControlGroupCanBeModified is
+ * ContractOwner so the bounty operator can perform that repoint — see
+ * rotatePanelRoster.ts.
  *
  * Storage helpers (loadStoredContractId, saveContractId, …) and the owner
  * lookup live in contractStorage.ts so they can be imported without
@@ -74,6 +77,9 @@ export {
   saveContractId,
 } from "./contractStorage";
 
+// Position of the FOUNDING panel group only. After a rotation the active
+// group lives at a higher position — resolve it at runtime with
+// panel.ts's fetchActivePanelPosition instead of using this constant.
 export const PANEL_GROUP_POSITION = 0;
 export const PANEL_REQUIRED_POWER = 2;
 
@@ -161,7 +167,11 @@ export const REPORT_SCHEMAS = {
 export function createResearcherCreditConfiguration(ownerId: string) {
   const contractOwner = AuthorizedActionTakers.ContractOwner();
   const noOne = AuthorizedActionTakers.NoOne();
-  const panel = AuthorizedActionTakers.Group(PANEL_GROUP_POSITION);
+  // MainGroup() — not Group(0) — so freeze/unfreeze/destroy always follow
+  // whichever group is the token's CURRENT main control group. This is what
+  // makes roster rotation possible: repointing mainControlGroup at an
+  // appended group moves these powers with it, no rule rewrite needed.
+  const panel = AuthorizedActionTakers.MainGroup();
 
   const ownerRules = new ChangeControlRules({
     authorizedToMakeChange: contractOwner,
@@ -226,9 +236,17 @@ export function createResearcherCreditConfiguration(ownerId: string) {
     unfreezeRules: panelRules,
     destroyFrozenFundsRules: panelRules,
     emergencyActionRules: lockedRules,
+    // The founding Triage Panel governs the token from launch…
     mainControlGroup: PANEL_GROUP_POSITION,
-    // Don't let anyone repoint which group governs the token after launch.
-    mainControlGroupCanBeModified: noOne,
+    // …and the contract owner can later repoint governance at a different
+    // group. A published group itself is immutable (Platform rejects any
+    // contract update that touches an existing group), so "rotation" means
+    // append a new 3-member group at the next contiguous position, then
+    // repoint mainControlGroup at it via sdk.tokens.configUpdate — see
+    // rotatePanelRoster.ts. ContractOwner matches this app's admin model:
+    // the bounty operator administers roster membership; the panel does
+    // not self-govern its own composition.
+    mainControlGroupCanBeModified: contractOwner,
     description:
       "Researcher Credit — filing fee + freezable/slashable standing balance for the DashBounty triage panel.",
   });
