@@ -4,8 +4,8 @@ import { shortId } from "../lib/format";
 
 /**
  * Renders a truncated identity ID that copies the FULL id to the clipboard
- * on click. Every group action (propose/co-sign a freeze/unfreeze/destroy,
- * rotate the roster) needs the full 44-char base58 id typed into a form —
+ * on click. Every group action (propose/co-sign a freeze/unfreeze/destroy)
+ * needs the full 44-char base58 id typed into a form —
  * a purely truncated <code>{shortId(id)}</code> display gives the user
  * nothing to actually act on.
  */

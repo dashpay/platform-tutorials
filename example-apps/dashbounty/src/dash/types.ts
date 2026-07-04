@@ -66,11 +66,6 @@ export interface DashSdk {
       id?: string | { toString(): string };
       toJSON?: () => { id?: string };
     }>;
-    update(args: {
-      dataContract: unknown;
-      identityKey: IdentityPublicKey | undefined;
-      signer: IdentitySigner;
-    }): Promise<void>;
   };
   documents: {
     query(args: {

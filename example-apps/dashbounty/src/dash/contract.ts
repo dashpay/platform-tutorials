@@ -25,11 +25,15 @@
  * `freezeRules` / `unfreezeRules` / `destroyFrozenFundsRules` are gated on
  * `AuthorizedActionTakers.Group(PANEL_GROUP_POSITION)` — only the panel,
  * acting together, can freeze/unfreeze/destroy a researcher's credits.
- * Panel *roster* changes (who the 3 members are) are a different mechanism
- * entirely: there is no group-gated way to add/remove a group member —
- * `DataContractConfig` has no ChangeControlRules-style admin gate of its
- * own, so `sdk.contracts.update(...)` is unconditionally owner-key-
- * authorized. See updatePanelRoster.ts.
+ * The panel *roster* (who the 3 members are) is fixed at registration.
+ * Platform's contract-update validation rejects any change to an existing
+ * group — DataContractUpdateActionNotAllowedError, "change group at
+ * position 0 is not allowed" — so there is no live add/remove/swap-member
+ * operation at all, owner-signed or otherwise. New groups can be appended
+ * at higher positions, but this token pins freeze/unfreeze/destroy to
+ * group 0 and locks mainControlGroupCanBeModified to NoOne, so an appended
+ * group could never take over. Changing the panel means registering (or
+ * selecting) a new contract with the desired members.
  *
  * Storage helpers (loadStoredContractId, saveContractId, …) and the owner
  * lookup live in contractStorage.ts so they can be imported without

@@ -16,9 +16,11 @@
     researcher's remaining credit balance — see the React app's Panel tab
     for the full propose/co-sign mechanics. Reads need no identity or
     signing — just connect to testnet.
-  - Writes (submit a report, propose/co-sign freeze/unfreeze/destroy, rotate
-    the panel roster) are NOT implemented here. Use the React app at
-    example-apps/dashbounty/ for those.
+  - Writes (submit a report, propose/co-sign freeze/unfreeze/destroy) are
+    NOT implemented here. Use the React app at example-apps/dashbounty/ for
+    those. The panel roster itself is not writable anywhere — Platform
+    rejects contract updates that change an existing group, so the roster
+    is fixed when the contract is registered.
 
   Why single-file
   ---------------
