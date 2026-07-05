@@ -2,6 +2,7 @@ import type {
   DataContract,
   EvoSDK,
   Identity,
+  Identifier,
   IdentityPublicKey,
   IdentitySigner,
   PlatformAddress,
@@ -211,3 +212,9 @@ export declare function dip13KeyPath(
 export declare function createClient(
   network?: string,
 ): Promise<ConnectedDashClientLike & EvoSDK>;
+
+// Re-exported SDK primitives sourced from this core's `@dashevo/evo-sdk`
+// instance so downstream apps/scripts don't accidentally load a second copy.
+export declare const Identity: typeof import("@dashevo/evo-sdk").Identity;
+export declare const Identifier: typeof import("@dashevo/evo-sdk").Identifier;
+export declare function ensureInitialized(): Promise<void>;

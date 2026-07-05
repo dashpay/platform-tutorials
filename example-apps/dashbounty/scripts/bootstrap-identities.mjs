@@ -10,11 +10,12 @@
 //
 // Usage: npm run bootstrap:identities
 // Requires PLATFORM_MNEMONIC set in the repo-root .env, funded with enough
-// testnet credits for 4 identity registrations (5,000,000 credits each,
-// drawn from the SAME wallet platform address regardless of identityIndex).
+// testnet credits to register 4 identities and top each up to its role's
+// demo minimum (see ROLE_MIN_CREDITS below).
 //
-// Idempotent: re-running skips any index that already resolves to an
-// on-chain identity and just reports its existing ID.
+// Idempotent on both axes: a re-run skips creating any identity that
+// already resolves on-chain and only tops up existing balances that dipped
+// below the role minimum since the last run.
 import { randomBytes } from "node:crypto";
 import {
   appendFileSync,
@@ -25,7 +26,6 @@ import {
 import { dirname, resolve } from "node:path";
 import { fileURLToPath } from "node:url";
 import { config as loadEnv } from "dotenv";
-import { Identity, Identifier } from "@dashevo/evo-sdk";
 
 const here = dirname(fileURLToPath(import.meta.url));
 const envPath = resolve(here, "../.env");
@@ -36,8 +36,23 @@ const envPath = resolve(here, "../.env");
 // doesn't override already-set process.env values, so this wins.
 loadEnv({ path: resolve(here, "../../../.env") });
 
-const { setupDashClient, IdentityKeyManager } =
-  await import("../../../setupDashClient.mjs");
+// Route Identity/Identifier/ensureInitialized (and setupDashClient itself)
+// through the repo-root setupDashClient.mjs so every SDK primitive comes
+// from the SAME loaded `@dashevo/evo-sdk` instance. A bare
+// `import { Identity } from '@dashevo/evo-sdk'` here would resolve to the
+// dashbounty-local node_modules copy while setupDashClient uses the
+// repo-root copy — two distinct class constructors under Node 22, which
+// breaks `instanceof` inside the SDK and produces duplicate-constructor
+// errors mid-create.
+const {
+  setupDashClient,
+  IdentityKeyManager,
+  Identity,
+  Identifier,
+  ensureInitialized,
+} = await import("../../../setupDashClient.mjs");
+
+await ensureInitialized();
 
 const ROLES = ["researcher", "panelist-1", "panelist-2", "panelist-3"];
 const ENV_KEYS = [
@@ -46,6 +61,30 @@ const ENV_KEYS = [
   "VITE_PANELIST_2_ID",
   "VITE_PANELIST_3_ID",
 ];
+
+// Credits deposited into each identity at creation. Enough for the initial
+// on-chain registration; the role-specific top-up step raises this to the
+// demo minimum below.
+const CREATION_DEPOSIT_CREDITS = 5_000_000n;
+
+// Per-role balance floors for the DashBounty demo. Owner (index 0) has to
+// afford contract publish + at least one roster rotation (publish alone
+// consumed ~25,000,100,000 credits during testnet proof; leaving generous
+// headroom for a rotation and one report submission). Panelists have to
+// afford several group co-signatures (~189,793,800 credits per freeze
+// co-sign observed on testnet); 1,000,000,000 credits fits 5+ co-signs.
+const RESEARCHER_MIN_CREDITS = 60_000_000_000n;
+const PANELIST_MIN_CREDITS = 1_000_000_000n;
+const ROLE_MIN_CREDITS = [
+  RESEARCHER_MIN_CREDITS,
+  PANELIST_MIN_CREDITS,
+  PANELIST_MIN_CREDITS,
+  PANELIST_MIN_CREDITS,
+];
+
+function formatCredits(n) {
+  return typeof n === "bigint" ? n.toString() : String(n);
+}
 
 async function resolveExistingIdentityId({ sdk, mnemonic, identityIndex }) {
   try {
@@ -61,18 +100,56 @@ async function resolveExistingIdentityId({ sdk, mnemonic, identityIndex }) {
   }
 }
 
-async function registerIdentityAtIndex({ identityIndex }) {
-  const { sdk, keyManager, addressKeyManager } = await setupDashClient({
-    requireIdentity: false,
-    identityIndex,
-  });
+async function fetchIdentityBalance(sdk, identityId) {
+  const identity = await sdk.identities.fetch(identityId);
+  if (!identity) {
+    throw new Error(`Identity ${identityId} not found on-chain`);
+  }
+  const raw = identity.balance;
+  return typeof raw === "bigint" ? raw : BigInt(raw ?? 0);
+}
 
-  const existingId = await resolveExistingIdentityId({
-    sdk,
-    mnemonic: process.env.PLATFORM_MNEMONIC,
+async function fetchWalletBalance(addressKeyManager) {
+  const info = await addressKeyManager.getInfo();
+  if (!info) return 0n;
+  const raw = info.balance;
+  return typeof raw === "bigint" ? raw : BigInt(raw ?? 0);
+}
+
+function assertWalletCanCover({
+  walletBalance,
+  need,
+  role,
+  identityIndex,
+  step,
+  walletAddress,
+}) {
+  if (walletBalance >= need) return;
+  const message = [
+    `Wallet platform address ${walletAddress} has ${formatCredits(walletBalance)} credits`,
+    `but ${step} for ${role} (identityIndex=${identityIndex}) needs ${formatCredits(need)} credits.`,
+    `Fund the wallet with at least ${formatCredits(need - walletBalance)} more credits and re-run.`,
+  ].join(" ");
+  throw new Error(message);
+}
+
+async function registerIdentity({
+  sdk,
+  keyManager,
+  addressKeyManager,
+  role,
+  identityIndex,
+  walletAddress,
+  walletBalanceRef,
+}) {
+  assertWalletCanCover({
+    walletBalance: walletBalanceRef.value,
+    need: CREATION_DEPOSIT_CREDITS,
+    role,
     identityIndex,
+    step: "identity registration",
+    walletAddress,
   });
-  if (existingId) return { identityId: existingId, alreadyRegistered: true };
 
   const identity = new Identity(new Identifier(randomBytes(32)));
   keyManager.getKeysInCreation().forEach((key) => {
@@ -85,23 +162,64 @@ async function registerIdentityAtIndex({ identityIndex }) {
       inputs: [
         {
           address: addressKeyManager.primaryAddress.bech32m,
-          amount: 5000000n,
+          amount: CREATION_DEPOSIT_CREDITS,
         },
       ],
       identitySigner: keyManager.getFullSigner(),
       addressSigner: addressKeyManager.getSigner(),
     });
-    return {
-      identityId: result.identity.id.toString(),
-      alreadyRegistered: false,
-    };
+    return result.identity.id.toString();
   } catch (e) {
     // Known SDK bug: proof verification fails but the identity was created.
     // Issue: https://github.com/dashpay/platform/issues/3095
     const match = e.message?.match(/proof returned identity (\w+) but/);
-    if (match) return { identityId: match[1], alreadyRegistered: false };
+    if (match) return match[1];
     throw e;
   }
+}
+
+async function ensureIdentityBalance({
+  sdk,
+  addressKeyManager,
+  identityId,
+  minCredits,
+  role,
+  identityIndex,
+  walletAddress,
+  walletBalanceRef,
+}) {
+  const currentBalance = await fetchIdentityBalance(sdk, identityId);
+  if (currentBalance >= minCredits) {
+    return { topUpAmount: 0n, finalBalance: currentBalance };
+  }
+  const topUpAmount = minCredits - currentBalance;
+
+  assertWalletCanCover({
+    walletBalance: walletBalanceRef.value,
+    need: topUpAmount,
+    role,
+    identityIndex,
+    step: "top-up",
+    walletAddress,
+  });
+
+  const identity = await sdk.identities.fetch(identityId);
+  const result = await sdk.addresses.topUpIdentity({
+    identity,
+    inputs: [
+      {
+        address: addressKeyManager.primaryAddress.bech32m,
+        amount: topUpAmount,
+      },
+    ],
+    signer: addressKeyManager.getSigner(),
+  });
+  const finalBalance =
+    typeof result.newBalance === "bigint"
+      ? result.newBalance
+      : BigInt(result.newBalance ?? 0);
+  walletBalanceRef.value = await fetchWalletBalance(addressKeyManager);
+  return { topUpAmount, finalBalance };
 }
 
 function upsertEnvVar(key, value) {
@@ -120,15 +238,63 @@ function upsertEnvVar(key, value) {
 }
 
 for (let identityIndex = 0; identityIndex < 4; identityIndex += 1) {
-  const { identityId, alreadyRegistered } = await registerIdentityAtIndex({
+  const role = ROLES[identityIndex];
+  const minCredits = ROLE_MIN_CREDITS[identityIndex];
+
+  const { sdk, keyManager, addressKeyManager } = await setupDashClient({
+    requireIdentity: false,
     identityIndex,
   });
-  const role = ROLES[identityIndex];
+  const walletAddress = addressKeyManager.primaryAddress.bech32m;
+  const walletBalanceRef = {
+    value: await fetchWalletBalance(addressKeyManager),
+  };
+
+  const existingId = await resolveExistingIdentityId({
+    sdk,
+    mnemonic: process.env.PLATFORM_MNEMONIC,
+    identityIndex,
+  });
+
+  let identityId = existingId;
+  const alreadyRegistered = Boolean(existingId);
+  if (!existingId) {
+    identityId = await registerIdentity({
+      sdk,
+      keyManager,
+      addressKeyManager,
+      role,
+      identityIndex,
+      walletAddress,
+      walletBalanceRef,
+    });
+    walletBalanceRef.value = await fetchWalletBalance(addressKeyManager);
+  }
+
+  const { topUpAmount, finalBalance } = await ensureIdentityBalance({
+    sdk,
+    addressKeyManager,
+    identityId,
+    minCredits,
+    role,
+    identityIndex,
+    walletAddress,
+    walletBalanceRef,
+  });
+
+  const registrationState = alreadyRegistered
+    ? "already registered"
+    : "newly registered";
+  const topUpState =
+    topUpAmount > 0n
+      ? `topped up +${formatCredits(topUpAmount)} credits`
+      : "at or above minimum";
   console.log(
-    `[${role}] identityIndex=${identityIndex} → ${identityId}${
-      alreadyRegistered ? " (already registered)" : " (newly registered)"
-    }`,
+    `[${role}] identityIndex=${identityIndex} → ${identityId} ` +
+      `(${registrationState}, ${topUpState}, balance=${formatCredits(finalBalance)}, ` +
+      `min=${formatCredits(minCredits)})`,
   );
+
   const envKey = ENV_KEYS[identityIndex];
   if (envKey) upsertEnvVar(envKey, identityId);
 }

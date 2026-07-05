@@ -263,6 +263,11 @@ export function createTriagePanelGroup(panelMemberIds: string[]) {
       `Triage panel needs exactly 3 members, got ${panelMemberIds.length}`,
     );
   }
+  if (new Set(panelMemberIds).size !== panelMemberIds.length) {
+    throw new Error(
+      "Triage panel members must be 3 distinct identities (duplicate IDs would collapse the group below 3 signers)",
+    );
+  }
   const members = new Map<string, number>(panelMemberIds.map((id) => [id, 1]));
   return new Group(members, PANEL_REQUIRED_POWER);
 }

@@ -211,6 +211,13 @@ describe("Triage Panel group", () => {
       /exactly 3/,
     );
   });
+
+  it("rejects a panel with duplicate member IDs so the group cannot silently collapse below 3 signers", async () => {
+    const { createTriagePanelGroup } = await import("../src/dash/contract");
+    expect(() => createTriagePanelGroup(["a", "a", "b"])).toThrow(/distinct/);
+    expect(() => createTriagePanelGroup(["a", "b", "a"])).toThrow(/distinct/);
+    expect(() => createTriagePanelGroup(["a", "a", "a"])).toThrow(/distinct/);
+  });
 });
 
 describe("registerContract", () => {
