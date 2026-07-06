@@ -26,6 +26,19 @@ import {
 import { dirname, resolve } from "node:path";
 import { fileURLToPath } from "node:url";
 import { config as loadEnv } from "dotenv";
+// Import Identity/Identifier from the REPO-ROOT @dashevo/evo-sdk copy — the
+// same one setupDashClient.mjs (also at the repo root) loads — rather than
+// the bare specifier. A bare `import ... from "@dashevo/evo-sdk"` in a
+// script under example-apps/dashbounty/ resolves to this app's LOCAL
+// node_modules copy, a different module instance from the root one the
+// helper uses; the two produce distinct class constructors under Node 22,
+// which breaks `instanceof` inside the SDK mid-create. Sharing the root
+// copy is what lets this script use these primitives exactly like the root
+// tutorials (e.g. 1-Identities-and-Names/identity-register.mjs) do.
+import {
+  Identity,
+  Identifier,
+} from "../../../node_modules/@dashevo/evo-sdk/dist/evo-sdk.module.js";
 
 const here = dirname(fileURLToPath(import.meta.url));
 const envPath = resolve(here, "../.env");
@@ -36,23 +49,8 @@ const envPath = resolve(here, "../.env");
 // doesn't override already-set process.env values, so this wins.
 loadEnv({ path: resolve(here, "../../../.env") });
 
-// Route Identity/Identifier/ensureInitialized (and setupDashClient itself)
-// through the repo-root setupDashClient.mjs so every SDK primitive comes
-// from the SAME loaded `@dashevo/evo-sdk` instance. A bare
-// `import { Identity } from '@dashevo/evo-sdk'` here would resolve to the
-// dashbounty-local node_modules copy while setupDashClient uses the
-// repo-root copy — two distinct class constructors under Node 22, which
-// breaks `instanceof` inside the SDK and produces duplicate-constructor
-// errors mid-create.
-const {
-  setupDashClient,
-  IdentityKeyManager,
-  Identity,
-  Identifier,
-  ensureInitialized,
-} = await import("../../../setupDashClient.mjs");
-
-await ensureInitialized();
+const { setupDashClient, IdentityKeyManager } =
+  await import("../../../setupDashClient.mjs");
 
 const ROLES = ["researcher", "panelist-1", "panelist-2", "panelist-3"];
 const ENV_KEYS = [

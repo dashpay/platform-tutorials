@@ -20,9 +20,6 @@ import {
   KEY_SPECS,
   IdentityKeyManager,
   AddressKeyManager,
-  ensureInitialized,
-  Identifier,
-  Identity,
 } from './setupDashClient-core.mjs';
 
 // Load .env if dotenv is installed (optional — not needed for tutorials).
@@ -118,7 +115,4 @@ export {
   IdentityKeyManager,
   AddressKeyManager,
   clientConfig,
-  ensureInitialized,
-  Identifier,
-  Identity,
 };

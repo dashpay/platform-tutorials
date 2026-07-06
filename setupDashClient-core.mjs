@@ -15,10 +15,7 @@
 // IdentityKeyManager from here so there is no copy-paste drift.
 //
 import {
-  ensureInitialized,
   EvoSDK,
-  Identifier,
-  Identity,
   IdentityPublicKeyInCreation,
   IdentitySigner,
   KeyType,
@@ -602,17 +599,4 @@ class AddressKeyManager {
   }
 }
 
-export {
-  IdentityKeyManager,
-  AddressKeyManager,
-  // Re-exported SDK primitives so browser apps and Node scripts share ONE
-  // loaded `@dashevo/evo-sdk` instance — importing these from a bare
-  // `@dashevo/evo-sdk` inside a scoped workspace resolves to that workspace's
-  // local copy, giving separate class constructors from the ones the core
-  // module already uses (`instanceof`/duplicate-constructor drift under
-  // Node 22). Anything downstream that needs Identity/Identifier or the
-  // WASM init hook should pull them from here.
-  ensureInitialized,
-  Identifier,
-  Identity,
-};
+export { IdentityKeyManager, AddressKeyManager };
