@@ -1,14 +1,13 @@
 /**
  * Read the Triage Panel's current composition.
  *
- * "Current" is dynamic: freeze/unfreeze/destroy are gated on
- * `AuthorizedActionTakers.MainGroup()`, so the acting panel is whichever
- * group the token's `mainControlGroup` points at — group 0 at launch, a
- * higher appended position after a roster rotation (see
- * rotatePanelRoster.ts). `fetchActivePanelPosition` resolves that position
- * from the published contract's token configuration; every other helper
- * here (and the freeze/unfreeze/destroy/groupActions callers) takes the
- * resolved position rather than assuming the founding group 0.
+ * "Current" is dynamic: the acting panel is whichever group the token's
+ * `mainControlGroup` points at — group 0 at launch, a higher appended
+ * position after a roster rotation (see rotatePanelRoster.ts).
+ * `fetchActivePanelPosition` resolves that position from the published
+ * token configuration; every other helper here (and the
+ * freeze/unfreeze/destroy/groupActions callers) takes the resolved position
+ * rather than assuming the founding group 0.
  *
  * `sdk.group.info` returns the Group as published in the contract (members
  * map + requiredPower). `isPanelMember` checks membership against that

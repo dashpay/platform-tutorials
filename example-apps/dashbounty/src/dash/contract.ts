@@ -25,18 +25,10 @@
  * `freezeRules` / `unfreezeRules` / `destroyFrozenFundsRules` are gated on
  * `AuthorizedActionTakers.MainGroup()` — whichever group is the token's
  * *current* main control group (initially group 0) can freeze/unfreeze/
- * destroy a researcher's credits, acting together.
- *
- * The panel roster rotates via append-and-repoint, not in-place edits.
- * Platform's contract-update validation rejects any change to an existing
- * group — DataContractUpdateActionNotAllowedError, "change group at
- * position 0 is not allowed" — so a published group is immutable forever.
- * But new groups CAN be appended at the next contiguous position, and
- * because the action rules point at MainGroup() (not a hard-coded
- * position), repointing the token's mainControlGroup at an appended group
- * hands governance to the new roster. mainControlGroupCanBeModified is
- * ContractOwner so the bounty operator can perform that repoint — see
- * rotatePanelRoster.ts.
+ * destroy a researcher's credits, acting together. That "current" group can
+ * change: the roster rotates via append-and-repoint (a published group is
+ * immutable), which is why the rules point at MainGroup() rather than a
+ * hard-coded position. See rotatePanelRoster.ts for the full mechanism.
  *
  * Storage helpers (loadStoredContractId, saveContractId, …) and the owner
  * lookup live in contractStorage.ts so they can be imported without
@@ -238,14 +230,10 @@ export function createResearcherCreditConfiguration(ownerId: string) {
     emergencyActionRules: lockedRules,
     // The founding Triage Panel governs the token from launch…
     mainControlGroup: PANEL_GROUP_POSITION,
-    // …and the contract owner can later repoint governance at a different
-    // group. A published group itself is immutable (Platform rejects any
-    // contract update that touches an existing group), so "rotation" means
-    // append a new 3-member group at the next contiguous position, then
-    // repoint mainControlGroup at it via sdk.tokens.configUpdate — see
-    // rotatePanelRoster.ts. ContractOwner matches this app's admin model:
-    // the bounty operator administers roster membership; the panel does
-    // not self-govern its own composition.
+    // …and ContractOwner (not NoOne) lets the operator later repoint
+    // governance at an appended group — the app's admin model is that the
+    // bounty operator administers roster membership; the panel does not
+    // self-govern its own composition. See rotatePanelRoster.ts.
     mainControlGroupCanBeModified: contractOwner,
     description:
       "Researcher Credit — filing fee + freezable/slashable standing balance for the DashBounty triage panel.",
