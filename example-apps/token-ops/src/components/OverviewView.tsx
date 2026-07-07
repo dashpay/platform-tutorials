@@ -1,6 +1,7 @@
 import { useEffect, useState } from "react";
 
 import { CopyableId } from "./CopyableId";
+import { TOKEN_MAX_SUPPLY } from "../dash/contract";
 import { fetchTokenOpsGovernance } from "../dash/governance";
 import { errorMessage } from "../dash/logger";
 import { fetchIdentityTokenStates, fetchTokenOverview } from "../dash/token";
@@ -11,6 +12,15 @@ type IdentityTokenState = {
   balance: bigint;
   isFrozen: boolean;
 };
+
+function formatAmount(value: bigint): string {
+  return value.toLocaleString("en-US");
+}
+
+function supplyPercent(totalSupply: bigint): number {
+  const basisPoints = (totalSupply * 10_000n) / TOKEN_MAX_SUPPLY;
+  return Math.max(0, Math.min(100, Number(basisPoints) / 100));
+}
 
 export function OverviewView({
   watchedIdentityIds,
@@ -87,46 +97,66 @@ export function OverviewView({
     return <div className="notice info">Configure a TokenOps contract first.</div>;
   }
 
+  const totalSupply = overview?.totalSupply ?? 0n;
+  const percentMinted = supplyPercent(totalSupply);
+  const headroom = TOKEN_MAX_SUPPLY - totalSupply;
+
   return (
-    <div>
+    <div className="overview-screen">
       {error && <div className="notice error">{error}</div>}
-      <div className="card">
-        <h3>Token overview</h3>
-        <p className="muted">
-          One contract, one token, three governance groups, and explicit
-          ChangeControlRules for every relevant token capability.
-        </p>
-        <div className="stats-grid">
-          <div>
-            <span className="muted">Contract</span>
+      <div className="overview-grid">
+        <section className="overview-panel token-supply-panel">
+          <div className="row between">
+            <h3>Token supply</h3>
+            <span
+              className={`token-status-pill ${overview?.isPaused ? "paused" : "active"}`}
+            >
+              {overview?.isPaused ? "Paused" : "Active"}
+            </span>
+          </div>
+          <div className="supply-meter-head">
+            <strong>{formatAmount(totalSupply)}</strong>
+            <span>of {formatAmount(TOKEN_MAX_SUPPLY)} max</span>
+          </div>
+          <div
+            className="supply-meter"
+            role="progressbar"
+            aria-label="Minted supply"
+            aria-valuemin={0}
+            aria-valuemax={100}
+            aria-valuenow={percentMinted}
+          >
+            <span style={{ width: `${percentMinted}%` }} />
+          </div>
+          <div className="row between supply-meter-foot">
+            <span>{percentMinted.toFixed(2)}% minted</span>
+            <span>{formatAmount(headroom > 0n ? headroom : 0n)} remaining</span>
+          </div>
+        </section>
+
+        <div className="overview-id-stack">
+          <section className="overview-panel id-panel">
+            <span>Contract</span>
             <strong>
               <CopyableId id={session.contractId} />
             </strong>
-          </div>
-          <div>
-            <span className="muted">Token ID</span>
+          </section>
+          <section className="overview-panel id-panel">
+            <span>Token ID</span>
             <strong>
               {overview ? <CopyableId id={overview.tokenId} /> : "Loading..."}
             </strong>
-          </div>
-          <div>
-            <span className="muted">Total supply</span>
-            <strong>{overview?.totalSupply.toString() ?? "..."}</strong>
-          </div>
-          <div>
-            <span className="muted">Status</span>
-            <strong>{overview?.isPaused ? "Paused" : "Active"}</strong>
-          </div>
+          </section>
         </div>
       </div>
 
-      <div className="card">
-        <h3>Identity lookup</h3>
+      <section className="overview-panel identity-inspector">
+        <h3>Inspect an identity</h3>
         <form
-          className="row"
+          className="identity-lookup-form"
           onSubmit={(event) => {
             event.preventDefault();
-            const identityId = lookupId.trim();
+            const identityId = lookupId.trim() || session.identityId;
             if (!identityId) return;
             onWatchIdentity(identityId);
             void refresh(identityId);
@@ -135,7 +165,7 @@ export function OverviewView({
           <input
             value={lookupId}
             onChange={(event) => setLookupId(event.target.value)}
-            placeholder={session.identityId ?? "Identity ID"}
+            placeholder="Identity ID - defaults to signed-in identity"
           />
           <button type="submit">Inspect</button>
         </form>
@@ -175,7 +205,7 @@ export function OverviewView({
             </tbody>
           </table>
         </div>
-      </div>
+      </section>
     </div>
   );
 }

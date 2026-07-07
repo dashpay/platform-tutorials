@@ -1,5 +1,11 @@
 // @vitest-environment jsdom
-import { fireEvent, render, screen, waitFor } from "@testing-library/react";
+import {
+  cleanup,
+  fireEvent,
+  render,
+  screen,
+  waitFor,
+} from "@testing-library/react";
 import { afterEach, describe, expect, it, vi } from "vitest";
 
 import { OperationsView } from "../src/components/OperationsView";
@@ -62,6 +68,7 @@ const governance: TokenOpsGovernance = {
 
 describe("OperationsView", () => {
   afterEach(() => {
+    cleanup();
     vi.clearAllMocks();
   });
 
@@ -79,34 +86,29 @@ describe("OperationsView", () => {
     render(<OperationsView />);
 
     await waitFor(() =>
-      expect(screen.getByText(/member of group 1/i)).toBeTruthy(),
+      expect(screen.getByText(/Member of Access Group/i)).toBeTruthy(),
     );
 
-    const mint = screen.getByRole("button", { name: "Mint" }) as HTMLButtonElement;
-    const burn = screen.getByRole("button", { name: "Burn" }) as HTMLButtonElement;
     const transfer = screen.getByRole("button", {
       name: "Transfer",
     }) as HTMLButtonElement;
     const freeze = screen.getByRole("button", {
-      name: "Freeze",
+      name: "Propose freeze",
     }) as HTMLButtonElement;
-    const pause = screen.getByRole("button", { name: "Pause" }) as HTMLButtonElement;
 
-    fireEvent.change(screen.getByLabelText("Recipient identity ID"), {
+    fireEvent.change(screen.getByLabelText("Transfer recipient identity ID"), {
       target: { value: "recipient-id" },
     });
-    fireEvent.change(screen.getByLabelText("Target identity ID"), {
+    fireEvent.change(screen.getByLabelText("Access target identity ID"), {
       target: { value: "target-id" },
     });
 
-    expect(mint.disabled).toBe(true);
-    expect(mint.title).toBe("Requires membership in group 0.");
-    expect(burn.disabled).toBe(true);
-    expect(burn.title).toBe("Requires membership in group 0.");
+    expect(screen.getByText("🔒 Requires membership in Treasury Group.")).toBeTruthy();
+    expect(screen.getByText("🔒 Requires membership in Emergency Group.")).toBeTruthy();
+    expect(screen.queryByRole("button", { name: "Burn..." })).toBeNull();
+    expect(screen.queryByRole("button", { name: "Propose pause" })).toBeNull();
     expect(transfer.disabled).toBe(false);
     expect(freeze.disabled).toBe(false);
-    expect(pause.disabled).toBe(true);
-    expect(pause.title).toBe("Requires membership in group 2.");
   });
 
   it("shows a prominent warning when no group-managed operations are available", async () => {
@@ -131,5 +133,49 @@ describe("OperationsView", () => {
         .getByText(/Group-managed actions are disabled/i)
         .closest(".notice.warning.prominent"),
     ).toBeTruthy();
+  });
+
+  it("shows supported operations in read-only mode with submit controls disabled", async () => {
+    vi.mocked(useSession).mockReturnValue({
+      status: "readonly",
+      sdk: { contracts: {} },
+      keyManager: null,
+      contractId: "contract-1",
+      identityId: null,
+      log: vi.fn(),
+    } as never);
+    vi.mocked(fetchTokenOpsGovernance).mockResolvedValue(governance);
+
+    render(<OperationsView />);
+
+    await waitFor(() =>
+      expect(screen.getByText(/submission controls are disabled/i)).toBeTruthy(),
+    );
+
+    expect(screen.getByText("Supply")).toBeTruthy();
+    expect(screen.getByText("Access")).toBeTruthy();
+    expect(screen.getByText("Emergency")).toBeTruthy();
+
+    const mint = screen.getByRole("button", {
+      name: "Propose mint",
+    }) as HTMLButtonElement;
+    const freeze = screen.getByRole("button", {
+      name: "Propose freeze",
+    }) as HTMLButtonElement;
+    const transfer = screen.getByRole("button", {
+      name: "Transfer",
+    }) as HTMLButtonElement;
+
+    fireEvent.change(screen.getByLabelText("Transfer recipient identity ID"), {
+      target: { value: "recipient-id" },
+    });
+
+    expect(mint.disabled).toBe(true);
+    expect(mint.title).toBe("Sign in to propose this action.");
+    expect(freeze.disabled).toBe(true);
+    expect(freeze.title).toBe("Sign in to propose this action.");
+    expect(transfer.disabled).toBe(true);
+    expect(transfer.title).toBe("Sign in to transfer tokens.");
+    expect(screen.queryByText("No group operation permissions")).toBeNull();
   });
 });

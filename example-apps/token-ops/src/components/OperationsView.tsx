@@ -2,6 +2,7 @@ import { useEffect, useState } from "react";
 
 import {
   DEFAULT_ACTION_GROUP_POSITIONS,
+  GROUP_DEFINITIONS,
   type TokenActionKind,
 } from "../dash/contract";
 import {
@@ -44,6 +45,28 @@ function groupFor(kind: TokenActionKind, rules: RuleInfo[]): number {
   return DEFAULT_ACTION_GROUP_POSITIONS[kind];
 }
 
+const GROUP_LABELS: Map<number, string> = new Map(
+  Object.values(GROUP_DEFINITIONS).map((group) => [group.position, group.label]),
+);
+
+function groupLabel(position: number): string {
+  return GROUP_LABELS.get(position) ?? `Group ${position}`;
+}
+
+function groupRequiredPower(
+  position: number,
+  groups: TokenOpsGroupInfo[],
+): number | undefined {
+  return groups.find((group) => group.groupPosition === position)?.requiredPower;
+}
+
+function groupMeta(position: number, groups: TokenOpsGroupInfo[]): string {
+  const requiredPower = groupRequiredPower(position, groups);
+  return `${groupLabel(position)}${
+    requiredPower ? ` - ${requiredPower} signatures required` : ""
+  }`;
+}
+
 export function OperationsView({ onComplete }: { onComplete?: () => void }) {
   const session = useSession();
   const [groups, setGroups] = useState<TokenOpsGroupInfo[]>([]);
@@ -51,7 +74,6 @@ export function OperationsView({ onComplete }: { onComplete?: () => void }) {
   const [amount, setAmount] = useState("1");
   const [recipientId, setRecipientId] = useState("");
   const [targetIdentityId, setTargetIdentityId] = useState("");
-  const [actionId, setActionId] = useState("");
   const [busy, setBusy] = useState<string | null>(null);
   const [error, setError] = useState<string | null>(null);
   const [governanceError, setGovernanceError] = useState<string | null>(null);
@@ -94,17 +116,13 @@ export function OperationsView({ onComplete }: { onComplete?: () => void }) {
     }
   }
 
-  if (session.status !== "authenticated") {
-    return <div className="notice info">Sign in to submit token operations.</div>;
-  }
-
+  const isAuthenticated = session.status === "authenticated";
   const common = {
     sdk: session.sdk!,
     keyManager: session.keyManager!,
     contractId: session.contractId!,
     log: session.log,
   };
-  const pendingActionId = actionId.trim() || undefined;
   const signedInIdentityId = session.identityId;
 
   function actionRule(kind: TokenActionKind): RuleInfo | undefined {
@@ -116,15 +134,22 @@ export function OperationsView({ onComplete }: { onComplete?: () => void }) {
     groupPosition: number;
     reason: string | undefined;
   } {
+    const groupPosition = groupFor(kind, rules);
+    if (!isAuthenticated) {
+      return {
+        canSubmit: false,
+        groupPosition,
+        reason: "Sign in to propose this action.",
+      };
+    }
     const rule = actionRule(kind);
     if (rule && rule.operator.type !== "Group") {
       return {
         canSubmit: false,
-        groupPosition: groupFor(kind, rules),
+        groupPosition,
         reason: `Current operator is ${rule.operator.type}; this form supports group-operated actions.`,
       };
     }
-    const groupPosition = groupFor(kind, rules);
     const group = groups.find((candidate) => candidate.groupPosition === groupPosition);
     if (!group) {
       return {
@@ -137,10 +162,31 @@ export function OperationsView({ onComplete }: { onComplete?: () => void }) {
       return {
         canSubmit: false,
         groupPosition,
-        reason: `Requires membership in group ${groupPosition}.`,
+        reason: `🔒 Requires membership in ${groupLabel(groupPosition)}.`,
       };
     }
     return { canSubmit: true, groupPosition, reason: undefined };
+  }
+
+  function disabledReason(
+    permission: { canSubmit: boolean; reason: string | undefined },
+    inputReason?: string,
+  ): string | undefined {
+    return permission.reason ?? inputReason;
+  }
+
+  function confirmBurn(): boolean {
+    const cleanAmount = amount.trim();
+    return window.confirm(
+      `Propose irreversible burn of ${cleanAmount} token(s) from the signed-in identity?`,
+    );
+  }
+
+  function confirmDestroyFrozen(): boolean {
+    const target = targetIdentityId.trim();
+    return window.confirm(
+      `Propose permanent destruction of frozen funds for ${target}?`,
+    );
   }
 
   const mintPermission = actionPermission("mint");
@@ -164,12 +210,35 @@ export function OperationsView({ onComplete }: { onComplete?: () => void }) {
   const memberships = groups
     .filter((group) => signedInIdentityId && group.members.has(signedInIdentityId))
     .map((group) => group.groupPosition);
+  const supplyLockedReason =
+    isAuthenticated && !mintPermission.canSubmit && !burnPermission.canSubmit
+      ? (mintPermission.reason ?? burnPermission.reason)
+      : undefined;
+  const accessLockedReason =
+    isAuthenticated &&
+    !freezePermission.canSubmit &&
+    !unfreezePermission.canSubmit &&
+    !destroyFrozenPermission.canSubmit
+      ? (freezePermission.reason ??
+        unfreezePermission.reason ??
+        destroyFrozenPermission.reason)
+      : undefined;
+  const emergencyLockedReason =
+    isAuthenticated && !emergencyPermission.canSubmit
+      ? (emergencyPermission.reason ?? destroyFrozenPermission.reason)
+      : undefined;
 
   return (
-    <div>
+    <div className="operations-screen">
       {error && <div className="notice error">{error}</div>}
       {governanceError && <div className="notice error">{governanceError}</div>}
-      {governanceLoaded && !canSubmitAnyGroupAction && (
+      {!isAuthenticated && (
+        <div className="notice info">
+          Sign in to propose or run token operations. This view remains available
+          so you can inspect supported token capabilities and governance groups.
+        </div>
+      )}
+      {isAuthenticated && governanceLoaded && !canSubmitAnyGroupAction && (
         <div className="notice warning prominent">
           <strong>No group operation permissions</strong>
           <span>
@@ -180,205 +249,279 @@ export function OperationsView({ onComplete }: { onComplete?: () => void }) {
           </span>
         </div>
       )}
-      <div className="card">
-        <h3>Group-managed operations</h3>
-        <p className="muted">
-          Leave Action ID blank to propose. Paste a pending action ID to co-sign
-          that existing group action.
-        </p>
-        <p className="muted">
-          {memberships.length > 0
-            ? `Signed-in identity is a member of group ${memberships.join(", group ")}.`
-            : "Signed-in identity is not a member of any loaded TokenOps group."}
-        </p>
-        <div className="grid-2">
-          <div className="field">
-            <label htmlFor="amount">Amount</label>
-            <input id="amount" value={amount} onChange={(e) => setAmount(e.target.value)} />
-          </div>
-          <div className="field">
-            <label htmlFor="action-id">Action ID for co-sign</label>
-            <input
-              id="action-id"
-              value={actionId}
-              onChange={(e) => setActionId(e.target.value)}
-              placeholder="optional"
-            />
-          </div>
-        </div>
-        <div className="field">
-          <label htmlFor="recipient">Recipient identity ID</label>
-          <input
-            id="recipient"
-            value={recipientId}
-            onChange={(e) => setRecipientId(e.target.value)}
-            placeholder="optional for mint, required for transfer"
-          />
-        </div>
-        <div className="row wrap">
-          <button
-            type="button"
-            disabled={Boolean(busy) || !mintPermission.canSubmit}
-            title={mintPermission.reason}
-            onClick={() =>
-              run("Mint", () =>
-                mintToken({
-                  ...common,
-                  amount: toAmount(amount),
-                  recipientId,
-                  groupPosition: mintPermission.groupPosition,
-                  actionId: pendingActionId,
-                }),
-              )
-            }
-          >
-            Mint
-          </button>
-          <button
-            type="button"
-            disabled={Boolean(busy) || !burnPermission.canSubmit}
-            title={burnPermission.reason}
-            onClick={() =>
-              run("Burn", () =>
-                burnToken({
-                  ...common,
-                  amount: toAmount(amount),
-                  groupPosition: burnPermission.groupPosition,
-                  actionId: pendingActionId,
-                }),
-              )
-            }
-          >
-            Burn
-          </button>
-          <button
-            type="button"
-            disabled={Boolean(busy) || !recipientId.trim()}
-            onClick={() =>
-              run("Transfer", () =>
-                transferToken({
-                  ...common,
-                  amount: toAmount(amount),
-                  recipientId,
-                }),
-              )
-            }
-          >
-            Transfer
-          </button>
-        </div>
-      </div>
 
-      <div className="card">
-        <h3>Access and emergency actions</h3>
-        <div className="field">
-          <label htmlFor="target-identity">Target identity ID</label>
-          <input
-            id="target-identity"
-            value={targetIdentityId}
-            onChange={(e) => setTargetIdentityId(e.target.value)}
-          />
-        </div>
-        <div className="row wrap">
-          <button
-            type="button"
-            disabled={
-              Boolean(busy) || !targetIdentityId.trim() || !freezePermission.canSubmit
-            }
-            title={freezePermission.reason}
-            onClick={() =>
-              run("Freeze", () =>
-                freezeToken({
-                  ...common,
-                  targetIdentityId,
-                  groupPosition: freezePermission.groupPosition,
-                  actionId: pendingActionId,
-                }),
-              )
-            }
-          >
-            Freeze
-          </button>
-          <button
-            type="button"
-            disabled={
-              Boolean(busy) ||
-              !targetIdentityId.trim() ||
-              !unfreezePermission.canSubmit
-            }
-            title={unfreezePermission.reason}
-            onClick={() =>
-              run("Unfreeze", () =>
-                unfreezeToken({
-                  ...common,
-                  targetIdentityId,
-                  groupPosition: unfreezePermission.groupPosition,
-                  actionId: pendingActionId,
-                }),
-              )
-            }
-          >
-            Unfreeze
-          </button>
-          <button
-            type="button"
-            className="danger"
-            disabled={
-              Boolean(busy) ||
-              !targetIdentityId.trim() ||
-              !destroyFrozenPermission.canSubmit
-            }
-            title={destroyFrozenPermission.reason}
-            onClick={() =>
-              run("Destroy frozen funds", () =>
-                destroyFrozenToken({
-                  ...common,
-                  targetIdentityId,
-                  groupPosition: destroyFrozenPermission.groupPosition,
-                  actionId: pendingActionId,
-                }),
-              )
-            }
-          >
-            Destroy frozen
-          </button>
-          <button
-            type="button"
-            disabled={Boolean(busy) || !emergencyPermission.canSubmit}
-            title={emergencyPermission.reason}
-            onClick={() =>
-              run("Pause", () =>
-                emergencyTokenAction({
-                  ...common,
-                  action: "pause",
-                  groupPosition: emergencyPermission.groupPosition,
-                  actionId: pendingActionId,
-                }),
-              )
-            }
-          >
-            Pause
-          </button>
-          <button
-            type="button"
-            disabled={Boolean(busy) || !emergencyPermission.canSubmit}
-            title={emergencyPermission.reason}
-            onClick={() =>
-              run("Resume", () =>
-                emergencyTokenAction({
-                  ...common,
-                  action: "resume",
-                  groupPosition: emergencyPermission.groupPosition,
-                  actionId: pendingActionId,
-                }),
-              )
-            }
-          >
-            Resume
-          </button>
-        </div>
-        {busy && <p className="muted">Submitting {busy}...</p>}
+      <section className="eligibility-strip">
+        <span
+          className={`eligibility-pill ${
+            isAuthenticated && memberships.length > 0 ? "can-submit" : "blocked"
+          }`}
+        >
+          {isAuthenticated ? "Eligibility" : "Read-only"}
+        </span>
+        <p>
+          {!isAuthenticated
+            ? "Operations are visible without signing in; submission controls are disabled."
+            : memberships.length > 0
+            ? `You're a member of ${memberships.map(groupLabel).join(", ")}. Groups you don't belong to collapse to a locked line.`
+            : "This identity is not a member of any loaded operator group. Governed actions are locked."}
+        </p>
+      </section>
+
+      <div className="operation-group-list">
+        <section className="operation-group supply">
+          <div className="operation-group-head">
+            <div>
+              <span className="group-dot green" aria-hidden="true" />
+              <h3>Supply</h3>
+              <p>{groupMeta(mintPermission.groupPosition, groups)}</p>
+            </div>
+          </div>
+          {supplyLockedReason ? (
+            <p className="locked-line">{supplyLockedReason}</p>
+          ) : (
+            <div className="operation-inline-form supply-form">
+              <input
+                aria-label="Supply amount"
+                value={amount}
+                onChange={(e) => setAmount(e.target.value)}
+              />
+              <input
+                aria-label="Supply recipient identity ID"
+                value={recipientId}
+                onChange={(e) => setRecipientId(e.target.value)}
+                placeholder="Recipient - optional for mint"
+              />
+              <button
+                type="button"
+                disabled={Boolean(busy) || !mintPermission.canSubmit}
+                title={mintPermission.reason}
+                onClick={() =>
+                  run("Mint", () =>
+                    mintToken({
+                      ...common,
+                      amount: toAmount(amount),
+                      recipientId,
+                      groupPosition: mintPermission.groupPosition,
+                    }),
+                  )
+                }
+              >
+                Propose mint
+              </button>
+              <button
+                type="button"
+                className="danger-outline"
+                disabled={Boolean(busy) || !burnPermission.canSubmit}
+                title={burnPermission.reason}
+                onClick={() => {
+                  if (!confirmBurn()) return;
+                  void run("Burn", () =>
+                    burnToken({
+                      ...common,
+                      amount: toAmount(amount),
+                      groupPosition: burnPermission.groupPosition,
+                    }),
+                  );
+                }}
+              >
+                Propose burn...
+              </button>
+            </div>
+          )}
+        </section>
+
+        <section className="operation-group access">
+          <div className="operation-group-head">
+            <div>
+              <span className="group-dot orange" aria-hidden="true" />
+              <h3>Access</h3>
+              <p>{groupMeta(freezePermission.groupPosition, groups)}</p>
+            </div>
+          </div>
+          {accessLockedReason ? (
+            <p className="locked-line">{accessLockedReason}</p>
+          ) : (
+            <div className="operation-inline-form access-form">
+              <input
+                aria-label="Access target identity ID"
+                value={targetIdentityId}
+                onChange={(e) => setTargetIdentityId(e.target.value)}
+                placeholder="Target identity ID"
+              />
+              <button
+                type="button"
+                disabled={
+                  Boolean(busy) ||
+                  !targetIdentityId.trim() ||
+                  !freezePermission.canSubmit
+                }
+                title={disabledReason(
+                  freezePermission,
+                  !targetIdentityId.trim()
+                    ? "Enter a target identity ID."
+                    : undefined,
+                )}
+                onClick={() =>
+                  run("Freeze", () =>
+                    freezeToken({
+                      ...common,
+                      targetIdentityId,
+                      groupPosition: freezePermission.groupPosition,
+                    }),
+                  )
+                }
+              >
+                Propose freeze
+              </button>
+              <button
+                type="button"
+                disabled={
+                  Boolean(busy) ||
+                  !targetIdentityId.trim() ||
+                  !unfreezePermission.canSubmit
+                }
+                title={disabledReason(
+                  unfreezePermission,
+                  !targetIdentityId.trim()
+                    ? "Enter a target identity ID."
+                    : undefined,
+                )}
+                onClick={() =>
+                  run("Unfreeze", () =>
+                    unfreezeToken({
+                      ...common,
+                      targetIdentityId,
+                      groupPosition: unfreezePermission.groupPosition,
+                    }),
+                  )
+                }
+              >
+                Propose unfreeze
+              </button>
+              <button
+                type="button"
+                className="danger-outline"
+                disabled={
+                  Boolean(busy) ||
+                  !targetIdentityId.trim() ||
+                  !destroyFrozenPermission.canSubmit
+                }
+                title={disabledReason(
+                  destroyFrozenPermission,
+                  !targetIdentityId.trim()
+                    ? "Enter a frozen target identity ID."
+                    : undefined,
+                )}
+                onClick={() => {
+                  if (!confirmDestroyFrozen()) return;
+                  void run("Destroy frozen funds", () =>
+                    destroyFrozenToken({
+                      ...common,
+                      targetIdentityId,
+                      groupPosition: destroyFrozenPermission.groupPosition,
+                    }),
+                  );
+                }}
+              >
+                Destroy frozen...
+              </button>
+            </div>
+          )}
+        </section>
+
+        <section className="operation-group emergency">
+          <div className="operation-group-head">
+            <div>
+              <span className="group-dot purple" aria-hidden="true" />
+              <h3>Emergency</h3>
+              <p>{groupMeta(emergencyPermission.groupPosition, groups)}</p>
+            </div>
+          </div>
+          {emergencyLockedReason ? (
+            <p className="locked-line">{emergencyLockedReason}</p>
+          ) : (
+            <div className="operation-inline-form emergency-form">
+              <button
+                type="button"
+                disabled={Boolean(busy) || !emergencyPermission.canSubmit}
+                title={emergencyPermission.reason}
+                onClick={() =>
+                  run("Pause", () =>
+                    emergencyTokenAction({
+                      ...common,
+                      action: "pause",
+                      groupPosition: emergencyPermission.groupPosition,
+                    }),
+                  )
+                }
+              >
+                Propose pause
+              </button>
+              <button
+                type="button"
+                disabled={Boolean(busy) || !emergencyPermission.canSubmit}
+                title={emergencyPermission.reason}
+                onClick={() =>
+                  run("Resume", () =>
+                    emergencyTokenAction({
+                      ...common,
+                      action: "resume",
+                      groupPosition: emergencyPermission.groupPosition,
+                    }),
+                  )
+                }
+              >
+                Propose resume
+              </button>
+            </div>
+          )}
+        </section>
+
+        <section className="operation-group transfer direct">
+          <div className="operation-group-head">
+            <div>
+              <h3>Transfer</h3>
+              <p>Direct - no proposal</p>
+            </div>
+          </div>
+          <div className="operation-inline-form transfer-form">
+            <input
+              aria-label="Transfer amount"
+              value={amount}
+              onChange={(e) => setAmount(e.target.value)}
+            />
+            <input
+              aria-label="Transfer recipient identity ID"
+              value={recipientId}
+              onChange={(e) => setRecipientId(e.target.value)}
+              placeholder="Recipient identity ID"
+            />
+            <button
+              type="button"
+              disabled={Boolean(busy) || !isAuthenticated || !recipientId.trim()}
+              title={
+                !isAuthenticated
+                  ? "Sign in to transfer tokens."
+                  : !recipientId.trim()
+                    ? "Enter a recipient identity ID."
+                    : undefined
+              }
+              onClick={() =>
+                run("Transfer", () =>
+                  transferToken({
+                    ...common,
+                    amount: toAmount(amount),
+                    recipientId,
+                  }),
+                )
+              }
+            >
+              Transfer
+            </button>
+          </div>
+        </section>
       </div>
+      {busy && <p className="muted">Submitting {busy}...</p>}
     </div>
   );
 }
