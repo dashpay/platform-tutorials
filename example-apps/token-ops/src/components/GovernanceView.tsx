@@ -1,7 +1,10 @@
 import { useEffect, useState } from "react";
 
 import { CopyableId } from "./CopyableId";
-import { type ReassignableRuleKind } from "../dash/contract";
+import {
+  GROUP_DEFINITIONS,
+  type ReassignableRuleKind,
+} from "../dash/contract";
 import {
   appendTokenOpsGroup,
   fetchTokenOpsGovernance,
@@ -21,6 +24,32 @@ const REASSIGNABLE = new Set<string>([
   "destroyFrozenFunds",
   "emergencyAction",
 ]);
+
+const GROUPS_BY_POSITION: Map<
+  number,
+  (typeof GROUP_DEFINITIONS)[keyof typeof GROUP_DEFINITIONS]
+> = new Map(
+  Object.values(GROUP_DEFINITIONS).map((definition) => [
+    definition.position,
+    definition,
+  ]),
+);
+
+function groupLabel(group: TokenOpsGroupInfo): string {
+  return GROUPS_BY_POSITION.get(group.groupPosition)?.label ?? `Group ${group.groupPosition}`;
+}
+
+function groupDescription(group: TokenOpsGroupInfo): string {
+  return (
+    GROUPS_BY_POSITION.get(group.groupPosition)?.description ??
+    "Appended approval group available for reassigned token authorities."
+  );
+}
+
+function groupAccent(group: TokenOpsGroupInfo): string {
+  const accents = ["green", "blue", "orange", "purple"];
+  return accents[group.groupPosition % accents.length];
+}
 
 export function GovernanceView() {
   const session = useSession();
@@ -96,30 +125,56 @@ export function GovernanceView() {
     }
   }
 
+  const signedInIdentityId = session.identityId;
+
   return (
     <div>
       {error && <div className="notice error">{error}</div>}
       <div className="card">
         <div className="row between">
-          <h3>Groups</h3>
+          <div>
+            <h3>Groups</h3>
+            <p className="muted">
+              Approval groups control who can submit or co-sign governed token
+              operations.
+            </p>
+          </div>
           <button type="button" className="secondary" onClick={() => void refresh()}>
             Refresh
           </button>
         </div>
-        <div className="list">
+        <div className="group-grid">
           {groups.map((group) => (
-            <div key={group.groupPosition} className="card">
-              <div className="row between">
-                <strong>Group {group.groupPosition}</strong>
-                <span className="muted">
-                  {group.requiredPower}/{group.members.size} required
+            <div key={group.groupPosition} className="group-card">
+              <div className="group-card-header">
+                <div className="group-title-row">
+                  <span className={`group-mark ${groupAccent(group)}`} aria-hidden="true" />
+                  <div>
+                    <strong>{groupLabel(group)}</strong>
+                    <span className="muted">Group {group.groupPosition}</span>
+                  </div>
+                </div>
+                <span className="threshold-badge">
+                  {group.requiredPower} of {group.members.size} required
                 </span>
               </div>
-              {[...group.members.keys()].map((id) => (
-                <p key={id}>
-                  <CopyableId id={id} len={8} />
-                </p>
-              ))}
+              <p className="muted">{groupDescription(group)}</p>
+              <p className="threshold-text">
+                Threshold: {group.requiredPower} of {group.members.size} signers
+              </p>
+              <hr className="group-divider" />
+              <span className="member-heading">Members ({group.members.size})</span>
+              <div className="member-list">
+                {[...group.members.keys()].map((id) => (
+                  <div key={id} className="member-row">
+                    <span className="member-dot" aria-hidden="true">
+                      👤
+                    </span>
+                    <CopyableId id={id} len={8} />
+                    {id === signedInIdentityId && <span className="you-badge">You</span>}
+                  </div>
+                ))}
+              </div>
             </div>
           ))}
         </div>

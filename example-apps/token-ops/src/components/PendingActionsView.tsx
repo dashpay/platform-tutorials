@@ -33,51 +33,98 @@ type PendingWithGroup = PendingAction & { group: TokenOpsGroupInfo };
  * targeted before signing. Amounts are raw token base units (no decimal
  * conversion happens anywhere in this view).
  */
-function ActionDetail({ params }: { params: PendingTokenActionParams }) {
+function actionDetails(
+  params: PendingTokenActionParams,
+): { label: string; value: React.ReactNode; prominent?: boolean }[] {
   switch (params.kind) {
     case "mint":
-      return (
-        <>
-          <p>
-            Recipient: <CopyableId id={params.recipientId} len={8} />
-          </p>
-          <p>Amount: {params.amount.toString()}</p>
-        </>
-      );
+      return [
+        {
+          label: "Recipient",
+          value: <CopyableId id={params.recipientId} len={8} />,
+          prominent: true,
+        },
+        { label: "Amount", value: params.amount.toString(), prominent: true },
+      ];
     case "burn":
-      return (
-        <>
-          <p>
-            Burn from: <CopyableId id={params.burnFromId} len={8} />
-          </p>
-          <p>Amount: {params.amount.toString()}</p>
-        </>
-      );
+      return [
+        {
+          label: "Burn from",
+          value: <CopyableId id={params.burnFromId} len={8} />,
+          prominent: true,
+        },
+        { label: "Amount", value: params.amount.toString(), prominent: true },
+      ];
     case "freeze":
     case "unfreeze":
-      return (
-        <p>
-          Target: <CopyableId id={params.targetIdentityId} len={8} />
-        </p>
-      );
+      return [
+        {
+          label: "Target",
+          value: <CopyableId id={params.targetIdentityId} len={8} />,
+          prominent: true,
+        },
+      ];
     case "destroyFrozen":
-      return (
-        <>
-          <p>
-            Target: <CopyableId id={params.targetIdentityId} len={8} />
-          </p>
-          {params.amount != null && <p>Amount: {params.amount.toString()}</p>}
-        </>
-      );
+      return [
+        {
+          label: "Target",
+          value: <CopyableId id={params.targetIdentityId} len={8} />,
+          prominent: true,
+        },
+        ...(params.amount != null
+          ? [{ label: "Amount", value: params.amount.toString(), prominent: true }]
+          : []),
+      ];
     case "emergency":
-      return (
-        <p className="muted">
-          Token-wide {params.action} — no per-identity target.
-        </p>
-      );
+      return [
+        {
+          label: "Scope",
+          value: `Applies to the entire token: ${params.action}`,
+          prominent: true,
+        },
+      ];
     default:
-      return null;
+      return [];
   }
+}
+
+function actionKind(action: PendingWithGroup): string {
+  if (action.params) return action.params.kind;
+  return describeGroupAction(action.eventName).toLowerCase().split(" ")[0] ?? "other";
+}
+
+function actionIcon(kind: string): string {
+  if (kind === "mint") return "+";
+  if (kind === "burn") return "Burn";
+  if (kind === "freeze") return "Hold";
+  if (kind === "unfreeze") return "Release";
+  if (kind === "destroyFrozen") return "Destroy";
+  if (kind === "emergency") return "Alert";
+  return "Action";
+}
+
+function progressPercent(progress: ActionSignerProgress | undefined): number {
+  if (!progress || progress.requiredPower <= 0) return 0;
+  const percent = (Number(progress.signedPower) / progress.requiredPower) * 100;
+  return Math.max(0, Math.min(100, Math.round(percent)));
+}
+
+function personalStatus({
+  canSign,
+  hasSigned,
+  isMember,
+  isSupported,
+}: {
+  canSign: boolean;
+  hasSigned: boolean;
+  isMember: boolean;
+  isSupported: boolean;
+}): { label: string; className: string } {
+  if (canSign) return { label: "Waiting for your signature", className: "urgent" };
+  if (hasSigned) return { label: "Signed", className: "signed" };
+  if (!isSupported) return { label: "Display only", className: "neutral" };
+  if (!isMember) return { label: "Not in approval group", className: "neutral" };
+  return { label: "Waiting for another signer", className: "neutral" };
 }
 
 export function PendingActionsView() {
@@ -227,41 +274,109 @@ export function PendingActionsView() {
         {actions.map((action) => {
           const p = progress.get(action.actionId);
           const canSign = canCurrentIdentitySign(action, p);
+          const hasSigned = Boolean(
+            session.identityId && p?.hasSigned(session.identityId),
+          );
+          const isMember = Boolean(
+            session.identityId && action.group.members.has(session.identityId),
+          );
+          const status = personalStatus({
+            canSign,
+            hasSigned,
+            isMember,
+            isSupported: Boolean(action.params),
+          });
+          const percent = progressPercent(p);
+          const kind = actionKind(action);
+          const details = action.params ? actionDetails(action.params) : [];
           return (
-            <div key={action.actionId} className="card">
-              <div className="row between">
-                <strong>{describeGroupAction(action.eventName)}</strong>
-                <span className="badge">Group {action.group.groupPosition}</span>
+            <div
+              key={action.actionId}
+              className={`proposal-card proposal-${kind} ${hasSigned ? "is-signed" : ""} ${
+                canSign ? "needs-signature" : ""
+              }`}
+            >
+              <div className="proposal-header">
+                <div>
+                  <div className="proposal-title">
+                    <span className="proposal-icon">{actionIcon(kind)}</span>
+                    <strong>{describeGroupAction(action.eventName)}</strong>
+                  </div>
+                  <span className={`status-badge ${status.className}`}>
+                    {status.label}
+                  </span>
+                </div>
+                <span className="group-badge">
+                  Approval group {action.group.groupPosition}
+                </span>
               </div>
-              <p>
-                Action: <CopyableId id={action.actionId} len={8} />
-              </p>
-              <p>
-                Proposer: <CopyableId id={action.proposerId} len={8} />
-              </p>
-              {action.params && <ActionDetail params={action.params} />}
-              <p className="muted">
-                {p
-                  ? `${p.signedPower.toString()}/${p.requiredPower} power signed`
-                  : "Signer progress loading"}
-              </p>
+
+              <div className="proposal-progress">
+                <div className="row between">
+                  <span>
+                    {p
+                      ? `${p.signedPower.toString()} / ${p.requiredPower} voting power`
+                      : "Signer progress loading"}
+                  </span>
+                  <strong>{percent}%</strong>
+                </div>
+                <div
+                  className="progress"
+                  role="progressbar"
+                  aria-label="Signature progress"
+                  aria-valuemin={0}
+                  aria-valuemax={100}
+                  aria-valuenow={percent}
+                >
+                  <span style={{ width: `${percent}%` }} />
+                </div>
+              </div>
+
+              {action.params?.kind === "emergency" && (
+                <div className="proposal-callout">Applies to the entire token</div>
+              )}
+
+              <div className="metadata-grid">
+                {details.map((detail) => (
+                  <div
+                    key={detail.label}
+                    className={detail.prominent ? "metadata-item primary" : "metadata-item"}
+                  >
+                    <span>{detail.label}</span>
+                    <strong>{detail.value}</strong>
+                  </div>
+                ))}
+                <div className="metadata-item">
+                  <span>Proposed by</span>
+                  <strong>
+                    <CopyableId id={action.proposerId} len={8} />
+                  </strong>
+                </div>
+                <div className="metadata-item technical">
+                  <span>Action ID</span>
+                  <strong>
+                    <CopyableId id={action.actionId} len={8} />
+                  </strong>
+                </div>
+              </div>
+
               {!action.params && (
                 <p className="muted">
                   This proposal type is display-only in TokenOps v1.
                 </p>
               )}
-              {session.identityId && p?.hasSigned(session.identityId) && (
-                <p className="muted">This identity already signed.</p>
-              )}
-              {canSign && (
-                <button
-                  type="button"
-                  disabled={busyActionId === action.actionId}
-                  onClick={() => void coSign(action)}
-                >
-                  {busyActionId === action.actionId ? "Co-signing..." : "Co-sign"}
-                </button>
-              )}
+              <div className="proposal-actions">
+                {canSign && (
+                  <button
+                    type="button"
+                    disabled={busyActionId === action.actionId}
+                    onClick={() => void coSign(action)}
+                  >
+                    {busyActionId === action.actionId ? "Co-signing..." : "Co-sign"}
+                  </button>
+                )}
+                {hasSigned && <span className="signed-note">Signed by this identity</span>}
+              </div>
             </div>
           );
         })}
