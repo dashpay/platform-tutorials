@@ -94,13 +94,26 @@ function actionKind(action: PendingWithGroup): string {
 }
 
 function actionIcon(kind: string): string {
-  if (kind === "mint") return "+";
-  if (kind === "burn") return "Burn";
-  if (kind === "freeze") return "Hold";
-  if (kind === "unfreeze") return "Release";
-  if (kind === "destroyFrozen") return "Destroy";
-  if (kind === "emergency") return "Alert";
-  return "Action";
+  if (kind === "mint") return "↑";
+  if (kind === "burn") return "↓";
+  if (kind === "freeze") return "∗";
+  if (kind === "unfreeze") return "✓";
+  if (kind === "destroyFrozen") return "!";
+  if (kind === "emergency") return "!";
+  return "•";
+}
+
+function actionTitle(action: PendingWithGroup): string {
+  if (!action.params) return describeGroupAction(action.eventName);
+  if (action.params.kind === "mint") return `Mint ${action.params.amount.toString()}`;
+  if (action.params.kind === "burn") return `Burn ${action.params.amount.toString()}`;
+  if (action.params.kind === "freeze") return "Freeze balance";
+  if (action.params.kind === "unfreeze") return "Unfreeze balance";
+  if (action.params.kind === "destroyFrozen") return "Destroy frozen funds";
+  if (action.params.kind === "emergency") {
+    return action.params.action === "pause" ? "Pause token" : "Resume token";
+  }
+  return describeGroupAction(action.eventName);
 }
 
 function progressPercent(progress: ActionSignerProgress | undefined): number {
@@ -134,6 +147,8 @@ export function PendingActionsView() {
     new Map(),
   );
   const [busyActionId, setBusyActionId] = useState<string | null>(null);
+  const [expandedActionIds, setExpandedActionIds] = useState<Set<string>>(new Set());
+  const [lastUpdatedAt, setLastUpdatedAt] = useState<Date | null>(null);
   const [error, setError] = useState<string | null>(null);
 
   async function refresh() {
@@ -172,6 +187,7 @@ export function PendingActionsView() {
       );
       setActions(nextActions);
       setProgress(nextProgress);
+      setLastUpdatedAt(new Date());
     } catch (err) {
       setError(errorMessage(err));
     }
@@ -256,43 +272,78 @@ export function PendingActionsView() {
   }
 
   return (
-    <div>
+    <div className="pending-screen">
       {error && <div className="notice error">{error}</div>}
-      <div className="card">
-        <div className="row between">
+      <div className="pending-toolbar">
+        <div>
           <h3>Pending group actions</h3>
+          <p className="muted">
+            Eligible unsigned group members can co-sign supported token proposals
+            directly from this list.
+          </p>
+        </div>
+        <div className="pending-toolbar-actions">
+          <span className="muted">
+            {lastUpdatedAt
+              ? `Updated ${lastUpdatedAt.toLocaleTimeString([], {
+                  hour: "numeric",
+                  minute: "2-digit",
+                })}`
+              : "Loading..."}
+          </span>
           <button type="button" className="secondary" onClick={() => void refresh()}>
             Refresh
           </button>
         </div>
-        <p className="muted">
-          Eligible unsigned group members can co-sign supported token proposals
-          directly from this list.
-        </p>
       </div>
-      <div className="list">
-        {actions.map((action) => {
-          const p = progress.get(action.actionId);
-          const canSign = canCurrentIdentitySign(action, p);
-          const hasSigned = Boolean(
-            session.identityId && p?.hasSigned(session.identityId),
-          );
-          const isMember = Boolean(
-            session.identityId && action.group.members.has(session.identityId),
-          );
-          const status = personalStatus({
+
+      {actions.length === 0 ? (
+        <div className="empty-state">
+          <strong>No pending actions</strong>
+          <span>Use Operations to propose a group-governed token action.</span>
+        </div>
+      ) : (
+        (() => {
+          const enriched = actions
+            .map((action) => {
+              const p = progress.get(action.actionId);
+              const canSign = canCurrentIdentitySign(action, p);
+              const hasSigned = Boolean(
+                session.identityId && p?.hasSigned(session.identityId),
+              );
+              const isMember = Boolean(
+                session.identityId && action.group.members.has(session.identityId),
+              );
+              const status = personalStatus({
+                canSign,
+                hasSigned,
+                isMember,
+                isSupported: Boolean(action.params),
+              });
+              return { action, p, canSign, hasSigned, isMember, status };
+            })
+            .sort((a, b) => Number(b.canSign) - Number(a.canSign));
+          const needsSignature = enriched.filter((item) => item.canSign);
+          const waiting = enriched.filter((item) => !item.canSign);
+          const renderCard = ({
+            action,
+            p,
             canSign,
             hasSigned,
             isMember,
-            isSupported: Boolean(action.params),
-          });
+            status,
+          }: (typeof enriched)[number]) => {
           const percent = progressPercent(p);
           const kind = actionKind(action);
           const details = action.params ? actionDetails(action.params) : [];
+          const isExpanded = expandedActionIds.has(action.actionId);
+          const visibleDetails = isExpanded ? details : details.slice(0, 1);
           return (
             <div
               key={action.actionId}
-              className={`proposal-card proposal-${kind} ${hasSigned ? "is-signed" : ""} ${
+              className={`proposal-card proposal-${kind} ${
+                isExpanded ? "is-expanded" : "is-collapsed"
+              } ${hasSigned ? "is-signed" : ""} ${
                 canSign ? "needs-signature" : ""
               }`}
             >
@@ -300,14 +351,19 @@ export function PendingActionsView() {
                 <div>
                   <div className="proposal-title">
                     <span className="proposal-icon">{actionIcon(kind)}</span>
-                    <strong>{describeGroupAction(action.eventName)}</strong>
+                    <strong>{actionTitle(action)}</strong>
                   </div>
-                  <span className={`status-badge ${status.className}`}>
-                    {status.label}
-                  </span>
+                  <p className="proposal-subtitle">
+                    {details[0]?.value ? (
+                      <>
+                        {details[0].label.toLowerCase()} {details[0].value} ·{" "}
+                      </>
+                    ) : null}
+                    Approval group {action.group.groupPosition}
+                  </p>
                 </div>
-                <span className="group-badge">
-                  Approval group {action.group.groupPosition}
+                <span className={`status-badge ${status.className}`}>
+                  {canSign ? "Awaiting you" : status.label}
                 </span>
               </div>
 
@@ -332,12 +388,12 @@ export function PendingActionsView() {
                 </div>
               </div>
 
-              {action.params?.kind === "emergency" && (
+              {isExpanded && action.params?.kind === "emergency" && (
                 <div className="proposal-callout">Applies to the entire token</div>
               )}
 
-              <div className="metadata-grid">
-                {details.map((detail) => (
+              <div className={`metadata-grid ${isExpanded ? "" : "compact"}`}>
+                {visibleDetails.map((detail) => (
                   <div
                     key={detail.label}
                     className={detail.prominent ? "metadata-item primary" : "metadata-item"}
@@ -352,12 +408,26 @@ export function PendingActionsView() {
                     <CopyableId id={action.proposerId} len={8} />
                   </strong>
                 </div>
-                <div className="metadata-item technical">
-                  <span>Action ID</span>
-                  <strong>
-                    <CopyableId id={action.actionId} len={8} />
-                  </strong>
-                </div>
+                {!isExpanded && (
+                  <div className="metadata-item">
+                    <span>Signed</span>
+                    <strong>
+                      {p
+                        ? `${p.signedPower.toString()} of ${p.requiredPower}${
+                            !isMember ? " · you're not in this group" : ""
+                          }`
+                        : "Loading"}
+                    </strong>
+                  </div>
+                )}
+                {isExpanded && (
+                  <div className="metadata-item technical">
+                    <span>Action ID</span>
+                    <strong>
+                      <CopyableId id={action.actionId} len={8} />
+                    </strong>
+                  </div>
+                )}
               </div>
 
               {!action.params && (
@@ -366,22 +436,55 @@ export function PendingActionsView() {
                 </p>
               )}
               <div className="proposal-actions">
+                <button
+                  type="button"
+                  className="secondary"
+                  onClick={() =>
+                    setExpandedActionIds((previous) => {
+                      const next = new Set(previous);
+                      if (next.has(action.actionId)) next.delete(action.actionId);
+                      else next.add(action.actionId);
+                      return next;
+                    })
+                  }
+                >
+                  {isExpanded ? "Hide details" : "View details"}
+                </button>
                 {canSign && (
                   <button
                     type="button"
                     disabled={busyActionId === action.actionId}
                     onClick={() => void coSign(action)}
                   >
-                    {busyActionId === action.actionId ? "Co-signing..." : "Co-sign"}
+                    {busyActionId === action.actionId
+                      ? "Co-signing..."
+                      : "Co-sign & approve"}
                   </button>
                 )}
                 {hasSigned && <span className="signed-note">Signed by this identity</span>}
               </div>
             </div>
           );
-        })}
-        {actions.length === 0 && <p className="muted">No pending actions.</p>}
-      </div>
+          };
+          return (
+            <div className="pending-sections">
+              {needsSignature.length > 0 && (
+                <section className="pending-section">
+                  <h3>
+                    Needs your signature{" "}
+                    <span className="count-badge">{needsSignature.length}</span>
+                  </h3>
+                  {needsSignature.map(renderCard)}
+                </section>
+              )}
+              <section className="pending-section">
+                <h3>Waiting on others</h3>
+                {waiting.map(renderCard)}
+              </section>
+            </div>
+          );
+        })()
+      )}
     </div>
   );
 }

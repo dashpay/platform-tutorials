@@ -325,16 +325,105 @@ main.content {
   gap: 0.75rem;
 }
 
+.pending-screen {
+  display: grid;
+  gap: 1rem;
+}
+
+.pending-toolbar {
+  align-items: flex-start;
+  background: #f7f8fc;
+  border: 1px solid #e2e5f2;
+  border-radius: 12px;
+  display: flex;
+  gap: 1rem;
+  justify-content: space-between;
+  padding: 1rem 1.25rem;
+}
+
+.pending-toolbar h3,
+.pending-toolbar p {
+  margin: 0;
+}
+
+.pending-toolbar h3 {
+  color: #111827;
+  font-size: 1rem;
+  margin-bottom: 0.25rem;
+}
+
+.pending-toolbar-actions {
+  align-items: center;
+  display: flex;
+  flex: 0 0 auto;
+  gap: 0.75rem;
+}
+
+.pending-sections {
+  display: grid;
+  gap: 1.25rem;
+}
+
+.pending-section {
+  display: grid;
+  gap: 0.75rem;
+}
+
+.pending-section > h3 {
+  align-items: center;
+  color: #33395c;
+  display: flex;
+  font-size: 0.95rem;
+  gap: 0.5rem;
+  margin: 0;
+}
+
+.count-badge {
+  align-items: center;
+  background: #c24632;
+  border-radius: 999px;
+  color: white;
+  display: inline-flex;
+  font-size: 0.72rem;
+  height: 1.35rem;
+  justify-content: center;
+  min-width: 1.35rem;
+  padding: 0 0.4rem;
+}
+
+.empty-state {
+  background: #f7f8fc;
+  border: 1px solid #e2e5f2;
+  border-radius: 12px;
+  display: grid;
+  gap: 0.25rem;
+  padding: 1.25rem;
+}
+
+.empty-state strong {
+  color: #111827;
+}
+
+.empty-state span {
+  color: #6a7290;
+  font-size: 0.9rem;
+}
+
 .proposal-card {
   --proposal-accent: #3454d1;
-  background: #f7f8fc;
+  background: white;
   border: 1px solid #e2e5f2;
   border-left: 5px solid var(--proposal-accent);
   border-radius: 12px;
   display: grid;
-  gap: 1rem;
-  margin-bottom: 1rem;
+  gap: 0.85rem;
   padding: 1rem 1.25rem;
+}
+
+.proposal-card.is-collapsed {
+  grid-template-columns: minmax(0, 1fr) auto;
+  gap: 0.55rem 1rem;
+  padding: 0.85rem 1rem;
 }
 
 .proposal-card.is-signed {
@@ -374,15 +463,25 @@ main.content {
   justify-content: space-between;
 }
 
+.proposal-card.is-collapsed .proposal-header {
+  grid-column: 1 / -1;
+}
+
 .proposal-title {
   align-items: center;
   display: flex;
   gap: 0.55rem;
-  margin-bottom: 0.4rem;
+  margin-bottom: 0.2rem;
 }
 
 .proposal-title strong {
   font-size: 1.05rem;
+}
+
+.proposal-subtitle {
+  color: #59627c;
+  font-size: 0.84rem;
+  margin: 0;
 }
 
 .proposal-icon {
@@ -429,6 +528,21 @@ main.content {
   gap: 0.45rem;
 }
 
+.proposal-card.is-collapsed .proposal-progress {
+  align-self: end;
+  grid-column: 1;
+  max-width: 180px;
+  width: 38%;
+}
+
+.proposal-card.is-collapsed .proposal-progress .row {
+  display: none;
+}
+
+.proposal-card.is-collapsed .proposal-progress .progress {
+  height: 6px;
+}
+
 .proposal-progress .row {
   color: #33395c;
   font-size: 0.85rem;
@@ -460,6 +574,23 @@ main.content {
   padding-top: 0.9rem;
 }
 
+.metadata-grid.compact {
+  border-top: 0;
+  grid-template-columns: repeat(3, minmax(0, 1fr));
+  padding-top: 0;
+}
+
+.proposal-card.is-collapsed .metadata-grid.compact {
+  align-self: start;
+  gap: 0.45rem 1.4rem;
+  grid-column: 1;
+  grid-template-columns: repeat(3, max-content);
+}
+
+.metadata-grid.compact .metadata-item.technical {
+  display: none;
+}
+
 .metadata-item span,
 .metadata-item strong {
   display: block;
@@ -472,10 +603,19 @@ main.content {
   text-transform: uppercase;
 }
 
+.proposal-card.is-collapsed .metadata-item span {
+  font-size: 0.68rem;
+}
+
 .metadata-item strong {
   color: #1a1f2b;
   font-size: 0.92rem;
   margin-top: 0.15rem;
+}
+
+.proposal-card.is-collapsed .metadata-item strong {
+  font-size: 0.84rem;
+  margin-top: 0.05rem;
 }
 
 .metadata-item.primary strong {
@@ -491,6 +631,12 @@ main.content {
   display: flex;
   gap: 0.75rem;
   justify-content: flex-end;
+}
+
+.proposal-card.is-collapsed .proposal-actions {
+  align-self: end;
+  grid-column: 2;
+  grid-row: 2 / 4;
 }
 
 .signed-note {
@@ -671,6 +817,21 @@ main.content {
 }
 
 @media (max-width: 720px) {
+  .pending-toolbar,
+  .proposal-header,
+  .proposal-actions {
+    align-items: stretch;
+    flex-direction: column;
+  }
+
+  .pending-toolbar-actions {
+    justify-content: space-between;
+  }
+
+  .metadata-grid.compact {
+    grid-template-columns: 1fr;
+  }
+
   .proposal-header,
   .proposal-actions {
     align-items: stretch;

@@ -84,7 +84,12 @@ describe("PendingActionsView", () => {
 
     render(<PendingActionsView />);
 
-    const button = await screen.findByRole("button", { name: "Co-sign" });
+    const button = await screen.findByRole("button", {
+      name: "Co-sign & approve",
+    });
+    expect(screen.queryByText("Action ID")).toBeNull();
+    fireEvent.click(screen.getByRole("button", { name: "View details" }));
+    expect(screen.getByText("Action ID")).toBeTruthy();
     fireEvent.click(button);
 
     await waitFor(() =>
