@@ -1,11 +1,24 @@
 import { useEffect, useState } from "react";
 
 import { CopyableId } from "./CopyableId";
+import { fetchTokenOpsGovernance } from "../dash/governance";
 import { errorMessage } from "../dash/logger";
-import { fetchIdentityTokenState, fetchTokenOverview } from "../dash/token";
+import { fetchIdentityTokenStates, fetchTokenOverview } from "../dash/token";
 import { useSession } from "../session/useSession";
 
-export function OverviewView() {
+type IdentityTokenState = {
+  identityId: string;
+  balance: bigint;
+  isFrozen: boolean;
+};
+
+export function OverviewView({
+  watchedIdentityIds,
+  onWatchIdentity,
+}: {
+  watchedIdentityIds: string[];
+  onWatchIdentity: (identityId: string) => void;
+}) {
   const session = useSession();
   const [lookupId, setLookupId] = useState("");
   const [overview, setOverview] = useState<{
@@ -13,36 +26,52 @@ export function OverviewView() {
     totalSupply: bigint;
     isPaused: boolean;
   } | null>(null);
-  const [identityState, setIdentityState] = useState<{
-    balance: bigint;
-    isFrozen: boolean;
-  } | null>(null);
+  const [identityRows, setIdentityRows] = useState<Map<string, IdentityTokenState>>(
+    new Map(),
+  );
   const [error, setError] = useState<string | null>(null);
 
-  async function refresh() {
+  async function refresh(extraIdentityId?: string) {
     if (!session.sdk || !session.contractId) {
       setOverview(null);
+      setIdentityRows(new Map());
       return;
     }
     setError(null);
     try {
-      const nextOverview = await fetchTokenOverview({
+      const [nextOverview, governance] = await Promise.all([
+        fetchTokenOverview({
+          sdk: session.sdk,
+          contractId: session.contractId,
+        }),
+        fetchTokenOpsGovernance({
+          sdk: session.sdk,
+          contractId: session.contractId,
+        }),
+      ]);
+      setOverview(nextOverview);
+      const groupIdentityIds = governance.groups.flatMap((group) => [
+        ...group.members.keys(),
+      ]);
+      const signedInId = session.identityId ?? undefined;
+      const ids = [
+        ...groupIdentityIds,
+        ...watchedIdentityIds,
+        ...(signedInId ? [signedInId] : []),
+        ...(extraIdentityId?.trim() ? [extraIdentityId.trim()] : []),
+      ];
+      const states = await fetchIdentityTokenStates({
         sdk: session.sdk,
         contractId: session.contractId,
+        identityIds: ids,
       });
-      setOverview(nextOverview);
-      const identityId = lookupId.trim() || session.identityId;
-      if (identityId) {
-        setIdentityState(
-          await fetchIdentityTokenState({
-            sdk: session.sdk,
-            contractId: session.contractId,
-            identityId,
-          }),
-        );
-      } else {
-        setIdentityState(null);
-      }
+      setIdentityRows(() => {
+        const next = new Map<string, IdentityTokenState>();
+        for (const [identityId, state] of states) {
+          next.set(identityId, { identityId, ...state });
+        }
+        return next;
+      });
     } catch (err) {
       setError(errorMessage(err));
     }
@@ -52,7 +81,7 @@ export function OverviewView() {
     const timer = window.setTimeout(() => void refresh(), 0);
     return () => window.clearTimeout(timer);
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [session.sdk, session.contractId, session.identityId]);
+  }, [session.sdk, session.contractId, session.identityId, watchedIdentityIds]);
 
   if (!session.contractId) {
     return <div className="notice info">Configure a TokenOps contract first.</div>;
@@ -97,7 +126,10 @@ export function OverviewView() {
           className="row"
           onSubmit={(event) => {
             event.preventDefault();
-            void refresh();
+            const identityId = lookupId.trim();
+            if (!identityId) return;
+            onWatchIdentity(identityId);
+            void refresh(identityId);
           }}
         >
           <input
@@ -107,14 +139,42 @@ export function OverviewView() {
           />
           <button type="submit">Inspect</button>
         </form>
-        {identityState && (
-          <div className="row" style={{ marginTop: "0.75rem" }}>
-            <span className="badge">Balance {identityState.balance.toString()}</span>
-            <span className={`badge ${identityState.isFrozen ? "frozen" : "ok"}`}>
-              {identityState.isFrozen ? "Frozen" : "Not frozen"}
-            </span>
-          </div>
-        )}
+        <div className="table-wrap identity-table">
+          <table>
+            <thead>
+              <tr>
+                <th>Identity</th>
+                <th>Balance</th>
+                <th>Status</th>
+              </tr>
+            </thead>
+            <tbody>
+              {[...identityRows.values()].map((row) => (
+                <tr key={row.identityId}>
+                  <td>
+                    <CopyableId id={row.identityId} len={8} />
+                    {row.identityId === session.identityId && (
+                      <span className="you-badge">You</span>
+                    )}
+                  </td>
+                  <td>{row.balance.toString()}</td>
+                  <td>
+                    <span className={`badge ${row.isFrozen ? "frozen" : "ok"}`}>
+                      {row.isFrozen ? "Frozen" : "Active"}
+                    </span>
+                  </td>
+                </tr>
+              ))}
+              {identityRows.size === 0 && (
+                <tr>
+                  <td colSpan={3} className="muted">
+                    No identities loaded yet.
+                  </td>
+                </tr>
+              )}
+            </tbody>
+          </table>
+        </div>
       </div>
     </div>
   );

@@ -659,6 +659,10 @@ main.content {
   overflow-x: auto;
 }
 
+.identity-table {
+  margin-top: 1rem;
+}
+
 table {
   border-collapse: collapse;
   font-size: 0.85rem;
@@ -705,4 +709,10 @@ footer.app-footer {
   margin: 1.5rem auto 0;
   max-width: 1080px;
   text-align: center;
+}
+
+footer.app-footer a {
+  align-items: center;
+  display: inline-flex;
+  gap: 0.35rem;
 }

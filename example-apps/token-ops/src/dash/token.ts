@@ -53,6 +53,35 @@ export async function fetchIdentityTokenState({
   };
 }
 
+export async function fetchIdentityTokenStates({
+  sdk,
+  contractId,
+  identityIds,
+}: {
+  sdk: DashSdk;
+  contractId: string;
+  identityIds: string[];
+}): Promise<Map<string, { balance: bigint; isFrozen: boolean }>> {
+  const tokenId = await fetchTokenId({ sdk, contractId });
+  const uniqueIds = [...new Set(identityIds.map((id) => id.trim()).filter(Boolean))];
+  const entries = await Promise.all(
+    uniqueIds.map(async (identityId) => {
+      const [balances, infos] = await Promise.all([
+        sdk.tokens.identityBalances(identityId, [tokenId]),
+        sdk.tokens.identityTokenInfos(identityId, [tokenId]),
+      ]);
+      return [
+        identityId,
+        {
+          balance: balances.get(tokenId) ?? 0n,
+          isFrozen: infos.get(tokenId)?.isFrozen ?? false,
+        },
+      ] as const;
+    }),
+  );
+  return new Map(entries);
+}
+
 export async function fetchTokenOverview({
   sdk,
   contractId,
