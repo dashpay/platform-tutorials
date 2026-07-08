@@ -6,7 +6,7 @@ test.describe("Read-only browsing", () => {
     for (const label of [
       "Overview",
       "Operations",
-      "Pending actions",
+      "Pending",
       "Governance",
       "Account",
     ]) {

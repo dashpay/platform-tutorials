@@ -387,6 +387,9 @@ export async function appendTokenOpsGroup({
   signer: IdentitySigner;
   log?: Logger;
 }): Promise<number> {
+  // Build (and thereby validate) the group before any network work, so bad
+  // input fails fast without fetching the contract.
+  const nextGroup = createTokenOpsGroup(memberIds, requiredPower);
   const contract = await sdk.contracts.fetch(contractId);
   if (!contract) throw new Error(`TokenOps contract ${contractId} not found`);
   const existingGroups = normalizeGroups(
@@ -396,7 +399,6 @@ export async function appendTokenOpsGroup({
     existingGroups.length === 0
       ? 0
       : Math.max(...existingGroups.map((group) => group.groupPosition)) + 1;
-  const nextGroup = createTokenOpsGroup(memberIds, requiredPower);
   const rawGroups = contract.groups;
   if (rawGroups instanceof Map) {
     rawGroups.set(nextPosition, nextGroup);
