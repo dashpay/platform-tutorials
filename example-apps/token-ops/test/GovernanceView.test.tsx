@@ -63,6 +63,10 @@ describe("GovernanceView", () => {
         groupRule("unfreeze", 1),
         groupRule("destroyFrozenFunds", 2),
         groupRule("emergencyAction", 2),
+        {
+          ...groupRule("maxSupply", 2),
+          deferred: true,
+        },
       ],
     };
 
@@ -78,13 +82,21 @@ describe("GovernanceView", () => {
 
     render(<GovernanceView />);
 
-    await waitFor(() => expect(screen.getByText("Your standing")).toBeTruthy());
+    await waitFor(() =>
+      expect(screen.getByText("You are a member of Group 1, Group 3.")).toBeTruthy(),
+    );
 
-    expect(screen.getByText(/Group 1 · Access:/)).toBeTruthy();
-    expect(screen.getByText(/can propose or co-sign Freeze · Unfreeze/)).toBeTruthy();
-    expect(screen.getByText(/Group 3 · no capabilities:/)).toBeTruthy();
-    expect(screen.getByText(/governs no actions/)).toBeTruthy();
-    expect(screen.getAllByText("Member")).toHaveLength(2);
+    expect(screen.getAllByText("Member")).toHaveLength(4);
+    expect(
+      screen.getByRole("heading", { name: "Authority map", level: 4 }),
+    ).toBeTruthy();
+    expect(screen.getByText("Show config items")).toBeTruthy();
+    expect(screen.getByText("1 display-only setting")).toBeTruthy();
+    expect(
+      screen.getByRole("heading", { name: "Capabilities" }),
+    ).toBeTruthy();
+    expect(screen.getAllByText("Who can act").length).toBeGreaterThan(0);
+    expect(screen.getAllByText("Who can reassign").length).toBeGreaterThan(0);
     expect(
       screen.getByText(/Members can't perform any governed action yet/),
     ).toBeTruthy();

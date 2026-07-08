@@ -4,7 +4,6 @@ import { ConfirmActionPanel } from "./ConfirmActionPanel";
 import { CopyableId } from "./CopyableId";
 import { type ReassignableRuleKind } from "../dash/contract";
 import {
-  formatGroupIdentity,
   groupDisplay,
   ruleCategory,
   type Category,
@@ -31,14 +30,14 @@ const REASSIGNABLE = new Set<string>([
   "emergencyAction",
 ]);
 
+const CATEGORY_ORDER = ["Treasury", "Access", "Emergency", "Config"];
+
 const CATEGORY_DESCRIPTION: Record<string, string> = {
   Treasury: "Minting and burning token supply.",
   Access: "Freezing, unfreezing, and destroying frozen balances.",
   Emergency: "Pausing and resuming the token.",
   Config: "Token settings, shown for reference.",
 };
-
-const CATEGORY_ORDER = ["Treasury", "Access", "Emergency", "Config"];
 
 const SHORT_CAPABILITY_LABEL: Record<string, string> = {
   manualMinting: "Mint",
@@ -73,6 +72,14 @@ function categorySections(rules: RuleInfo[]): CategorySection[] {
   );
 }
 
+function sortedAuthorityRules(rules: RuleInfo[]): RuleInfo[] {
+  return [...rules].sort(
+    (a, b) =>
+      CATEGORY_ORDER.indexOf(ruleCategory(a.key).label) -
+      CATEGORY_ORDER.indexOf(ruleCategory(b.key).label),
+  );
+}
+
 function authorityLabel(authority: RuleAuthority): string {
   switch (authority.type) {
     case "Group":
@@ -100,6 +107,28 @@ function authorityMeta(
   );
   if (!group) return null;
   return `${group.requiredPower} of ${group.members.size} signatures`;
+}
+
+function authorityShortMeta(
+  authority: RuleAuthority,
+  groups: TokenOpsGroupInfo[],
+): string | null {
+  if (authority.type !== "Group") return null;
+  const group = groups.find(
+    (candidate) => candidate.groupPosition === authority.groupPosition,
+  );
+  if (!group) return null;
+  return `${group.requiredPower} of ${group.members.size} sig`;
+}
+
+function authorityGroup(
+  authority: RuleAuthority,
+  groups: TokenOpsGroupInfo[],
+): TokenOpsGroupInfo | undefined {
+  if (authority.type !== "Group") return undefined;
+  return groups.find(
+    (candidate) => candidate.groupPosition === authority.groupPosition,
+  );
 }
 
 function identityMonogram(id: string): string {
@@ -205,6 +234,16 @@ export function GovernanceView() {
   const memberGroups = groups.filter(
     (group) => signedInIdentityId && group.members.has(signedInIdentityId),
   );
+  const authorityRules = sortedAuthorityRules(rules);
+  const configAuthorityRules = authorityRules.filter(
+    (rule) => ruleCategory(rule.key).label === "Config",
+  );
+  const primaryAuthorityRules = authorityRules.filter(
+    (rule) => ruleCategory(rule.key).label !== "Config",
+  );
+  const memberGroupLabels = memberGroups.map(
+    (group) => `Group ${group.groupPosition}`,
+  );
 
   // Destination group selected for a rule's inline reassign control. Defaults
   // to the rule's current operator group (or the first group) so the initial
@@ -233,6 +272,42 @@ export function GovernanceView() {
     setConfirmingRule(null);
   }
 
+  function renderAuthoritySummaryRow(rule: RuleInfo) {
+    const category = ruleCategory(rule.key);
+    const operatorGroup = authorityGroup(rule.operator, groups);
+    const operatorMeta = authorityShortMeta(rule.operator, groups);
+    const operatorDisplay = operatorGroup
+      ? groupDisplay(operatorGroup.groupPosition, rules)
+      : null;
+    const isOperatorMember = Boolean(
+      signedInIdentityId && operatorGroup?.members.has(signedInIdentityId),
+    );
+    return (
+      <div key={rule.key} className="authority-summary-row">
+        <div className="authority-summary-action">
+          <CapabilityIcon kind={rule.key} accent={category.accent} />
+          <strong>{rule.label}</strong>
+          {rule.deferred && (
+            <span className="capability-flag">Display only</span>
+          )}
+          {isOperatorMember && <span className="member-badge">Member</span>}
+        </div>
+        <div className="authority-summary-group">
+          {operatorDisplay && (
+            <span
+              className={`authority-group-dot ${operatorDisplay.accent}`}
+              aria-hidden="true"
+            />
+          )}
+          <span className="authority-value">
+            {authorityLabel(rule.operator)}
+          </span>
+        </div>
+        <span className="authority-signatures">{operatorMeta ?? ""}</span>
+      </div>
+    );
+  }
+
   return (
     <div className="governance-screen">
       {error && <div className="notice error">{error}</div>}
@@ -242,9 +317,7 @@ export function GovernanceView() {
           <div>
             <h3>Groups</h3>
             <p className="muted">
-              Approval groups control who can submit or co-sign governed token
-              operations. Tags show which capabilities each group currently
-              controls.
+              Approval groups define which identities can approve governed token actions. Each group has its own members, signature threshold, and assigned capabilities.
             </p>
           </div>
           <button
@@ -256,50 +329,46 @@ export function GovernanceView() {
             {refreshing ? "Refreshing..." : "Refresh"}
           </button>
         </div>
-        {isAuthenticated && (
-          <div className="standing-banner">
-            <div>
-              <strong>Your standing</strong>
-              {memberGroups.length === 0 ? (
-                <p>
-                  This identity is not a member of any loaded approval group, so
-                  it cannot propose or co-sign governed actions.
-                </p>
-              ) : memberGroups.every(
-                  (group) =>
-                    groupDisplay(group.groupPosition, rules).capabilities
-                      .length === 0,
-                ) ? (
-                <p>
-                  You're in{" "}
-                  {memberGroups
-                    .map((group) =>
-                      formatGroupIdentity(group.groupPosition, rules),
-                    )
-                    .join(", ")}
-                  , but those groups govern no actions. You can't currently
-                  propose or co-sign any governed action.
-                </p>
-              ) : (
-                <div className="standing-list">
-                  {memberGroups.map((group) => {
-                    const display = groupDisplay(group.groupPosition, rules);
-                    return (
-                      <span key={group.groupPosition}>
-                        {formatGroupIdentity(group.groupPosition, rules)}:{" "}
-                        {display.capabilities.length > 0
-                          ? `can propose or co-sign ${capabilitySummary(
-                              display.capabilities,
-                            )}`
-                          : "governs no actions"}
-                      </span>
-                    );
-                  })}
-                </div>
-              )}
-            </div>
+        <div className="authority-map-header">
+          <div>
+            <h4>Authority map</h4>
+            {isAuthenticated && (
+              <p className="authority-standing">
+                {memberGroups.length === 0
+                  ? "This identity is not a member of any loaded approval group."
+                  : `You are a member of ${memberGroupLabels.join(", ")}.`}
+              </p>
+            )}
           </div>
-        )}
+        </div>
+        <div className="authority-summary">
+          {primaryAuthorityRules.map(renderAuthoritySummaryRow)}
+          {configAuthorityRules.length > 0 && (
+            <details className="authority-config-details">
+              <summary className="authority-config-toggle">
+                <span className="authority-config-toggle-label">
+                  <span className="authority-config-chevron" aria-hidden="true">
+                    ▸
+                  </span>
+                  Show config items
+                </span>
+                <span className="authority-config-count">
+                  {configAuthorityRules.length} display-only{" "}
+                  {configAuthorityRules.length === 1 ? "setting" : "settings"}
+                </span>
+              </summary>
+              <div className="authority-config-list">
+                {configAuthorityRules.map(renderAuthoritySummaryRow)}
+              </div>
+            </details>
+          )}
+        </div>
+        <div className="group-details-header">
+          <h4>Group details</h4>
+          <p className="muted">
+            Membership and signature thresholds for each approval group.
+          </p>
+        </div>
         <div className="group-grid">
           {groups.map((group) => {
             const display = groupDisplay(group.groupPosition, rules);
@@ -320,7 +389,9 @@ export function GovernanceView() {
                     <div>
                       <strong>Group {group.groupPosition}</strong>
                       <span className="muted">
-                        {group.members.size} members
+                        {group.members.size} members · needs{" "}
+                        {group.requiredPower}{" "}
+                        {group.requiredPower === 1 ? "signature" : "signatures"}
                       </span>
                     </div>
                   </div>
@@ -330,21 +401,7 @@ export function GovernanceView() {
                   <span>Governs</span>{" "}
                   <strong>{capabilitySummary(display.capabilities)}</strong>
                 </div>
-                {display.capabilities.length === 0 && (
-                  <p className="empty-group-note">
-                    Members can't perform any governed action yet.{" "}
-                    {isAuthenticated && (
-                      <a href="#capabilities-section">
-                        Use Capabilities below to assign one.
-                      </a>
-                    )}
-                  </p>
-                )}
                 <hr className="group-divider" />
-                <span className="member-heading">
-                  {group.members.size} members · needs {group.requiredPower}{" "}
-                  {group.requiredPower === 1 ? "signature" : "signatures"}
-                </span>
                 <div className="member-list">
                   {[...group.members.keys()].map((id) => (
                     <div key={id} className="member-row">
@@ -361,10 +418,53 @@ export function GovernanceView() {
                     </div>
                   ))}
                 </div>
+                {display.capabilities.length === 0 && (
+                  <p className="empty-group-note">
+                    Members can't perform any governed action yet.{" "}
+                    {isAuthenticated && (
+                      <a href="#capabilities-section">
+                        Use Capabilities below to assign one.
+                      </a>
+                    )}
+                  </p>
+                )}
               </div>
             );
           })}
         </div>
+        {session.status === "authenticated" && (
+          <div className="append-group-section">
+            <h4>Append approval group</h4>
+            <p className="muted">
+              Existing groups are immutable. To change membership, append a new
+              group and reassign the relevant capabilities to it.
+            </p>
+            <form onSubmit={handleAppendGroup}>
+              <div className="field">
+                <label htmlFor="new-members">Three member identity IDs</label>
+                <textarea
+                  id="new-members"
+                  rows={2}
+                  value={newMembers}
+                  onChange={(e) => setNewMembers(e.target.value)}
+                  placeholder="comma or space separated"
+                />
+              </div>
+              <div className="field">
+                <label htmlFor="required-power">Required power</label>
+                <input
+                  id="required-power"
+                  type="number"
+                  min={1}
+                  max={3}
+                  value={newRequiredPower}
+                  onChange={(e) => setNewRequiredPower(e.target.value)}
+                />
+              </div>
+              <button type="submit">Append group</button>
+            </form>
+          </div>
+        )}
       </section>
 
       <section className="card">
@@ -545,16 +645,6 @@ export function GovernanceView() {
                       </div>
                     )}
 
-                    {!canReassign && (
-                      <p className="capability-footer muted">
-                        {rule.supportsGroupAction
-                          ? "Reassignable to a group."
-                          : "Not group-reassignable."}
-                        {rule.canSetOperatorToNoOne &&
-                          " Operator can be set to No one."}
-                        {rule.canSetAdminToNoOne && " Admin can be set to No one."}
-                      </p>
-                    )}
                   </article>
                 );
               })}
@@ -563,39 +653,6 @@ export function GovernanceView() {
         ))}
       </section>
 
-      {session.status === "authenticated" && (
-        <section className="card governance-advanced">
-          <h3>Append approval group</h3>
-          <p className="muted">
-            Existing groups are immutable. To change membership, append a new
-            group and reassign the relevant capabilities to it.
-          </p>
-          <form onSubmit={handleAppendGroup}>
-            <div className="field">
-              <label htmlFor="new-members">Three member identity IDs</label>
-              <textarea
-                id="new-members"
-                rows={2}
-                value={newMembers}
-                onChange={(e) => setNewMembers(e.target.value)}
-                placeholder="comma or space separated"
-              />
-            </div>
-            <div className="field">
-              <label htmlFor="required-power">Required power</label>
-              <input
-                id="required-power"
-                type="number"
-                min={1}
-                max={3}
-                value={newRequiredPower}
-                onChange={(e) => setNewRequiredPower(e.target.value)}
-              />
-            </div>
-            <button type="submit">Append group</button>
-          </form>
-        </section>
-      )}
     </div>
   );
 }
