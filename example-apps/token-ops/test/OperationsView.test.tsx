@@ -130,7 +130,7 @@ describe("OperationsView", () => {
       screen.getByText("Requires membership in Group 0 · Treasury."),
     ).toBeTruthy();
     expect(
-      screen.getByText("Requires membership in Group 2 · Emergency."),
+      screen.getByText("Requires membership in Group 2 · Access + Emergency."),
     ).toBeTruthy();
     expect(screen.queryByRole("button", { name: "Burn..." })).toBeNull();
     expect(screen.queryByRole("button", { name: "Propose pause" })).toBeNull();

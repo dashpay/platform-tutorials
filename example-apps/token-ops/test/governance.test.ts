@@ -37,8 +37,9 @@ import {
   fetchTokenOpsGovernance,
 } from "../src/dash/governance";
 import {
-  deriveGroupDomain,
+  deriveGroupDomains,
   formatGroupIdentity,
+  groupCapabilities,
   groupDisplay,
 } from "../src/dash/groupDisplay";
 import type { RuleInfo } from "../src/dash/governance";
@@ -63,18 +64,27 @@ describe("group display helpers", () => {
       groupDisplayRule("manualBurning", 1),
     ];
 
-    expect(deriveGroupDomain(1, rules)?.label).toBe("Treasury");
+    expect(deriveGroupDomains(1, rules).map((domain) => domain.label)).toEqual([
+      "Treasury",
+    ]);
+    expect(groupCapabilities(1, rules).map((rule) => rule.key)).toEqual([
+      "manualMinting",
+      "manualBurning",
+    ]);
     expect(formatGroupIdentity(1, rules)).toBe("Group 1 · Treasury");
   });
 
-  it("prefers Emergency when a group controls multiple domains", () => {
+  it("derives every domain when a group controls multiple domains", () => {
     const rules = [
       groupDisplayRule("destroyFrozenFunds", 2),
       groupDisplayRule("emergencyAction", 2),
     ];
 
-    expect(deriveGroupDomain(2, rules)?.label).toBe("Emergency");
-    expect(formatGroupIdentity(2, rules)).toBe("Group 2 · Emergency");
+    expect(deriveGroupDomains(2, rules).map((domain) => domain.label)).toEqual([
+      "Access",
+      "Emergency",
+    ]);
+    expect(formatGroupIdentity(2, rules)).toBe("Group 2 · Access + Emergency");
   });
 
   it("formats groups with no live operator capabilities", () => {
@@ -88,15 +98,29 @@ describe("group display helpers", () => {
 
     expect(display).toEqual({
       position: 4,
-      domain: "Config",
-      accent: "blue",
+      domains: [{ label: "Config", accent: "blue" }],
+      capabilities: [groupDisplayRule("maxSupply", 4)],
+      accent: "teal",
     });
   });
 
-  it("uses the config accent for empty groups", () => {
-    expect(groupDisplay(5, [groupDisplayRule("manualMinting", 0)]).accent).toBe(
-      "blue",
-    );
+  it("keeps accents distinct when groups share a derived domain", () => {
+    const rules = [
+      groupDisplayRule("freeze", 1),
+      groupDisplayRule("unfreeze", 2),
+    ];
+
+    expect(deriveGroupDomains(1, rules)[0]?.label).toBe("Access");
+    expect(deriveGroupDomains(2, rules)[0]?.label).toBe("Access");
+    expect(groupDisplay(1, rules).accent).not.toBe(groupDisplay(2, rules).accent);
+  });
+
+  it("uses position accent for empty groups", () => {
+    const display = groupDisplay(5, [groupDisplayRule("manualMinting", 0)]);
+
+    expect(display.domains).toEqual([]);
+    expect(display.capabilities).toEqual([]);
+    expect(display.accent).toBe("red");
   });
 });
 

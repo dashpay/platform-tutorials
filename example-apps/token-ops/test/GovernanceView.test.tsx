@@ -1,0 +1,95 @@
+// @vitest-environment jsdom
+import { cleanup, render, screen, waitFor } from "@testing-library/react";
+import { afterEach, describe, expect, it, vi } from "vitest";
+
+import { GovernanceView } from "../src/components/GovernanceView";
+import { fetchTokenOpsGovernance } from "../src/dash/governance";
+import type { RuleInfo, TokenOpsGovernance } from "../src/dash/governance";
+import { useSession } from "../src/session/useSession";
+
+vi.mock("../src/dash/governance", () => ({
+  appendTokenOpsGroup: vi.fn(),
+  fetchTokenOpsGovernance: vi.fn(),
+}));
+
+vi.mock("../src/dash/tokenOperations", () => ({
+  assignTokenFunctionGroup: vi.fn(),
+}));
+
+vi.mock("../src/session/useSession", () => ({
+  useSession: vi.fn(),
+}));
+
+function groupRule(key: string, groupPosition: number): RuleInfo {
+  return {
+    key,
+    label: key,
+    ruleName: `${key}Rules`,
+    operator: { type: "Group", groupPosition },
+    admin: { type: "ContractOwner" },
+    canSetOperatorToNoOne: false,
+    canSetAdminToNoOne: false,
+    supportsGroupAction: true,
+  };
+}
+
+describe("GovernanceView", () => {
+  afterEach(() => {
+    cleanup();
+    vi.clearAllMocks();
+  });
+
+  it("summarizes membership, capabilities, and empty-group consequences", async () => {
+    const governance: TokenOpsGovernance = {
+      groups: [
+        {
+          groupPosition: 1,
+          members: new Map([["member-a", 1]]),
+          requiredPower: 2,
+        },
+        {
+          groupPosition: 2,
+          members: new Map([["member-b", 1]]),
+          requiredPower: 3,
+        },
+        {
+          groupPosition: 3,
+          members: new Map([["member-a", 1]]),
+          requiredPower: 1,
+        },
+      ],
+      rules: [
+        groupRule("freeze", 1),
+        groupRule("unfreeze", 1),
+        groupRule("destroyFrozenFunds", 2),
+        groupRule("emergencyAction", 2),
+      ],
+    };
+
+    vi.mocked(useSession).mockReturnValue({
+      status: "authenticated",
+      sdk: { contracts: {} },
+      keyManager: {},
+      contractId: "contract-1",
+      identityId: "member-a",
+      log: vi.fn(),
+    } as never);
+    vi.mocked(fetchTokenOpsGovernance).mockResolvedValue(governance);
+
+    render(<GovernanceView />);
+
+    await waitFor(() => expect(screen.getByText("Your standing")).toBeTruthy());
+
+    expect(screen.getByText(/Group 1 · Access:/)).toBeTruthy();
+    expect(screen.getByText(/can propose or co-sign Freeze · Unfreeze/)).toBeTruthy();
+    expect(screen.getByText(/Group 3 · no capabilities:/)).toBeTruthy();
+    expect(screen.getByText(/governs no actions/)).toBeTruthy();
+    expect(screen.getAllByText("Member")).toHaveLength(2);
+    expect(
+      screen.getByText(/Members can't perform any governed action yet/),
+    ).toBeTruthy();
+    expect(
+      screen.getByRole("link", { name: "Use Capabilities below to assign one." }),
+    ).toBeTruthy();
+  });
+});

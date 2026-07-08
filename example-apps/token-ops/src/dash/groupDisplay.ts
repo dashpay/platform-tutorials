@@ -19,45 +19,66 @@ export const CATEGORY_BY_RULE_KEY: Record<string, Category> = {
 };
 
 const CONFIG_CATEGORY: Category = { label: "Config", accent: "blue" };
-const EMPTY_GROUP_ACCENT = CONFIG_CATEGORY.accent;
+const POSITION_ACCENTS = [
+  "green",
+  "orange",
+  "purple",
+  "blue",
+  "teal",
+  "red",
+] as const;
 
 export function ruleCategory(ruleKey: string): Category {
   return CATEGORY_BY_RULE_KEY[ruleKey] ?? CONFIG_CATEGORY;
 }
 
-export function deriveGroupDomain(
+export function groupCapabilities(
   groupPosition: number,
   rules: RuleInfo[],
-): Category | null {
-  let firstCategory: Category | null = null;
+): RuleInfo[] {
+  return rules.filter(
+    (rule) =>
+      rule.operator.type === "Group" &&
+      rule.operator.groupPosition === groupPosition,
+  );
+}
 
-  // Group identity is a single summary domain. Emergency wins because it is the
-  // highest-impact capability when a reassigned group spans multiple domains.
-  for (const rule of rules) {
-    if (
-      rule.operator.type !== "Group" ||
-      rule.operator.groupPosition !== groupPosition
-    ) {
-      continue;
-    }
+export function deriveGroupDomains(
+  groupPosition: number,
+  rules: RuleInfo[],
+): Category[] {
+  const seen = new Set<string>();
+  const domains: Category[] = [];
 
+  for (const rule of groupCapabilities(groupPosition, rules)) {
     const category = ruleCategory(rule.key);
-    if (category.label === "Emergency") return category;
-    firstCategory ??= category;
+    if (seen.has(category.label)) continue;
+    seen.add(category.label);
+    domains.push(category);
   }
 
-  return firstCategory;
+  return domains;
+}
+
+function positionAccent(groupPosition: number): string {
+  return POSITION_ACCENTS[groupPosition % POSITION_ACCENTS.length];
 }
 
 export function groupDisplay(
   groupPosition: number,
   rules: RuleInfo[],
-): { position: number; domain: string | null; accent: string } {
-  const category = deriveGroupDomain(groupPosition, rules);
+): {
+  position: number;
+  domains: Category[];
+  capabilities: RuleInfo[];
+  accent: string;
+} {
+  const capabilities = groupCapabilities(groupPosition, rules);
   return {
     position: groupPosition,
-    domain: category?.label ?? null,
-    accent: category?.accent ?? EMPTY_GROUP_ACCENT,
+    domains: deriveGroupDomains(groupPosition, rules),
+    capabilities,
+    accent: positionAccent(groupPosition),
   };
 }
 
@@ -66,5 +87,9 @@ export function formatGroupIdentity(
   rules: RuleInfo[],
 ): string {
   const display = groupDisplay(groupPosition, rules);
-  return `Group ${display.position} · ${display.domain ?? "no capabilities"}`;
+  const domainHint =
+    display.domains.length > 0
+      ? display.domains.map((domain) => domain.label).join(" + ")
+      : "no capabilities";
+  return `Group ${display.position} · ${domainHint}`;
 }

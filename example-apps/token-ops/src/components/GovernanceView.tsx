@@ -4,6 +4,7 @@ import { ConfirmActionPanel } from "./ConfirmActionPanel";
 import { CopyableId } from "./CopyableId";
 import { type ReassignableRuleKind } from "../dash/contract";
 import {
+  formatGroupIdentity,
   groupDisplay,
   ruleCategory,
   type Category,
@@ -38,6 +39,15 @@ const CATEGORY_DESCRIPTION: Record<string, string> = {
 };
 
 const CATEGORY_ORDER = ["Treasury", "Access", "Emergency", "Config"];
+
+const SHORT_CAPABILITY_LABEL: Record<string, string> = {
+  manualMinting: "Mint",
+  manualBurning: "Burn",
+  freeze: "Freeze",
+  unfreeze: "Unfreeze",
+  destroyFrozenFunds: "Destroy frozen",
+  emergencyAction: "Pause/resume",
+};
 
 interface CategorySection {
   category: Category;
@@ -95,6 +105,13 @@ function authorityMeta(
 function identityMonogram(id: string): string {
   const alphanumeric = id.replace(/[^a-z0-9]/gi, "");
   return (alphanumeric.slice(0, 2) || "??").toUpperCase();
+}
+
+function capabilitySummary(capabilities: RuleInfo[]): string {
+  if (capabilities.length === 0) return "none";
+  return capabilities
+    .map((rule) => SHORT_CAPABILITY_LABEL[rule.key] ?? rule.label)
+    .join(" · ");
 }
 
 export function GovernanceView() {
@@ -185,6 +202,9 @@ export function GovernanceView() {
 
   const signedInIdentityId = session.identityId;
   const isAuthenticated = session.status === "authenticated";
+  const memberGroups = groups.filter(
+    (group) => signedInIdentityId && group.members.has(signedInIdentityId),
+  );
 
   // Destination group selected for a rule's inline reassign control. Defaults
   // to the rule's current operator group (or the first group) so the initial
@@ -236,11 +256,61 @@ export function GovernanceView() {
             {refreshing ? "Refreshing..." : "Refresh"}
           </button>
         </div>
+        {isAuthenticated && (
+          <div className="standing-banner">
+            <div>
+              <strong>Your standing</strong>
+              {memberGroups.length === 0 ? (
+                <p>
+                  This identity is not a member of any loaded approval group, so
+                  it cannot propose or co-sign governed actions.
+                </p>
+              ) : memberGroups.every(
+                  (group) =>
+                    groupDisplay(group.groupPosition, rules).capabilities
+                      .length === 0,
+                ) ? (
+                <p>
+                  You're in{" "}
+                  {memberGroups
+                    .map((group) =>
+                      formatGroupIdentity(group.groupPosition, rules),
+                    )
+                    .join(", ")}
+                  , but those groups govern no actions. You can't currently
+                  propose or co-sign any governed action.
+                </p>
+              ) : (
+                <div className="standing-list">
+                  {memberGroups.map((group) => {
+                    const display = groupDisplay(group.groupPosition, rules);
+                    return (
+                      <span key={group.groupPosition}>
+                        {formatGroupIdentity(group.groupPosition, rules)}:{" "}
+                        {display.capabilities.length > 0
+                          ? `can propose or co-sign ${capabilitySummary(
+                              display.capabilities,
+                            )}`
+                          : "governs no actions"}
+                      </span>
+                    );
+                  })}
+                </div>
+              )}
+            </div>
+          </div>
+        )}
         <div className="group-grid">
           {groups.map((group) => {
             const display = groupDisplay(group.groupPosition, rules);
+            const isMember = Boolean(
+              signedInIdentityId && group.members.has(signedInIdentityId),
+            );
             return (
-              <div key={group.groupPosition} className="group-card">
+              <div
+                key={group.groupPosition}
+                className={`group-card ${isMember ? "is-member" : ""}`}
+              >
                 <div className="group-card-header">
                   <div className="group-title-row">
                     <span
@@ -254,22 +324,26 @@ export function GovernanceView() {
                       </span>
                     </div>
                   </div>
-                  <span className="threshold-badge">
-                    {group.requiredPower} of {group.members.size} required
-                  </span>
+                  {isMember && <span className="member-badge">Member</span>}
                 </div>
-                <div className="category-tag-row">
-                  <span className={`category-tag ${display.accent}`}>
-                    {display.domain ?? "no capabilities"}
-                  </span>
+                <div className="group-governs-line">
+                  <span>Governs</span>{" "}
+                  <strong>{capabilitySummary(display.capabilities)}</strong>
                 </div>
-                <p className="threshold-text">
-                  Threshold: {group.requiredPower} of {group.members.size}{" "}
-                  signers
-                </p>
+                {display.capabilities.length === 0 && (
+                  <p className="empty-group-note">
+                    Members can't perform any governed action yet.{" "}
+                    {isAuthenticated && (
+                      <a href="#capabilities-section">
+                        Use Capabilities below to assign one.
+                      </a>
+                    )}
+                  </p>
+                )}
                 <hr className="group-divider" />
                 <span className="member-heading">
-                  Members ({group.members.size})
+                  {group.members.size} members · needs {group.requiredPower}{" "}
+                  {group.requiredPower === 1 ? "signature" : "signatures"}
                 </span>
                 <div className="member-list">
                   {[...group.members.keys()].map((id) => (
@@ -294,7 +368,7 @@ export function GovernanceView() {
       </section>
 
       <section className="card">
-        <h3>Capabilities</h3>
+        <h3 id="capabilities-section">Capabilities</h3>
         <p className="muted">
           Capabilities are grouped by domain. Each lists who can perform the
           action and who can reassign that authority.

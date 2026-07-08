@@ -777,9 +777,15 @@ main.content {
   padding: 1rem;
 }
 
+.group-card.is-member {
+  border-color: #9fabdd;
+  box-shadow: 0 10px 24px rgb(52 84 209 / 0.08);
+}
+
 .group-card-header {
   align-items: flex-start;
   display: flex;
+  flex-wrap: wrap;
   gap: 0.75rem;
   justify-content: space-between;
 }
@@ -852,6 +858,34 @@ main.content {
   background: #6d3fbd;
 }
 
+.group-mark.teal {
+  background: #d7f0ec;
+  color: #23746b;
+}
+
+.group-mark.teal::before {
+  background: #23746b;
+}
+
+.group-mark.red {
+  background: #fde0dc;
+  color: #b33a2b;
+}
+
+.group-mark.red::before {
+  background: #b33a2b;
+}
+
+.member-badge {
+  background: #e3f3e6;
+  border-radius: 999px;
+  color: #206a2c;
+  flex: 0 0 auto;
+  font-size: 0.72rem;
+  font-weight: 800;
+  padding: 0.25rem 0.6rem;
+}
+
 .threshold-badge {
   background: #e6ecff;
   border-radius: 999px;
@@ -860,6 +894,46 @@ main.content {
   font-size: 0.72rem;
   font-weight: 800;
   padding: 0.25rem 0.6rem;
+}
+
+.group-governs-line {
+  align-items: center;
+  color: #7a8197;
+  display: flex;
+  flex-wrap: wrap;
+  font-size: 0.82rem;
+  gap: 0.25rem;
+  margin: 0;
+}
+
+.group-governs-line span {
+  color: inherit;
+}
+
+.group-governs-line > strong {
+  color: #111827;
+  font-weight: 800;
+}
+
+.group-card-meta {
+  color: #8a91a8;
+  font-size: 0.82rem;
+  margin: -0.25rem 0 0;
+}
+
+.empty-group-note {
+  background: #f7f8fc;
+  border: 1px solid #e2e5f2;
+  border-radius: 8px;
+  color: #59627c;
+  font-size: 0.84rem;
+  margin: 0;
+  padding: 0.65rem 0.75rem;
+}
+
+.empty-group-note a {
+  color: #3454d1;
+  font-weight: 800;
 }
 
 .threshold-text {
@@ -877,8 +951,8 @@ main.content {
 
 .member-heading {
   color: #6a7290;
-  font-size: 0.74rem;
-  font-weight: 800;
+  font-size: 0.82rem;
+  font-weight: 400;
 }
 
 .member-list {
@@ -957,6 +1031,40 @@ main.content {
   color: #2462c6;
 }
 
+.identity-mark.teal {
+  background: #d7f0ec;
+  color: #23746b;
+}
+
+.identity-mark.red {
+  background: #fde0dc;
+  color: #b33a2b;
+}
+
+.standing-banner {
+  background: #f7f8fc;
+  border: 1px solid #e2e5f2;
+  border-radius: 12px;
+  color: #33395c;
+  margin: 0.9rem 0;
+  padding: 0.85rem 1rem;
+}
+
+.standing-banner strong {
+  color: #1a1f2b;
+  display: block;
+  margin-bottom: 0.25rem;
+}
+
+.standing-banner p {
+  margin: 0;
+}
+
+.standing-list {
+  display: grid;
+  gap: 0.25rem;
+}
+
 .category-tag-row {
   display: flex;
   flex-wrap: wrap;
@@ -968,6 +1076,19 @@ main.content {
   font-size: 0.7rem;
   font-weight: 800;
   padding: 0.15rem 0.5rem;
+}
+
+.group-domain-tags .category-tag {
+  align-items: center;
+  display: inline-flex;
+  height: 1.3rem;
+  line-height: 1;
+  padding-block: 0;
+}
+
+.group-governs-line .group-domain-tags {
+  display: inline-flex;
+  gap: 0.25rem;
 }
 
 .category-tag.green {
