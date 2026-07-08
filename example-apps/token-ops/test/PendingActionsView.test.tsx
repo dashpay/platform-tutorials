@@ -88,7 +88,7 @@ describe("PendingActionsView", () => {
       name: "Co-sign & approve",
     });
     expect(screen.queryByText("Action ID")).toBeNull();
-    fireEvent.click(screen.getByRole("button", { name: "View details" }));
+    fireEvent.click(screen.getByRole("button", { name: "Details" }));
     expect(screen.getByText("Action ID")).toBeTruthy();
     fireEvent.click(button);
 

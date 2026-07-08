@@ -16,6 +16,8 @@ test.describe("Read-only browsing", () => {
 
   test("governance view renders without signing in", async ({ page }) => {
     await page.getByRole("button", { name: "Governance" }).click();
-    await expect(page.getByText(/ChangeControlRules|Configure/)).toBeVisible();
+    await expect(
+      page.getByRole("heading", { name: "Capabilities" }),
+    ).toBeVisible();
   });
 });
