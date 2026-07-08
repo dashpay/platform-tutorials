@@ -2,9 +2,9 @@ import { useEffect, useState } from "react";
 
 import {
   DEFAULT_ACTION_GROUP_POSITIONS,
-  GROUP_DEFINITIONS,
   type TokenActionKind,
 } from "../dash/contract";
+import { formatGroupIdentity } from "../dash/groupDisplay";
 import {
   fetchTokenOpsGovernance,
   type RuleInfo,
@@ -20,6 +20,7 @@ import {
   transferToken,
   unfreezeToken,
 } from "../dash/tokenOperations";
+import { CapabilityIcon } from "../lib/capabilityIcon";
 import { useSession } from "../session/useSession";
 
 function toAmount(value: string): bigint {
@@ -45,14 +46,6 @@ function groupFor(kind: TokenActionKind, rules: RuleInfo[]): number {
   return DEFAULT_ACTION_GROUP_POSITIONS[kind];
 }
 
-const GROUP_LABELS: Map<number, string> = new Map(
-  Object.values(GROUP_DEFINITIONS).map((group) => [group.position, group.label]),
-);
-
-function groupLabel(position: number): string {
-  return GROUP_LABELS.get(position) ?? `Group ${position}`;
-}
-
 function groupRequiredPower(
   position: number,
   groups: TokenOpsGroupInfo[],
@@ -60,10 +53,16 @@ function groupRequiredPower(
   return groups.find((group) => group.groupPosition === position)?.requiredPower;
 }
 
-function groupMeta(position: number, groups: TokenOpsGroupInfo[]): string {
+function groupMeta(
+  position: number,
+  groups: TokenOpsGroupInfo[],
+  rules: RuleInfo[],
+): string {
   const requiredPower = groupRequiredPower(position, groups);
-  return `${groupLabel(position)}${
-    requiredPower ? ` - ${requiredPower} signatures required` : ""
+  return `${formatGroupIdentity(position, rules)}${
+    requiredPower && requiredPower > 0
+      ? ` - ${requiredPower} signatures required`
+      : ""
   }`;
 }
 
@@ -162,7 +161,7 @@ export function OperationsView({ onComplete }: { onComplete?: () => void }) {
       return {
         canSubmit: false,
         groupPosition,
-        reason: `🔒 Requires membership in ${groupLabel(groupPosition)}.`,
+        reason: `Requires membership in ${formatGroupIdentity(groupPosition, rules)}.`,
       };
     }
     return { canSubmit: true, groupPosition, reason: undefined };
@@ -262,7 +261,9 @@ export function OperationsView({ onComplete }: { onComplete?: () => void }) {
           {!isAuthenticated
             ? "Operations are visible without signing in; submission controls are disabled."
             : memberships.length > 0
-            ? `You're a member of ${memberships.map(groupLabel).join(", ")}. Groups you don't belong to collapse to a locked line.`
+            ? `You're a member of ${memberships
+                .map((position) => formatGroupIdentity(position, rules))
+                .join(", ")}. Groups you don't belong to collapse to a locked line.`
             : "This identity is not a member of any loaded operator group. Governed actions are locked."}
         </p>
       </section>
@@ -271,9 +272,13 @@ export function OperationsView({ onComplete }: { onComplete?: () => void }) {
         <section className="operation-group supply">
           <div className="operation-group-head">
             <div>
-              <span className="group-dot green" aria-hidden="true" />
+              <CapabilityIcon
+                kind="mint"
+                accent="green"
+                className="operation-capability-icon"
+              />
               <h3>Supply</h3>
-              <p>{groupMeta(mintPermission.groupPosition, groups)}</p>
+              <p>{groupMeta(mintPermission.groupPosition, groups, rules)}</p>
             </div>
           </div>
           {supplyLockedReason ? (
@@ -333,9 +338,13 @@ export function OperationsView({ onComplete }: { onComplete?: () => void }) {
         <section className="operation-group access">
           <div className="operation-group-head">
             <div>
-              <span className="group-dot orange" aria-hidden="true" />
+              <CapabilityIcon
+                kind="freeze"
+                accent="orange"
+                className="operation-capability-icon"
+              />
               <h3>Access</h3>
-              <p>{groupMeta(freezePermission.groupPosition, groups)}</p>
+              <p>{groupMeta(freezePermission.groupPosition, groups, rules)}</p>
             </div>
           </div>
           {accessLockedReason ? (
@@ -432,9 +441,13 @@ export function OperationsView({ onComplete }: { onComplete?: () => void }) {
         <section className="operation-group emergency">
           <div className="operation-group-head">
             <div>
-              <span className="group-dot purple" aria-hidden="true" />
+              <CapabilityIcon
+                kind="emergency"
+                accent="purple"
+                className="operation-capability-icon"
+              />
               <h3>Emergency</h3>
-              <p>{groupMeta(emergencyPermission.groupPosition, groups)}</p>
+              <p>{groupMeta(emergencyPermission.groupPosition, groups, rules)}</p>
             </div>
           </div>
           {emergencyLockedReason ? (

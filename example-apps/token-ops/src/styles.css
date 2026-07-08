@@ -539,6 +539,18 @@ main.content {
   padding: 0 0.35rem;
 }
 
+.proposal-icon svg,
+.capability-icon svg,
+.operation-capability-icon svg {
+  fill: none;
+  height: 1.1rem;
+  stroke: currentColor;
+  stroke-linecap: round;
+  stroke-linejoin: round;
+  stroke-width: 2;
+  width: 1.1rem;
+}
+
 .status-badge {
   border-radius: 999px;
   display: inline-flex;
@@ -1352,23 +1364,29 @@ main.content {
   font-size: 0.82rem;
 }
 
-.group-dot {
-  border-radius: 999px;
-  display: inline-block;
-  height: 0.55rem;
-  width: 0.55rem;
+.operation-capability-icon {
+  align-items: center;
+  border-radius: 8px;
+  display: inline-flex;
+  flex: 0 0 auto;
+  height: 1.75rem;
+  justify-content: center;
+  width: 1.75rem;
 }
 
-.group-dot.green {
-  background: #2f8a4b;
+.operation-capability-icon.green {
+  background: #dff3e3;
+  color: #2f8a4b;
 }
 
-.group-dot.orange {
-  background: #b45a16;
+.operation-capability-icon.orange {
+  background: #ffe5d0;
+  color: #b45a16;
 }
 
-.group-dot.purple {
-  background: #6d3fbd;
+.operation-capability-icon.purple {
+  background: #eadffc;
+  color: #6d3fbd;
 }
 
 .operation-inline-form {

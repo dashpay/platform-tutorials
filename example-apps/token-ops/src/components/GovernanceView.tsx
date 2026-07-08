@@ -3,6 +3,11 @@ import { useEffect, useState } from "react";
 import { CopyableId } from "./CopyableId";
 import { type ReassignableRuleKind } from "../dash/contract";
 import {
+  groupDisplay,
+  ruleCategory,
+  type Category,
+} from "../dash/groupDisplay";
+import {
   appendTokenOpsGroup,
   fetchTokenOpsGovernance,
   type RuleAuthority,
@@ -10,6 +15,7 @@ import {
   type TokenOpsGroupInfo,
 } from "../dash/governance";
 import { errorMessage } from "../dash/logger";
+import { CapabilityIcon } from "../lib/capabilityIcon";
 import { shortId } from "../lib/format";
 import { assignTokenFunctionGroup } from "../dash/tokenOperations";
 import { useSession } from "../session/useSession";
@@ -23,57 +29,12 @@ const REASSIGNABLE = new Set<string>([
   "emergencyAction",
 ]);
 
-interface Category {
-  label: string;
-  accent: string;
-}
-
-/**
- * Capability categories. The label strings reuse the seed group names
- * (Treasury / Access / Emergency) but describe the capability *domain* — they
- * are intrinsic to the rule, not to any group position. A group earns a
- * "Treasury" tag because it currently controls a Treasury-domain capability,
- * wherever it sits, so the tags stay correct after any reassignment.
- */
-const CATEGORY_BY_RULE_KEY: Record<string, Category> = {
-  manualMinting: { label: "Treasury", accent: "green" },
-  manualBurning: { label: "Treasury", accent: "green" },
-  freeze: { label: "Access", accent: "orange" },
-  unfreeze: { label: "Access", accent: "orange" },
-  destroyFrozenFunds: { label: "Access", accent: "orange" },
-  emergencyAction: { label: "Emergency", accent: "purple" },
-};
-
-const CONFIG_CATEGORY: Category = { label: "Config", accent: "blue" };
-
 const CATEGORY_DESCRIPTION: Record<string, string> = {
   Treasury: "Minting and burning token supply.",
   Access: "Freezing, unfreezing, and destroying frozen balances.",
   Emergency: "Pausing and resuming the token.",
   Config: "Token settings, shown for reference.",
 };
-
-function ruleCategory(ruleKey: string): Category {
-  return CATEGORY_BY_RULE_KEY[ruleKey] ?? CONFIG_CATEGORY;
-}
-
-/**
- * Capability glyphs. Same icon vocabulary as PendingActionsView's actionIcon,
- * keyed here by rule key so the Governance and Pending views stay visually
- * consistent.
- */
-const RULE_ICON: Record<string, string> = {
-  manualMinting: "↑",
-  manualBurning: "↓",
-  freeze: "∗",
-  unfreeze: "✓",
-  destroyFrozenFunds: "!",
-  emergencyAction: "!",
-};
-
-function ruleIcon(ruleKey: string): string {
-  return RULE_ICON[ruleKey] ?? "•";
-}
 
 const CATEGORY_ORDER = ["Treasury", "Access", "Emergency", "Config"];
 
@@ -128,28 +89,6 @@ function authorityMeta(
   );
   if (!group) return null;
   return `${group.requiredPower} of ${group.members.size} signatures`;
-}
-
-/**
- * The distinct capability categories a group currently has *operator*
- * authority over, derived live from the rules so the tags follow reassignment.
- */
-function groupCategories(groupPosition: number, rules: RuleInfo[]): Category[] {
-  const seen = new Set<string>();
-  const categories: Category[] = [];
-  for (const rule of rules) {
-    if (
-      rule.operator.type !== "Group" ||
-      rule.operator.groupPosition !== groupPosition
-    ) {
-      continue;
-    }
-    const category = ruleCategory(rule.key);
-    if (seen.has(category.label)) continue;
-    seen.add(category.label);
-    categories.push(category);
-  }
-  return categories;
 }
 
 function identityMonogram(id: string): string {
@@ -294,14 +233,13 @@ export function GovernanceView() {
         </div>
         <div className="group-grid">
           {groups.map((group) => {
-            const categories = groupCategories(group.groupPosition, rules);
-            const accent = categories[0]?.accent ?? "blue";
+            const display = groupDisplay(group.groupPosition, rules);
             return (
               <div key={group.groupPosition} className="group-card">
                 <div className="group-card-header">
                   <div className="group-title-row">
                     <span
-                      className={`group-mark ${accent}`}
+                      className={`group-mark ${display.accent}`}
                       aria-hidden="true"
                     />
                     <div>
@@ -316,18 +254,9 @@ export function GovernanceView() {
                   </span>
                 </div>
                 <div className="category-tag-row">
-                  {categories.length > 0 ? (
-                    categories.map((category) => (
-                      <span
-                        key={category.label}
-                        className={`category-tag ${category.accent}`}
-                      >
-                        {category.label}
-                      </span>
-                    ))
-                  ) : (
-                    <span className="muted">No assigned capabilities</span>
-                  )}
+                  <span className={`category-tag ${display.accent}`}>
+                    {display.domain ?? "no capabilities"}
+                  </span>
                 </div>
                 <p className="threshold-text">
                   Threshold: {group.requiredPower} of {group.members.size}{" "}
@@ -341,7 +270,7 @@ export function GovernanceView() {
                   {[...group.members.keys()].map((id) => (
                     <div key={id} className="member-row">
                       <span
-                        className={`identity-mark ${accent}`}
+                        className={`identity-mark ${display.accent}`}
                         aria-hidden="true"
                       >
                         {identityMonogram(id)}
@@ -396,12 +325,10 @@ export function GovernanceView() {
                   <article key={rule.key} className="capability-card">
                     <div className="capability-head">
                       <span className="capability-title">
-                        <span
-                          className={`capability-icon ${section.category.accent}`}
-                          aria-hidden="true"
-                        >
-                          {ruleIcon(rule.key)}
-                        </span>
+                        <CapabilityIcon
+                          kind={rule.key}
+                          accent={section.category.accent}
+                        />
                         <strong>{rule.label}</strong>
                       </span>
                       {rule.deferred && (

@@ -86,7 +86,7 @@ describe("OperationsView", () => {
     render(<OperationsView />);
 
     await waitFor(() =>
-      expect(screen.getByText(/Member of Access Group/i)).toBeTruthy(),
+      expect(screen.getByText(/member of Group 1 · Access/i)).toBeTruthy(),
     );
 
     const transfer = screen.getByRole("button", {
@@ -103,8 +103,12 @@ describe("OperationsView", () => {
       target: { value: "target-id" },
     });
 
-    expect(screen.getByText("🔒 Requires membership in Treasury Group.")).toBeTruthy();
-    expect(screen.getByText("🔒 Requires membership in Emergency Group.")).toBeTruthy();
+    expect(
+      screen.getByText("Requires membership in Group 0 · Treasury."),
+    ).toBeTruthy();
+    expect(
+      screen.getByText("Requires membership in Group 2 · Emergency."),
+    ).toBeTruthy();
     expect(screen.queryByRole("button", { name: "Burn..." })).toBeNull();
     expect(screen.queryByRole("button", { name: "Propose pause" })).toBeNull();
     expect(transfer.disabled).toBe(false);

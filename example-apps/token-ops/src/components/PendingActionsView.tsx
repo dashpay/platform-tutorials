@@ -4,9 +4,10 @@ import { CopyableId } from "./CopyableId";
 import { errorMessage } from "../dash/logger";
 import {
   fetchTokenOpsGovernance,
+  type RuleInfo,
   type TokenOpsGroupInfo,
 } from "../dash/governance";
-import { GROUP_DEFINITIONS } from "../dash/contract";
+import { formatGroupIdentity } from "../dash/groupDisplay";
 import {
   describeGroupAction,
   listActionSigners,
@@ -23,6 +24,7 @@ import {
   mintToken,
   unfreezeToken,
 } from "../dash/tokenOperations";
+import { CapabilityIcon } from "../lib/capabilityIcon";
 import { useSession } from "../session/useSession";
 
 type PendingWithGroup = PendingAction & { group: TokenOpsGroupInfo };
@@ -94,16 +96,6 @@ function actionKind(action: PendingWithGroup): string {
   return describeGroupAction(action.eventName).toLowerCase().split(" ")[0] ?? "other";
 }
 
-function actionIcon(kind: string): string {
-  if (kind === "mint") return "↑";
-  if (kind === "burn") return "↓";
-  if (kind === "freeze") return "∗";
-  if (kind === "unfreeze") return "✓";
-  if (kind === "destroyFrozen") return "!";
-  if (kind === "emergency") return "!";
-  return "•";
-}
-
 function actionTitle(action: PendingWithGroup): string {
   if (!action.params) return describeGroupAction(action.eventName);
   if (action.params.kind === "mint") return `Mint ${action.params.amount.toString()}`;
@@ -130,13 +122,6 @@ function actionSubject(
     return { label: "Target", id: params.targetIdentityId };
   }
   return null;
-}
-
-function approvalGroupLabel(groupPosition: number): string {
-  const definition = Object.values(GROUP_DEFINITIONS).find(
-    (group) => group.position === groupPosition,
-  );
-  return definition?.label ?? `Approval group ${groupPosition}`;
 }
 
 function progressPercent(
@@ -202,6 +187,7 @@ function personalStatus({
 export function PendingActionsView() {
   const session = useSession();
   const [actions, setActions] = useState<PendingWithGroup[]>([]);
+  const [rules, setRules] = useState<RuleInfo[]>([]);
   const [progress, setProgress] = useState<Map<string, ActionSignerProgress>>(
     new Map(),
   );
@@ -247,6 +233,7 @@ export function PendingActionsView() {
         }),
       );
       setActions(nextActions);
+      setRules(governance.rules);
       setProgress(nextProgress);
       setLastUpdatedAt(new Date());
     } catch (err) {
@@ -429,7 +416,7 @@ export function PendingActionsView() {
               <div className="proposal-header">
                 <div>
                   <div className="proposal-title">
-                    <span className="proposal-icon">{actionIcon(kind)}</span>
+                    <CapabilityIcon kind={kind} className="proposal-icon" />
                     <div className="proposal-title-copy">
                       <strong>{actionTitle(action)}</strong>
                       {subject && (
@@ -442,7 +429,7 @@ export function PendingActionsView() {
                   </div>
                 </div>
                 <span className={`status-badge ${status.className}`}>
-                  {approvalGroupLabel(action.group.groupPosition)} •{" "}
+                  {formatGroupIdentity(action.group.groupPosition, rules)} •{" "}
                   {canSign ? "Awaiting you" : status.label}
                 </span>
               </div>
@@ -493,7 +480,7 @@ export function PendingActionsView() {
                   <div className="metadata-item">
                     <span>Approval group</span>
                     <strong>
-                      {approvalGroupLabel(action.group.groupPosition)} ·{" "}
+                      {formatGroupIdentity(action.group.groupPosition, rules)} ·{" "}
                       {approvalGroupRequirementText(action.group)}
                     </strong>
                   </div>

@@ -36,6 +36,69 @@ import {
   deriveRules,
   fetchTokenOpsGovernance,
 } from "../src/dash/governance";
+import {
+  deriveGroupDomain,
+  formatGroupIdentity,
+  groupDisplay,
+} from "../src/dash/groupDisplay";
+import type { RuleInfo } from "../src/dash/governance";
+
+function groupDisplayRule(key: string, groupPosition: number): RuleInfo {
+  return {
+    key,
+    label: key,
+    ruleName: `${key}Rules`,
+    operator: { type: "Group", groupPosition },
+    admin: { type: "ContractOwner" },
+    canSetOperatorToNoOne: false,
+    canSetAdminToNoOne: false,
+    supportsGroupAction: true,
+  };
+}
+
+describe("group display helpers", () => {
+  it("derives group identity from live operator rules", () => {
+    const rules = [
+      groupDisplayRule("manualMinting", 1),
+      groupDisplayRule("manualBurning", 1),
+    ];
+
+    expect(deriveGroupDomain(1, rules)?.label).toBe("Treasury");
+    expect(formatGroupIdentity(1, rules)).toBe("Group 1 · Treasury");
+  });
+
+  it("prefers Emergency when a group controls multiple domains", () => {
+    const rules = [
+      groupDisplayRule("destroyFrozenFunds", 2),
+      groupDisplayRule("emergencyAction", 2),
+    ];
+
+    expect(deriveGroupDomain(2, rules)?.label).toBe("Emergency");
+    expect(formatGroupIdentity(2, rules)).toBe("Group 2 · Emergency");
+  });
+
+  it("formats groups with no live operator capabilities", () => {
+    expect(formatGroupIdentity(3, [groupDisplayRule("manualMinting", 0)])).toBe(
+      "Group 3 · no capabilities",
+    );
+  });
+
+  it("derives config display for config-only group authority", () => {
+    const display = groupDisplay(4, [groupDisplayRule("maxSupply", 4)]);
+
+    expect(display).toEqual({
+      position: 4,
+      domain: "Config",
+      accent: "blue",
+    });
+  });
+
+  it("uses the config accent for empty groups", () => {
+    expect(groupDisplay(5, [groupDisplayRule("manualMinting", 0)]).accent).toBe(
+      "blue",
+    );
+  });
+});
 
 describe("deriveRules", () => {
   it("reads operator and admin authorities separately", async () => {
