@@ -1,5 +1,6 @@
 import { useEffect, useState } from "react";
 
+import { ConfirmActionPanel } from "./ConfirmActionPanel";
 import { CopyableId } from "./CopyableId";
 import { errorMessage } from "../dash/logger";
 import {
@@ -192,6 +193,9 @@ export function PendingActionsView() {
     new Map(),
   );
   const [busyActionId, setBusyActionId] = useState<string | null>(null);
+  const [confirmingActionId, setConfirmingActionId] = useState<string | null>(
+    null,
+  );
   const [expandedActionIds, setExpandedActionIds] = useState<Set<string>>(new Set());
   const [lastUpdatedAt, setLastUpdatedAt] = useState<Date | null>(null);
   const [error, setError] = useState<string | null>(null);
@@ -303,12 +307,24 @@ export function PendingActionsView() {
         });
       }
       session.log(`Co-signed action ${action.actionId}.`, "success");
+      setConfirmingActionId(null);
       await refresh();
     } catch (err) {
       setError(errorMessage(err));
     } finally {
       setBusyActionId(null);
     }
+  }
+
+  function actionCommand(action: PendingWithGroup): string {
+    if (!action.params) return describeGroupAction(action.eventName).toLowerCase();
+    if (action.params.kind === "destroyFrozen") return "destroy frozen funds";
+    if (action.params.kind === "emergency") return action.params.action;
+    return action.params.kind;
+  }
+
+  function isDestructiveAction(action: PendingWithGroup): boolean {
+    return action.params?.kind === "burn" || action.params?.kind === "destroyFrozen";
   }
 
   function canCurrentIdentitySign(
@@ -404,6 +420,23 @@ export function PendingActionsView() {
           const subject = actionSubject(action.params);
           const proposedByCurrentIdentity =
             session.identityId === action.proposerId;
+          const myPower =
+            session.identityId != null
+              ? (action.group.members.get(session.identityId) ?? 0)
+              : 0;
+          const willExecute = p
+            ? Number(p.signedPower) + myPower >= action.group.requiredPower
+            : false;
+          const signaturesNeededAfterMine = p
+            ? Math.max(
+                0,
+                action.group.requiredPower - (Number(p.signedPower) + myPower),
+              )
+            : 0;
+          const requiresConfirm =
+            canSign && (willExecute || isDestructiveAction(action));
+          const isConfirming = confirmingActionId === action.actionId;
+          const command = actionCommand(action);
           return (
             <div
               key={action.actionId}
@@ -539,15 +572,64 @@ export function PendingActionsView() {
                   {isExpanded ? "Hide details" : "Details"}
                 </button>
                 {canSign && (
-                  <button
-                    type="button"
-                    disabled={busyActionId === action.actionId}
-                    onClick={() => void coSign(action)}
-                  >
-                    {busyActionId === action.actionId
-                      ? "Co-signing..."
-                      : "Co-sign & approve"}
-                  </button>
+                  <>
+                    {isConfirming ? (
+                      <ConfirmActionPanel
+                        title={
+                          willExecute
+                            ? `Sign and execute ${command}`
+                            : `Confirm signature for ${command}`
+                        }
+                        summary={
+                          willExecute
+                            ? `Your signature will meet the ${action.group.requiredPower} signature threshold.`
+                            : "Add your signature to this destructive pending action."
+                        }
+                        consequence={
+                          willExecute
+                            ? "Signing runs this action on-chain now and cannot be undone."
+                            : "This action is destructive if it later reaches threshold."
+                        }
+                        confirmLabel={
+                          willExecute
+                            ? `Sign & execute ${command}`
+                            : "Add your signature"
+                        }
+                        tone="danger"
+                        busy={busyActionId === action.actionId}
+                        onCancel={() => setConfirmingActionId(null)}
+                        onConfirm={() => void coSign(action)}
+                      />
+                    ) : (
+                      <div className="signature-action-stack">
+                        <button
+                          type="button"
+                          className={willExecute ? "danger" : "secondary"}
+                          disabled={busyActionId === action.actionId}
+                          onClick={() =>
+                            requiresConfirm
+                              ? setConfirmingActionId(action.actionId)
+                              : void coSign(action)
+                          }
+                        >
+                          {busyActionId === action.actionId
+                            ? "Signing..."
+                            : willExecute
+                              ? `Sign & execute ${command}`
+                              : "Add your signature"}
+                        </button>
+                        {!willExecute && (
+                          <span className="signature-action-helper">
+                            {signaturesNeededAfterMine} more{" "}
+                            {signaturesNeededAfterMine === 1
+                              ? "signature"
+                              : "signatures"}{" "}
+                            needed after yours
+                          </span>
+                        )}
+                      </div>
+                    )}
+                  </>
                 )}
               </div>
             </div>

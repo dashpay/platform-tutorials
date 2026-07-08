@@ -1,5 +1,6 @@
 import { useEffect, useState } from "react";
 
+import { ConfirmActionPanel } from "./ConfirmActionPanel";
 import {
   DEFAULT_ACTION_GROUP_POSITIONS,
   type TokenActionKind,
@@ -74,6 +75,9 @@ export function OperationsView({ onComplete }: { onComplete?: () => void }) {
   const [recipientId, setRecipientId] = useState("");
   const [targetIdentityId, setTargetIdentityId] = useState("");
   const [busy, setBusy] = useState<string | null>(null);
+  const [confirmingAction, setConfirmingAction] = useState<
+    "burn" | "destroyFrozen" | "pause" | "resume" | null
+  >(null);
   const [error, setError] = useState<string | null>(null);
   const [governanceError, setGovernanceError] = useState<string | null>(null);
 
@@ -106,6 +110,7 @@ export function OperationsView({ onComplete }: { onComplete?: () => void }) {
     setError(null);
     try {
       await fn();
+      setConfirmingAction(null);
       session.log(`${label} submitted.`, "success");
       onComplete?.();
     } catch (err) {
@@ -174,20 +179,6 @@ export function OperationsView({ onComplete }: { onComplete?: () => void }) {
     return permission.reason ?? inputReason;
   }
 
-  function confirmBurn(): boolean {
-    const cleanAmount = amount.trim();
-    return window.confirm(
-      `Propose irreversible burn of ${cleanAmount} token(s) from the signed-in identity?`,
-    );
-  }
-
-  function confirmDestroyFrozen(): boolean {
-    const target = targetIdentityId.trim();
-    return window.confirm(
-      `Propose permanent destruction of frozen funds for ${target}?`,
-    );
-  }
-
   const mintPermission = actionPermission("mint");
   const burnPermission = actionPermission("burn");
   const freezePermission = actionPermission("freeze");
@@ -226,6 +217,8 @@ export function OperationsView({ onComplete }: { onComplete?: () => void }) {
     isAuthenticated && !emergencyPermission.canSubmit
       ? (emergencyPermission.reason ?? destroyFrozenPermission.reason)
       : undefined;
+  const cleanAmount = amount.trim();
+  const cleanTargetIdentityId = targetIdentityId.trim();
 
   return (
     <div className="operations-screen">
@@ -313,24 +306,41 @@ export function OperationsView({ onComplete }: { onComplete?: () => void }) {
               >
                 Propose mint
               </button>
-              <button
-                type="button"
-                className="danger-outline"
-                disabled={Boolean(busy) || !burnPermission.canSubmit}
-                title={burnPermission.reason}
-                onClick={() => {
-                  if (!confirmBurn()) return;
-                  void run("Burn", () =>
-                    burnToken({
-                      ...common,
-                      amount: toAmount(amount),
-                      groupPosition: burnPermission.groupPosition,
-                    }),
-                  );
-                }}
-              >
-                Propose burn...
-              </button>
+              {confirmingAction === "burn" ? (
+                <ConfirmActionPanel
+                  title="Confirm burn"
+                  summary={
+                    <>
+                      Burn {cleanAmount || "0"} token(s) from the signed-in
+                      identity.
+                    </>
+                  }
+                  consequence="Burning is irreversible and submits an on-chain group action."
+                  confirmLabel="Confirm burn"
+                  tone="danger"
+                  busy={busy === "Burn"}
+                  onCancel={() => setConfirmingAction(null)}
+                  onConfirm={() =>
+                    void run("Burn", () =>
+                      burnToken({
+                        ...common,
+                        amount: toAmount(amount),
+                        groupPosition: burnPermission.groupPosition,
+                      }),
+                    )
+                  }
+                />
+              ) : (
+                <button
+                  type="button"
+                  className="danger-outline"
+                  disabled={Boolean(busy) || !burnPermission.canSubmit}
+                  title={burnPermission.reason}
+                  onClick={() => setConfirmingAction("burn")}
+                >
+                  Propose burn...
+                </button>
+              )}
             </div>
           )}
         </section>
@@ -407,33 +417,49 @@ export function OperationsView({ onComplete }: { onComplete?: () => void }) {
               >
                 Propose unfreeze
               </button>
-              <button
-                type="button"
-                className="danger-outline"
-                disabled={
-                  Boolean(busy) ||
-                  !targetIdentityId.trim() ||
-                  !destroyFrozenPermission.canSubmit
-                }
-                title={disabledReason(
-                  destroyFrozenPermission,
-                  !targetIdentityId.trim()
-                    ? "Enter a frozen target identity ID."
-                    : undefined,
-                )}
-                onClick={() => {
-                  if (!confirmDestroyFrozen()) return;
-                  void run("Destroy frozen funds", () =>
-                    destroyFrozenToken({
-                      ...common,
-                      targetIdentityId,
-                      groupPosition: destroyFrozenPermission.groupPosition,
-                    }),
-                  );
-                }}
-              >
-                Destroy frozen...
-              </button>
+              {confirmingAction === "destroyFrozen" ? (
+                <ConfirmActionPanel
+                  title="Confirm destroy frozen funds"
+                  summary={
+                    <>
+                      Destroy frozen funds for identity {cleanTargetIdentityId}.
+                    </>
+                  }
+                  consequence="This permanently destroys frozen token funds on-chain and cannot be undone."
+                  confirmLabel="Confirm destroy"
+                  tone="danger"
+                  busy={busy === "Destroy frozen funds"}
+                  onCancel={() => setConfirmingAction(null)}
+                  onConfirm={() =>
+                    void run("Destroy frozen funds", () =>
+                      destroyFrozenToken({
+                        ...common,
+                        targetIdentityId,
+                        groupPosition: destroyFrozenPermission.groupPosition,
+                      }),
+                    )
+                  }
+                />
+              ) : (
+                <button
+                  type="button"
+                  className="danger-outline"
+                  disabled={
+                    Boolean(busy) ||
+                    !cleanTargetIdentityId ||
+                    !destroyFrozenPermission.canSubmit
+                  }
+                  title={disabledReason(
+                    destroyFrozenPermission,
+                    !cleanTargetIdentityId
+                      ? "Enter a frozen target identity ID."
+                      : undefined,
+                  )}
+                  onClick={() => setConfirmingAction("destroyFrozen")}
+                >
+                  Destroy frozen...
+                </button>
+              )}
             </div>
           )}
         </section>
@@ -454,38 +480,72 @@ export function OperationsView({ onComplete }: { onComplete?: () => void }) {
             <p className="locked-line">{emergencyLockedReason}</p>
           ) : (
             <div className="operation-inline-form emergency-form">
-              <button
-                type="button"
-                disabled={Boolean(busy) || !emergencyPermission.canSubmit}
-                title={emergencyPermission.reason}
-                onClick={() =>
-                  run("Pause", () =>
-                    emergencyTokenAction({
-                      ...common,
-                      action: "pause",
-                      groupPosition: emergencyPermission.groupPosition,
-                    }),
-                  )
-                }
-              >
-                Propose pause
-              </button>
-              <button
-                type="button"
-                disabled={Boolean(busy) || !emergencyPermission.canSubmit}
-                title={emergencyPermission.reason}
-                onClick={() =>
-                  run("Resume", () =>
-                    emergencyTokenAction({
-                      ...common,
-                      action: "resume",
-                      groupPosition: emergencyPermission.groupPosition,
-                    }),
-                  )
-                }
-              >
-                Propose resume
-              </button>
+              {confirmingAction === "pause" ? (
+                <ConfirmActionPanel
+                  title="Confirm token pause"
+                  summary="Pause the entire token."
+                  consequence="Pausing halts token activity and submits an on-chain emergency group action."
+                  confirmLabel="Confirm pause"
+                  tone="warning"
+                  busy={busy === "Pause"}
+                  onCancel={() => setConfirmingAction(null)}
+                  onConfirm={() =>
+                    void run("Pause", () =>
+                      emergencyTokenAction({
+                        ...common,
+                        action: "pause",
+                        groupPosition: emergencyPermission.groupPosition,
+                      }),
+                    )
+                  }
+                />
+              ) : (
+                <button
+                  type="button"
+                  disabled={
+                    Boolean(busy) ||
+                    !emergencyPermission.canSubmit ||
+                    confirmingAction === "resume"
+                  }
+                  title={emergencyPermission.reason}
+                  onClick={() => setConfirmingAction("pause")}
+                >
+                  Propose pause
+                </button>
+              )}
+              {confirmingAction === "resume" ? (
+                <ConfirmActionPanel
+                  title="Confirm token resume"
+                  summary="Resume the entire token."
+                  consequence="Resuming changes the token's emergency state and submits an on-chain group action."
+                  confirmLabel="Confirm resume"
+                  tone="warning"
+                  busy={busy === "Resume"}
+                  onCancel={() => setConfirmingAction(null)}
+                  onConfirm={() =>
+                    void run("Resume", () =>
+                      emergencyTokenAction({
+                        ...common,
+                        action: "resume",
+                        groupPosition: emergencyPermission.groupPosition,
+                      }),
+                    )
+                  }
+                />
+              ) : (
+                <button
+                  type="button"
+                  disabled={
+                    Boolean(busy) ||
+                    !emergencyPermission.canSubmit ||
+                    confirmingAction === "pause"
+                  }
+                  title={emergencyPermission.reason}
+                  onClick={() => setConfirmingAction("resume")}
+                >
+                  Propose resume
+                </button>
+              )}
             </div>
           )}
         </section>

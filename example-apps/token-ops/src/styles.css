@@ -723,9 +723,30 @@ main.content {
   color: white;
 }
 
+.proposal-actions button.danger {
+  background: #c0392b;
+}
+
 .proposal-actions button.secondary {
   color: #3d4760;
   padding-inline: 0.85rem;
+}
+
+.proposal-actions .confirm-action-panel {
+  flex: 1 1 100%;
+}
+
+.signature-action-stack {
+  align-items: flex-end;
+  display: grid;
+  gap: 0.25rem;
+  justify-items: end;
+}
+
+.signature-action-helper {
+  color: #6a7290;
+  font-size: 0.76rem;
+  font-weight: 600;
 }
 
 .proposal-card.is-collapsed .proposal-actions {
@@ -1178,6 +1199,31 @@ main.content {
   gap: 0.5rem;
   margin: 0;
   padding: 0.65rem 0.8rem;
+}
+
+.confirm-action-panel {
+  grid-column: 1 / -1;
+}
+
+.confirm-action-panel.danger {
+  background: #fff8f6;
+  border-color: #f1c2bb;
+}
+
+.confirm-action-panel.danger .reassign-warning {
+  color: #9f2f22;
+}
+
+.confirm-action-panel.warning {
+  background: #fff7e0;
+  border-color: #f2dfa6;
+}
+
+.confirm-action-summary {
+  color: #33395c;
+  font-size: 0.88rem;
+  font-weight: 600;
+  margin-top: 0.15rem;
 }
 
 .reassign-flow {

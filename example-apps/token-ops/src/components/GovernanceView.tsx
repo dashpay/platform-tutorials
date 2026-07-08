@@ -1,5 +1,6 @@
 import { useEffect, useState } from "react";
 
+import { ConfirmActionPanel } from "./ConfirmActionPanel";
 import { CopyableId } from "./CopyableId";
 import { type ReassignableRuleKind } from "../dash/contract";
 import {
@@ -107,6 +108,7 @@ export function GovernanceView() {
   const [newRequiredPower, setNewRequiredPower] = useState("2");
   const [error, setError] = useState<string | null>(null);
   const [refreshing, setRefreshing] = useState(false);
+  const [busyRuleKey, setBusyRuleKey] = useState<string | null>(null);
 
   async function refresh() {
     if (!session.sdk || !session.contractId) return;
@@ -139,6 +141,7 @@ export function GovernanceView() {
     if (!session.sdk || !session.keyManager || !session.contractId) return;
     const ownerId = session.identityId;
     if (!ownerId) return;
+    setBusyRuleKey(ruleKind);
     try {
       await assignTokenFunctionGroup({
         sdk: session.sdk,
@@ -154,6 +157,8 @@ export function GovernanceView() {
       await refresh();
     } catch (err) {
       setError(errorMessage(err));
+    } finally {
+      setBusyRuleKey(null);
     }
   }
 
@@ -424,8 +429,9 @@ export function GovernanceView() {
                         )}
 
                         {confirming && chosenGroupInfo && (
-                          <>
-                            <div className="reassign-preview">
+                          <ConfirmActionPanel
+                            title="Confirm reassignment"
+                            summary={
                               <div className="reassign-flow">
                                 <span className="reassign-from">
                                   {authorityLabel(rule.operator)}
@@ -440,35 +446,27 @@ export function GovernanceView() {
                                   Group {chosenGroupInfo.groupPosition}
                                 </span>
                               </div>
-                              <p className="reassign-warning">
+                            }
+                            consequence={
+                              <>
                                 {rule.label} will move from{" "}
                                 {authorityLabel(rule.operator)} to Group{" "}
                                 {chosenGroupInfo.groupPosition}.{" "}
                                 {rule.operator.type === "Group" &&
                                   `Group ${rule.operator.groupPosition} members lose the ability to perform this action.`}
-                              </p>
-                            </div>
-                            <div className="reassign-actions">
-                              <button
-                                type="button"
-                                className="secondary"
-                                onClick={() => setConfirmingRule(null)}
-                              >
-                                Cancel
-                              </button>
-                              <button
-                                type="button"
-                                onClick={() =>
-                                  void handleConfirmReassign(
-                                    rule.key as ReassignableRuleKind,
-                                    Number(chosen),
-                                  )
-                                }
-                              >
-                                Confirm reassignment
-                              </button>
-                            </div>
-                          </>
+                              </>
+                            }
+                            confirmLabel="Confirm reassignment"
+                            tone="warning"
+                            busy={busyRuleKey === rule.key}
+                            onCancel={() => setConfirmingRule(null)}
+                            onConfirm={() =>
+                              void handleConfirmReassign(
+                                rule.key as ReassignableRuleKind,
+                                Number(chosen),
+                              )
+                            }
+                          />
                         )}
                       </div>
                     )}
