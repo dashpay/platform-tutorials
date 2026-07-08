@@ -61,10 +61,12 @@ export function GovernanceView() {
   const [newMembers, setNewMembers] = useState("");
   const [newRequiredPower, setNewRequiredPower] = useState("2");
   const [error, setError] = useState<string | null>(null);
+  const [refreshing, setRefreshing] = useState(false);
 
   async function refresh() {
     if (!session.sdk || !session.contractId) return;
     setError(null);
+    setRefreshing(true);
     try {
       const governance = await fetchTokenOpsGovernance({
         sdk: session.sdk,
@@ -74,6 +76,8 @@ export function GovernanceView() {
       setRules(governance.rules);
     } catch (err) {
       setError(errorMessage(err));
+    } finally {
+      setRefreshing(false);
     }
   }
 
@@ -139,8 +143,13 @@ export function GovernanceView() {
               operations.
             </p>
           </div>
-          <button type="button" className="secondary" onClick={() => void refresh()}>
-            Refresh
+          <button
+            type="button"
+            className="secondary"
+            onClick={() => void refresh()}
+            disabled={refreshing}
+          >
+            {refreshing ? "Refreshing..." : "Refresh"}
           </button>
         </div>
         <div className="group-grid">

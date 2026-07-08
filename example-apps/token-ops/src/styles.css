@@ -51,6 +51,9 @@ button.secondary {
   background: transparent;
   color: #3454d1;
   border: 1px solid #c3cbe6;
+  transition:
+    background 0.12s ease,
+    border-color 0.12s ease;
 }
 
 button.danger {
@@ -66,6 +69,25 @@ button:hover:not(:disabled) {
   filter: brightness(0.92);
 }
 
+/* Transparent secondary buttons don't visibly change under brightness(),
+   so give them their own hover: a light tint plus a darker border. */
+button.secondary:hover:not(:disabled) {
+  filter: none;
+  background: #eef1fb;
+  border-color: #9fabdd;
+}
+
+button:active:not(:disabled) {
+  filter: brightness(0.86);
+  transform: translateY(1px);
+}
+
+button.secondary:active:not(:disabled) {
+  filter: none;
+  background: #dfe4f7;
+  border-color: #7f8fd0;
+}
+
 a {
   color: #3454d1;
   font-weight: 600;
@@ -73,10 +95,7 @@ a {
 
 code {
   font-family: "JetBrains Mono", ui-monospace, monospace;
-  font-size: 0.85em;
-  background: #e4e8f5;
-  padding: 0.1em 0.35em;
-  border-radius: 4px;
+  font-size: 0.9em;
 }
 
 button.copyable-id {
@@ -85,13 +104,21 @@ button.copyable-id {
   color: inherit;
   cursor: pointer;
   display: inline-flex;
-  align-items: center;
+  align-items: baseline;
+  font: inherit;
   font-weight: normal;
   padding: 0;
+  transition: color 0.12s ease;
 }
 
-button.copyable-id:hover code {
-  background: #d6dcf3;
+button.copyable-id:hover,
+button.copyable-id:focus-visible {
+  color: #3454d1;
+}
+
+.copyable-id-status {
+  color: #2f9e6b;
+  font-size: 0.85em;
 }
 
 input,
@@ -422,13 +449,12 @@ main.content {
 
 .proposal-card.is-collapsed {
   grid-template-columns: minmax(0, 1fr) auto;
-  gap: 0.55rem 1rem;
-  padding: 0.85rem 1rem;
+  gap: 0.25rem 1rem;
+  padding: 1rem 1.25rem;
 }
 
 .proposal-card.is-signed {
   background: #fafbfe;
-  opacity: 0.88;
 }
 
 .proposal-card.needs-signature {
@@ -468,40 +494,55 @@ main.content {
 }
 
 .proposal-title {
-  align-items: center;
+  align-items: flex-start;
   display: flex;
-  gap: 0.55rem;
-  margin-bottom: 0.2rem;
+  gap: 0.65rem;
 }
 
 .proposal-title strong {
+  color: #111827;
+  display: block;
   font-size: 1.05rem;
+  line-height: 1.2;
+}
+
+.proposal-title-copy {
+  min-width: 0;
 }
 
 .proposal-subtitle {
-  color: #59627c;
+  align-items: center;
+  color: #555f78;
+  display: flex;
+  flex-wrap: wrap;
   font-size: 0.84rem;
+  font-weight: 500;
+  gap: 0.25rem;
+  line-height: 1.2;
   margin: 0;
+  padding-top: 0.1rem;
 }
 
 .proposal-icon {
   align-items: center;
   background: color-mix(in srgb, var(--proposal-accent) 14%, white);
-  border-radius: 6px;
+  border-radius: 8px;
   color: var(--proposal-accent);
   display: inline-flex;
-  font-size: 0.72rem;
+  flex: 0 0 auto;
+  font-size: 0.95rem;
   font-weight: 800;
-  height: 1.55rem;
+  height: 2rem;
   justify-content: center;
-  min-width: 1.55rem;
+  line-height: 1;
+  min-width: 2rem;
   padding: 0 0.35rem;
 }
 
-.status-badge,
-.group-badge {
+.status-badge {
   border-radius: 999px;
   display: inline-flex;
+  flex: 0 0 auto;
   font-size: 0.74rem;
   font-weight: 800;
   padding: 0.22rem 0.6rem;
@@ -517,8 +558,7 @@ main.content {
   color: #206a2c;
 }
 
-.status-badge.neutral,
-.group-badge {
+.status-badge.neutral {
   background: #e4e8f5;
   color: #33395c;
 }
@@ -529,10 +569,11 @@ main.content {
 }
 
 .proposal-card.is-collapsed .proposal-progress {
-  align-self: end;
+  align-self: center;
   grid-column: 1;
-  max-width: 180px;
-  width: 38%;
+  grid-row: 3;
+  margin-top: 0.05rem;
+  max-width: 32rem;
 }
 
 .proposal-card.is-collapsed .proposal-progress .row {
@@ -541,6 +582,10 @@ main.content {
 
 .proposal-card.is-collapsed .proposal-progress .progress {
   height: 6px;
+}
+
+.proposal-card.is-collapsed.waiting-on-others .proposal-progress {
+  max-width: 11.25rem;
 }
 
 .proposal-progress .row {
@@ -552,7 +597,22 @@ main.content {
   height: 8px;
 }
 
-.proposal-progress .progress > span {
+.proposal-progress .signature-progress {
+  background: transparent;
+  display: flex;
+  gap: 0.35rem;
+  overflow: visible;
+}
+
+.proposal-progress .progress-segment {
+  background: #e2e5f2;
+  border-radius: 999px;
+  display: block;
+  flex: 1 1 0;
+  height: 100%;
+}
+
+.proposal-progress .progress-segment.filled {
   background: var(--proposal-accent);
 }
 
@@ -576,15 +636,16 @@ main.content {
 
 .metadata-grid.compact {
   border-top: 0;
-  grid-template-columns: repeat(3, minmax(0, 1fr));
+  grid-template-columns: minmax(0, 1fr);
   padding-top: 0;
 }
 
 .proposal-card.is-collapsed .metadata-grid.compact {
-  align-self: start;
+  align-self: center;
   gap: 0.45rem 1.4rem;
   grid-column: 1;
-  grid-template-columns: repeat(3, max-content);
+  grid-row: 2;
+  grid-template-columns: max-content;
 }
 
 .metadata-grid.compact .metadata-item.technical {
@@ -615,7 +676,12 @@ main.content {
 
 .proposal-card.is-collapsed .metadata-item strong {
   font-size: 0.84rem;
+  font-weight: 500;
   margin-top: 0.05rem;
+}
+
+.proposal-card.is-collapsed .metadata-item.primary strong {
+  font-weight: 500;
 }
 
 .metadata-item.primary strong {
@@ -629,20 +695,38 @@ main.content {
 .proposal-actions {
   align-items: center;
   display: flex;
-  gap: 0.75rem;
+  gap: 0.6rem;
   justify-content: flex-end;
 }
 
-.proposal-card.is-collapsed .proposal-actions {
-  align-self: end;
-  grid-column: 2;
-  grid-row: 2 / 4;
+.proposal-actions button {
+  border-radius: 8px;
+  font-size: 0.86rem;
+  min-height: 2rem;
+  padding: 0.42rem 0.75rem;
 }
 
-.signed-note {
-  color: #206a2c;
-  font-size: 0.85rem;
-  font-weight: 700;
+.proposal-actions button:not(.secondary) {
+  background: var(--proposal-accent);
+  color: white;
+}
+
+.proposal-actions button.secondary {
+  color: #3d4760;
+  padding-inline: 0.85rem;
+}
+
+.proposal-card.is-collapsed .proposal-actions {
+  align-self: center;
+  grid-column: 2;
+  grid-row: 3;
+  justify-self: end;
+}
+
+.proposal-card.is-collapsed .proposal-actions button {
+  font-size: 0.82rem;
+  min-height: 1.9rem;
+  padding: 0.34rem 0.7rem;
 }
 
 .group-grid {
@@ -836,6 +920,20 @@ main.content {
   .proposal-actions {
     align-items: stretch;
     flex-direction: column;
+  }
+
+  .proposal-card.is-collapsed {
+    grid-template-columns: 1fr;
+  }
+
+  .proposal-card.is-collapsed .proposal-progress,
+  .proposal-card.is-collapsed .proposal-actions {
+    grid-column: 1;
+  }
+
+  .proposal-card.is-collapsed .proposal-actions {
+    grid-row: 4;
+    justify-self: stretch;
   }
 
   .metadata-grid {

@@ -6,6 +6,7 @@ import {
   fetchTokenOpsGovernance,
   type TokenOpsGroupInfo,
 } from "../dash/governance";
+import { GROUP_DEFINITIONS } from "../dash/contract";
 import {
   describeGroupAction,
   listActionSigners,
@@ -116,10 +117,68 @@ function actionTitle(action: PendingWithGroup): string {
   return describeGroupAction(action.eventName);
 }
 
-function progressPercent(progress: ActionSignerProgress | undefined): number {
-  if (!progress || progress.requiredPower <= 0) return 0;
-  const percent = (Number(progress.signedPower) / progress.requiredPower) * 100;
+function actionSubject(
+  params: PendingTokenActionParams | null,
+): { label: string; id: string } | null {
+  if (!params) return null;
+  if (params.kind === "mint") return { label: "Recipient", id: params.recipientId };
+  if (params.kind === "burn") return { label: "From", id: params.burnFromId };
+  if (params.kind === "freeze" || params.kind === "unfreeze") {
+    return { label: "Target", id: params.targetIdentityId };
+  }
+  if (params.kind === "destroyFrozen") {
+    return { label: "Target", id: params.targetIdentityId };
+  }
+  return null;
+}
+
+function approvalGroupLabel(groupPosition: number): string {
+  const definition = Object.values(GROUP_DEFINITIONS).find(
+    (group) => group.position === groupPosition,
+  );
+  return definition?.label ?? `Approval group ${groupPosition}`;
+}
+
+function progressPercent(
+  progress: ActionSignerProgress | undefined,
+  requiredPower: number,
+): number {
+  if (!progress || requiredPower <= 0) return 0;
+  const percent = (Number(progress.signedPower) / requiredPower) * 100;
   return Math.max(0, Math.min(100, Math.round(percent)));
+}
+
+function signedMemberCount(
+  action: PendingWithGroup,
+  signerProgress: ActionSignerProgress | undefined,
+): number {
+  if (!signerProgress) return 0;
+  return [...signerProgress.signers.keys()].filter((identityId) =>
+    action.group.members.has(identityId),
+  ).length;
+}
+
+function usesOnePowerPerSignature(group: TokenOpsGroupInfo): boolean {
+  return [...group.members.values()].every((power) => power === 1);
+}
+
+function approvalGroupRequirementText(group: TokenOpsGroupInfo): string {
+  if (usesOnePowerPerSignature(group)) {
+    return `${group.requiredPower} of ${group.members.size} signatures required`;
+  }
+  return `${group.requiredPower} voting power from ${group.members.size} signers`;
+}
+
+function signatureProgressText(
+  action: PendingWithGroup,
+  signerProgress: ActionSignerProgress | undefined,
+): string {
+  if (!signerProgress) return "signatures loading";
+  const signedCount = signedMemberCount(action, signerProgress);
+  if (usesOnePowerPerSignature(action.group)) {
+    return `${signedCount} of ${action.group.requiredPower} signatures received`;
+  }
+  return `${signedCount} signer${signedCount === 1 ? "" : "s"} · ${signerProgress.signedPower.toString()} of ${action.group.requiredPower} power`;
 }
 
 function personalStatus({
@@ -134,7 +193,7 @@ function personalStatus({
   isSupported: boolean;
 }): { label: string; className: string } {
   if (canSign) return { label: "Waiting for your signature", className: "urgent" };
-  if (hasSigned) return { label: "Signed", className: "signed" };
+  if (hasSigned) return { label: "Signed by you", className: "signed" };
   if (!isSupported) return { label: "Display only", className: "neutral" };
   if (!isMember) return { label: "Not in approval group", className: "neutral" };
   return { label: "Waiting for another signer", className: "neutral" };
@@ -150,10 +209,12 @@ export function PendingActionsView() {
   const [expandedActionIds, setExpandedActionIds] = useState<Set<string>>(new Set());
   const [lastUpdatedAt, setLastUpdatedAt] = useState<Date | null>(null);
   const [error, setError] = useState<string | null>(null);
+  const [refreshing, setRefreshing] = useState(false);
 
   async function refresh() {
     if (!session.sdk || !session.contractId) return;
     setError(null);
+    setRefreshing(true);
     try {
       const governance = await fetchTokenOpsGovernance({
         sdk: session.sdk,
@@ -190,6 +251,8 @@ export function PendingActionsView() {
       setLastUpdatedAt(new Date());
     } catch (err) {
       setError(errorMessage(err));
+    } finally {
+      setRefreshing(false);
     }
   }
 
@@ -284,14 +347,21 @@ export function PendingActionsView() {
         </div>
         <div className="pending-toolbar-actions">
           <span className="muted">
-            {lastUpdatedAt
-              ? `Updated ${lastUpdatedAt.toLocaleTimeString([], {
-                  hour: "numeric",
-                  minute: "2-digit",
-                })}`
-              : "Loading..."}
+            {refreshing
+              ? "Refreshing..."
+              : lastUpdatedAt
+                ? `Updated ${lastUpdatedAt.toLocaleTimeString([], {
+                    hour: "numeric",
+                    minute: "2-digit",
+                  })}`
+                : "Loading..."}
           </span>
-          <button type="button" className="secondary" onClick={() => void refresh()}>
+          <button
+            type="button"
+            className="secondary"
+            onClick={() => void refresh()}
+            disabled={refreshing}
+          >
             Refresh
           </button>
         </div>
@@ -333,11 +403,20 @@ export function PendingActionsView() {
             isMember,
             status,
           }: (typeof enriched)[number]) => {
-          const percent = progressPercent(p);
+          const percent = progressPercent(p, action.group.requiredPower);
           const kind = actionKind(action);
           const details = action.params ? actionDetails(action.params) : [];
           const isExpanded = expandedActionIds.has(action.actionId);
-          const visibleDetails = isExpanded ? details : details.slice(0, 1);
+          const visibleDetails = isExpanded ? details : [];
+          const signedCount = signedMemberCount(action, p);
+          const unitPowerGroup = usesOnePowerPerSignature(action.group);
+          const requiredSlots = unitPowerGroup
+            ? Math.max(1, action.group.requiredPower)
+            : Math.max(1, action.group.members.size);
+          const signedSlots = Math.max(0, Math.min(requiredSlots, signedCount));
+          const subject = actionSubject(action.params);
+          const proposedByCurrentIdentity =
+            session.identityId === action.proposerId;
           return (
             <div
               key={action.actionId}
@@ -345,24 +424,25 @@ export function PendingActionsView() {
                 isExpanded ? "is-expanded" : "is-collapsed"
               } ${hasSigned ? "is-signed" : ""} ${
                 canSign ? "needs-signature" : ""
-              }`}
+              } ${!canSign ? "waiting-on-others" : ""}`}
             >
               <div className="proposal-header">
                 <div>
                   <div className="proposal-title">
                     <span className="proposal-icon">{actionIcon(kind)}</span>
-                    <strong>{actionTitle(action)}</strong>
+                    <div className="proposal-title-copy">
+                      <strong>{actionTitle(action)}</strong>
+                      {subject && (
+                        <div className="proposal-subtitle">
+                          <span>{subject.label}</span>
+                          <CopyableId id={subject.id} len={8} />
+                        </div>
+                      )}
+                    </div>
                   </div>
-                  <p className="proposal-subtitle">
-                    {details[0]?.value ? (
-                      <>
-                        {details[0].label.toLowerCase()} {details[0].value} ·{" "}
-                      </>
-                    ) : null}
-                    Approval group {action.group.groupPosition}
-                  </p>
                 </div>
                 <span className={`status-badge ${status.className}`}>
+                  {approvalGroupLabel(action.group.groupPosition)} •{" "}
                   {canSign ? "Awaiting you" : status.label}
                 </span>
               </div>
@@ -371,20 +451,27 @@ export function PendingActionsView() {
                 <div className="row between">
                   <span>
                     {p
-                      ? `${p.signedPower.toString()} / ${p.requiredPower} voting power`
+                      ? `${p.signedPower.toString()} / ${action.group.requiredPower} signatures`
                       : "Signer progress loading"}
                   </span>
                   <strong>{percent}%</strong>
                 </div>
                 <div
-                  className="progress"
+                  className="progress signature-progress"
                   role="progressbar"
                   aria-label="Signature progress"
                   aria-valuemin={0}
                   aria-valuemax={100}
                   aria-valuenow={percent}
                 >
-                  <span style={{ width: `${percent}%` }} />
+                  {Array.from({ length: requiredSlots }, (_, index) => (
+                    <span
+                      key={index}
+                      className={
+                        index < signedSlots ? "progress-segment filled" : "progress-segment"
+                      }
+                    />
+                  ))}
                 </div>
               </div>
 
@@ -402,18 +489,32 @@ export function PendingActionsView() {
                     <strong>{detail.value}</strong>
                   </div>
                 ))}
-                <div className="metadata-item">
-                  <span>Proposed by</span>
-                  <strong>
-                    <CopyableId id={action.proposerId} len={8} />
-                  </strong>
-                </div>
+                {isExpanded && (
+                  <div className="metadata-item">
+                    <span>Approval group</span>
+                    <strong>
+                      {approvalGroupLabel(action.group.groupPosition)} ·{" "}
+                      {approvalGroupRequirementText(action.group)}
+                    </strong>
+                  </div>
+                )}
+                {isExpanded && (
+                  <div className="metadata-item">
+                    <span>Proposed by</span>
+                    <strong>
+                      {proposedByCurrentIdentity ? (
+                        "You"
+                      ) : (
+                        <CopyableId id={action.proposerId} len={8} />
+                      )}
+                    </strong>
+                  </div>
+                )}
                 {!isExpanded && (
                   <div className="metadata-item">
-                    <span>Signed</span>
                     <strong>
                       {p
-                        ? `${p.signedPower.toString()} of ${p.requiredPower}${
+                        ? `${signatureProgressText(action, p)}${
                             !isMember ? " · you're not in this group" : ""
                           }`
                         : "Loading"}
@@ -448,7 +549,7 @@ export function PendingActionsView() {
                     })
                   }
                 >
-                  {isExpanded ? "Hide details" : "View details"}
+                  {isExpanded ? "Hide details" : "Details"}
                 </button>
                 {canSign && (
                   <button
@@ -461,7 +562,6 @@ export function PendingActionsView() {
                       : "Co-sign & approve"}
                   </button>
                 )}
-                {hasSigned && <span className="signed-note">Signed by this identity</span>}
               </div>
             </div>
           );

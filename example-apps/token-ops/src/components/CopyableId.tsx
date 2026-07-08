@@ -3,22 +3,24 @@ import { useState } from "react";
 import { shortId } from "../lib/format";
 
 /**
- * Renders a truncated identity ID that copies the FULL id to the clipboard
- * on click. Every group action (propose/co-sign suspend/restore/revoke)
- * needs the full 44-char base58 id typed into a
- * form — a purely truncated <code>{shortId(id)}</code> display gives the
- * user nothing to actually act on.
+ * Renders a truncated identity ID as plain monospace text that copies the
+ * FULL id to the clipboard on click. Every group action (propose/co-sign
+ * suspend/restore/revoke) needs the full 44-char base58 id typed into a
+ * form — a purely truncated {shortId(id)} display gives the user nothing to
+ * actually act on. Hover tints the text to signal it is clickable; a brief
+ * "copied" label confirms the copy without a persistent icon.
  */
 export function CopyableId({
   id,
-  len = 10,
+  len = 6,
 }: {
   id: string | null | undefined;
   len?: number;
 }) {
   const [copied, setCopied] = useState(false);
+  const displayLen = Math.min(len, 6);
 
-  if (!id) return <code>—</code>;
+  if (!id) return <span className="copyable-id empty">—</span>;
 
   async function handleClick() {
     try {
@@ -34,12 +36,12 @@ export function CopyableId({
   return (
     <button
       type="button"
-      className="secondary copyable-id"
+      className="copyable-id"
       title={id}
       onClick={handleClick}
     >
-      <code>{shortId(id, len)}</code>
-      <span className="muted"> {copied ? "✓ copied" : "⧉"}</span>
+      <code>{shortId(id, displayLen)}</code>
+      {copied && <span className="copyable-id-status"> copied</span>}
     </button>
   );
 }

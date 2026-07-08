@@ -10,11 +10,12 @@ import type { DashSdk } from "./types";
 const STORAGE_KEY = "token-ops.contractId";
 
 /**
- * Default contract ID baked into the tutorial so browse-only mode can work on
- * a fresh machine once a public demo contract has been published.
+ * Default contract ID baked into the tutorial so browse-only mode works on a
+ * fresh machine without any setup. Users can override it in Settings or
+ * register their own contract.
  */
 export const DEFAULT_CONTRACT_ID: string | null =
-  import.meta.env.VITE_TOKEN_OPS_CONTRACT_ID || null;
+  "KMMJJdJo9LTjjevsuJ4jkbNZEY8xCq8n44cDmba7o2A";
 
 export function loadStoredContractId(): string | null {
   return localStorage.getItem(STORAGE_KEY) ?? DEFAULT_CONTRACT_ID;
