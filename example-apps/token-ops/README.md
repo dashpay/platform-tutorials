@@ -1,0 +1,141 @@
+# TokenOps — Group-Governed Dash Platform Tokens
+
+A React + TypeScript + Vite app that makes Dash Platform token governance visible. It registers a token whose every capability — mint, burn, freeze, unfreeze, destroy-frozen, emergency pause/resume — is controlled by a multi-signer group through `ChangeControlRules`, then lets you propose actions, co-sign them, watch signing progress, and reassign or add authorities.
+
+The app is built around the idea that a token action has two authorities: an **operator** (`authorizedToMakeChange`, who performs the action) and an **admin** (`adminActionTakers`, who can later reassign that operator). The Governance view keeps those separate.
+
+## Prerequisites
+
+- Node 22.22+ (`engines.node` pins `>=22.22.0 <22.23.0`)
+- **Browse-only mode needs nothing** — a default contract is baked in, so a fresh install can read the token, groups, and rule matrix without any identity.
+- Writing needs a funded Dash Platform testnet identity (BIP-39 mnemonic + identity index).
+- Exercising the **group signing flow** end-to-end needs three additional funded identities (the group members). `npm run bootstrap:identities` derives and funds all four from one mnemonic — see [Group members](#group-members).
+
+## Quick start
+
+```bash
+npm install
+npm run dev
+```
+
+Production build: `npm run build && npm run preview`
+
+Other scripts:
+
+```bash
+npm run test          # Vitest unit + component suite
+npm run test:coverage # Vitest under v8 coverage (text + HTML in coverage/)
+npm run test:e2e      # Playwright suite on port 5184 (real testnet)
+npm run test:e2e:ui   # Playwright interactive runner
+npm run lint          # ESLint
+npm run format        # Prettier (write)
+npm run format:check  # Prettier (check only)
+```
+
+## Signing in
+
+Sign in from the **Account** tab with a mnemonic and an identity index. Index `0` is the contract owner (the identity that can register a contract and reassign authorities); indices `1`–`3` are the group members that propose and co-sign token actions. The mnemonic is passed straight to the in-memory key manager and is never written to React state or localStorage.
+
+The network is hardcoded to **testnet** — this is a demo app, not a mainnet tool.
+
+## Contract
+
+The contract has one token at position `0` and a minimal placeholder `note` document schema. The app is about token operations, not documents.
+
+Token config (in [`src/dash/contract.ts`](src/dash/contract.ts)): base supply `100`, max supply `10,000`, full history-keeping on, not paused, not tradeable. The five named rule presets and their operator / admin authorities:
+
+| Preset           | operator (`authorizedToMakeChange`) | admin (`adminActionTakers`) |
+| ---------------- | ----------------------------------- | --------------------------- |
+| `lockedRules`    | NoOne                               | NoOne                       |
+| `ownerRules`     | ContractOwner                       | ContractOwner               |
+| `treasuryRules`  | Group(Treasury)                     | ContractOwner               |
+| `accessRules`    | Group(Access)                       | ContractOwner               |
+| `emergencyRules` | Group(Emergency)                    | ContractOwner               |
+
+### Initial groups
+
+The contract registers three groups. Every member has power `1`, so the required power is the signature threshold:
+
+- **Treasury Group** — position `0`, 2-of-3, holds `manualMintingRules` and `manualBurningRules`
+- **Access Group** — position `1`, 2-of-3, holds `freezeRules` and `unfreezeRules`
+- **Emergency Group** — position `2`, 3-of-3, holds `destroyFrozenFundsRules` and `emergencyActionRules`
+
+These thresholds describe the **initial** contract. Platform groups are immutable once registered, so the app never edits a group in place — the Governance → Groups tab **appends** a new group (any Platform-valid size, 2–256 members) and remaps token functions to it.
+
+`DEFAULT_CONTRACT_ID` in [`src/dash/contractStorage.ts`](src/dash/contractStorage.ts) is a published testnet contract (`KMMJJdJo9LTjjevsuJ4jkbNZEY8xCq8n44cDmba7o2A`) so browse-only mode works immediately. The active ID is stored under `localStorage['token-ops.contractId']`; clearing it falls back to the default. Register your own from the Account tab, or paste an existing contract **or** token ID — the app resolves either.
+
+## Group members
+
+The group-signing flow needs three additional funded identities. The bootstrap script derives four identities (owner + three members) from a single `PLATFORM_MNEMONIC` — each identity index is a distinct DIP-13 path, so one mnemonic yields four independently-registerable, independently-funded identities:
+
+```bash
+npm run bootstrap:identities
+```
+
+`PLATFORM_MNEMONIC` is read from the **repo-root** `.env`, funded with enough testnet credits to register and top up four identities. The script is idempotent (re-runs skip already-registered identities and only top up balances below the role floor) and writes the three member IDs to `token-ops/.env` as `VITE_TOKEN_OPS_MEMBER_1_ID`, `VITE_TOKEN_OPS_MEMBER_2_ID`, and `VITE_TOKEN_OPS_MEMBER_3_ID`. The Account tab's "Register a new contract" flow defaults its group members to those three.
+
+## Platform operations at a glance
+
+Every SDK call lives under [`src/dash/`](src/dash/), one file per concern, each with a JSDoc header naming the method it wraps.
+
+| Concern                        | File                                                | SDK method(s)                                                                                                          |
+| ------------------------------ | --------------------------------------------------- | ---------------------------------------------------------------------------------------------------------------------- |
+| Connect to testnet             | [`client.ts`](src/dash/client.ts)                   | `EvoSDK.testnetTrusted()` + `sdk.connect()` (via shared core)                                                          |
+| Derive identity keys           | [`keyManager.ts`](src/dash/keyManager.ts)           | `wallet.deriveKeyFromSeedWithPath` (via shared core)                                                                   |
+| Register contract              | [`contract.ts`](src/dash/contract.ts)               | `sdk.identities.nonce`, `sdk.contracts.publish`                                                                        |
+| Persist / look up contract     | [`contractStorage.ts`](src/dash/contractStorage.ts) | `sdk.contracts.fetch`                                                                                                  |
+| Read groups + rules            | [`governance.ts`](src/dash/governance.ts)           | `sdk.contracts.fetch`, `sdk.group.info`, `sdk.contracts.update` (append group)                                         |
+| List pending actions + signers | [`groupActions.ts`](src/dash/groupActions.ts)       | `sdk.group.actions`, `sdk.group.actionSigners`                                                                         |
+| Read token state               | [`token.ts`](src/dash/token.ts)                     | `sdk.tokens.calculateId` / `totalSupply` / `statuses` / `identityBalances` / `identityTokenInfos` / `contractInfo`     |
+| Token mutations                | [`tokenOperations.ts`](src/dash/tokenOperations.ts) | `sdk.tokens.mint` / `burn` / `transfer` / `freeze` / `unfreeze` / `destroyFrozen` / `emergencyAction` / `configUpdate` |
+| Resolve contract-or-token ID   | [`resolveTokenRef.ts`](src/dash/resolveTokenRef.ts) | `sdk.tokens.contractInfo`, `sdk.tokens.calculateId`                                                                    |
+| Resolve DPNS name              | [`resolveDpnsName.ts`](src/dash/resolveDpnsName.ts) | `sdk.dpns.username`                                                                                                    |
+
+[`client.ts`](src/dash/client.ts) and [`keyManager.ts`](src/dash/keyManager.ts) re-export directly from the repo-root `setupDashClient-core.mjs` — the same browser-safe core the Node tutorials use. The `@dashevo/evo-sdk` bare specifier is aliased to the app's local copy in [`vite.config.ts`](vite.config.ts).
+
+Supporting files:
+
+- [`groupDisplay.ts`](src/dash/groupDisplay.ts) — pure UI helper mapping rule keys to capability categories/accents and deriving a group's domains from its live operator rules.
+- [`logger.ts`](src/dash/logger.ts) — shared `Logger` type, `consoleLogger`, and `errorMessage()` for wasm-bindgen errors.
+- [`types.ts`](src/dash/types.ts) — the app's SDK-surface type aliases (`DashSdk`, `DashKeyManager`, etc.).
+
+## Group action lifecycle
+
+Group-managed operations (everything except direct transfer) follow propose → co-sign → execute:
+
+1. A group member **proposes** an action — `sdk.tokens.mint({ …, groupInfo: GroupStateTransitionInfoStatus.proposer(groupPosition) })`. This creates an ACTIVE group action.
+2. Other members **co-sign** the same action — the same call with `GroupStateTransitionInfoStatus.otherSigner(groupPosition, actionId)`.
+3. When accumulated signing power reaches the group's required power, Platform **executes** it automatically.
+
+The Pending tab surfaces ACTIVE actions (`sdk.group.actions`), shows "N of M" signing progress (`sdk.group.actionSigners`), and splits them into "needs your signature" vs "waiting on others".
+
+## Reading this codebase
+
+1. **[`src/dash/`](src/dash/)** — start here. [`contract.ts`](src/dash/contract.ts) defines the token config, rule presets, and initial groups; [`tokenOperations.ts`](src/dash/tokenOperations.ts) shows the propose/co-sign pattern; [`governance.ts`](src/dash/governance.ts) reads and appends authorities.
+2. **[`src/session/SessionContext.tsx`](src/session/SessionContext.tsx)** — SDK connection, identity, contract ID, read-only vs authenticated status, and the toast logger. The mnemonic lives only inside the key manager closure. Consumer hook: [`useSession.ts`](src/session/useSession.ts).
+3. **[`src/components/`](src/components/)** — the five views (Overview, Operations, Pending, Governance, Account) plus [`ConfirmActionPanel`](src/components/ConfirmActionPanel.tsx), [`IdentityLabel`](src/components/IdentityLabel.tsx), [`CopyableId`](src/components/CopyableId.tsx), [`AppNotices`](src/components/AppNotices.tsx), and [`TopNav`](src/components/TopNav.tsx).
+4. **[`src/hooks/useDpnsNames.ts`](src/hooks/useDpnsNames.ts)** — resolves identity IDs to DPNS usernames, cached at module level so lists don't re-query.
+5. **[`src/lib/`](src/lib/)** — [`capabilityIcon.tsx`](src/lib/capabilityIcon.tsx) (per-capability SVG glyph), [`explorer.ts`](src/lib/explorer.ts) (testnet Platform Explorer URLs), [`format.ts`](src/lib/format.ts) (ID truncation, dates).
+
+## Tests
+
+[`test/`](test/) is a Vitest + Testing Library suite: unit tests over `src/dash/`/`src/lib/` that stub the `DashSdk` shape, and component tests (`GovernanceView`, `OperationsView`, `PendingActionsView`) that mock the dash modules and `useSession`. Default env is `node`; component tests opt into jsdom with a `// @vitest-environment jsdom` pragma. Run with `npm run test`.
+
+[`test/e2e/`](test/e2e/) is a Playwright suite that runs against real Dash Platform testnet — no mocks — auto-booting Vite on port 5184. The committed [`browse.spec.ts`](test/e2e/browse.spec.ts) is a read-only smoke test (boots, nav renders, overview shows the token name/description, governance renders without signing in) and performs no writes. Auth- and group-gated flows key off `PLATFORM_MNEMONIC` (repo-root `.env`) and the three `VITE_TOKEN_OPS_MEMBER_*_ID` vars and `test.skip` cleanly when unset. Any chain-mutating e2e should avoid the irreversible `destroyFrozen` path unless behind an explicit manual flag.
+
+## Deploying to GitHub Pages
+
+The repo ships a fork-friendly deploy workflow. Builds honor `VITE_BASE_PATH` so links resolve under `/<repo>/`. For a local preview of that build:
+
+```bash
+VITE_BASE_PATH=/token-ops/ npm run build && npm run preview
+```
+
+## Tech stack
+
+- React 19
+- TypeScript
+- Vite 8 / Vitest 4
+- Playwright
+- `@dashevo/evo-sdk` 4.0.0
+- sonner (toasts)
