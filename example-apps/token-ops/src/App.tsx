@@ -41,7 +41,9 @@ export default function App() {
             watchedIdentityIds={watchedIdentityIds}
             onWatchIdentity={(identityId) =>
               setWatchedIdentityIds((previous) =>
-                previous.includes(identityId) ? previous : [...previous, identityId],
+                previous.includes(identityId)
+                  ? previous
+                  : [...previous, identityId],
               )
             }
             onNavigateToPending={() => setView("pending")}

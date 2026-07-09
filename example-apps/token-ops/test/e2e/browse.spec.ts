@@ -19,8 +19,6 @@ test.describe("Read-only browsing", () => {
     await expect(
       page.getByRole("heading", { name: "Access control", level: 4 }),
     ).toBeVisible();
-    await expect(
-      page.getByRole("tab", { name: "Groups" }),
-    ).toBeVisible();
+    await expect(page.getByRole("tab", { name: "Groups" })).toBeVisible();
   });
 });

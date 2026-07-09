@@ -66,12 +66,7 @@ export const GROUP_DEFINITIONS = {
 export type GroupKind = keyof typeof GROUP_DEFINITIONS;
 
 export type TokenActionKind =
-  | "mint"
-  | "burn"
-  | "freeze"
-  | "unfreeze"
-  | "destroyFrozen"
-  | "emergency";
+  "mint" | "burn" | "freeze" | "unfreeze" | "destroyFrozen" | "emergency";
 
 export type ReassignableRuleKind =
   | "manualMinting"
@@ -212,10 +207,15 @@ export function createTokenOpsTokenConfiguration(ownerId: string) {
   });
 }
 
-export function createTokenOpsGroup(memberIds: string[], requiredPower: number) {
+export function createTokenOpsGroup(
+  memberIds: string[],
+  requiredPower: number,
+) {
   const cleanIds = memberIds.map((id) => id.trim()).filter(Boolean);
   if (cleanIds.length !== 3) {
-    throw new Error(`TokenOps groups need exactly 3 members, got ${cleanIds.length}`);
+    throw new Error(
+      `TokenOps groups need exactly 3 members, got ${cleanIds.length}`,
+    );
   }
   if (new Set(cleanIds).size !== cleanIds.length) {
     throw new Error("TokenOps group members must be 3 distinct identities.");
@@ -225,7 +225,9 @@ export function createTokenOpsGroup(memberIds: string[], requiredPower: number) 
     requiredPower < 1 ||
     requiredPower > cleanIds.length
   ) {
-    throw new Error(`TokenOps group required power must be 1-3, got ${requiredPower}`);
+    throw new Error(
+      `TokenOps group required power must be 1-3, got ${requiredPower}`,
+    );
   }
   return new Group(new Map(cleanIds.map((id) => [id, 1])), requiredPower);
 }

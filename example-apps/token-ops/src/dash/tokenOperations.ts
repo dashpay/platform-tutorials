@@ -36,7 +36,7 @@ function publicNoteForSubmission(
   publicNote: string | undefined,
   fallback: string,
 ): string | undefined {
-  return actionId ? undefined : publicNote ?? fallback;
+  return actionId ? undefined : (publicNote ?? fallback);
 }
 
 export async function mintToken({
@@ -69,7 +69,11 @@ export async function mintToken({
       amount,
       identityId: identity.id.toString(),
       recipientId: recipientId?.trim() || undefined,
-      publicNote: publicNoteForSubmission(actionId, publicNote, "TokenOps mint"),
+      publicNote: publicNoteForSubmission(
+        actionId,
+        publicNote,
+        "TokenOps mint",
+      ),
       identityKey,
       signer,
       groupInfo: groupInfo(groupPosition, actionId),
@@ -107,7 +111,11 @@ export async function burnToken({
       tokenPosition: TOKEN_POSITION,
       amount,
       identityId: identity.id.toString(),
-      publicNote: publicNoteForSubmission(actionId, publicNote, "TokenOps burn"),
+      publicNote: publicNoteForSubmission(
+        actionId,
+        publicNote,
+        "TokenOps burn",
+      ),
       identityKey,
       signer,
       groupInfo: groupInfo(groupPosition, actionId),
@@ -173,7 +181,11 @@ export async function freezeToken({
     tokenPosition: TOKEN_POSITION,
     authorityId: identity.id.toString(),
     frozenIdentityId: targetIdentityId.trim(),
-    publicNote: publicNoteForSubmission(actionId, publicNote, "TokenOps freeze"),
+    publicNote: publicNoteForSubmission(
+      actionId,
+      publicNote,
+      "TokenOps freeze",
+    ),
     identityKey,
     signer,
     groupInfo: groupInfo(groupPosition, actionId),
@@ -206,7 +218,11 @@ export async function unfreezeToken({
     tokenPosition: TOKEN_POSITION,
     authorityId: identity.id.toString(),
     frozenIdentityId: targetIdentityId.trim(),
-    publicNote: publicNoteForSubmission(actionId, publicNote, "TokenOps unfreeze"),
+    publicNote: publicNoteForSubmission(
+      actionId,
+      publicNote,
+      "TokenOps unfreeze",
+    ),
     identityKey,
     signer,
     groupInfo: groupInfo(groupPosition, actionId),
@@ -233,7 +249,9 @@ export async function destroyFrozenToken({
   log?: Logger;
 }) {
   const { identity, identityKey, signer } = await keyManager.getAuth();
-  log?.(`${notePrefix(actionId)} destroy frozen funds for ${targetIdentityId}...`);
+  log?.(
+    `${notePrefix(actionId)} destroy frozen funds for ${targetIdentityId}...`,
+  );
   return sdk.tokens.destroyFrozen({
     dataContractId: contractId,
     tokenPosition: TOKEN_POSITION,
@@ -276,7 +294,11 @@ export async function emergencyTokenAction({
     tokenPosition: TOKEN_POSITION,
     authorityId: identity.id.toString(),
     action,
-    publicNote: publicNoteForSubmission(actionId, publicNote, `TokenOps ${action}`),
+    publicNote: publicNoteForSubmission(
+      actionId,
+      publicNote,
+      `TokenOps ${action}`,
+    ),
     identityKey,
     signer,
     groupInfo: groupInfo(groupPosition, actionId),

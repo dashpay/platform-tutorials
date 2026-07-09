@@ -40,8 +40,13 @@ const ACTION_RULE_KEYS: Record<TokenActionKind, string> = {
 };
 
 function groupFor(kind: TokenActionKind, rules: RuleInfo[]): number {
-  const rule = rules.find((candidate) => candidate.key === ACTION_RULE_KEYS[kind]);
-  if (rule?.operator.type === "Group" && rule.operator.groupPosition !== undefined) {
+  const rule = rules.find(
+    (candidate) => candidate.key === ACTION_RULE_KEYS[kind],
+  );
+  if (
+    rule?.operator.type === "Group" &&
+    rule.operator.groupPosition !== undefined
+  ) {
     return rule.operator.groupPosition;
   }
   return DEFAULT_ACTION_GROUP_POSITIONS[kind];
@@ -51,7 +56,8 @@ function groupRequiredPower(
   position: number,
   groups: TokenOpsGroupInfo[],
 ): number | undefined {
-  return groups.find((group) => group.groupPosition === position)?.requiredPower;
+  return groups.find((group) => group.groupPosition === position)
+    ?.requiredPower;
 }
 
 function groupMeta(
@@ -154,7 +160,9 @@ export function OperationsView({ onComplete }: { onComplete?: () => void }) {
         reason: `Current operator is ${rule.operator.type}; this form supports group-operated actions.`,
       };
     }
-    const group = groups.find((candidate) => candidate.groupPosition === groupPosition);
+    const group = groups.find(
+      (candidate) => candidate.groupPosition === groupPosition,
+    );
     if (!group) {
       return {
         canSubmit: false,
@@ -198,7 +206,9 @@ export function OperationsView({ onComplete }: { onComplete?: () => void }) {
   );
   const governanceLoaded = groups.length > 0 && rules.length > 0;
   const memberships = groups
-    .filter((group) => signedInIdentityId && group.members.has(signedInIdentityId))
+    .filter(
+      (group) => signedInIdentityId && group.members.has(signedInIdentityId),
+    )
     .map((group) => group.groupPosition);
   const supplyLockedReason =
     isAuthenticated && !mintPermission.canSubmit && !burnPermission.canSubmit
@@ -226,8 +236,9 @@ export function OperationsView({ onComplete }: { onComplete?: () => void }) {
       {governanceError && <div className="notice error">{governanceError}</div>}
       {!isAuthenticated && (
         <div className="notice info">
-          Sign in to propose or run token operations. This view remains available
-          so you can inspect supported token capabilities and governance groups.
+          Sign in to propose or run token operations. This view remains
+          available so you can inspect supported token capabilities and
+          governance groups.
         </div>
       )}
       {isAuthenticated && governanceLoaded && !canSubmitAnyGroupAction && (
@@ -254,10 +265,12 @@ export function OperationsView({ onComplete }: { onComplete?: () => void }) {
           {!isAuthenticated
             ? "Operations are visible without signing in; submission controls are disabled."
             : memberships.length > 0
-            ? `You're a member of ${memberships
-                .map((position) => formatGroupIdentity(position, rules))
-                .join(", ")}. Groups you don't belong to collapse to a locked line.`
-            : "This identity is not a member of any loaded operator group. Governed actions are locked."}
+              ? `You're a member of ${memberships
+                  .map((position) => formatGroupIdentity(position, rules))
+                  .join(
+                    ", ",
+                  )}. Groups you don't belong to collapse to a locked line.`
+              : "This identity is not a member of any loaded operator group. Governed actions are locked."}
         </p>
       </section>
 
@@ -473,7 +486,9 @@ export function OperationsView({ onComplete }: { onComplete?: () => void }) {
                 className="operation-capability-icon"
               />
               <h3>Emergency</h3>
-              <p>{groupMeta(emergencyPermission.groupPosition, groups, rules)}</p>
+              <p>
+                {groupMeta(emergencyPermission.groupPosition, groups, rules)}
+              </p>
             </div>
           </div>
           {emergencyLockedReason ? (
@@ -571,7 +586,9 @@ export function OperationsView({ onComplete }: { onComplete?: () => void }) {
             />
             <button
               type="button"
-              disabled={Boolean(busy) || !isAuthenticated || !recipientId.trim()}
+              disabled={
+                Boolean(busy) || !isAuthenticated || !recipientId.trim()
+              }
               title={
                 !isAuthenticated
                   ? "Sign in to transfer tokens."

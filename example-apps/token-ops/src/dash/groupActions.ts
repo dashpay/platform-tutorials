@@ -111,7 +111,8 @@ function optionalNote(value: unknown): string | undefined {
 
 function amount(value: unknown): bigint | null {
   if (typeof value === "bigint") return value;
-  if (typeof value === "number" && Number.isSafeInteger(value)) return BigInt(value);
+  if (typeof value === "number" && Number.isSafeInteger(value))
+    return BigInt(value);
   if (typeof value === "string" && /^\d+$/.test(value)) return BigInt(value);
   return null;
 }
@@ -124,7 +125,12 @@ function emergencyAction(value: unknown): "pause" | "resume" | null {
   if (value === 0 || value === "0" || value === "pause" || value === "Pause") {
     return "pause";
   }
-  if (value === 1 || value === "1" || value === "resume" || value === "Resume") {
+  if (
+    value === 1 ||
+    value === "1" ||
+    value === "resume" ||
+    value === "Resume"
+  ) {
     return "resume";
   }
   return null;

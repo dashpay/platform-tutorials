@@ -76,7 +76,13 @@ function actionDetails(
           prominent: true,
         },
         ...(params.amount != null
-          ? [{ label: "Amount", value: params.amount.toString(), prominent: true }]
+          ? [
+              {
+                label: "Amount",
+                value: params.amount.toString(),
+                prominent: true,
+              },
+            ]
           : []),
       ];
     case "emergency":
@@ -94,13 +100,17 @@ function actionDetails(
 
 function actionKind(action: PendingWithGroup): string {
   if (action.params) return action.params.kind;
-  return describeGroupAction(action.eventName).toLowerCase().split(" ")[0] ?? "other";
+  return (
+    describeGroupAction(action.eventName).toLowerCase().split(" ")[0] ?? "other"
+  );
 }
 
 function actionTitle(action: PendingWithGroup): string {
   if (!action.params) return describeGroupAction(action.eventName);
-  if (action.params.kind === "mint") return `Mint ${action.params.amount.toString()}`;
-  if (action.params.kind === "burn") return `Burn ${action.params.amount.toString()}`;
+  if (action.params.kind === "mint")
+    return `Mint ${action.params.amount.toString()}`;
+  if (action.params.kind === "burn")
+    return `Burn ${action.params.amount.toString()}`;
   if (action.params.kind === "freeze") return "Freeze balance";
   if (action.params.kind === "unfreeze") return "Unfreeze balance";
   if (action.params.kind === "destroyFrozen") return "Destroy frozen funds";
@@ -114,7 +124,8 @@ function actionSubject(
   params: PendingTokenActionParams | null,
 ): { label: string; id: string } | null {
   if (!params) return null;
-  if (params.kind === "mint") return { label: "Recipient", id: params.recipientId };
+  if (params.kind === "mint")
+    return { label: "Recipient", id: params.recipientId };
   if (params.kind === "burn") return { label: "From", id: params.burnFromId };
   if (params.kind === "freeze" || params.kind === "unfreeze") {
     return { label: "Target", id: params.targetIdentityId };
@@ -178,10 +189,12 @@ function personalStatus({
   isMember: boolean;
   isSupported: boolean;
 }): { label: string; className: string } {
-  if (canSign) return { label: "Waiting for your signature", className: "urgent" };
+  if (canSign)
+    return { label: "Waiting for your signature", className: "urgent" };
   if (hasSigned) return { label: "Signed by you", className: "signed" };
   if (!isSupported) return { label: "Display only", className: "neutral" };
-  if (!isMember) return { label: "Not in approval group", className: "neutral" };
+  if (!isMember)
+    return { label: "Not in approval group", className: "neutral" };
   return { label: "Waiting for another signer", className: "neutral" };
 }
 
@@ -196,7 +209,9 @@ export function PendingActionsView() {
   const [confirmingActionId, setConfirmingActionId] = useState<string | null>(
     null,
   );
-  const [expandedActionIds, setExpandedActionIds] = useState<Set<string>>(new Set());
+  const [expandedActionIds, setExpandedActionIds] = useState<Set<string>>(
+    new Set(),
+  );
   const [lastUpdatedAt, setLastUpdatedAt] = useState<Date | null>(null);
   const [error, setError] = useState<string | null>(null);
   const [refreshing, setRefreshing] = useState(false);
@@ -254,7 +269,12 @@ export function PendingActionsView() {
   }, [session.sdk, session.contractId]);
 
   async function coSign(action: PendingWithGroup) {
-    if (!session.sdk || !session.keyManager || !session.contractId || !action.params) {
+    if (
+      !session.sdk ||
+      !session.keyManager ||
+      !session.contractId ||
+      !action.params
+    ) {
       return;
     }
     const common = {
@@ -317,14 +337,17 @@ export function PendingActionsView() {
   }
 
   function actionCommand(action: PendingWithGroup): string {
-    if (!action.params) return describeGroupAction(action.eventName).toLowerCase();
+    if (!action.params)
+      return describeGroupAction(action.eventName).toLowerCase();
     if (action.params.kind === "destroyFrozen") return "destroy frozen funds";
     if (action.params.kind === "emergency") return action.params.action;
     return action.params.kind;
   }
 
   function isDestructiveAction(action: PendingWithGroup): boolean {
-    return action.params?.kind === "burn" || action.params?.kind === "destroyFrozen";
+    return (
+      action.params?.kind === "burn" || action.params?.kind === "destroyFrozen"
+    );
   }
 
   function canCurrentIdentitySign(
@@ -344,8 +367,8 @@ export function PendingActionsView() {
         <div>
           <h3>Pending group actions</h3>
           <p className="muted">
-            Eligible unsigned group members can co-sign supported token proposals
-            directly from this list.
+            Eligible unsigned group members can co-sign supported token
+            proposals directly from this list.
           </p>
         </div>
         <div className="pending-toolbar-actions">
@@ -385,7 +408,8 @@ export function PendingActionsView() {
                 session.identityId && p?.hasSigned(session.identityId),
               );
               const isMember = Boolean(
-                session.identityId && action.group.members.has(session.identityId),
+                session.identityId &&
+                action.group.members.has(session.identityId),
               );
               const status = personalStatus({
                 canSign,
@@ -406,234 +430,247 @@ export function PendingActionsView() {
             isMember,
             status,
           }: (typeof enriched)[number]) => {
-          const percent = progressPercent(p, action.group.requiredPower);
-          const kind = actionKind(action);
-          const details = action.params ? actionDetails(action.params) : [];
-          const isExpanded = expandedActionIds.has(action.actionId);
-          const visibleDetails = isExpanded ? details : [];
-          const signedCount = signedMemberCount(action, p);
-          const unitPowerGroup = usesOnePowerPerSignature(action.group);
-          const requiredSlots = unitPowerGroup
-            ? Math.max(1, action.group.requiredPower)
-            : Math.max(1, action.group.members.size);
-          const signedSlots = Math.max(0, Math.min(requiredSlots, signedCount));
-          const subject = actionSubject(action.params);
-          const proposedByCurrentIdentity =
-            session.identityId === action.proposerId;
-          const myPower =
-            session.identityId != null
-              ? (action.group.members.get(session.identityId) ?? 0)
+            const percent = progressPercent(p, action.group.requiredPower);
+            const kind = actionKind(action);
+            const details = action.params ? actionDetails(action.params) : [];
+            const isExpanded = expandedActionIds.has(action.actionId);
+            const visibleDetails = isExpanded ? details : [];
+            const signedCount = signedMemberCount(action, p);
+            const unitPowerGroup = usesOnePowerPerSignature(action.group);
+            const requiredSlots = unitPowerGroup
+              ? Math.max(1, action.group.requiredPower)
+              : Math.max(1, action.group.members.size);
+            const signedSlots = Math.max(
+              0,
+              Math.min(requiredSlots, signedCount),
+            );
+            const subject = actionSubject(action.params);
+            const proposedByCurrentIdentity =
+              session.identityId === action.proposerId;
+            const myPower =
+              session.identityId != null
+                ? (action.group.members.get(session.identityId) ?? 0)
+                : 0;
+            const willExecute = p
+              ? Number(p.signedPower) + myPower >= action.group.requiredPower
+              : false;
+            const signaturesNeededAfterMine = p
+              ? Math.max(
+                  0,
+                  action.group.requiredPower -
+                    (Number(p.signedPower) + myPower),
+                )
               : 0;
-          const willExecute = p
-            ? Number(p.signedPower) + myPower >= action.group.requiredPower
-            : false;
-          const signaturesNeededAfterMine = p
-            ? Math.max(
-                0,
-                action.group.requiredPower - (Number(p.signedPower) + myPower),
-              )
-            : 0;
-          const requiresConfirm =
-            canSign && (willExecute || isDestructiveAction(action));
-          const isConfirming = confirmingActionId === action.actionId;
-          const command = actionCommand(action);
-          return (
-            <div
-              key={action.actionId}
-              className={`proposal-card proposal-${kind} ${
-                isExpanded ? "is-expanded" : "is-collapsed"
-              } ${hasSigned ? "is-signed" : ""} ${
-                canSign ? "needs-signature" : ""
-              } ${!canSign ? "waiting-on-others" : ""}`}
-            >
-              <div className="proposal-header">
-                <div>
-                  <div className="proposal-title">
-                    <CapabilityIcon kind={kind} className="proposal-icon" />
-                    <div className="proposal-title-copy">
-                      <strong>{actionTitle(action)}</strong>
-                      {subject && (
-                        <div className="proposal-subtitle">
-                          <span>{subject.label}</span>
-                          <CopyableId id={subject.id} len={8} />
-                        </div>
-                      )}
-                    </div>
-                  </div>
-                </div>
-                <span className={`status-badge ${status.className}`}>
-                  {formatGroupIdentity(action.group.groupPosition, rules)} •{" "}
-                  {canSign ? "Awaiting you" : status.label}
-                </span>
-              </div>
-
-              <div className="proposal-progress">
-                <div className="row between">
-                  <span>
-                    {p
-                      ? `${p.signedPower.toString()} / ${action.group.requiredPower} signatures`
-                      : "Signer progress loading"}
-                  </span>
-                  <strong>{percent}%</strong>
-                </div>
-                <div
-                  className="progress signature-progress"
-                  role="progressbar"
-                  aria-label="Signature progress"
-                  aria-valuemin={0}
-                  aria-valuemax={100}
-                  aria-valuenow={percent}
-                >
-                  {Array.from({ length: requiredSlots }, (_, index) => (
-                    <span
-                      key={index}
-                      className={
-                        index < signedSlots ? "progress-segment filled" : "progress-segment"
-                      }
-                    />
-                  ))}
-                </div>
-              </div>
-
-              {isExpanded && action.params?.kind === "emergency" && (
-                <div className="proposal-callout">Applies to the entire token</div>
-              )}
-
-              <div className={`metadata-grid ${isExpanded ? "" : "compact"}`}>
-                {visibleDetails.map((detail) => (
-                  <div
-                    key={detail.label}
-                    className={detail.prominent ? "metadata-item primary" : "metadata-item"}
-                  >
-                    <span>{detail.label}</span>
-                    <strong>{detail.value}</strong>
-                  </div>
-                ))}
-                {isExpanded && (
-                  <div className="metadata-item">
-                    <span>Approval group</span>
-                    <strong>
-                      {formatGroupIdentity(action.group.groupPosition, rules)} ·{" "}
-                      {approvalGroupRequirementText(action.group)}
-                    </strong>
-                  </div>
-                )}
-                {isExpanded && (
-                  <div className="metadata-item">
-                    <span>Proposed by</span>
-                    <strong>
-                      {proposedByCurrentIdentity ? (
-                        "You"
-                      ) : (
-                        <CopyableId id={action.proposerId} len={8} />
-                      )}
-                    </strong>
-                  </div>
-                )}
-                {!isExpanded && (
-                  <div className="metadata-item">
-                    <strong>
-                      {p
-                        ? `${signatureProgressText(action, p)}${
-                            !isMember ? " · you're not in this group" : ""
-                          }`
-                        : "Loading"}
-                    </strong>
-                  </div>
-                )}
-                {isExpanded && (
-                  <div className="metadata-item technical">
-                    <span>Action ID</span>
-                    <strong>
-                      <CopyableId id={action.actionId} len={8} />
-                    </strong>
-                  </div>
-                )}
-              </div>
-
-              {!action.params && (
-                <p className="muted">
-                  This proposal type is display-only in TokenOps v1.
-                </p>
-              )}
-              <div className="proposal-actions">
-                <button
-                  type="button"
-                  className="secondary"
-                  onClick={() =>
-                    setExpandedActionIds((previous) => {
-                      const next = new Set(previous);
-                      if (next.has(action.actionId)) next.delete(action.actionId);
-                      else next.add(action.actionId);
-                      return next;
-                    })
-                  }
-                >
-                  {isExpanded ? "Hide details" : "Details"}
-                </button>
-                {canSign && (
-                  <>
-                    {isConfirming ? (
-                      <ConfirmActionPanel
-                        title={
-                          willExecute
-                            ? `Sign and execute ${command}`
-                            : `Confirm signature for ${command}`
-                        }
-                        summary={
-                          willExecute
-                            ? `Your signature will meet the ${action.group.requiredPower} signature threshold.`
-                            : "Add your signature to this destructive pending action."
-                        }
-                        consequence={
-                          willExecute
-                            ? "Signing runs this action on-chain now and cannot be undone."
-                            : "This action is destructive if it later reaches threshold."
-                        }
-                        confirmLabel={
-                          willExecute
-                            ? `Sign & execute ${command}`
-                            : "Add your signature"
-                        }
-                        tone="danger"
-                        busy={busyActionId === action.actionId}
-                        onCancel={() => setConfirmingActionId(null)}
-                        onConfirm={() => void coSign(action)}
-                      />
-                    ) : (
-                      <div className="signature-action-stack">
-                        <button
-                          type="button"
-                          className={willExecute ? "danger" : "secondary"}
-                          disabled={busyActionId === action.actionId}
-                          onClick={() =>
-                            requiresConfirm
-                              ? setConfirmingActionId(action.actionId)
-                              : void coSign(action)
-                          }
-                        >
-                          {busyActionId === action.actionId
-                            ? "Signing..."
-                            : willExecute
-                              ? `Sign & execute ${command}`
-                              : "Add your signature"}
-                        </button>
-                        {!willExecute && (
-                          <span className="signature-action-helper">
-                            {signaturesNeededAfterMine} more{" "}
-                            {signaturesNeededAfterMine === 1
-                              ? "signature"
-                              : "signatures"}{" "}
-                            needed after yours
-                          </span>
+            const requiresConfirm =
+              canSign && (willExecute || isDestructiveAction(action));
+            const isConfirming = confirmingActionId === action.actionId;
+            const command = actionCommand(action);
+            return (
+              <div
+                key={action.actionId}
+                className={`proposal-card proposal-${kind} ${
+                  isExpanded ? "is-expanded" : "is-collapsed"
+                } ${hasSigned ? "is-signed" : ""} ${
+                  canSign ? "needs-signature" : ""
+                } ${!canSign ? "waiting-on-others" : ""}`}
+              >
+                <div className="proposal-header">
+                  <div>
+                    <div className="proposal-title">
+                      <CapabilityIcon kind={kind} className="proposal-icon" />
+                      <div className="proposal-title-copy">
+                        <strong>{actionTitle(action)}</strong>
+                        {subject && (
+                          <div className="proposal-subtitle">
+                            <span>{subject.label}</span>
+                            <CopyableId id={subject.id} len={8} />
+                          </div>
                         )}
                       </div>
-                    )}
-                  </>
+                    </div>
+                  </div>
+                  <span className={`status-badge ${status.className}`}>
+                    {formatGroupIdentity(action.group.groupPosition, rules)} •{" "}
+                    {canSign ? "Awaiting you" : status.label}
+                  </span>
+                </div>
+
+                <div className="proposal-progress">
+                  <div className="row between">
+                    <span>
+                      {p
+                        ? `${p.signedPower.toString()} / ${action.group.requiredPower} signatures`
+                        : "Signer progress loading"}
+                    </span>
+                    <strong>{percent}%</strong>
+                  </div>
+                  <div
+                    className="progress signature-progress"
+                    role="progressbar"
+                    aria-label="Signature progress"
+                    aria-valuemin={0}
+                    aria-valuemax={100}
+                    aria-valuenow={percent}
+                  >
+                    {Array.from({ length: requiredSlots }, (_, index) => (
+                      <span
+                        key={index}
+                        className={
+                          index < signedSlots
+                            ? "progress-segment filled"
+                            : "progress-segment"
+                        }
+                      />
+                    ))}
+                  </div>
+                </div>
+
+                {isExpanded && action.params?.kind === "emergency" && (
+                  <div className="proposal-callout">
+                    Applies to the entire token
+                  </div>
                 )}
+
+                <div className={`metadata-grid ${isExpanded ? "" : "compact"}`}>
+                  {visibleDetails.map((detail) => (
+                    <div
+                      key={detail.label}
+                      className={
+                        detail.prominent
+                          ? "metadata-item primary"
+                          : "metadata-item"
+                      }
+                    >
+                      <span>{detail.label}</span>
+                      <strong>{detail.value}</strong>
+                    </div>
+                  ))}
+                  {isExpanded && (
+                    <div className="metadata-item">
+                      <span>Approval group</span>
+                      <strong>
+                        {formatGroupIdentity(action.group.groupPosition, rules)}{" "}
+                        · {approvalGroupRequirementText(action.group)}
+                      </strong>
+                    </div>
+                  )}
+                  {isExpanded && (
+                    <div className="metadata-item">
+                      <span>Proposed by</span>
+                      <strong>
+                        {proposedByCurrentIdentity ? (
+                          "You"
+                        ) : (
+                          <CopyableId id={action.proposerId} len={8} />
+                        )}
+                      </strong>
+                    </div>
+                  )}
+                  {!isExpanded && (
+                    <div className="metadata-item">
+                      <strong>
+                        {p
+                          ? `${signatureProgressText(action, p)}${
+                              !isMember ? " · you're not in this group" : ""
+                            }`
+                          : "Loading"}
+                      </strong>
+                    </div>
+                  )}
+                  {isExpanded && (
+                    <div className="metadata-item technical">
+                      <span>Action ID</span>
+                      <strong>
+                        <CopyableId id={action.actionId} len={8} />
+                      </strong>
+                    </div>
+                  )}
+                </div>
+
+                {!action.params && (
+                  <p className="muted">
+                    This proposal type is display-only in TokenOps v1.
+                  </p>
+                )}
+                <div className="proposal-actions">
+                  <button
+                    type="button"
+                    className="secondary"
+                    onClick={() =>
+                      setExpandedActionIds((previous) => {
+                        const next = new Set(previous);
+                        if (next.has(action.actionId))
+                          next.delete(action.actionId);
+                        else next.add(action.actionId);
+                        return next;
+                      })
+                    }
+                  >
+                    {isExpanded ? "Hide details" : "Details"}
+                  </button>
+                  {canSign && (
+                    <>
+                      {isConfirming ? (
+                        <ConfirmActionPanel
+                          title={
+                            willExecute
+                              ? `Sign and execute ${command}`
+                              : `Confirm signature for ${command}`
+                          }
+                          summary={
+                            willExecute
+                              ? `Your signature will meet the ${action.group.requiredPower} signature threshold.`
+                              : "Add your signature to this destructive pending action."
+                          }
+                          consequence={
+                            willExecute
+                              ? "Signing runs this action on-chain now and cannot be undone."
+                              : "This action is destructive if it later reaches threshold."
+                          }
+                          confirmLabel={
+                            willExecute
+                              ? `Sign & execute ${command}`
+                              : "Add your signature"
+                          }
+                          tone="danger"
+                          busy={busyActionId === action.actionId}
+                          onCancel={() => setConfirmingActionId(null)}
+                          onConfirm={() => void coSign(action)}
+                        />
+                      ) : (
+                        <div className="signature-action-stack">
+                          <button
+                            type="button"
+                            className={willExecute ? "danger" : "secondary"}
+                            disabled={busyActionId === action.actionId}
+                            onClick={() =>
+                              requiresConfirm
+                                ? setConfirmingActionId(action.actionId)
+                                : void coSign(action)
+                            }
+                          >
+                            {busyActionId === action.actionId
+                              ? "Signing..."
+                              : willExecute
+                                ? `Sign & execute ${command}`
+                                : "Add your signature"}
+                          </button>
+                          {!willExecute && (
+                            <span className="signature-action-helper">
+                              {signaturesNeededAfterMine} more{" "}
+                              {signaturesNeededAfterMine === 1
+                                ? "signature"
+                                : "signatures"}{" "}
+                              needed after yours
+                            </span>
+                          )}
+                        </div>
+                      )}
+                    </>
+                  )}
+                </div>
               </div>
-            </div>
-          );
+            );
           };
           return (
             <div className="pending-sections">

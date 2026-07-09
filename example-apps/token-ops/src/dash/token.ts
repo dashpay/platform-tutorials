@@ -63,7 +63,9 @@ export async function fetchIdentityTokenStates({
   identityIds: string[];
 }): Promise<Map<string, { balance: bigint; isFrozen: boolean }>> {
   const tokenId = await fetchTokenId({ sdk, contractId });
-  const uniqueIds = [...new Set(identityIds.map((id) => id.trim()).filter(Boolean))];
+  const uniqueIds = [
+    ...new Set(identityIds.map((id) => id.trim()).filter(Boolean)),
+  ];
   const entries = await Promise.all(
     uniqueIds.map(async (identityId) => {
       const [balances, infos] = await Promise.all([

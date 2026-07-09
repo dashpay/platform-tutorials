@@ -2,11 +2,7 @@ import { shortId } from "../lib/format";
 import type { SessionStatus } from "../session/SessionContext";
 
 export type View =
-  | "overview"
-  | "operations"
-  | "pending"
-  | "governance"
-  | "account";
+  "overview" | "operations" | "pending" | "governance" | "account";
 
 const TABS: { id: View; label: string }[] = [
   { id: "overview", label: "Overview" },
@@ -49,7 +45,11 @@ export function TopNav({
         className={`identity-pill ${
           status === "authenticated" && identityId ? "signed-in" : ""
         }`}
-        title={status === "authenticated" && identityId ? shortId(identityId) : undefined}
+        title={
+          status === "authenticated" && identityId
+            ? shortId(identityId)
+            : undefined
+        }
       >
         {status === "authenticated" && identityId
           ? "Signed in"

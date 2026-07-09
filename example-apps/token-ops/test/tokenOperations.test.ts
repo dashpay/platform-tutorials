@@ -168,7 +168,8 @@ describe("group-managed token operations", () => {
   });
 
   it("forwards the pause/resume action for an emergency proposal", async () => {
-    const { emergencyTokenAction } = await import("../src/dash/tokenOperations");
+    const { emergencyTokenAction } =
+      await import("../src/dash/tokenOperations");
     const emergencyAction = vi.fn().mockResolvedValue({});
 
     await emergencyTokenAction({
@@ -273,9 +274,8 @@ describe("transferToken", () => {
 
 describe("configurationChangeItemForRule", () => {
   it("maps all six reassignable rule kinds to their config change items", async () => {
-    const { configurationChangeItemForRule } = await import(
-      "../src/dash/tokenOperations"
-    );
+    const { configurationChangeItemForRule } =
+      await import("../src/dash/tokenOperations");
     const cases = [
       ["manualMinting", "ManualMinting"],
       ["manualBurning", "ManualBurning"],

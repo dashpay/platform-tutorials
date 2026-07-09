@@ -10,7 +10,10 @@ import { afterEach, describe, expect, it, vi } from "vitest";
 
 import { PendingActionsView } from "../src/components/PendingActionsView";
 import { fetchTokenOpsGovernance } from "../src/dash/governance";
-import { listActionSigners, listPendingActions } from "../src/dash/groupActions";
+import {
+  listActionSigners,
+  listPendingActions,
+} from "../src/dash/groupActions";
 import { burnToken, mintToken } from "../src/dash/tokenOperations";
 import { useSession } from "../src/session/useSession";
 
@@ -19,7 +22,8 @@ vi.mock("../src/dash/governance", () => ({
 }));
 
 vi.mock("../src/dash/groupActions", async (importOriginal) => {
-  const actual = await importOriginal<typeof import("../src/dash/groupActions")>();
+  const actual =
+    await importOriginal<typeof import("../src/dash/groupActions")>();
   return {
     ...actual,
     listPendingActions: vi.fn(),
@@ -103,7 +107,9 @@ describe("PendingActionsView", () => {
     expect(
       screen.getByText(/Signing runs this action on-chain now/i),
     ).toBeTruthy();
-    fireEvent.click(screen.getByRole("button", { name: "Sign & execute mint" }));
+    fireEvent.click(
+      screen.getByRole("button", { name: "Sign & execute mint" }),
+    );
 
     await waitFor(() =>
       expect(mintToken).toHaveBeenCalledWith(
@@ -168,7 +174,9 @@ describe("PendingActionsView", () => {
     const button = await screen.findByRole("button", {
       name: "Add your signature",
     });
-    expect(screen.getByText("2 more signatures needed after yours")).toBeTruthy();
+    expect(
+      screen.getByText("2 more signatures needed after yours"),
+    ).toBeTruthy();
     fireEvent.click(button);
 
     await waitFor(() =>
@@ -231,7 +239,9 @@ describe("PendingActionsView", () => {
 
     render(<PendingActionsView />);
 
-    fireEvent.click(await screen.findByRole("button", { name: "Add your signature" }));
+    fireEvent.click(
+      await screen.findByRole("button", { name: "Add your signature" }),
+    );
     expect(burnToken).not.toHaveBeenCalled();
     expect(screen.getByText("Confirm signature for burn")).toBeTruthy();
     expect(

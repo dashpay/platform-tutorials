@@ -154,7 +154,9 @@ describe("parsePendingTokenActionParams", () => {
   });
 
   it("rejects an unrecognized emergencyAction value", () => {
-    forBothShapes("emergencyAction", [2], (parsed) => expect(parsed).toBeNull());
+    forBothShapes("emergencyAction", [2], (parsed) =>
+      expect(parsed).toBeNull(),
+    );
   });
 
   it("coerces amounts from string, number, and rejects unsafe/non-numeric", () => {
@@ -179,7 +181,9 @@ describe("parsePendingTokenActionParams", () => {
     // data is not an array.
     expect(
       parsePendingTokenActionParams({
-        event: { tokenEvent: () => ({ toJSON: () => ({ type: "mint", data: {} }) }) },
+        event: {
+          tokenEvent: () => ({ toJSON: () => ({ type: "mint", data: {} }) }),
+        },
       }),
     ).toBeNull();
     // No tokenEvent() and no toJSON() -> no event extractable.

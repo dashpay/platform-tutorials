@@ -67,7 +67,12 @@ export function CopyableId({
   }
 
   return (
-    <button type="button" className="copyable-id" title={id} onClick={handleCopy}>
+    <button
+      type="button"
+      className="copyable-id"
+      title={id}
+      onClick={handleCopy}
+    >
       <code>{shortId(id, displayLen)}</code>
       {copied && <span className="copyable-id-status"> copied</span>}
     </button>

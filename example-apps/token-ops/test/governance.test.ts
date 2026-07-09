@@ -112,7 +112,9 @@ describe("group display helpers", () => {
 
     expect(deriveGroupDomains(1, rules)[0]?.label).toBe("Access");
     expect(deriveGroupDomains(2, rules)[0]?.label).toBe("Access");
-    expect(groupDisplay(1, rules).accent).not.toBe(groupDisplay(2, rules).accent);
+    expect(groupDisplay(1, rules).accent).not.toBe(
+      groupDisplay(2, rules).accent,
+    );
   });
 
   it("uses position accent for empty groups", () => {
@@ -222,7 +224,9 @@ describe("deriveRules", () => {
     // Group position from an explicit type, a string position, and the
     // bare-number shorthand all resolve to a numeric groupPosition.
     expect(authorityFor({ type: "Group", position: 2 })?.groupPosition).toBe(2);
-    expect(authorityFor({ type: "Group", position: "5" })?.groupPosition).toBe(5);
+    expect(authorityFor({ type: "Group", position: "5" })?.groupPosition).toBe(
+      5,
+    );
     expect(authorityFor(7)?.type).toBe("Group");
     expect(authorityFor(7)?.groupPosition).toBe(7);
 

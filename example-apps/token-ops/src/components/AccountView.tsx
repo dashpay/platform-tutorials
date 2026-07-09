@@ -148,7 +148,9 @@ export function AccountView() {
           </p>
         )}
         <div className="field" style={{ marginTop: "0.75rem" }}>
-          <label htmlFor="group-members">Initial group member identity IDs</label>
+          <label htmlFor="group-members">
+            Initial group member identity IDs
+          </label>
           <textarea
             id="group-members"
             rows={3}

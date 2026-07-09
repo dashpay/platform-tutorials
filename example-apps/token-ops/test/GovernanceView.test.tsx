@@ -1,5 +1,11 @@
 // @vitest-environment jsdom
-import { cleanup, fireEvent, render, screen, waitFor } from "@testing-library/react";
+import {
+  cleanup,
+  fireEvent,
+  render,
+  screen,
+  waitFor,
+} from "@testing-library/react";
 import { afterEach, describe, expect, it, vi } from "vitest";
 
 import { GovernanceView } from "../src/components/GovernanceView";
@@ -94,9 +100,7 @@ describe("GovernanceView", () => {
       screen.getByRole("heading", { name: "Config authority", level: 4 }),
     ).toBeTruthy();
     expect(screen.getByText("maxSupply")).toBeTruthy();
-    expect(
-      screen.queryByRole("heading", { name: "Capabilities" }),
-    ).toBeNull();
+    expect(screen.queryByRole("heading", { name: "Capabilities" })).toBeNull();
 
     fireEvent.click(screen.getAllByRole("button", { name: "Group 1" })[0]);
     expect(screen.getByText("Search")).toBeTruthy();

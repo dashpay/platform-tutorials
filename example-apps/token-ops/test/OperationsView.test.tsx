@@ -19,7 +19,8 @@ import type { RuleInfo, TokenOpsGovernance } from "../src/dash/governance";
 import { useSession } from "../src/session/useSession";
 
 vi.mock("../src/dash/governance", async (importOriginal) => {
-  const actual = await importOriginal<typeof import("../src/dash/governance")>();
+  const actual =
+    await importOriginal<typeof import("../src/dash/governance")>();
   return {
     ...actual,
     fetchTokenOpsGovernance: vi.fn(),
@@ -176,7 +177,9 @@ describe("OperationsView", () => {
     render(<OperationsView />);
 
     await waitFor(() =>
-      expect(screen.getByText(/submission controls are disabled/i)).toBeTruthy(),
+      expect(
+        screen.getByText(/submission controls are disabled/i),
+      ).toBeTruthy(),
     );
 
     expect(screen.getByText("Supply")).toBeTruthy();
@@ -228,17 +231,21 @@ describe("OperationsView", () => {
 
     expect(burnToken).not.toHaveBeenCalled();
     expect(
-      screen.getByText("Burning is irreversible and submits an on-chain group action."),
+      screen.getByText(
+        "Burning is irreversible and submits an on-chain group action.",
+      ),
     ).toBeTruthy();
-    expect((screen.getByLabelText("Supply amount") as HTMLInputElement).value).toBe(
-      "7",
-    );
+    expect(
+      (screen.getByLabelText("Supply amount") as HTMLInputElement).value,
+    ).toBe("7");
 
     fireEvent.click(screen.getByRole("button", { name: "Cancel" }));
-    expect(screen.getByRole("button", { name: "Propose burn..." })).toBeTruthy();
-    expect((screen.getByLabelText("Supply amount") as HTMLInputElement).value).toBe(
-      "7",
-    );
+    expect(
+      screen.getByRole("button", { name: "Propose burn..." }),
+    ).toBeTruthy();
+    expect(
+      (screen.getByLabelText("Supply amount") as HTMLInputElement).value,
+    ).toBe("7");
 
     fireEvent.click(screen.getByRole("button", { name: "Propose burn..." }));
     fireEvent.click(screen.getByRole("button", { name: "Confirm burn" }));
@@ -287,8 +294,11 @@ describe("OperationsView", () => {
 
     fireEvent.click(screen.getByRole("button", { name: "Propose pause" }));
     expect(
-      (screen.getByRole("button", { name: "Propose resume" }) as HTMLButtonElement)
-        .disabled,
+      (
+        screen.getByRole("button", {
+          name: "Propose resume",
+        }) as HTMLButtonElement
+      ).disabled,
     ).toBe(true);
     expect(emergencyTokenAction).not.toHaveBeenCalled();
     fireEvent.click(screen.getByRole("button", { name: "Confirm pause" }));
@@ -303,8 +313,11 @@ describe("OperationsView", () => {
 
     fireEvent.click(screen.getByRole("button", { name: "Propose resume" }));
     expect(
-      (screen.getByRole("button", { name: "Propose pause" }) as HTMLButtonElement)
-        .disabled,
+      (
+        screen.getByRole("button", {
+          name: "Propose pause",
+        }) as HTMLButtonElement
+      ).disabled,
     ).toBe(true);
     expect(emergencyTokenAction).toHaveBeenCalledTimes(1);
     fireEvent.click(screen.getByRole("button", { name: "Confirm resume" }));

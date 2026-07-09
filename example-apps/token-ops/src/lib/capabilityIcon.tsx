@@ -1,7 +1,4 @@
-import type {
-  ReassignableRuleKind,
-  TokenActionKind,
-} from "../dash/contract";
+import type { ReassignableRuleKind, TokenActionKind } from "../dash/contract";
 
 type CapabilityIconKind = ReassignableRuleKind | TokenActionKind | string;
 

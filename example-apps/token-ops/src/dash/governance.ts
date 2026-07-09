@@ -16,7 +16,8 @@ export interface TokenOpsGroupInfo {
 }
 
 export interface RuleAuthority {
-  type: "ContractOwner" | "Group" | "Identity" | "MainGroup" | "NoOne" | "Unknown";
+  type:
+    "ContractOwner" | "Group" | "Identity" | "MainGroup" | "NoOne" | "Unknown";
   groupPosition?: number;
   identityId?: string;
   raw?: unknown;
@@ -86,7 +87,10 @@ function normalizeMembers(rawMembers: unknown): Map<string, number> {
   return new Map();
 }
 
-function normalizeGroup(position: number, rawGroup: unknown): TokenOpsGroupInfo {
+function normalizeGroup(
+  position: number,
+  rawGroup: unknown,
+): TokenOpsGroupInfo {
   const group = toJsonRecord(rawGroup);
   return {
     groupPosition: position,
@@ -112,7 +116,8 @@ function normalizeGroups(rawGroups: unknown): TokenOpsGroupInfo[] {
 
 function tokenConfigFromContract(contract: DashContractLike): UnknownRecord {
   const rawTokens = contract.tokens;
-  if (rawTokens instanceof Map) return toJsonRecord(rawTokens.get(TOKEN_POSITION));
+  if (rawTokens instanceof Map)
+    return toJsonRecord(rawTokens.get(TOKEN_POSITION));
   if (isRecord(rawTokens)) {
     const tokenRecord = rawTokens as Record<string, unknown>;
     return toJsonRecord(tokenRecord[String(TOKEN_POSITION)]);
@@ -126,7 +131,8 @@ function tokenConfigFromContract(contract: DashContractLike): UnknownRecord {
 }
 
 function readAuthority(raw: unknown): RuleAuthority {
-  if (typeof raw === "number") return { type: "Group", groupPosition: raw, raw };
+  if (typeof raw === "number")
+    return { type: "Group", groupPosition: raw, raw };
   const record = toJsonRecord(raw);
   const text = String(
     record.type ??
@@ -273,17 +279,26 @@ export const RULE_DEFINITIONS = [
   },
 ] as const;
 
-function ruleSource(tokenConfig: UnknownRecord, definition: (typeof RULE_DEFINITIONS)[number]) {
+function ruleSource(
+  tokenConfig: UnknownRecord,
+  definition: (typeof RULE_DEFINITIONS)[number],
+) {
   if (
     definition.ruleName === "newTokensDestinationIdentityRules" ||
     definition.ruleName === "mintingAllowChoosingDestinationRules" ||
     definition.ruleName === "changeDirectPurchasePricingRules" ||
     definition.ruleName === "perpetualDistributionRules"
   ) {
-    return readRule(toJsonRecord(tokenConfig.distributionRules), definition.ruleName);
+    return readRule(
+      toJsonRecord(tokenConfig.distributionRules),
+      definition.ruleName,
+    );
   }
   if (definition.ruleName === "tradeModeChangeRules") {
-    return readRule(toJsonRecord(tokenConfig.marketplaceRules), definition.ruleName);
+    return readRule(
+      toJsonRecord(tokenConfig.marketplaceRules),
+      definition.ruleName,
+    );
   }
   return readRule(tokenConfig, definition.ruleName);
 }
@@ -305,11 +320,11 @@ export function deriveRules(tokenConfig: UnknownRecord): RuleInfo[] {
       ),
       canSetOperatorToNoOne: Boolean(
         rule.isChangingAuthorizedActionTakersToNoOneAllowed ??
-          rule.is_changing_authorized_action_takers_to_no_one_allowed,
+        rule.is_changing_authorized_action_takers_to_no_one_allowed,
       ),
       canSetAdminToNoOne: Boolean(
         rule.isChangingAdminActionTakersToNoOneAllowed ??
-          rule.is_changing_admin_action_takers_to_no_one_allowed,
+        rule.is_changing_admin_action_takers_to_no_one_allowed,
       ),
     };
   });
@@ -417,7 +432,9 @@ export async function appendTokenOpsGroup({
 }
 
 export function formatAuthority(authority: RuleAuthority): string {
-  if (authority.type === "Group") return `Group ${authority.groupPosition ?? "?"}`;
-  if (authority.type === "Identity") return `Identity ${authority.identityId ?? "?"}`;
+  if (authority.type === "Group")
+    return `Group ${authority.groupPosition ?? "?"}`;
+  if (authority.type === "Identity")
+    return `Identity ${authority.identityId ?? "?"}`;
   return authority.type;
 }

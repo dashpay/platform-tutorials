@@ -993,7 +993,10 @@ main.content {
   font-size: 0.72rem;
   font-weight: 800;
   gap: 0.85rem;
-  grid-template-columns: minmax(15rem, 1.2fr) minmax(10rem, 0.8fr) minmax(10rem, 0.8fr);
+  grid-template-columns: minmax(15rem, 1.2fr) minmax(10rem, 0.8fr) minmax(
+      10rem,
+      0.8fr
+    );
   padding: 0.65rem 1rem;
   text-transform: uppercase;
 }
@@ -1003,7 +1006,10 @@ main.content {
   background: white;
   display: grid;
   gap: 0.85rem;
-  grid-template-columns: minmax(15rem, 1.2fr) minmax(10rem, 0.8fr) minmax(10rem, 0.8fr);
+  grid-template-columns: minmax(15rem, 1.2fr) minmax(10rem, 0.8fr) minmax(
+      10rem,
+      0.8fr
+    );
   padding: 0.85rem 1rem;
 }
 

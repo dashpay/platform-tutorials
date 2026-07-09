@@ -87,9 +87,8 @@ interface PresetOptions {
 
 describe("TokenOps rule presets", () => {
   it("separates operator authority from admin authority", async () => {
-    const { createRulePresets, TREASURY_GROUP_POSITION } = await import(
-      "../src/dash/contract"
-    );
+    const { createRulePresets, TREASURY_GROUP_POSITION } =
+      await import("../src/dash/contract");
     const presets = createRulePresets("owner-1") as unknown as {
       treasuryRules: { options: PresetOptions };
     };
@@ -102,14 +101,15 @@ describe("TokenOps rule presets", () => {
       type: "ContractOwner",
     });
     expect(
-      presets.treasuryRules.options.isChangingAuthorizedActionTakersToNoOneAllowed,
+      presets.treasuryRules.options
+        .isChangingAuthorizedActionTakersToNoOneAllowed,
     ).toBe(false);
     expect(
       presets.treasuryRules.options.isChangingAdminActionTakersToNoOneAllowed,
     ).toBe(false);
-    expect(presets.treasuryRules.options.isSelfChangingAdminActionTakersAllowed).toBe(
-      true,
-    );
+    expect(
+      presets.treasuryRules.options.isSelfChangingAdminActionTakersAllowed,
+    ).toBe(true);
   });
 
   it("assigns each group preset its own operator group with owner admin", async () => {
@@ -192,9 +192,8 @@ describe("TokenOps token configuration", () => {
   });
 
   it("keeps all token histories enabled", async () => {
-    const { createTokenOpsTokenConfiguration } = await import(
-      "../src/dash/contract"
-    );
+    const { createTokenOpsTokenConfiguration } =
+      await import("../src/dash/contract");
     // The mock TokenKeepsHistoryRules constructor throws if the source passes
     // any key other than the six history flags, so a mis-wired flag name fails
     // at construction here. This value assertion then confirms each flag is on.
@@ -261,7 +260,9 @@ describe("TokenOps groups", () => {
 describe("createTokenOpsGroup validation", () => {
   it("requires exactly three members", async () => {
     const { createTokenOpsGroup } = await import("../src/dash/contract");
-    expect(() => createTokenOpsGroup(["a", "b"], 2)).toThrow(/exactly 3 members/);
+    expect(() => createTokenOpsGroup(["a", "b"], 2)).toThrow(
+      /exactly 3 members/,
+    );
     expect(() => createTokenOpsGroup(["a", "b", "c", "d"], 2)).toThrow(
       /exactly 3 members/,
     );
@@ -372,7 +373,10 @@ describe("registerContract", () => {
 
   it("falls back to toJSON().id when published.id is absent", async () => {
     const { registerContract } = await import("../src/dash/contract");
-    const { sdk } = makeSdk({ id: undefined, toJSON: () => ({ id: "json-id" }) });
+    const { sdk } = makeSdk({
+      id: undefined,
+      toJSON: () => ({ id: "json-id" }),
+    });
 
     const id = await registerContract({
       sdk,
@@ -422,13 +426,15 @@ describe("ensureContract", () => {
     });
 
     expect(id).toBe("supplied");
-    expect((sdk as { contracts: { publish: ReturnType<typeof vi.fn> } }).contracts.publish).not.toHaveBeenCalled();
+    expect(
+      (sdk as { contracts: { publish: ReturnType<typeof vi.fn> } }).contracts
+        .publish,
+    ).not.toHaveBeenCalled();
   });
 
   it("uses the bundled default contract id when storage is empty", async () => {
-    const { ensureContract, DEFAULT_CONTRACT_ID } = await import(
-      "../src/dash/contract"
-    );
+    const { ensureContract, DEFAULT_CONTRACT_ID } =
+      await import("../src/dash/contract");
     const sdk = idleSdk();
 
     const id = await ensureContract({
@@ -438,7 +444,10 @@ describe("ensureContract", () => {
     });
 
     expect(id).toBe(DEFAULT_CONTRACT_ID);
-    expect((sdk as { contracts: { publish: ReturnType<typeof vi.fn> } }).contracts.publish).not.toHaveBeenCalled();
+    expect(
+      (sdk as { contracts: { publish: ReturnType<typeof vi.fn> } }).contracts
+        .publish,
+    ).not.toHaveBeenCalled();
   });
 
   it("registers a fresh contract only when no stored id is reusable", async () => {

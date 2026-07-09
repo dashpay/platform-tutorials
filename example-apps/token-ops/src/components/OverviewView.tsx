@@ -39,9 +39,9 @@ export function OverviewView({
     totalSupply: bigint;
     isPaused: boolean;
   } | null>(null);
-  const [identityRows, setIdentityRows] = useState<Map<string, IdentityTokenState>>(
-    new Map(),
-  );
+  const [identityRows, setIdentityRows] = useState<
+    Map<string, IdentityTokenState>
+  >(new Map());
   const [pendingCount, setPendingCount] = useState<number | null>(null);
   const [error, setError] = useState<string | null>(null);
 
@@ -115,7 +115,9 @@ export function OverviewView({
   }, [session.sdk, session.contractId, session.identityId, watchedIdentityIds]);
 
   if (!session.contractId) {
-    return <div className="notice info">Configure a TokenOps contract first.</div>;
+    return (
+      <div className="notice info">Configure a TokenOps contract first.</div>
+    );
   }
 
   const totalSupply = overview?.totalSupply ?? 0n;

@@ -2,10 +2,7 @@ import { useEffect, useRef, useState } from "react";
 
 import { CopyableId } from "./CopyableId";
 import { type ReassignableRuleKind } from "../dash/contract";
-import {
-  groupDisplay,
-  ruleCategory,
-} from "../dash/groupDisplay";
+import { groupDisplay, ruleCategory } from "../dash/groupDisplay";
 import {
   appendTokenOpsGroup,
   fetchTokenOpsGovernance,
@@ -250,7 +247,10 @@ export function GovernanceView() {
   const normalizedGroupSearch = groupSearch.trim().toLowerCase();
   const visibleGroups = groups
     .filter((group) => {
-      const capabilities = groupDisplay(group.groupPosition, rules).capabilities;
+      const capabilities = groupDisplay(
+        group.groupPosition,
+        rules,
+      ).capabilities;
       const isMember = Boolean(
         signedInIdentityId && group.members.has(signedInIdentityId),
       );
@@ -327,7 +327,8 @@ export function GovernanceView() {
   }
 
   function noOneHint(role: "operator" | "admin"): string {
-    if (role === "admin") return "Contract does not allow modifying this config item";
+    if (role === "admin")
+      return "Contract does not allow modifying this config item";
     return "Contract does not enable this capability";
   }
 
@@ -348,7 +349,10 @@ export function GovernanceView() {
     }
     if (authority.type === "NoOne" && role) {
       return (
-        <span className="authority-value authority-disabled" title={noOneHint(role)}>
+        <span
+          className="authority-value authority-disabled"
+          title={noOneHint(role)}
+        >
           {authorityLabel(authority)}
         </span>
       );
@@ -356,7 +360,10 @@ export function GovernanceView() {
     return <span className="authority-value">{authorityLabel(authority)}</span>;
   }
 
-  function renderAccessMatrix(rulesToRender: RuleInfo[], firstColumnLabel: string) {
+  function renderAccessMatrix(
+    rulesToRender: RuleInfo[],
+    firstColumnLabel: string,
+  ) {
     return (
       <div className="access-matrix">
         <div className="access-matrix-header" aria-hidden="true">
@@ -418,7 +425,9 @@ export function GovernanceView() {
             <>
               <span className="authority-assignment">
                 {renderAuthorityButton(rule.operator, "operator")}
-                {operatorMeta && <span className="authority-meta">{operatorMeta}</span>}
+                {operatorMeta && (
+                  <span className="authority-meta">{operatorMeta}</span>
+                )}
               </span>
               <button
                 type="button"
@@ -431,7 +440,9 @@ export function GovernanceView() {
           ) : (
             <span className="authority-assignment">
               {renderAuthorityButton(rule.operator, "operator")}
-              {operatorMeta && <span className="authority-meta">{operatorMeta}</span>}
+              {operatorMeta && (
+                <span className="authority-meta">{operatorMeta}</span>
+              )}
             </span>
           )}
         </div>
@@ -440,7 +451,6 @@ export function GovernanceView() {
           {renderAuthorityButton(rule.admin, "admin")}
           {adminMeta && <span className="authority-meta">{adminMeta}</span>}
         </div>
-
       </article>
     );
   }
@@ -504,7 +514,9 @@ export function GovernanceView() {
               <select
                 id="reassign-operator-group"
                 value={chosen}
-                onChange={(event) => selectGroupForRule(rule, event.target.value)}
+                onChange={(event) =>
+                  selectGroupForRule(rule, event.target.value)
+                }
               >
                 {groups.map((group) => (
                   <option key={group.groupPosition} value={group.groupPosition}>
@@ -547,7 +559,9 @@ export function GovernanceView() {
                 )
               }
             >
-              {busyRuleKey === rule.key ? "Submitting..." : "Confirm reassignment"}
+              {busyRuleKey === rule.key
+                ? "Submitting..."
+                : "Confirm reassignment"}
             </button>
           </div>
         </div>
@@ -601,7 +615,11 @@ export function GovernanceView() {
             </button>
           )}
         </div>
-        <div className="governance-subnav" role="tablist" aria-label="Governance views">
+        <div
+          className="governance-subnav"
+          role="tablist"
+          aria-label="Governance views"
+        >
           <button
             type="button"
             role="tab"
@@ -693,16 +711,24 @@ export function GovernanceView() {
                 );
                 const isExpanded = expandedGroup === group.groupPosition;
                 return (
-                  <article key={group.groupPosition} className="group-table-row">
+                  <article
+                    key={group.groupPosition}
+                    className="group-table-row"
+                  >
                     <button
                       type="button"
                       className="group-row-main"
                       aria-expanded={isExpanded}
                       onClick={() =>
-                        setExpandedGroup(isExpanded ? null : group.groupPosition)
+                        setExpandedGroup(
+                          isExpanded ? null : group.groupPosition,
+                        )
                       }
                     >
-                      <span className={`group-mark ${display.accent}`} aria-hidden="true" />
+                      <span
+                        className={`group-mark ${display.accent}`}
+                        aria-hidden="true"
+                      />
                       <span className="group-row-identity">
                         <strong>Group {group.groupPosition}</strong>
                         <span className="muted">
@@ -797,7 +823,9 @@ export function GovernanceView() {
                 </p>
                 <form onSubmit={handleAppendGroup}>
                   <div className="field">
-                    <label htmlFor="new-members">Three member identity IDs</label>
+                    <label htmlFor="new-members">
+                      Three member identity IDs
+                    </label>
                     <textarea
                       id="new-members"
                       rows={2}
