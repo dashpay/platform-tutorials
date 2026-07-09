@@ -1,5 +1,5 @@
 // @vitest-environment jsdom
-import { cleanup, render, screen, waitFor } from "@testing-library/react";
+import { cleanup, fireEvent, render, screen, waitFor } from "@testing-library/react";
 import { afterEach, describe, expect, it, vi } from "vitest";
 
 import { GovernanceView } from "../src/components/GovernanceView";
@@ -83,25 +83,27 @@ describe("GovernanceView", () => {
     render(<GovernanceView />);
 
     await waitFor(() =>
-      expect(screen.getByText("You are a member of Group 1, Group 3.")).toBeTruthy(),
+      expect(screen.getByText("Member of Group 1, Group 3.")).toBeTruthy(),
     );
 
-    expect(screen.getAllByText("Member")).toHaveLength(4);
+    expect(screen.getAllByText("Member")).toHaveLength(2);
     expect(
-      screen.getByRole("heading", { name: "Authority map", level: 4 }),
+      screen.getByRole("heading", { name: "Capability authority", level: 4 }),
     ).toBeTruthy();
-    expect(screen.getByText("Show config items")).toBeTruthy();
-    expect(screen.getByText("1 display-only setting")).toBeTruthy();
     expect(
-      screen.getByRole("heading", { name: "Capabilities" }),
+      screen.getByRole("heading", { name: "Config authority", level: 4 }),
     ).toBeTruthy();
-    expect(screen.getAllByText("Who can act").length).toBeGreaterThan(0);
-    expect(screen.getAllByText("Who can reassign").length).toBeGreaterThan(0);
+    expect(screen.getByText("maxSupply")).toBeTruthy();
+    expect(
+      screen.queryByRole("heading", { name: "Capabilities" }),
+    ).toBeNull();
+
+    fireEvent.click(screen.getAllByRole("button", { name: "Group 1" })[0]);
+    expect(screen.getByText("Search")).toBeTruthy();
+    expect(screen.getByText("Groups I'm in")).toBeTruthy();
+    fireEvent.click(screen.getByRole("button", { name: /Group 3/ }));
     expect(
       screen.getByText(/Members can't perform any governed action yet/),
-    ).toBeTruthy();
-    expect(
-      screen.getByRole("link", { name: "Use Capabilities below to assign one." }),
     ).toBeTruthy();
   });
 });

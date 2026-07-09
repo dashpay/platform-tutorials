@@ -1,12 +1,10 @@
-import { useEffect, useState } from "react";
+import { useEffect, useRef, useState } from "react";
 
-import { ConfirmActionPanel } from "./ConfirmActionPanel";
 import { CopyableId } from "./CopyableId";
 import { type ReassignableRuleKind } from "../dash/contract";
 import {
   groupDisplay,
   ruleCategory,
-  type Category,
 } from "../dash/groupDisplay";
 import {
   appendTokenOpsGroup,
@@ -32,13 +30,6 @@ const REASSIGNABLE = new Set<string>([
 
 const CATEGORY_ORDER = ["Treasury", "Access", "Emergency", "Config"];
 
-const CATEGORY_DESCRIPTION: Record<string, string> = {
-  Treasury: "Minting and burning token supply.",
-  Access: "Freezing, unfreezing, and destroying frozen balances.",
-  Emergency: "Pausing and resuming the token.",
-  Config: "Token settings, shown for reference.",
-};
-
 const SHORT_CAPABILITY_LABEL: Record<string, string> = {
   manualMinting: "Mint",
   manualBurning: "Burn",
@@ -48,29 +39,17 @@ const SHORT_CAPABILITY_LABEL: Record<string, string> = {
   emergencyAction: "Pause/resume",
 };
 
-interface CategorySection {
-  category: Category;
-  rules: RuleInfo[];
+/** Short capability labels a group governs, or "Unused" when none. */
+function governsSummary(capabilities: RuleInfo[]): string {
+  if (capabilities.length === 0) return "Unused";
+  return capabilities
+    .map((rule) => SHORT_CAPABILITY_LABEL[rule.key] ?? rule.label)
+    .join(" · ");
 }
 
-/** Partition rules into category sections in a stable display order. */
-function categorySections(rules: RuleInfo[]): CategorySection[] {
-  const byLabel = new Map<string, CategorySection>();
-  for (const rule of rules) {
-    const category = ruleCategory(rule.key);
-    const section = byLabel.get(category.label);
-    if (section) {
-      section.rules.push(rule);
-    } else {
-      byLabel.set(category.label, { category, rules: [rule] });
-    }
-  }
-  return [...byLabel.values()].sort(
-    (a, b) =>
-      CATEGORY_ORDER.indexOf(a.category.label) -
-      CATEGORY_ORDER.indexOf(b.category.label),
-  );
-}
+type GovernanceSubView = "access" | "groups";
+type GroupFilter = "all" | "mine" | "unused";
+type GroupSort = "position" | "members" | "threshold" | "capabilities";
 
 function sortedAuthorityRules(rules: RuleInfo[]): RuleInfo[] {
   return [...rules].sort(
@@ -100,25 +79,17 @@ function authorityLabel(authority: RuleAuthority): string {
 function authorityMeta(
   authority: RuleAuthority,
   groups: TokenOpsGroupInfo[],
+  format: "compact" | "full" = "compact",
 ): string | null {
   if (authority.type !== "Group") return null;
   const group = groups.find(
     (candidate) => candidate.groupPosition === authority.groupPosition,
   );
   if (!group) return null;
-  return `${group.requiredPower} of ${group.members.size} signatures`;
-}
-
-function authorityShortMeta(
-  authority: RuleAuthority,
-  groups: TokenOpsGroupInfo[],
-): string | null {
-  if (authority.type !== "Group") return null;
-  const group = groups.find(
-    (candidate) => candidate.groupPosition === authority.groupPosition,
-  );
-  if (!group) return null;
-  return `${group.requiredPower} of ${group.members.size} sig`;
+  if (format === "full") {
+    return `${group.requiredPower} of ${group.members.size} signatures`;
+  }
+  return `${group.requiredPower}/${group.members.size} sig`;
 }
 
 function authorityGroup(
@@ -136,25 +107,24 @@ function identityMonogram(id: string): string {
   return (alphanumeric.slice(0, 2) || "??").toUpperCase();
 }
 
-function capabilitySummary(capabilities: RuleInfo[]): string {
-  if (capabilities.length === 0) return "none";
-  return capabilities
-    .map((rule) => SHORT_CAPABILITY_LABEL[rule.key] ?? rule.label)
-    .join(" · ");
-}
-
 export function GovernanceView() {
   const session = useSession();
   const [groups, setGroups] = useState<TokenOpsGroupInfo[]>([]);
   const [rules, setRules] = useState<RuleInfo[]>([]);
   const [groupChoice, setGroupChoice] = useState<Record<string, string>>({});
   const [editingRule, setEditingRule] = useState<string | null>(null);
-  const [confirmingRule, setConfirmingRule] = useState<string | null>(null);
   const [newMembers, setNewMembers] = useState("");
   const [newRequiredPower, setNewRequiredPower] = useState("2");
   const [error, setError] = useState<string | null>(null);
   const [refreshing, setRefreshing] = useState(false);
   const [busyRuleKey, setBusyRuleKey] = useState<string | null>(null);
+  const [activeView, setActiveView] = useState<GovernanceSubView>("access");
+  const [groupSearch, setGroupSearch] = useState("");
+  const [groupFilter, setGroupFilter] = useState<GroupFilter>("all");
+  const [groupSort, setGroupSort] = useState<GroupSort>("position");
+  const [expandedGroup, setExpandedGroup] = useState<number | null>(null);
+  const [highlightedRule, setHighlightedRule] = useState<string | null>(null);
+  const accessRowRefs = useRef(new Map<string, HTMLElement>());
 
   async function refresh() {
     if (!session.sdk || !session.contractId) return;
@@ -180,6 +150,35 @@ export function GovernanceView() {
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [session.sdk, session.contractId]);
 
+  useEffect(() => {
+    if (!editingRule) return;
+    const onKey = (event: KeyboardEvent) => {
+      if (event.key !== "Escape") return;
+      setGroupChoice((prev) => {
+        const next = { ...prev };
+        delete next[editingRule];
+        return next;
+      });
+      setEditingRule(null);
+    };
+    window.addEventListener("keydown", onKey);
+    return () => window.removeEventListener("keydown", onKey);
+  }, [editingRule]);
+
+  useEffect(() => {
+    if (!highlightedRule || activeView !== "access") return;
+    const frame = window.requestAnimationFrame(() => {
+      accessRowRefs.current
+        .get(highlightedRule)
+        ?.scrollIntoView({ behavior: "smooth", block: "center" });
+    });
+    const timer = window.setTimeout(() => setHighlightedRule(null), 1800);
+    return () => {
+      window.cancelAnimationFrame(frame);
+      window.clearTimeout(timer);
+    };
+  }, [activeView, highlightedRule]);
+
   async function handleConfirmReassign(
     ruleKind: ReassignableRuleKind,
     groupPosition: number,
@@ -198,8 +197,12 @@ export function GovernanceView() {
         groupPosition,
         log: session.log,
       });
-      setConfirmingRule(null);
       setEditingRule(null);
+      setGroupChoice((prev) => {
+        const next = { ...prev };
+        delete next[ruleKind];
+        return next;
+      });
       await refresh();
     } catch (err) {
       setError(errorMessage(err));
@@ -235,15 +238,50 @@ export function GovernanceView() {
     (group) => signedInIdentityId && group.members.has(signedInIdentityId),
   );
   const authorityRules = sortedAuthorityRules(rules);
-  const configAuthorityRules = authorityRules.filter(
-    (rule) => ruleCategory(rule.key).label === "Config",
-  );
-  const primaryAuthorityRules = authorityRules.filter(
+  const capabilityRules = authorityRules.filter(
     (rule) => ruleCategory(rule.key).label !== "Config",
+  );
+  const configRules = authorityRules.filter(
+    (rule) => ruleCategory(rule.key).label === "Config",
   );
   const memberGroupLabels = memberGroups.map(
     (group) => `Group ${group.groupPosition}`,
   );
+  const normalizedGroupSearch = groupSearch.trim().toLowerCase();
+  const visibleGroups = groups
+    .filter((group) => {
+      const capabilities = groupDisplay(group.groupPosition, rules).capabilities;
+      const isMember = Boolean(
+        signedInIdentityId && group.members.has(signedInIdentityId),
+      );
+      if (groupFilter === "mine" && !isMember) return false;
+      if (groupFilter === "unused" && capabilities.length > 0) return false;
+      if (!normalizedGroupSearch) return true;
+      const searchable = [
+        `group ${group.groupPosition}`,
+        String(group.groupPosition),
+        ...[...group.members.keys()],
+        ...capabilities.map((rule) => rule.label),
+      ]
+        .join(" ")
+        .toLowerCase();
+      return searchable.includes(normalizedGroupSearch);
+    })
+    .sort((a, b) => {
+      const aDisplay = groupDisplay(a.groupPosition, rules);
+      const bDisplay = groupDisplay(b.groupPosition, rules);
+      switch (groupSort) {
+        case "members":
+          return b.members.size - a.members.size;
+        case "threshold":
+          return b.requiredPower - a.requiredPower;
+        case "capabilities":
+          return bDisplay.capabilities.length - aDisplay.capabilities.length;
+        case "position":
+        default:
+          return a.groupPosition - b.groupPosition;
+      }
+    });
 
   // Destination group selected for a rule's inline reassign control. Defaults
   // to the rule's current operator group (or the first group) so the initial
@@ -257,53 +295,262 @@ export function GovernanceView() {
     return groups[0] ? String(groups[0].groupPosition) : "";
   }
 
-  function selectGroupForRule(ruleKey: string, value: string) {
-    setGroupChoice((prev) => ({ ...prev, [ruleKey]: value }));
-    if (confirmingRule === ruleKey) setConfirmingRule(null);
+  function selectGroupForRule(rule: RuleInfo, value: string) {
+    setGroupChoice((prev) => ({ ...prev, [rule.key]: value }));
   }
 
-  function openReassign(ruleKey: string) {
-    setEditingRule(ruleKey);
-    setConfirmingRule(null);
-  }
-
-  function closeReassign() {
+  function closeReassign(ruleKey: string | null = editingRule) {
+    if (ruleKey) {
+      setGroupChoice((prev) => {
+        const next = { ...prev };
+        delete next[ruleKey];
+        return next;
+      });
+    }
     setEditingRule(null);
-    setConfirmingRule(null);
   }
 
-  function renderAuthoritySummaryRow(rule: RuleInfo) {
+  function openReassign(rule: RuleInfo) {
+    setEditingRule(rule.key);
+    setGroupChoice((prev) => ({ ...prev, [rule.key]: chosenGroupValue(rule) }));
+  }
+
+  function openGroup(groupPosition: number) {
+    setActiveView("groups");
+    setExpandedGroup(groupPosition);
+  }
+
+  function openCapability(ruleKey: string) {
+    setActiveView("access");
+    setEditingRule(null);
+    setHighlightedRule(ruleKey);
+  }
+
+  function noOneHint(role: "operator" | "admin"): string {
+    if (role === "admin") return "Contract does not allow modifying this config item";
+    return "Contract does not enable this capability";
+  }
+
+  function renderAuthorityButton(
+    authority: RuleAuthority,
+    role?: "operator" | "admin",
+  ) {
+    if (authority.type === "Group" && authority.groupPosition != null) {
+      return (
+        <button
+          type="button"
+          className="authority-link"
+          onClick={() => openGroup(authority.groupPosition ?? 0)}
+        >
+          {authorityLabel(authority)}
+        </button>
+      );
+    }
+    if (authority.type === "NoOne" && role) {
+      return (
+        <span className="authority-value authority-disabled" title={noOneHint(role)}>
+          {authorityLabel(authority)}
+        </span>
+      );
+    }
+    return <span className="authority-value">{authorityLabel(authority)}</span>;
+  }
+
+  function renderAccessMatrix(rulesToRender: RuleInfo[], firstColumnLabel: string) {
+    return (
+      <div className="access-matrix">
+        <div className="access-matrix-header" aria-hidden="true">
+          <span>{firstColumnLabel}</span>
+          <span>Operator</span>
+          <span>Admin</span>
+        </div>
+        {rulesToRender.map(renderAccessRow)}
+      </div>
+    );
+  }
+
+  function renderAccessRow(rule: RuleInfo) {
     const category = ruleCategory(rule.key);
     const operatorGroup = authorityGroup(rule.operator, groups);
-    const operatorMeta = authorityShortMeta(rule.operator, groups);
     const operatorDisplay = operatorGroup
       ? groupDisplay(operatorGroup.groupPosition, rules)
       : null;
+    const operatorMeta = authorityMeta(rule.operator, groups);
+    const adminMeta = authorityMeta(rule.admin, groups);
+    const canReassign =
+      isAuthenticated && REASSIGNABLE.has(rule.key) && groups.length > 0;
     const isOperatorMember = Boolean(
       signedInIdentityId && operatorGroup?.members.has(signedInIdentityId),
     );
     return (
-      <div key={rule.key} className="authority-summary-row">
-        <div className="authority-summary-action">
-          <CapabilityIcon kind={rule.key} accent={category.accent} />
-          <strong>{rule.label}</strong>
-          {rule.deferred && (
-            <span className="capability-flag">Display only</span>
-          )}
+      <article
+        key={rule.key}
+        ref={(element) => {
+          if (element) {
+            accessRowRefs.current.set(rule.key, element);
+          } else {
+            accessRowRefs.current.delete(rule.key);
+          }
+        }}
+        className={`access-row ${
+          highlightedRule === rule.key ? "is-highlighted" : ""
+        }`}
+      >
+        <div className="access-capability">
+          <span className="capability-title">
+            <CapabilityIcon kind={rule.key} accent={category.accent} />
+            <strong>{rule.label}</strong>
+          </span>
+          <span className={`access-domain ${category.accent}`}>
+            {category.label}
+          </span>
           {isOperatorMember && <span className="member-badge">Member</span>}
         </div>
-        <div className="authority-summary-group">
+        <div className="access-authority">
+          <span className="authority-label">Operator</span>
           {operatorDisplay && (
             <span
               className={`authority-group-dot ${operatorDisplay.accent}`}
               aria-hidden="true"
             />
           )}
-          <span className="authority-value">
-            {authorityLabel(rule.operator)}
-          </span>
+          {canReassign ? (
+            <>
+              <span className="authority-assignment">
+                {renderAuthorityButton(rule.operator, "operator")}
+                {operatorMeta && <span className="authority-meta">{operatorMeta}</span>}
+              </span>
+              <button
+                type="button"
+                className="authority-edit-button"
+                onClick={() => openReassign(rule)}
+              >
+                Edit
+              </button>
+            </>
+          ) : (
+            <span className="authority-assignment">
+              {renderAuthorityButton(rule.operator, "operator")}
+              {operatorMeta && <span className="authority-meta">{operatorMeta}</span>}
+            </span>
+          )}
         </div>
-        <span className="authority-signatures">{operatorMeta ?? ""}</span>
+        <div className="access-authority admin-authority">
+          <span className="authority-label">Admin</span>
+          {renderAuthorityButton(rule.admin, "admin")}
+          {adminMeta && <span className="authority-meta">{adminMeta}</span>}
+        </div>
+
+      </article>
+    );
+  }
+
+  function renderReassignModal() {
+    const rule = rules.find((candidate) => candidate.key === editingRule);
+    if (!rule) return null;
+    const chosen = chosenGroupValue(rule);
+    const chosenGroupInfo = groups.find(
+      (group) => group.groupPosition === Number(chosen),
+    );
+    const currentValue =
+      rule.operator.type === "Group" && rule.operator.groupPosition != null
+        ? String(rule.operator.groupPosition)
+        : "";
+    const isNoOp = chosen === currentValue;
+    const category = ruleCategory(rule.key);
+
+    return (
+      <div className="modal-backdrop" onClick={() => closeReassign(rule.key)}>
+        <div
+          className="modal-panel reassign-modal"
+          role="dialog"
+          aria-modal="true"
+          aria-labelledby="reassign-modal-title"
+          onClick={(event) => event.stopPropagation()}
+        >
+          <div className="modal-header">
+            <div className="modal-title-row">
+              <CapabilityIcon
+                kind={rule.key}
+                accent={category.accent}
+                className="modal-capability-icon"
+              />
+              <div>
+                <h4 id="reassign-modal-title">Reassign operator</h4>
+                <p className="muted">{rule.label}</p>
+              </div>
+            </div>
+            <button
+              type="button"
+              className="modal-close-button"
+              aria-label="Close"
+              onClick={() => closeReassign(rule.key)}
+            >
+              ×
+            </button>
+          </div>
+          <div className="reassign-modal-body">
+            <div className="reassign-field-grid">
+              <span className="authority-label">Current operator</span>
+              <strong>{authorityLabel(rule.operator)}</strong>
+              {authorityMeta(rule.operator, groups, "full") && (
+                <span className="authority-meta">
+                  {authorityMeta(rule.operator, groups, "full")}
+                </span>
+              )}
+            </div>
+            <label className="field" htmlFor="reassign-operator-group">
+              New operator group
+              <select
+                id="reassign-operator-group"
+                value={chosen}
+                onChange={(event) => selectGroupForRule(rule, event.target.value)}
+              >
+                {groups.map((group) => (
+                  <option key={group.groupPosition} value={group.groupPosition}>
+                    Group {group.groupPosition} · {group.requiredPower} of{" "}
+                    {group.members.size} signatures
+                  </option>
+                ))}
+              </select>
+            </label>
+            {chosenGroupInfo && (
+              <p className="reassign-warning">
+                {isNoOp
+                  ? "Choose a different group to reassign this capability."
+                  : `${rule.label} will move from ${authorityLabel(
+                      rule.operator,
+                    )} to Group ${chosenGroupInfo.groupPosition}. ${
+                      rule.operator.type === "Group"
+                        ? `Group ${rule.operator.groupPosition} members lose the ability to perform this action.`
+                        : ""
+                    }`}
+              </p>
+            )}
+          </div>
+          <div className="modal-actions">
+            <button
+              type="button"
+              className="secondary"
+              onClick={() => closeReassign(rule.key)}
+              disabled={busyRuleKey === rule.key}
+            >
+              Cancel
+            </button>
+            <button
+              type="button"
+              disabled={isNoOp || busyRuleKey === rule.key}
+              onClick={() =>
+                void handleConfirmReassign(
+                  rule.key as ReassignableRuleKind,
+                  Number(chosen),
+                )
+              }
+            >
+              {busyRuleKey === rule.key ? "Submitting..." : "Confirm reassignment"}
+            </button>
+          </div>
+        </div>
       </div>
     );
   }
@@ -315,9 +562,10 @@ export function GovernanceView() {
       <section className="card">
         <div className="row between">
           <div>
-            <h3>Groups</h3>
+            <h3>Governance</h3>
             <p className="muted">
-              Approval groups define which identities can approve governed token actions. Each group has its own members, signature threshold, and assigned capabilities.
+              Manage token authority assignments and the approval groups behind
+              them.
             </p>
           </div>
           <button
@@ -329,330 +577,254 @@ export function GovernanceView() {
             {refreshing ? "Refreshing..." : "Refresh"}
           </button>
         </div>
-        <div className="authority-map-header">
-          <div>
-            <h4>Authority map</h4>
-            {isAuthenticated && (
-              <p className="authority-standing">
-                {memberGroups.length === 0
-                  ? "This identity is not a member of any loaded approval group."
-                  : `You are a member of ${memberGroupLabels.join(", ")}.`}
-              </p>
-            )}
-          </div>
-        </div>
-        <div className="authority-summary">
-          {primaryAuthorityRules.map(renderAuthoritySummaryRow)}
-          {configAuthorityRules.length > 0 && (
-            <details className="authority-config-details">
-              <summary className="authority-config-toggle">
-                <span className="authority-config-toggle-label">
-                  <span className="authority-config-chevron" aria-hidden="true">
-                    ▸
-                  </span>
-                  Show config items
-                </span>
-                <span className="authority-config-count">
-                  {configAuthorityRules.length} display-only{" "}
-                  {configAuthorityRules.length === 1 ? "setting" : "settings"}
-                </span>
-              </summary>
-              <div className="authority-config-list">
-                {configAuthorityRules.map(renderAuthoritySummaryRow)}
-              </div>
-            </details>
+        <div className="standing-summary">
+          <strong>Your standing</strong>
+          {isAuthenticated ? (
+            <span>
+              {memberGroups.length === 0
+                ? "This identity is not a member of any loaded approval group."
+                : `Member of ${memberGroupLabels.join(", ")}.`}
+            </span>
+          ) : (
+            <span>Sign in to see which groups include this identity.</span>
+          )}
+          {memberGroups.length > 0 && (
+            <button
+              type="button"
+              className="link-button"
+              onClick={() => {
+                setActiveView("groups");
+                setGroupFilter("mine");
+              }}
+            >
+              Show my groups
+            </button>
           )}
         </div>
-        <div className="group-details-header">
-          <h4>Group details</h4>
-          <p className="muted">
-            Membership and signature thresholds for each approval group.
-          </p>
+        <div className="governance-subnav" role="tablist" aria-label="Governance views">
+          <button
+            type="button"
+            role="tab"
+            aria-selected={activeView === "access"}
+            className={activeView === "access" ? "active" : ""}
+            onClick={() => setActiveView("access")}
+          >
+            Access control
+          </button>
+          <button
+            type="button"
+            role="tab"
+            aria-selected={activeView === "groups"}
+            className={activeView === "groups" ? "active" : ""}
+            onClick={() => setActiveView("groups")}
+          >
+            Groups
+          </button>
         </div>
-        <div className="group-grid">
-          {groups.map((group) => {
-            const display = groupDisplay(group.groupPosition, rules);
-            const isMember = Boolean(
-              signedInIdentityId && group.members.has(signedInIdentityId),
-            );
-            return (
-              <div
-                key={group.groupPosition}
-                className={`group-card ${isMember ? "is-member" : ""}`}
-              >
-                <div className="group-card-header">
-                  <div className="group-title-row">
-                    <span
-                      className={`group-mark ${display.accent}`}
-                      aria-hidden="true"
-                    />
-                    <div>
-                      <strong>Group {group.groupPosition}</strong>
-                      <span className="muted">
-                        {group.members.size} members · needs{" "}
-                        {group.requiredPower}{" "}
-                        {group.requiredPower === 1 ? "signature" : "signatures"}
-                      </span>
-                    </div>
-                  </div>
-                  {isMember && <span className="member-badge">Member</span>}
-                </div>
-                <div className="group-governs-line">
-                  <span>Governs</span>{" "}
-                  <strong>{capabilitySummary(display.capabilities)}</strong>
-                </div>
-                <hr className="group-divider" />
-                <div className="member-list">
-                  {[...group.members.keys()].map((id) => (
-                    <div key={id} className="member-row">
-                      <span
-                        className={`identity-mark ${display.accent}`}
-                        aria-hidden="true"
-                      >
-                        {identityMonogram(id)}
-                      </span>
-                      <CopyableId id={id} />
-                      {id === signedInIdentityId && (
-                        <span className="you-badge">You</span>
-                      )}
-                    </div>
-                  ))}
-                </div>
-                {display.capabilities.length === 0 && (
-                  <p className="empty-group-note">
-                    Members can't perform any governed action yet.{" "}
-                    {isAuthenticated && (
-                      <a href="#capabilities-section">
-                        Use Capabilities below to assign one.
-                      </a>
-                    )}
-                  </p>
-                )}
-              </div>
-            );
-          })}
-        </div>
-        {session.status === "authenticated" && (
-          <div className="append-group-section">
-            <h4>Append approval group</h4>
-            <p className="muted">
-              Existing groups are immutable. To change membership, append a new
-              group and reassign the relevant capabilities to it.
-            </p>
-            <form onSubmit={handleAppendGroup}>
-              <div className="field">
-                <label htmlFor="new-members">Three member identity IDs</label>
-                <textarea
-                  id="new-members"
-                  rows={2}
-                  value={newMembers}
-                  onChange={(e) => setNewMembers(e.target.value)}
-                  placeholder="comma or space separated"
-                />
-              </div>
-              <div className="field">
-                <label htmlFor="required-power">Required power</label>
-                <input
-                  id="required-power"
-                  type="number"
-                  min={1}
-                  max={3}
-                  value={newRequiredPower}
-                  onChange={(e) => setNewRequiredPower(e.target.value)}
-                />
-              </div>
-              <button type="submit">Append group</button>
-            </form>
-          </div>
-        )}
-      </section>
 
-      <section className="card">
-        <h3 id="capabilities-section">Capabilities</h3>
-        <p className="muted">
-          Capabilities are grouped by domain. Each lists who can perform the
-          action and who can reassign that authority.
-        </p>
-        {categorySections(rules).map((section) => (
-          <div key={section.category.label} className="capability-category">
-            <div className="capability-category-head">
-              <h4>{section.category.label}</h4>
-              {CATEGORY_DESCRIPTION[section.category.label] && (
-                <p className="muted">
-                  {CATEGORY_DESCRIPTION[section.category.label]}
-                </p>
-              )}
+        {activeView === "access" ? (
+          <div className="governance-pane" role="tabpanel">
+            <div className="access-section">
+              <h4>Capability authority</h4>
+              <p className="muted">Who can perform token actions.</p>
+              {renderAccessMatrix(capabilityRules, "Capability")}
             </div>
-            <div className="capability-grid">
-              {section.rules.map((rule) => {
-                const operatorMeta = authorityMeta(rule.operator, groups);
-                const adminMeta = authorityMeta(rule.admin, groups);
-                const canReassign =
-                  isAuthenticated &&
-                  REASSIGNABLE.has(rule.key) &&
-                  groups.length > 0;
-                const chosen = chosenGroupValue(rule);
-                const isNoOp =
-                  rule.operator.type === "Group" &&
-                  rule.operator.groupPosition === Number(chosen);
-                const editing = editingRule === rule.key;
-                const confirming = confirmingRule === rule.key;
-                const chosenGroupInfo = groups.find(
-                  (group) => group.groupPosition === Number(chosen),
+            <div className="access-section">
+              <h4>Config authority</h4>
+              <p className="muted">Who controls token settings.</p>
+              {renderAccessMatrix(configRules, "Setting")}
+            </div>
+          </div>
+        ) : (
+          <div className="governance-pane" role="tabpanel">
+            <div className="group-list-head">
+              <div>
+                <h4>Groups</h4>
+                <p className="muted">
+                  Search, filter, and inspect append-only approval bodies.
+                </p>
+              </div>
+              <div className="group-tools">
+                <label className="field compact" htmlFor="group-search">
+                  Search
+                  <input
+                    id="group-search"
+                    value={groupSearch}
+                    onChange={(event) => setGroupSearch(event.target.value)}
+                    placeholder="Group, member, capability"
+                  />
+                </label>
+                <label className="field compact" htmlFor="group-filter">
+                  Filter
+                  <select
+                    id="group-filter"
+                    value={groupFilter}
+                    onChange={(event) =>
+                      setGroupFilter(event.target.value as GroupFilter)
+                    }
+                  >
+                    <option value="all">All groups</option>
+                    <option value="mine">Groups I'm in</option>
+                    <option value="unused">Unused / empty</option>
+                  </select>
+                </label>
+                <label className="field compact" htmlFor="group-sort">
+                  Sort
+                  <select
+                    id="group-sort"
+                    value={groupSort}
+                    onChange={(event) =>
+                      setGroupSort(event.target.value as GroupSort)
+                    }
+                  >
+                    <option value="position">Position</option>
+                    <option value="members">Members</option>
+                    <option value="threshold">Threshold</option>
+                    <option value="capabilities">Capabilities</option>
+                  </select>
+                </label>
+              </div>
+            </div>
+            <div className="group-table">
+              {visibleGroups.map((group) => {
+                const display = groupDisplay(group.groupPosition, rules);
+                const isMember = Boolean(
+                  signedInIdentityId && group.members.has(signedInIdentityId),
                 );
+                const isExpanded = expandedGroup === group.groupPosition;
                 return (
-                  <article key={rule.key} className="capability-card">
-                    <div className="capability-head">
-                      <span className="capability-title">
-                        <CapabilityIcon
-                          kind={rule.key}
-                          accent={section.category.accent}
-                        />
-                        <strong>{rule.label}</strong>
-                      </span>
-                      {rule.deferred && (
-                        <span className="capability-flag">Display only</span>
-                      )}
-                    </div>
-                    <div className="authority-row">
-                      <div className="authority-panel">
-                        <span className="authority-label">Who can act</span>
-                        {canReassign ? (
-                          <button
-                            type="button"
-                            className="authority-value authority-trigger"
-                            aria-expanded={editing}
-                            onClick={() =>
-                              editing
-                                ? closeReassign()
-                                : openReassign(rule.key)
-                            }
-                          >
-                            {authorityLabel(rule.operator)}
-                          </button>
-                        ) : (
-                          <span className="authority-value">
-                            {authorityLabel(rule.operator)}
-                          </span>
-                        )}
-                        {operatorMeta && (
-                          <span className="authority-meta">{operatorMeta}</span>
-                        )}
-                      </div>
-                      <div className="authority-panel">
-                        <span className="authority-label">Who can reassign</span>
-                        <span className="authority-value">
-                          {authorityLabel(rule.admin)}
+                  <article key={group.groupPosition} className="group-table-row">
+                    <button
+                      type="button"
+                      className="group-row-main"
+                      aria-expanded={isExpanded}
+                      onClick={() =>
+                        setExpandedGroup(isExpanded ? null : group.groupPosition)
+                      }
+                    >
+                      <span className={`group-mark ${display.accent}`} aria-hidden="true" />
+                      <span className="group-row-identity">
+                        <strong>Group {group.groupPosition}</strong>
+                        <span className="muted">
+                          {group.members.size} members · needs{" "}
+                          {group.requiredPower}{" "}
+                          {group.requiredPower === 1
+                            ? "signature"
+                            : "signatures"}
                         </span>
-                        {adminMeta && (
-                          <span className="authority-meta">{adminMeta}</span>
-                        )}
-                      </div>
-                    </div>
-
-                    {canReassign && editing && (
-                      <div className="capability-reassign">
-                        {!confirming && (
-                          <>
-                            <div className="capability-reassign-controls">
-                              <label
-                                className="reassign-inline-label"
-                                htmlFor={`reassign-${rule.key}`}
-                              >
-                                Move to
-                              </label>
-                              <select
-                                id={`reassign-${rule.key}`}
-                                value={chosen}
-                                onChange={(e) =>
-                                  selectGroupForRule(rule.key, e.target.value)
-                                }
-                              >
-                                {groups.map((group) => (
-                                  <option
-                                    key={group.groupPosition}
-                                    value={group.groupPosition}
-                                  >
-                                    Group {group.groupPosition}
-                                  </option>
-                                ))}
-                              </select>
-                            </div>
-                            {groupChoice[rule.key] !== undefined && isNoOp && (
-                              <p className="capability-footer muted">
-                                Already assigned to this group.
-                              </p>
-                            )}
-                            <div className="reassign-actions">
-                              <button
-                                type="button"
-                                className="secondary"
-                                onClick={closeReassign}
-                              >
-                                Cancel
-                              </button>
-                              <button
-                                type="button"
-                                disabled={isNoOp}
-                                onClick={() => setConfirmingRule(rule.key)}
-                              >
-                                Review change
-                              </button>
-                            </div>
-                          </>
-                        )}
-
-                        {confirming && chosenGroupInfo && (
-                          <ConfirmActionPanel
-                            title="Confirm reassignment"
-                            summary={
-                              <div className="reassign-flow">
-                                <span className="reassign-from">
-                                  {authorityLabel(rule.operator)}
-                                </span>
+                      </span>
+                      <span className="group-row-governs">
+                        <span className="group-row-governs-label">Governs</span>
+                        <span
+                          className={`group-row-governs-value ${
+                            display.capabilities.length === 0 ? "unused" : ""
+                          }`}
+                        >
+                          {governsSummary(display.capabilities)}
+                        </span>
+                      </span>
+                      {isMember && <span className="member-badge">Member</span>}
+                    </button>
+                    {isExpanded && (
+                      <div className="group-detail-panel">
+                        <div>
+                          <h5>Members</h5>
+                          <div className="member-list">
+                            {[...group.members.keys()].map((id) => (
+                              <div key={id} className="member-row">
                                 <span
-                                  className="reassign-arrow"
+                                  className={`identity-mark ${display.accent}`}
                                   aria-hidden="true"
                                 >
-                                  →
+                                  {identityMonogram(id)}
                                 </span>
-                                <span className="reassign-to">
-                                  Group {chosenGroupInfo.groupPosition}
-                                </span>
+                                <CopyableId id={id} />
+                                {id === signedInIdentityId && (
+                                  <span className="you-badge">You</span>
+                                )}
                               </div>
-                            }
-                            consequence={
-                              <>
-                                {rule.label} will move from{" "}
-                                {authorityLabel(rule.operator)} to Group{" "}
-                                {chosenGroupInfo.groupPosition}.{" "}
-                                {rule.operator.type === "Group" &&
-                                  `Group ${rule.operator.groupPosition} members lose the ability to perform this action.`}
-                              </>
-                            }
-                            confirmLabel="Confirm reassignment"
-                            tone="warning"
-                            busy={busyRuleKey === rule.key}
-                            onCancel={() => setConfirmingRule(null)}
-                            onConfirm={() =>
-                              void handleConfirmReassign(
-                                rule.key as ReassignableRuleKind,
-                                Number(chosen),
-                              )
-                            }
-                          />
-                        )}
+                            ))}
+                          </div>
+                        </div>
+                        <div>
+                          <h5>Assigned capabilities</h5>
+                          {display.capabilities.length === 0 ? (
+                            <p className="empty-group-note">
+                              Members can't perform any governed action yet.
+                            </p>
+                          ) : (
+                            <div className="capability-link-list">
+                              {display.capabilities.map((rule) => (
+                                <button
+                                  type="button"
+                                  key={rule.key}
+                                  className="capability-link-row"
+                                  onClick={() => openCapability(rule.key)}
+                                >
+                                  <CapabilityIcon
+                                    kind={rule.key}
+                                    accent={ruleCategory(rule.key).accent}
+                                    className="capability-link-icon"
+                                  />
+                                  <span className="capability-link-label">
+                                    {rule.label}
+                                  </span>
+                                  <span className="capability-link-action">
+                                    ↗
+                                  </span>
+                                </button>
+                              ))}
+                            </div>
+                          )}
+                        </div>
                       </div>
                     )}
-
                   </article>
                 );
               })}
             </div>
+            {visibleGroups.length === 0 && (
+              <p className="empty-group-note">
+                No groups match the current search and filters.
+              </p>
+            )}
+            {session.status === "authenticated" && (
+              <div className="append-group-section">
+                <h4>Append approval group</h4>
+                <p className="muted">
+                  Existing groups are immutable. To change membership, append a
+                  successor group and reassign the relevant capabilities to it.
+                </p>
+                <form onSubmit={handleAppendGroup}>
+                  <div className="field">
+                    <label htmlFor="new-members">Three member identity IDs</label>
+                    <textarea
+                      id="new-members"
+                      rows={2}
+                      value={newMembers}
+                      onChange={(e) => setNewMembers(e.target.value)}
+                      placeholder="comma or space separated"
+                    />
+                  </div>
+                  <div className="field">
+                    <label htmlFor="required-power">Required power</label>
+                    <input
+                      id="required-power"
+                      type="number"
+                      min={1}
+                      max={3}
+                      value={newRequiredPower}
+                      onChange={(e) => setNewRequiredPower(e.target.value)}
+                    />
+                  </div>
+                  <button type="submit">Append group</button>
+                </form>
+              </div>
+            )}
           </div>
-        ))}
+        )}
       </section>
-
+      {renderReassignModal()}
     </div>
   );
 }
