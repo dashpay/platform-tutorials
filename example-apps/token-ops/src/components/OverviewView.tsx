@@ -38,6 +38,7 @@ export function OverviewView({
     tokenId: string;
     totalSupply: bigint;
     isPaused: boolean;
+    metadata: { name: string; description: string };
   } | null>(null);
   const [identityRows, setIdentityRows] = useState<
     Map<string, IdentityTokenState>
@@ -127,16 +128,24 @@ export function OverviewView({
   return (
     <div className="overview-screen">
       {error && <div className="notice error">{error}</div>}
-      <div className="overview-grid">
-        <section className="overview-panel token-supply-panel">
-          <div className="row between">
-            <h3>Token supply</h3>
+      {overview && (
+        <header className="token-header">
+          <div className="token-header-title">
+            <h2>{overview.metadata.name || "Token"}</h2>
             <span
-              className={`token-status-pill ${overview?.isPaused ? "paused" : "active"}`}
+              className={`token-status-pill ${overview.isPaused ? "paused" : "active"}`}
             >
-              {overview?.isPaused ? "Paused" : "Active"}
+              {overview.isPaused ? "Paused" : "Active"}
             </span>
           </div>
+          {overview.metadata.description && (
+            <p>{overview.metadata.description}</p>
+          )}
+        </header>
+      )}
+      <div className="overview-grid">
+        <section className="overview-panel token-supply-panel">
+          <h3>Token supply</h3>
           <div className="supply-meter-head">
             <strong>{formatAmount(totalSupply)}</strong>
             <span>of {formatAmount(TOKEN_MAX_SUPPLY)} max</span>

@@ -10,8 +10,23 @@ test.describe("Read-only browsing", () => {
       "Governance",
       "Account",
     ]) {
-      await expect(page.getByRole("button", { name: label })).toBeVisible();
+      // `exact` so the "Operations" nav button doesn't also match the
+      // "Pending operations" card button in the Token details panel.
+      await expect(
+        page.getByRole("button", { name: label, exact: true }),
+      ).toBeVisible();
     }
+  });
+
+  test("overview shows token name and description", async ({ page }) => {
+    const header = page.locator(".token-header");
+    // Name headlines the overview (capitalized per the token's
+    // shouldCapitalize convention); description sits beneath it. Both come
+    // from the default contract's on-chain token conventions.
+    await expect(header.getByRole("heading", { name: "TokenOps" })).toBeVisible(
+      { timeout: 60_000 },
+    );
+    await expect(header.locator("p")).toContainText("group-governed");
   });
 
   test("governance view renders without signing in", async ({ page }) => {

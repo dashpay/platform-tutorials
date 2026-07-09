@@ -105,9 +105,7 @@ export interface DashSdk {
      * `undefined` when the ID is not a token ID (e.g. a data contract ID).
      * `contractId` is an SDK identifier — stringify before use.
      */
-    contractInfo(
-      tokenId: string,
-    ): Promise<
+    contractInfo(tokenId: string): Promise<
       | {
           contractId: string | { toString(): string };
           tokenContractPosition: number;

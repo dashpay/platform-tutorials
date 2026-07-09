@@ -1784,6 +1784,32 @@ main.content {
   gap: 1rem;
 }
 
+.token-header {
+  display: grid;
+  gap: 0.25rem;
+}
+
+.token-header-title {
+  align-items: center;
+  display: flex;
+  flex-wrap: wrap;
+  gap: 0.6rem;
+}
+
+.token-header h2 {
+  color: #111827;
+  font-size: 1.4rem;
+  margin: 0;
+}
+
+.token-header p {
+  color: #6a7290;
+  font-size: 0.9rem;
+  line-height: 1.45;
+  margin: 0;
+  max-width: 60ch;
+}
+
 .operations-screen {
   display: grid;
   gap: 1rem;
