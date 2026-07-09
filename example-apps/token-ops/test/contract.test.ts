@@ -284,6 +284,59 @@ describe("createTokenOpsGroup validation", () => {
   });
 });
 
+describe("buildTokenOpsGroup validation", () => {
+  it("accepts any member count within Platform bounds", async () => {
+    const { buildTokenOpsGroup, MIN_GROUP_MEMBERS, MAX_GROUP_MEMBERS } =
+      await import("../src/dash/contract");
+    const two = buildTokenOpsGroup(["a", "b"], 2) as unknown as {
+      members: Map<string, number>;
+      requiredPower: number;
+    };
+    expect(two.members.size).toBe(MIN_GROUP_MEMBERS);
+    expect(two.requiredPower).toBe(2);
+
+    const ids = Array.from({ length: 5 }, (_, i) => `id-${i}`);
+    const five = buildTokenOpsGroup(ids, 3) as unknown as {
+      members: Map<string, number>;
+    };
+    expect(five.members.size).toBe(5);
+    // Every member carries power 1, so requiredPower is a signature threshold.
+    expect([...five.members.values()].every((p) => p === 1)).toBe(true);
+    expect(MAX_GROUP_MEMBERS).toBe(256);
+  });
+
+  it("rejects fewer than the minimum members", async () => {
+    const { buildTokenOpsGroup } = await import("../src/dash/contract");
+    expect(() => buildTokenOpsGroup(["a"], 1)).toThrow(/2-256 members/);
+    expect(() => buildTokenOpsGroup([], 1)).toThrow(/2-256 members/);
+  });
+
+  it("rejects more than the maximum members", async () => {
+    const { buildTokenOpsGroup, MAX_GROUP_MEMBERS } =
+      await import("../src/dash/contract");
+    const tooMany = Array.from(
+      { length: MAX_GROUP_MEMBERS + 1 },
+      (_, i) => `id-${i}`,
+    );
+    expect(() => buildTokenOpsGroup(tooMany, 1)).toThrow(/2-256 members/);
+  });
+
+  it("rejects duplicate member identities", async () => {
+    const { buildTokenOpsGroup } = await import("../src/dash/contract");
+    expect(() => buildTokenOpsGroup(["a", "a", "b"], 2)).toThrow(/distinct/);
+  });
+
+  it("rejects a required power above the member count", async () => {
+    const { buildTokenOpsGroup } = await import("../src/dash/contract");
+    expect(() => buildTokenOpsGroup(["a", "b"], 0)).toThrow(/required power/);
+    expect(() => buildTokenOpsGroup(["a", "b"], 3)).toThrow(/required power/);
+    // Scales with the member count: 4-of-5 is fine.
+    expect(() =>
+      buildTokenOpsGroup(["a", "b", "c", "d", "e"], 4),
+    ).not.toThrow();
+  });
+});
+
 const STORAGE_KEY = "token-ops.contractId";
 
 function makeKeyManager(ownerId = "owner-1") {

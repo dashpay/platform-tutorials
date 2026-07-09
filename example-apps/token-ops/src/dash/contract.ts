@@ -42,6 +42,11 @@ export const TREASURY_GROUP_POSITION = 0;
 export const ACCESS_GROUP_POSITION = 1;
 export const EMERGENCY_GROUP_POSITION = 2;
 
+// Platform group-size bounds (rs-dpp GroupV0::validate): a group needs at least
+// 2 members and no more than `system_limits.max_contract_group_size` (256).
+export const MIN_GROUP_MEMBERS = 2;
+export const MAX_GROUP_MEMBERS = 256;
+
 export const GROUP_DEFINITIONS = {
   treasury: {
     position: TREASURY_GROUP_POSITION,
@@ -207,6 +212,33 @@ export function createTokenOpsTokenConfiguration(ownerId: string) {
   });
 }
 
+// Builds a group of any Platform-valid size. Every member gets power 1, so
+// `requiredPower` is the signature threshold and must be 1..memberCount.
+export function buildTokenOpsGroup(memberIds: string[], requiredPower: number) {
+  const cleanIds = memberIds.map((id) => id.trim()).filter(Boolean);
+  if (
+    cleanIds.length < MIN_GROUP_MEMBERS ||
+    cleanIds.length > MAX_GROUP_MEMBERS
+  ) {
+    throw new Error(
+      `TokenOps groups need ${MIN_GROUP_MEMBERS}-${MAX_GROUP_MEMBERS} members, got ${cleanIds.length}`,
+    );
+  }
+  if (new Set(cleanIds).size !== cleanIds.length) {
+    throw new Error("TokenOps group members must be distinct identities.");
+  }
+  if (
+    !Number.isInteger(requiredPower) ||
+    requiredPower < 1 ||
+    requiredPower > cleanIds.length
+  ) {
+    throw new Error(
+      `TokenOps group required power must be 1-${cleanIds.length}, got ${requiredPower}`,
+    );
+  }
+  return new Group(new Map(cleanIds.map((id) => [id, 1])), requiredPower);
+}
+
 export function createTokenOpsGroup(
   memberIds: string[],
   requiredPower: number,
@@ -217,19 +249,7 @@ export function createTokenOpsGroup(
       `TokenOps groups need exactly 3 members, got ${cleanIds.length}`,
     );
   }
-  if (new Set(cleanIds).size !== cleanIds.length) {
-    throw new Error("TokenOps group members must be 3 distinct identities.");
-  }
-  if (
-    !Number.isInteger(requiredPower) ||
-    requiredPower < 1 ||
-    requiredPower > cleanIds.length
-  ) {
-    throw new Error(
-      `TokenOps group required power must be 1-3, got ${requiredPower}`,
-    );
-  }
-  return new Group(new Map(cleanIds.map((id) => [id, 1])), requiredPower);
+  return buildTokenOpsGroup(cleanIds, requiredPower);
 }
 
 export function createTokenOpsGroups(memberIds: string[]) {

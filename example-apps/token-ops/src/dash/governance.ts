@@ -3,7 +3,7 @@
  *
  * SDK methods: sdk.contracts.fetch / sdk.group.info / sdk.contracts.update.
  */
-import { createTokenOpsGroup, GROUP_DEFINITIONS } from "./contract";
+import { buildTokenOpsGroup, GROUP_DEFINITIONS } from "./contract";
 import { TOKEN_POSITION } from "./token";
 import type { DashContractLike, DashSdk } from "./types";
 import type { Logger } from "./logger";
@@ -404,7 +404,7 @@ export async function appendTokenOpsGroup({
 }): Promise<number> {
   // Build (and thereby validate) the group before any network work, so bad
   // input fails fast without fetching the contract.
-  const nextGroup = createTokenOpsGroup(memberIds, requiredPower);
+  const nextGroup = buildTokenOpsGroup(memberIds, requiredPower);
   const contract = await sdk.contracts.fetch(contractId);
   if (!contract) throw new Error(`TokenOps contract ${contractId} not found`);
   const existingGroups = normalizeGroups(

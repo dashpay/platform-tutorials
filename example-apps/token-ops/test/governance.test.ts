@@ -1,6 +1,6 @@
 import { describe, expect, it, vi } from "vitest";
 
-// governance.ts imports createTokenOpsGroup from contract.ts, which imports
+// governance.ts imports buildTokenOpsGroup from contract.ts, which imports
 // several @dashevo/evo-sdk value symbols at module load. Mock them so the
 // suite never pulls in the real WASM bundle. Group is the only one whose shape
 // the appendTokenOpsGroup tests inspect.
@@ -339,6 +339,30 @@ describe("appendTokenOpsGroup", () => {
     );
   });
 
+  it("appends a group larger than the initial fixed-3 shape", async () => {
+    // Groups can be any Platform-valid size; the append path is not limited to
+    // the 3-member shape the initial contract uses.
+    const contract: Record<string, unknown> = { groups: {}, version: 1 };
+    const { sdk } = makeSdk(contract);
+
+    const position = await appendTokenOpsGroup({
+      sdk,
+      contractId: "contract-1",
+      memberIds: ["m-a", "m-b", "m-c", "m-d", "m-e"],
+      requiredPower: 4,
+      identityKey,
+      signer,
+    });
+
+    expect(position).toBe(0);
+    const appended = (contract.groups as Record<number, unknown>)[0] as {
+      members: Map<string, number>;
+      requiredPower: number;
+    };
+    expect(appended.members.size).toBe(5);
+    expect(appended.requiredPower).toBe(4);
+  });
+
   it("appends via object spread when groups is a plain object", async () => {
     const contract: Record<string, unknown> = {
       groups: { "0": { members: { a: 1 }, requiredPower: 2 } },
@@ -418,11 +442,11 @@ describe("appendTokenOpsGroup", () => {
         sdk,
         contractId: "contract-1",
         memberIds: ["only-one"],
-        requiredPower: 2,
+        requiredPower: 1,
         identityKey,
         signer,
       }),
-    ).rejects.toThrow(/exactly 3 members/);
+    ).rejects.toThrow(/2-256 members/);
     // Fail-fast: no network work happens on bad input.
     expect(fetch).not.toHaveBeenCalled();
     expect(update).not.toHaveBeenCalled();

@@ -1,7 +1,11 @@
 import { useEffect, useRef, useState } from "react";
 
 import { CopyableId } from "./CopyableId";
-import { type ReassignableRuleKind } from "../dash/contract";
+import {
+  MAX_GROUP_MEMBERS,
+  MIN_GROUP_MEMBERS,
+  type ReassignableRuleKind,
+} from "../dash/contract";
 import { groupDisplay, ruleCategory } from "../dash/groupDisplay";
 import {
   appendTokenOpsGroup,
@@ -35,6 +39,11 @@ const SHORT_CAPABILITY_LABEL: Record<string, string> = {
   destroyFrozenFunds: "Destroy frozen",
   emergencyAction: "Pause/resume",
 };
+
+/** Parses the append-group members textarea into a list of identity IDs. */
+function parseMemberIds(raw: string): string[] {
+  return raw.split(/[\s,]+/).filter(Boolean);
+}
 
 /** Short capability labels a group governs, or "Unused" when none. */
 function governsSummary(capabilities: RuleInfo[]): string {
@@ -216,7 +225,7 @@ export function GovernanceView() {
       await appendTokenOpsGroup({
         sdk: session.sdk,
         contractId: session.contractId,
-        memberIds: newMembers.split(/[\s,]+/).filter(Boolean),
+        memberIds: parseMemberIds(newMembers),
         requiredPower: Number(newRequiredPower),
         identityKey,
         signer,
@@ -229,6 +238,7 @@ export function GovernanceView() {
     }
   }
 
+  const appendMemberCount = parseMemberIds(newMembers).length;
   const signedInIdentityId = session.identityId;
   const isAuthenticated = session.status === "authenticated";
   const memberGroups = groups.filter(
@@ -823,9 +833,7 @@ export function GovernanceView() {
                 </p>
                 <form onSubmit={handleAppendGroup}>
                   <div className="field">
-                    <label htmlFor="new-members">
-                      Three member identity IDs
-                    </label>
+                    <label htmlFor="new-members">Member identity IDs</label>
                     <textarea
                       id="new-members"
                       rows={2}
@@ -833,6 +841,10 @@ export function GovernanceView() {
                       onChange={(e) => setNewMembers(e.target.value)}
                       placeholder="comma or space separated"
                     />
+                    <p className="muted">
+                      {MIN_GROUP_MEMBERS}–{MAX_GROUP_MEMBERS} distinct
+                      identities.
+                    </p>
                   </div>
                   <div className="field">
                     <label htmlFor="required-power">Required power</label>
@@ -840,10 +852,14 @@ export function GovernanceView() {
                       id="required-power"
                       type="number"
                       min={1}
-                      max={3}
+                      max={appendMemberCount || undefined}
                       value={newRequiredPower}
                       onChange={(e) => setNewRequiredPower(e.target.value)}
                     />
+                    <p className="muted">
+                      Signatures needed to act (1–
+                      {appendMemberCount || MIN_GROUP_MEMBERS}).
+                    </p>
                   </div>
                   <button type="submit">Append group</button>
                 </form>
