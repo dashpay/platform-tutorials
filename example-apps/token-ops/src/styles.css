@@ -1486,6 +1486,12 @@ main.content {
   font-weight: 500;
 }
 
+.authority-identity {
+  align-items: baseline;
+  display: inline-flex;
+  gap: 0.35rem;
+}
+
 .authority-disabled {
   cursor: help;
   text-decoration: underline dotted #aab1c8;

@@ -1,6 +1,7 @@
-import { useEffect, useState } from "react";
+import { useEffect, useMemo, useState } from "react";
 
 import { CopyableId } from "./CopyableId";
+import { IdentityLabel } from "./IdentityLabel";
 import { fetchTokenOpsGovernance } from "../dash/governance";
 import { listPendingActions } from "../dash/groupActions";
 import { errorMessage } from "../dash/logger";
@@ -9,6 +10,7 @@ import {
   fetchTokenOverview,
   type TokenSupplyConfig,
 } from "../dash/token";
+import { useDpnsNames } from "../hooks/useDpnsNames";
 import { useSession } from "../session/useSession";
 
 type IdentityTokenState = {
@@ -119,6 +121,12 @@ export function OverviewView({
     return () => window.clearTimeout(timer);
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [session.sdk, session.contractId, session.identityId, watchedIdentityIds]);
+
+  const identityIds = useMemo(
+    () => [...identityRows.keys(), session.identityId],
+    [identityRows, session.identityId],
+  );
+  const dpnsNames = useDpnsNames(session.sdk, identityIds);
 
   if (!session.contractId) {
     return (
@@ -284,7 +292,11 @@ export function OverviewView({
               {[...identityRows.values()].map((row) => (
                 <tr key={row.identityId}>
                   <td>
-                    <CopyableId id={row.identityId} len={8} />
+                    <IdentityLabel
+                      id={row.identityId}
+                      dpnsNames={dpnsNames}
+                      len={8}
+                    />
                     {row.identityId === session.identityId && (
                       <span className="you-badge">You</span>
                     )}

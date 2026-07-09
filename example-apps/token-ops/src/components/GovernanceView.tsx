@@ -1,6 +1,6 @@
-import { useEffect, useRef, useState } from "react";
+import { useEffect, useMemo, useRef, useState } from "react";
 
-import { CopyableId } from "./CopyableId";
+import { IdentityLabel } from "./IdentityLabel";
 import {
   MAX_GROUP_MEMBERS,
   MIN_GROUP_MEMBERS,
@@ -18,6 +18,7 @@ import { errorMessage } from "../dash/logger";
 import { CapabilityIcon } from "../lib/capabilityIcon";
 import { shortId } from "../lib/format";
 import { assignTokenFunctionGroup } from "../dash/tokenOperations";
+import { useDpnsNames } from "../hooks/useDpnsNames";
 import { useSession } from "../session/useSession";
 
 const REASSIGNABLE = new Set<string>([
@@ -254,6 +255,20 @@ export function GovernanceView() {
   const memberGroupLabels = memberGroups.map(
     (group) => `Group ${group.groupPosition}`,
   );
+  const identityIds = useMemo(
+    () => [
+      signedInIdentityId,
+      ...groups.flatMap((group) => [...group.members.keys()]),
+      ...rules
+        .map((rule) => [
+          rule.operator.identityId,
+          rule.admin.identityId,
+        ])
+        .flat(),
+    ],
+    [groups, rules, signedInIdentityId],
+  );
+  const dpnsNames = useDpnsNames(session.sdk, identityIds);
   const normalizedGroupSearch = groupSearch.trim().toLowerCase();
   const visibleGroups = groups
     .filter((group) => {
@@ -267,10 +282,12 @@ export function GovernanceView() {
       if (groupFilter === "mine" && !isMember) return false;
       if (groupFilter === "unused" && capabilities.length > 0) return false;
       if (!normalizedGroupSearch) return true;
+      const memberIds = [...group.members.keys()];
       const searchable = [
         `group ${group.groupPosition}`,
         String(group.groupPosition),
-        ...[...group.members.keys()],
+        ...memberIds,
+        ...memberIds.map((id) => dpnsNames[id]).filter(Boolean),
         ...capabilities.map((rule) => rule.label),
       ]
         .join(" ")
@@ -364,6 +381,18 @@ export function GovernanceView() {
           title={noOneHint(role)}
         >
           {authorityLabel(authority)}
+        </span>
+      );
+    }
+    if (authority.type === "Identity") {
+      return (
+        <span className="authority-value authority-identity">
+          <span>Identity</span>
+          <IdentityLabel
+            id={authority.identityId}
+            dpnsNames={dpnsNames}
+            len={6}
+          />
         </span>
       );
     }
@@ -772,9 +801,12 @@ export function GovernanceView() {
                                   className={`identity-mark ${display.accent}`}
                                   aria-hidden="true"
                                 >
-                                  {identityMonogram(id)}
+                                  {identityMonogram(dpnsNames[id] ?? id)}
                                 </span>
-                                <CopyableId id={id} />
+                                <IdentityLabel
+                                  id={id}
+                                  dpnsNames={dpnsNames}
+                                />
                                 {id === signedInIdentityId && (
                                   <span className="you-badge">You</span>
                                 )}

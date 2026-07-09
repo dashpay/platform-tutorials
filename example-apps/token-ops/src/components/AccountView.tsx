@@ -1,6 +1,7 @@
 import { useEffect, useState } from "react";
 
 import { CopyableId } from "./CopyableId";
+import { IdentityLabel } from "./IdentityLabel";
 import { TOKEN_POSITION, registerContract } from "../dash/contract";
 import { errorMessage } from "../dash/logger";
 import {
@@ -8,6 +9,7 @@ import {
   type ResolvedTokenRef,
 } from "../dash/resolveTokenRef";
 import { fetchTokenBalance } from "../dash/token";
+import { useDpnsNames } from "../hooks/useDpnsNames";
 import { useSession } from "../session/useSession";
 
 /**
@@ -35,6 +37,7 @@ export function AccountView() {
   const [resolved, setResolved] = useState<ResolvedTokenRef | null>(null);
   const [balance, setBalance] = useState<bigint | null>(null);
   const [localError, setLocalError] = useState<string | null>(null);
+  const dpnsNames = useDpnsNames(session.sdk, [session.identityId]);
 
   useEffect(() => {
     let cancelled = false;
@@ -148,7 +151,8 @@ export function AccountView() {
         <div className="card">
           <h3>Signed in</h3>
           <p className="row">
-            Identity: <CopyableId id={session.identityId} />
+            Identity:{" "}
+            <IdentityLabel id={session.identityId} dpnsNames={dpnsNames} />
           </p>
           {balance != null && (
             <p>

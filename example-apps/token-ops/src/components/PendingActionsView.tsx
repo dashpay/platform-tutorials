@@ -1,7 +1,8 @@
-import { useEffect, useState } from "react";
+import { useEffect, useMemo, useState } from "react";
 
 import { ConfirmActionPanel } from "./ConfirmActionPanel";
 import { CopyableId } from "./CopyableId";
+import { IdentityLabel } from "./IdentityLabel";
 import { errorMessage } from "../dash/logger";
 import {
   fetchTokenOpsGovernance,
@@ -26,6 +27,7 @@ import {
   unfreezeToken,
 } from "../dash/tokenOperations";
 import { CapabilityIcon } from "../lib/capabilityIcon";
+import { useDpnsNames } from "../hooks/useDpnsNames";
 import { useSession } from "../session/useSession";
 
 type PendingWithGroup = PendingAction & { group: TokenOpsGroupInfo };
@@ -39,13 +41,20 @@ type PendingWithGroup = PendingAction & { group: TokenOpsGroupInfo };
  */
 function actionDetails(
   params: PendingTokenActionParams,
+  dpnsNames: Record<string, string | null>,
 ): { label: string; value: React.ReactNode; prominent?: boolean }[] {
   switch (params.kind) {
     case "mint":
       return [
         {
           label: "Recipient",
-          value: <CopyableId id={params.recipientId} len={8} />,
+          value: (
+            <IdentityLabel
+              id={params.recipientId}
+              dpnsNames={dpnsNames}
+              len={8}
+            />
+          ),
           prominent: true,
         },
         { label: "Amount", value: params.amount.toString(), prominent: true },
@@ -54,7 +63,13 @@ function actionDetails(
       return [
         {
           label: "Burn from",
-          value: <CopyableId id={params.burnFromId} len={8} />,
+          value: (
+            <IdentityLabel
+              id={params.burnFromId}
+              dpnsNames={dpnsNames}
+              len={8}
+            />
+          ),
           prominent: true,
         },
         { label: "Amount", value: params.amount.toString(), prominent: true },
@@ -64,7 +79,13 @@ function actionDetails(
       return [
         {
           label: "Target",
-          value: <CopyableId id={params.targetIdentityId} len={8} />,
+          value: (
+            <IdentityLabel
+              id={params.targetIdentityId}
+              dpnsNames={dpnsNames}
+              len={8}
+            />
+          ),
           prominent: true,
         },
       ];
@@ -72,7 +93,13 @@ function actionDetails(
       return [
         {
           label: "Target",
-          value: <CopyableId id={params.targetIdentityId} len={8} />,
+          value: (
+            <IdentityLabel
+              id={params.targetIdentityId}
+              dpnsNames={dpnsNames}
+              len={8}
+            />
+          ),
           prominent: true,
         },
         ...(params.amount != null
@@ -360,6 +387,26 @@ export function PendingActionsView() {
     return !signerProgress.hasSigned(session.identityId);
   }
 
+  const identityIds = useMemo(
+    () => [
+      session.identityId,
+      ...actions.flatMap((action) => [
+        action.proposerId,
+        ...action.group.members.keys(),
+        action.params?.kind === "mint" ? action.params.recipientId : undefined,
+        action.params?.kind === "burn" ? action.params.burnFromId : undefined,
+        action.params?.kind === "freeze" ||
+        action.params?.kind === "unfreeze" ||
+        action.params?.kind === "destroyFrozen"
+          ? action.params.targetIdentityId
+          : undefined,
+      ]),
+      ...[...progress.values()].flatMap((p) => [...p.signers.keys()]),
+    ],
+    [actions, progress, session.identityId],
+  );
+  const dpnsNames = useDpnsNames(session.sdk, identityIds);
+
   return (
     <div className="pending-screen">
       {error && <div className="notice error">{error}</div>}
@@ -432,7 +479,9 @@ export function PendingActionsView() {
           }: (typeof enriched)[number]) => {
             const percent = progressPercent(p, action.group.requiredPower);
             const kind = actionKind(action);
-            const details = action.params ? actionDetails(action.params) : [];
+            const details = action.params
+              ? actionDetails(action.params, dpnsNames)
+              : [];
             const isExpanded = expandedActionIds.has(action.actionId);
             const visibleDetails = isExpanded ? details : [];
             const signedCount = signedMemberCount(action, p);
@@ -483,7 +532,11 @@ export function PendingActionsView() {
                         {subject && (
                           <div className="proposal-subtitle">
                             <span>{subject.label}</span>
-                            <CopyableId id={subject.id} len={8} />
+                            <IdentityLabel
+                              id={subject.id}
+                              dpnsNames={dpnsNames}
+                              len={8}
+                            />
                           </div>
                         )}
                       </div>
@@ -561,7 +614,11 @@ export function PendingActionsView() {
                         {proposedByCurrentIdentity ? (
                           "You"
                         ) : (
-                          <CopyableId id={action.proposerId} len={8} />
+                          <IdentityLabel
+                            id={action.proposerId}
+                            dpnsNames={dpnsNames}
+                            len={8}
+                          />
                         )}
                       </strong>
                     </div>
