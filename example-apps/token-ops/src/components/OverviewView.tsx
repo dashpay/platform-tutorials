@@ -1,11 +1,14 @@
 import { useEffect, useState } from "react";
 
 import { CopyableId } from "./CopyableId";
-import { TOKEN_MAX_SUPPLY } from "../dash/contract";
 import { fetchTokenOpsGovernance } from "../dash/governance";
 import { listPendingActions } from "../dash/groupActions";
 import { errorMessage } from "../dash/logger";
-import { fetchIdentityTokenStates, fetchTokenOverview } from "../dash/token";
+import {
+  fetchIdentityTokenStates,
+  fetchTokenOverview,
+  type TokenSupplyConfig,
+} from "../dash/token";
 import { useSession } from "../session/useSession";
 
 type IdentityTokenState = {
@@ -18,8 +21,9 @@ function formatAmount(value: bigint): string {
   return value.toLocaleString("en-US");
 }
 
-function supplyPercent(totalSupply: bigint): number {
-  const basisPoints = (totalSupply * 10_000n) / TOKEN_MAX_SUPPLY;
+function supplyPercent(totalSupply: bigint, maxSupply: bigint): number {
+  if (maxSupply <= 0n) return 0;
+  const basisPoints = (totalSupply * 10_000n) / maxSupply;
   return Math.max(0, Math.min(100, Number(basisPoints) / 100));
 }
 
@@ -39,6 +43,7 @@ export function OverviewView({
     totalSupply: bigint;
     isPaused: boolean;
     metadata: { name: string; description: string };
+    supplyConfig: TokenSupplyConfig;
   } | null>(null);
   const [identityRows, setIdentityRows] = useState<
     Map<string, IdentityTokenState>
@@ -122,8 +127,21 @@ export function OverviewView({
   }
 
   const totalSupply = overview?.totalSupply ?? 0n;
-  const percentMinted = supplyPercent(totalSupply);
-  const headroom = TOKEN_MAX_SUPPLY - totalSupply;
+  const baseSupply = overview?.supplyConfig.baseSupply ?? 0n;
+  const maxSupply = overview?.supplyConfig.maxSupply ?? null;
+  const hasCap = maxSupply != null && maxSupply > 0n;
+  const percentMinted = hasCap ? supplyPercent(totalSupply, maxSupply) : 0;
+  const headroom = hasCap ? maxSupply - totalSupply : 0n;
+  const isPerpetual = overview?.supplyConfig.hasPerpetualDistribution ?? false;
+  const isPreProgrammed =
+    overview?.supplyConfig.hasPreProgrammedDistribution ?? false;
+  const distributionNote = isPerpetual
+    ? isPreProgrammed
+      ? " — supply grows via perpetual and pre-programmed distribution."
+      : " — supply grows via perpetual distribution."
+    : isPreProgrammed
+      ? " — supply grows via pre-programmed distribution."
+      : ".";
 
   return (
     <div className="overview-screen">
@@ -148,22 +166,50 @@ export function OverviewView({
           <h3>Token supply</h3>
           <div className="supply-meter-head">
             <strong>{formatAmount(totalSupply)}</strong>
-            <span>of {formatAmount(TOKEN_MAX_SUPPLY)} max</span>
+            <span>
+              {hasCap ? (
+                <>of {formatAmount(maxSupply)} max</>
+              ) : (
+                "circulating"
+              )}
+            </span>
           </div>
-          <div
-            className="supply-meter"
-            role="progressbar"
-            aria-label="Minted supply"
-            aria-valuemin={0}
-            aria-valuemax={100}
-            aria-valuenow={percentMinted}
-          >
-            <span style={{ width: `${percentMinted}%` }} />
-          </div>
-          <div className="row between supply-meter-foot">
-            <span>{percentMinted.toFixed(2)}% minted</span>
-            <span>{formatAmount(headroom > 0n ? headroom : 0n)} remaining</span>
-          </div>
+          {hasCap ? (
+            <>
+              <div
+                className="supply-meter"
+                role="progressbar"
+                aria-label="Minted supply"
+                aria-valuemin={0}
+                aria-valuemax={100}
+                aria-valuenow={percentMinted}
+              >
+                <span style={{ width: `${percentMinted}%` }} />
+              </div>
+              <div className="row between supply-meter-foot">
+                <span>{percentMinted.toFixed(2)}% minted</span>
+                <span>
+                  {formatAmount(headroom > 0n ? headroom : 0n)} remaining
+                </span>
+              </div>
+            </>
+          ) : (
+            <>
+              {baseSupply > 0n && (
+                <div className="supply-meter-foot">
+                  <span>{formatAmount(baseSupply)} base supply</span>
+                </div>
+              )}
+              <div className="supply-meter-foot">
+                <span>No fixed maximum supply{distributionNote}</span>
+              </div>
+            </>
+          )}
+          {hasCap && baseSupply > 0n && (
+            <div className="supply-meter-foot">
+              <span>{formatAmount(baseSupply)} base supply</span>
+            </div>
+          )}
         </section>
 
         <section className="overview-panel token-details-panel">

@@ -21,6 +21,80 @@ export interface TokenMetadata {
   description: string;
 }
 
+export interface TokenSupplyConfig {
+  /**
+   * The initial supply minted to the contract owner at registration, read from
+   * `tokens[pos].baseSupply`. Distinct from the live `totalSupply`, which also
+   * includes anything minted since (manual mints, perpetual distribution). 0
+   * when the config omits it.
+   */
+  baseSupply: bigint;
+  /**
+   * The token's fixed maximum supply, or `null` when the token is uncapped.
+   * A capped meter (percent minted / remaining headroom) is only meaningful
+   * when this is non-null. Read straight from the fetched contract's
+   * `tokens[pos].maxSupply` — do NOT confuse with the static registration
+   * default `TOKEN_MAX_SUPPLY`, which only describes contracts this app mints.
+   */
+  maxSupply: bigint | null;
+  /**
+   * True when `distributionRules.perpetualDistribution` is configured — the
+   * token mints new supply on an ongoing schedule (block/time/epoch-based).
+   * Such tokens commonly have no `maxSupply`.
+   */
+  hasPerpetualDistribution: boolean;
+  /** True when `distributionRules.preProgrammedDistribution` is configured. */
+  hasPreProgrammedDistribution: boolean;
+}
+
+function toBigIntOrNull(value: unknown): bigint | null {
+  if (value === null || value === undefined) return null;
+  if (typeof value === "bigint") return value;
+  if (typeof value === "number" && Number.isFinite(value)) {
+    return BigInt(Math.trunc(value));
+  }
+  if (typeof value === "string" && value.trim() !== "") {
+    try {
+      return BigInt(value);
+    } catch {
+      return null;
+    }
+  }
+  return null;
+}
+
+/**
+ * Read the supply cap and distribution shape out of a fetched contract's token
+ * config. The SDK serializes `tokens[pos].maxSupply` as a number (or `null`
+ * when uncapped) and `tokens[pos].distributionRules` with nullable
+ * `perpetualDistribution` / `preProgrammedDistribution` sub-objects.
+ */
+export function readTokenSupplyConfig(
+  contract: DashContractLike | undefined,
+  tokenPosition: number,
+): TokenSupplyConfig {
+  if (!contract) {
+    return {
+      baseSupply: 0n,
+      maxSupply: null,
+      hasPerpetualDistribution: false,
+      hasPreProgrammedDistribution: false,
+    };
+  }
+  const json = toJson(contract);
+  const tokens = toJson(json.tokens);
+  const tokenConfig = toJson(
+    tokens[String(tokenPosition)] ?? tokens[tokenPosition],
+  );
+  const distribution = toJson(tokenConfig.distributionRules);
+  return {
+    baseSupply: toBigIntOrNull(tokenConfig.baseSupply) ?? 0n,
+    maxSupply: toBigIntOrNull(tokenConfig.maxSupply),
+    hasPerpetualDistribution: distribution.perpetualDistribution != null,
+    hasPreProgrammedDistribution: distribution.preProgrammedDistribution != null,
+  };
+}
+
 function toJson(value: unknown): Record<string, unknown> {
   if (value && typeof value === "object") {
     const maybe = value as { toJSON?: () => unknown };
@@ -157,6 +231,7 @@ export async function fetchTokenOverview({
   isPaused: boolean;
   contractInfo: unknown;
   metadata: TokenMetadata;
+  supplyConfig: TokenSupplyConfig;
 }> {
   const tokenId = await fetchTokenId({ sdk, contractId });
   const [totalSupply, statuses, contractInfo, contract] = await Promise.all([
@@ -171,5 +246,6 @@ export async function fetchTokenOverview({
     isPaused: statuses.get(tokenId)?.isPaused ?? false,
     contractInfo,
     metadata: readTokenMetadata(contract, TOKEN_POSITION),
+    supplyConfig: readTokenSupplyConfig(contract, TOKEN_POSITION),
   };
 }
