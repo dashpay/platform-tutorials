@@ -83,6 +83,10 @@ export interface DashSdk {
   documents?: Record<string, unknown>;
   identities: {
     byPublicKeyHash(publicKeyHash: unknown): Promise<Identity | undefined>;
+    byNonUniquePublicKeyHash?(
+      publicKeyHash: unknown,
+      startAfter?: unknown,
+    ): Promise<Identity[]>;
     nonce(identityId: string): Promise<bigint | null | undefined>;
     balance(identityId: string): Promise<bigint>;
   };

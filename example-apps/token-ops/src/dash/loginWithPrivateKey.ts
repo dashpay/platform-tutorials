@@ -14,6 +14,15 @@ export class UnknownIdentityError extends Error {
   }
 }
 
+export class AmbiguousIdentityError extends Error {
+  constructor() {
+    super(
+      "This key matches multiple identities on testnet. Use a different authentication key.",
+    );
+    this.name = "AmbiguousIdentityError";
+  }
+}
+
 export class WrongKeyPurposeError extends Error {
   identityId: string;
   purposeName: string;
@@ -138,6 +147,13 @@ interface ResolvedWifIdentity {
   identityKey: unknown;
 }
 
+interface MatchedIdentity {
+  identity: IdentityLike;
+  identityId: string;
+  matched: IdentityJsonKey;
+  error: Error | null;
+}
+
 export async function resolveIdentityFromWif(
   sdk: DashSdk,
   wif: string,
@@ -153,12 +169,6 @@ export async function resolveIdentityFromWif(
   const identity = (await sdk.identities.byPublicKeyHash(
     pubKeyHash as never,
   )) as IdentityLike | undefined | null;
-  if (!identity) throw new UnknownIdentityError();
-
-  const identityId =
-    typeof identity.id === "string" ? identity.id : identity.id.toString();
-  const publicKeys = identity.toJSON?.().publicKeys ?? [];
-  if (publicKeys.length === 0) throw new UnknownIdentityError();
 
   const pkAny = privateKey as unknown as {
     getPublicKey?: () => unknown;
@@ -168,36 +178,51 @@ export async function resolveIdentityFromWif(
     ? pkAny.getPublicKey()
     : pkAny.toPublicKey?.();
   const ourPubKeyBytes = ourPubKey ? extractPubKeyBytes(ourPubKey) : null;
+  const ourPubKeyHashBytes = normalizePublicKeyHash(pubKeyHash);
 
-  const matched = publicKeys.find((entry) => {
-    if (!entry.data || !ourPubKeyBytes) return false;
-    const entryBytes = tryDecodeKeyData(entry.data);
-    return entryBytes ? bytesEqual(entryBytes, ourPubKeyBytes) : false;
-  });
-  if (!matched) throw new UnknownIdentityError();
-
-  if (matched.disabled === true || matched.disabledAt) {
-    throw new KeyDisabledError(identityId);
-  }
-
-  const purposeValue = matched.purpose;
-  const securityLevelValue = matched.securityLevel;
-  const isAuthPurpose =
-    purposeValue === (Purpose.AUTHENTICATION as unknown as number);
-  const isAuthLevel = AUTH_SECURITY_LEVELS.has(securityLevelValue);
-  if (!isAuthPurpose || !isAuthLevel) {
-    throw new WrongKeyPurposeError(
-      identityId,
-      purposeName(purposeValue),
-      securityLevelName(securityLevelValue),
+  if (identity) {
+    const match = matchIdentityKey(
+      identity,
+      ourPubKeyBytes,
+      ourPubKeyHashBytes,
     );
+    if (!match) throw new UnknownIdentityError();
+    if (match.error) throw match.error;
+    return resolvedIdentity(match);
   }
 
+  const candidates =
+    (await sdk.identities.byNonUniquePublicKeyHash?.(pubKeyHash as never)) ??
+    [];
+  const matches = candidates
+    .map((candidate) =>
+      matchIdentityKey(
+        candidate as IdentityLike,
+        ourPubKeyBytes,
+        ourPubKeyHashBytes,
+      ),
+    )
+    .filter((match): match is MatchedIdentity => match != null);
+
+  const validMatches = matches.filter((match) => !match.error);
+  if (validMatches.length === 1) {
+    return resolvedIdentity(validMatches[0]);
+  }
+  if (validMatches.length > 1 || matches.length > 1) {
+    throw new AmbiguousIdentityError();
+  }
+  if (matches.length === 1) {
+    throw matches[0].error ?? new UnknownIdentityError();
+  }
+  throw new UnknownIdentityError();
+}
+
+function resolvedIdentity(match: MatchedIdentity): ResolvedWifIdentity {
   return {
-    identity,
-    identityId,
-    matched,
-    identityKey: identity.getPublicKeyById?.(matched.id),
+    identity: match.identity,
+    identityId: match.identityId,
+    matched: match.matched,
+    identityKey: match.identity.getPublicKeyById?.(match.matched.id),
   };
 }
 
@@ -215,6 +240,69 @@ export async function loginWithPrivateKey(
     signer,
     identityId: resolved.identityId,
   };
+}
+
+function matchIdentityKey(
+  identity: IdentityLike,
+  ourPubKeyBytes: Uint8Array | null,
+  ourPubKeyHashBytes: Uint8Array | null,
+): MatchedIdentity | null {
+  const identityId =
+    typeof identity.id === "string" ? identity.id : identity.id.toString();
+  const publicKeys = identity.toJSON?.().publicKeys ?? [];
+  if (publicKeys.length === 0) return null;
+
+  const matched = publicKeys.find((entry) => {
+    if (!entry.data) return false;
+    const entryBytes = tryDecodeKeyData(entry.data);
+    if (!entryBytes) return false;
+    return (
+      (ourPubKeyBytes ? bytesEqual(entryBytes, ourPubKeyBytes) : false) ||
+      (ourPubKeyHashBytes ? bytesEqual(entryBytes, ourPubKeyHashBytes) : false)
+    );
+  });
+  if (!matched) return null;
+
+  let error: Error | null = null;
+  if (matched.disabled === true || matched.disabledAt) {
+    error = new KeyDisabledError(identityId);
+  } else {
+    const purposeValue = matched.purpose;
+    const securityLevelValue = matched.securityLevel;
+    const isAuthPurpose =
+      purposeValue === (Purpose.AUTHENTICATION as unknown as number);
+    const isAuthLevel = AUTH_SECURITY_LEVELS.has(securityLevelValue);
+    if (!isAuthPurpose || !isAuthLevel) {
+      error = new WrongKeyPurposeError(
+        identityId,
+        purposeName(purposeValue),
+        securityLevelName(securityLevelValue),
+      );
+    }
+  }
+
+  return {
+    identity,
+    identityId,
+    matched,
+    error,
+  };
+}
+
+function normalizePublicKeyHash(hash: unknown): Uint8Array | null {
+  if (hash instanceof Uint8Array) return hash;
+  if (Array.isArray(hash)) return new Uint8Array(hash);
+  if (typeof hash === "string") return tryDecodeHex(hash);
+  return null;
+}
+
+function tryDecodeHex(hex: string): Uint8Array | null {
+  if (!/^[0-9a-fA-F]+$/.test(hex) || hex.length % 2 !== 0) return null;
+  const bytes = new Uint8Array(hex.length / 2);
+  for (let i = 0; i < bytes.length; i += 1) {
+    bytes[i] = parseInt(hex.slice(i * 2, i * 2 + 2), 16);
+  }
+  return bytes;
 }
 
 function extractPubKeyBytes(pubKey: unknown): Uint8Array | null {
@@ -242,11 +330,7 @@ function extractPubKeyBytes(pubKey: unknown): Uint8Array | null {
     try {
       const hex = candidate.toString("hex");
       if (typeof hex === "string" && /^[0-9a-fA-F]+$/.test(hex)) {
-        const bytes = new Uint8Array(hex.length / 2);
-        for (let i = 0; i < bytes.length; i += 1) {
-          bytes[i] = parseInt(hex.slice(i * 2, i * 2 + 2), 16);
-        }
-        return bytes;
+        return tryDecodeHex(hex);
       }
     } catch {
       // Fall through.

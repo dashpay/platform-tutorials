@@ -24,6 +24,7 @@ vi.mock("@dashevo/evo-sdk", () => ({
 }));
 
 import {
+  AmbiguousIdentityError,
   InvalidPrivateKeyError,
   KeyDisabledError,
   UnknownIdentityError,
@@ -43,10 +44,18 @@ const MEDIUM = 3;
 
 const ourPubKeyHex =
   "02aabbccddeeff00112233445566778899aabbccddeeff00112233445566778899";
+const ourPubKeyHashHex = "11223344556677889900aabbccddeeff00112233";
 const ourPubKeyBytes = (() => {
   const bytes = new Uint8Array(ourPubKeyHex.length / 2);
   for (let i = 0; i < bytes.length; i += 1) {
     bytes[i] = parseInt(ourPubKeyHex.slice(i * 2, i * 2 + 2), 16);
+  }
+  return bytes;
+})();
+const ourPubKeyHashBytes = (() => {
+  const bytes = new Uint8Array(ourPubKeyHashHex.length / 2);
+  for (let i = 0; i < bytes.length; i += 1) {
+    bytes[i] = parseInt(ourPubKeyHashHex.slice(i * 2, i * 2 + 2), 16);
   }
   return bytes;
 })();
@@ -57,10 +66,17 @@ const ourPubKeyBase64 = (() => {
   });
   return btoa(binary);
 })();
+const ourPubKeyHashBase64 = (() => {
+  let binary = "";
+  ourPubKeyHashBytes.forEach((byte) => {
+    binary += String.fromCharCode(byte);
+  });
+  return btoa(binary);
+})();
 
-function privateKey() {
+function privateKey(hash: string | Uint8Array = "hash") {
   return {
-    getPublicKeyHash: () => "hash",
+    getPublicKeyHash: () => hash,
     getPublicKey: () => ({
       toBytes: () => ourPubKeyBytes,
     }),
@@ -68,14 +84,16 @@ function privateKey() {
 }
 
 function identity({
+  id = "identity-1",
   purpose = AUTHENTICATION,
   securityLevel = CRITICAL,
   disabled = false,
   disabledAt = null as number | string | null,
+  data = ourPubKeyBase64,
 } = {}) {
   const identityKey = { id: 2 };
   return {
-    id: { toString: () => "identity-1" },
+    id: { toString: () => id },
     getPublicKeyById: vi.fn().mockReturnValue(identityKey),
     toJSON: () => ({
       publicKeys: [
@@ -83,7 +101,7 @@ function identity({
           id: 2,
           purpose,
           securityLevel,
-          data: ourPubKeyBase64,
+          data,
           disabled,
           disabledAt,
         },
@@ -96,6 +114,16 @@ function sdkWithIdentity(value: unknown): DashSdk {
   return {
     identities: {
       byPublicKeyHash: vi.fn().mockResolvedValue(value),
+      byNonUniquePublicKeyHash: vi.fn().mockResolvedValue([]),
+    },
+  } as unknown as DashSdk;
+}
+
+function sdkWithLookups(unique: unknown, nonUnique: unknown[]): DashSdk {
+  return {
+    identities: {
+      byPublicKeyHash: vi.fn().mockResolvedValue(unique),
+      byNonUniquePublicKeyHash: vi.fn().mockResolvedValue(nonUnique),
     },
   } as unknown as DashSdk;
 }
@@ -120,6 +148,69 @@ describe("loginWithPrivateKey", () => {
 
     await expect(
       resolveIdentityFromWif(sdkWithIdentity(null), "wif"),
+    ).rejects.toBeInstanceOf(UnknownIdentityError);
+  });
+
+  it("falls back to non-unique public-key-hash lookup", async () => {
+    const resolvedIdentity = identity({
+      id: "identity-non-unique",
+      data: ourPubKeyHashBase64,
+    });
+    fromWIF.mockReturnValue(privateKey(ourPubKeyHashHex));
+
+    const result = await loginWithPrivateKey(
+      sdkWithLookups(null, [resolvedIdentity]),
+      "wif",
+    );
+
+    expect(result.identity).toBe(resolvedIdentity);
+    expect(result.identityId).toBe("identity-non-unique");
+    expect(result.identityKey).toEqual({ id: 2 });
+    expect(addKeyFromWif).toHaveBeenCalledWith("wif");
+  });
+
+  it("matches base64-encoded public-key hash data", async () => {
+    fromWIF.mockReturnValue(privateKey(ourPubKeyHashHex));
+
+    const result = await loginWithPrivateKey(
+      sdkWithIdentity(identity({ data: ourPubKeyHashBase64 })),
+      "wif",
+    );
+
+    expect(result.identityId).toBe("identity-1");
+  });
+
+  it("matches hex-encoded public-key hash data", async () => {
+    fromWIF.mockReturnValue(privateKey(ourPubKeyHashBytes));
+
+    const result = await loginWithPrivateKey(
+      sdkWithIdentity(identity({ data: ourPubKeyHashHex })),
+      "wif",
+    );
+
+    expect(result.identityId).toBe("identity-1");
+  });
+
+  it("rejects ambiguous non-unique identity matches", async () => {
+    fromWIF.mockReturnValue(privateKey(ourPubKeyHashHex));
+
+    await expect(
+      loginWithPrivateKey(
+        sdkWithLookups(null, [
+          identity({ id: "identity-a", data: ourPubKeyHashBase64 }),
+          identity({ id: "identity-b", data: ourPubKeyHashBase64 }),
+        ]),
+        "wif",
+      ),
+    ).rejects.toBeInstanceOf(AmbiguousIdentityError);
+    expect(addKeyFromWif).not.toHaveBeenCalled();
+  });
+
+  it("rejects empty non-unique lookup results", async () => {
+    fromWIF.mockReturnValue(privateKey(ourPubKeyHashHex));
+
+    await expect(
+      resolveIdentityFromWif(sdkWithLookups(null, []), "wif"),
     ).rejects.toBeInstanceOf(UnknownIdentityError);
   });
 
