@@ -40,17 +40,19 @@ export const HAS_GROUP_IDENTITIES =
   HAS_MNEMONIC && GROUP_MEMBER_IDS.length === 3;
 
 /**
- * Sign in via the Account tab with PLATFORM_MNEMONIC at the given identity
+ * Sign in via the top-bar modal with PLATFORM_MNEMONIC at the given identity
  * index. Caller should `test.skip(!HAS_MNEMONIC, …)` first.
  */
 export async function loginAs(page: Page, identityIndex: number) {
   const mnemonic = process.env.PLATFORM_MNEMONIC?.trim();
   if (!mnemonic) throw new Error("PLATFORM_MNEMONIC is required for loginAs");
 
-  await page.getByRole("button", { name: "Account" }).click();
-  await page.getByLabel("Mnemonic").fill(mnemonic);
-  await page.getByLabel(/identity index/i).fill(String(identityIndex));
-  await page.getByRole("button", { name: "Sign in" }).click();
+  await page.getByRole("button", { name: "Sign in", exact: true }).click();
+  const dialog = page.getByRole("dialog", { name: "Sign in to TokenOps" });
+  await dialog.getByLabel("Mnemonic or private key").fill(mnemonic);
+  await dialog.getByRole("button", { name: "Show advanced settings" }).click();
+  await dialog.getByLabel(/identity index/i).fill(String(identityIndex));
+  await dialog.getByRole("button", { name: "Sign in", exact: true }).click();
 
   await expect(page.getByText("Signed in")).toBeVisible({ timeout: 60_000 });
 }

@@ -34,7 +34,12 @@ npm run format:check  # Prettier (check only)
 
 ## Signing in
 
-Sign in from the **Account** tab with a mnemonic and an identity index. Index `0` is the contract owner (the identity that can register a contract and reassign authorities); indices `1`–`3` are the group members that propose and co-sign token actions. The mnemonic is passed straight to the in-memory key manager and is never written to React state or localStorage.
+Click **Sign in** in the top bar to open the login modal. Paste either a BIP-39 **mnemonic** or a single **WIF private key** — the app picks the path automatically (mnemonics contain whitespace; a WIF is one token). "Sign out" also lives in the top bar. The secret is passed straight to the in-memory key manager and is never written to React state or localStorage.
+
+- **Mnemonic** — an "Advanced settings" disclosure exposes an identity index. Index `0` is the contract owner (the identity that can register a contract and reassign authorities); indices `1`–`3` are the group members that propose and co-sign token actions.
+- **WIF private key** — the app looks up the owning identity via its public-key hash (`sdk.identities.byPublicKeyHash`) and verifies the matching key is an AUTHENTICATION key at HIGH or CRITICAL security level and not disabled. Wrong-purpose, disabled-key, unknown-identity, and malformed-WIF cases each surface a specific error. No identity index applies — the identity is whichever one holds that key.
+
+The **Settings** tab shows signed-in status and token balance (or a read-only notice), plus the contract/token-ID resolver and the register-contract flow.
 
 The network is hardcoded to **testnet** — this is a demo app, not a mainnet tool.
 
@@ -62,7 +67,7 @@ The contract registers three groups. Every member has power `1`, so the required
 
 These thresholds describe the **initial** contract. Platform groups are immutable once registered, so the app never edits a group in place — the Governance → Groups tab **appends** a new group (any Platform-valid size, 2–256 members) and remaps token functions to it.
 
-`DEFAULT_CONTRACT_ID` in [`src/dash/contractStorage.ts`](src/dash/contractStorage.ts) is a published testnet contract (`KMMJJdJo9LTjjevsuJ4jkbNZEY8xCq8n44cDmba7o2A`) so browse-only mode works immediately. The active ID is stored under `localStorage['token-ops.contractId']`; clearing it falls back to the default. Register your own from the Account tab, or paste an existing contract **or** token ID — the app resolves either.
+`DEFAULT_CONTRACT_ID` in [`src/dash/contractStorage.ts`](src/dash/contractStorage.ts) is a published testnet contract (`KMMJJdJo9LTjjevsuJ4jkbNZEY8xCq8n44cDmba7o2A`) so browse-only mode works immediately. The active ID is stored under `localStorage['token-ops.contractId']`; clearing it falls back to the default. Register your own from the Settings tab, or paste an existing contract **or** token ID — the app resolves either.
 
 ## Group members
 
@@ -72,24 +77,25 @@ The group-signing flow needs three additional funded identities. The bootstrap s
 npm run bootstrap:identities
 ```
 
-`PLATFORM_MNEMONIC` is read from the **repo-root** `.env`, funded with enough testnet credits to register and top up four identities. The script is idempotent (re-runs skip already-registered identities and only top up balances below the role floor) and writes the three member IDs to `token-ops/.env` as `VITE_TOKEN_OPS_MEMBER_1_ID`, `VITE_TOKEN_OPS_MEMBER_2_ID`, and `VITE_TOKEN_OPS_MEMBER_3_ID`. The Account tab's "Register a new contract" flow defaults its group members to those three.
+`PLATFORM_MNEMONIC` is read from the **repo-root** `.env`, funded with enough testnet credits to register and top up four identities. The script is idempotent (re-runs skip already-registered identities and only top up balances below the role floor) and writes the three member IDs to `token-ops/.env` as `VITE_TOKEN_OPS_MEMBER_1_ID`, `VITE_TOKEN_OPS_MEMBER_2_ID`, and `VITE_TOKEN_OPS_MEMBER_3_ID`. The Settings tab's "Register a new contract" flow defaults its group members to those three.
 
 ## Platform operations at a glance
 
 Every SDK call lives under [`src/dash/`](src/dash/), one file per concern, each with a JSDoc header naming the method it wraps.
 
-| Concern                        | File                                                | SDK method(s)                                                                                                          |
-| ------------------------------ | --------------------------------------------------- | ---------------------------------------------------------------------------------------------------------------------- |
-| Connect to testnet             | [`client.ts`](src/dash/client.ts)                   | `EvoSDK.testnetTrusted()` + `sdk.connect()` (via shared core)                                                          |
-| Derive identity keys           | [`keyManager.ts`](src/dash/keyManager.ts)           | `wallet.deriveKeyFromSeedWithPath` (via shared core)                                                                   |
-| Register contract              | [`contract.ts`](src/dash/contract.ts)               | `sdk.identities.nonce`, `sdk.contracts.publish`                                                                        |
-| Persist / look up contract     | [`contractStorage.ts`](src/dash/contractStorage.ts) | `sdk.contracts.fetch`                                                                                                  |
-| Read groups + rules            | [`governance.ts`](src/dash/governance.ts)           | `sdk.contracts.fetch`, `sdk.group.info`, `sdk.contracts.update` (append group)                                         |
-| List pending actions + signers | [`groupActions.ts`](src/dash/groupActions.ts)       | `sdk.group.actions`, `sdk.group.actionSigners`                                                                         |
-| Read token state               | [`token.ts`](src/dash/token.ts)                     | `sdk.tokens.calculateId` / `totalSupply` / `statuses` / `identityBalances` / `identityTokenInfos` / `contractInfo`     |
-| Token mutations                | [`tokenOperations.ts`](src/dash/tokenOperations.ts) | `sdk.tokens.mint` / `burn` / `transfer` / `freeze` / `unfreeze` / `destroyFrozen` / `emergencyAction` / `configUpdate` |
-| Resolve contract-or-token ID   | [`resolveTokenRef.ts`](src/dash/resolveTokenRef.ts) | `sdk.tokens.contractInfo`, `sdk.tokens.calculateId`                                                                    |
-| Resolve DPNS name              | [`resolveDpnsName.ts`](src/dash/resolveDpnsName.ts) | `sdk.dpns.username`                                                                                                    |
+| Concern                         | File                                                        | SDK method(s)                                                                                                          |
+| ------------------------------- | ----------------------------------------------------------- | ---------------------------------------------------------------------------------------------------------------------- |
+| Connect to testnet              | [`client.ts`](src/dash/client.ts)                           | `EvoSDK.testnetTrusted()` + `sdk.connect()` (via shared core)                                                          |
+| Derive identity keys (mnemonic) | [`keyManager.ts`](src/dash/keyManager.ts)                   | `wallet.deriveKeyFromSeedWithPath` (via shared core)                                                                   |
+| Sign in with a WIF private key  | [`loginWithPrivateKey.ts`](src/dash/loginWithPrivateKey.ts) | `sdk.identities.byPublicKeyHash`, `PrivateKey.fromWIF`, `IdentitySigner.addKeyFromWif`                                 |
+| Register contract               | [`contract.ts`](src/dash/contract.ts)                       | `sdk.identities.nonce`, `sdk.contracts.publish`                                                                        |
+| Persist / look up contract      | [`contractStorage.ts`](src/dash/contractStorage.ts)         | `sdk.contracts.fetch`                                                                                                  |
+| Read groups + rules             | [`governance.ts`](src/dash/governance.ts)                   | `sdk.contracts.fetch`, `sdk.group.info`, `sdk.contracts.update` (append group)                                         |
+| List pending actions + signers  | [`groupActions.ts`](src/dash/groupActions.ts)               | `sdk.group.actions`, `sdk.group.actionSigners`                                                                         |
+| Read token state                | [`token.ts`](src/dash/token.ts)                             | `sdk.tokens.calculateId` / `totalSupply` / `statuses` / `identityBalances` / `identityTokenInfos` / `contractInfo`     |
+| Token mutations                 | [`tokenOperations.ts`](src/dash/tokenOperations.ts)         | `sdk.tokens.mint` / `burn` / `transfer` / `freeze` / `unfreeze` / `destroyFrozen` / `emergencyAction` / `configUpdate` |
+| Resolve contract-or-token ID    | [`resolveTokenRef.ts`](src/dash/resolveTokenRef.ts)         | `sdk.tokens.contractInfo`, `sdk.tokens.calculateId`                                                                    |
+| Resolve DPNS name               | [`resolveDpnsName.ts`](src/dash/resolveDpnsName.ts)         | `sdk.dpns.username`                                                                                                    |
 
 [`client.ts`](src/dash/client.ts) and [`keyManager.ts`](src/dash/keyManager.ts) re-export directly from the repo-root `setupDashClient-core.mjs` — the same browser-safe core the Node tutorials use. The `@dashevo/evo-sdk` bare specifier is aliased to the app's local copy in [`vite.config.ts`](vite.config.ts).
 
@@ -112,16 +118,16 @@ The Pending tab surfaces ACTIVE actions (`sdk.group.actions`), shows "N of M" si
 ## Reading this codebase
 
 1. **[`src/dash/`](src/dash/)** — start here. [`contract.ts`](src/dash/contract.ts) defines the token config, rule presets, and initial groups; [`tokenOperations.ts`](src/dash/tokenOperations.ts) shows the propose/co-sign pattern; [`governance.ts`](src/dash/governance.ts) reads and appends authorities.
-2. **[`src/session/SessionContext.tsx`](src/session/SessionContext.tsx)** — SDK connection, identity, contract ID, read-only vs authenticated status, and the toast logger. The mnemonic lives only inside the key manager closure. Consumer hook: [`useSession.ts`](src/session/useSession.ts).
-3. **[`src/components/`](src/components/)** — the five views (Overview, Operations, Pending, Governance, Account) plus [`ConfirmActionPanel`](src/components/ConfirmActionPanel.tsx), [`IdentityLabel`](src/components/IdentityLabel.tsx), [`CopyableId`](src/components/CopyableId.tsx), [`AppNotices`](src/components/AppNotices.tsx), and [`TopNav`](src/components/TopNav.tsx).
+2. **[`src/session/SessionContext.tsx`](src/session/SessionContext.tsx)** — SDK connection, identity, contract ID, read-only vs authenticated status, and the toast logger. `login(secret, { identityIndex })` dispatches on secret shape ([`detectSecretShape.ts`](src/lib/detectSecretShape.ts)): a mnemonic builds an `IdentityKeyManager`; a WIF goes through [`loginWithPrivateKey.ts`](src/dash/loginWithPrivateKey.ts), then [`keyManagerFromKey.ts`](src/session/keyManagerFromKey.ts) adapts the resolved auth tuple to the `DashKeyManager` shape. The secret lives only inside the key manager closure. Consumer hook: [`useSession.ts`](src/session/useSession.ts).
+3. **[`src/components/`](src/components/)** — the five tab views (Overview, Operations, Pending, Governance, Settings) plus the top-bar [`LoginModal`](src/components/LoginModal.tsx) (mnemonic/WIF sign-in), [`ConfirmActionPanel`](src/components/ConfirmActionPanel.tsx), [`IdentityLabel`](src/components/IdentityLabel.tsx), [`CopyableId`](src/components/CopyableId.tsx), [`AppNotices`](src/components/AppNotices.tsx), and [`TopNav`](src/components/TopNav.tsx) (Sign in / Sign out).
 4. **[`src/hooks/useDpnsNames.ts`](src/hooks/useDpnsNames.ts)** — resolves identity IDs to DPNS usernames, cached at module level so lists don't re-query.
 5. **[`src/lib/`](src/lib/)** — [`capabilityIcon.tsx`](src/lib/capabilityIcon.tsx) (per-capability SVG glyph), [`explorer.ts`](src/lib/explorer.ts) (testnet Platform Explorer URLs), [`format.ts`](src/lib/format.ts) (ID truncation, dates).
 
 ## Tests
 
-[`test/`](test/) is a Vitest + Testing Library suite: unit tests over `src/dash/`/`src/lib/` that stub the `DashSdk` shape, and component tests (`GovernanceView`, `OperationsView`, `PendingActionsView`) that mock the dash modules and `useSession`. Default env is `node`; component tests opt into jsdom with a `// @vitest-environment jsdom` pragma. Run with `npm run test`.
+[`test/`](test/) is a Vitest + Testing Library suite: unit tests over `src/dash/`/`src/lib/` that stub the `DashSdk` shape (including WIF login — `detectSecretShape`, `loginWithPrivateKey`'s key-validation branches, and `keyManagerFromKey`), and component tests (`LoginModal`, `TopNav`, `GovernanceView`, `OperationsView`, `PendingActionsView`) that mock the dash modules and `useSession`. Default env is `node`; component tests opt into jsdom with a `// @vitest-environment jsdom` pragma. Run with `npm run test`.
 
-[`test/e2e/`](test/e2e/) is a Playwright suite that runs against real Dash Platform testnet — no mocks — auto-booting Vite on port 5184. The committed [`browse.spec.ts`](test/e2e/browse.spec.ts) is a read-only smoke test (boots, nav renders, overview shows the token name/description, governance renders without signing in) and performs no writes. Auth- and group-gated flows key off `PLATFORM_MNEMONIC` (repo-root `.env`) and the three `VITE_TOKEN_OPS_MEMBER_*_ID` vars and `test.skip` cleanly when unset. Any chain-mutating e2e should avoid the irreversible `destroyFrozen` path unless behind an explicit manual flag.
+[`test/e2e/`](test/e2e/) is a Playwright suite that runs against real Dash Platform testnet — no mocks — auto-booting Vite on port 5184. The committed [`browse.spec.ts`](test/e2e/browse.spec.ts) is a read-only smoke test (boots, nav renders, overview shows the token name/description, governance renders without signing in) and performs no writes. Auth- and group-gated flows sign in through the top-bar login modal (the `loginAs` fixture opens it, fills the mnemonic, and expands "Advanced settings" for the identity index); they key off `PLATFORM_MNEMONIC` (repo-root `.env`) and the three `VITE_TOKEN_OPS_MEMBER_*_ID` vars and `test.skip` cleanly when unset. Any chain-mutating e2e should avoid the irreversible `destroyFrozen` path unless behind an explicit manual flag.
 
 ## Deploying to GitHub Pages
 

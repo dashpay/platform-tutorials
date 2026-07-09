@@ -239,6 +239,13 @@ label {
   color: white;
 }
 
+.topbar-auth {
+  align-items: center;
+  display: flex;
+  flex: 0 0 auto;
+  gap: 0.5rem;
+}
+
 .identity-pill {
   background: rgba(255, 255, 255, 0.12);
   border-radius: 999px;
@@ -246,6 +253,26 @@ label {
   font-size: 0.78rem;
   font-weight: 700;
   padding: 0.35rem 0.75rem;
+}
+
+button.identity-pill:hover:not(:disabled) {
+  filter: none;
+  background: rgba(255, 255, 255, 0.18);
+}
+
+.topbar-auth-button {
+  background: transparent;
+  border: 1px solid rgba(255, 255, 255, 0.24);
+  color: #d7dcf2;
+  flex: 0 0 auto;
+  font-size: 0.78rem;
+  padding: 0.35rem 0.75rem;
+}
+
+.topbar-auth-button:hover:not(:disabled) {
+  background: rgba(255, 255, 255, 0.1);
+  border-color: rgba(255, 255, 255, 0.38);
+  filter: none;
 }
 
 .identity-pill.signed-in {
@@ -1646,6 +1673,35 @@ main.content {
 .modal-close-button:hover {
   color: #1a1f2b;
   filter: none;
+}
+
+.login-modal-panel {
+  max-width: 32rem;
+}
+
+.login-modal-body {
+  display: grid;
+  gap: 0.85rem;
+  padding: 1rem 1rem 0;
+}
+
+.login-modal-body .field {
+  margin-bottom: 0;
+}
+
+.login-modal-hint {
+  margin: 0.4rem 0 0;
+}
+
+.login-advanced-toggle {
+  justify-self: start;
+}
+
+.login-advanced-field {
+  background: #f7f8fc;
+  border: 1px solid #e2e5f2;
+  border-radius: 8px;
+  padding: 0.75rem;
 }
 
 .reassign-modal-body {

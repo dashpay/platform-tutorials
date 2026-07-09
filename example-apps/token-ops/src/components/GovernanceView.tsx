@@ -260,10 +260,8 @@ export function GovernanceView() {
       signedInIdentityId,
       ...groups.flatMap((group) => [...group.members.keys()]),
       ...rules
-        .map((rule) => [
-          rule.operator.identityId,
-          rule.admin.identityId,
-        ])
+
+        .map((rule) => [rule.operator.identityId, rule.admin.identityId])
         .flat(),
     ],
     [groups, rules, signedInIdentityId],
@@ -803,10 +801,7 @@ export function GovernanceView() {
                                 >
                                   {identityMonogram(dpnsNames[id] ?? id)}
                                 </span>
-                                <IdentityLabel
-                                  id={id}
-                                  dpnsNames={dpnsNames}
-                                />
+                                <IdentityLabel id={id} dpnsNames={dpnsNames} />
                                 {id === signedInIdentityId && (
                                   <span className="you-badge">You</span>
                                 )}

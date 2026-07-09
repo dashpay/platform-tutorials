@@ -8,7 +8,7 @@ test.describe("Read-only browsing", () => {
       "Operations",
       "Pending",
       "Governance",
-      "Account",
+      "Settings",
     ]) {
       // `exact` so the "Operations" nav button doesn't also match the
       // "Pending operations" card button in the Token details panel.

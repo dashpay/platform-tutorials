@@ -2,14 +2,14 @@ import { shortId } from "../lib/format";
 import type { SessionStatus } from "../session/SessionContext";
 
 export type View =
-  "overview" | "operations" | "pending" | "governance" | "account";
+  "overview" | "operations" | "pending" | "governance" | "settings";
 
 const TABS: { id: View; label: string }[] = [
   { id: "overview", label: "Overview" },
   { id: "operations", label: "Operations" },
   { id: "pending", label: "Pending" },
   { id: "governance", label: "Governance" },
-  { id: "account", label: "Account" },
+  { id: "settings", label: "Settings" },
 ];
 
 export function TopNav({
@@ -17,12 +17,18 @@ export function TopNav({
   onViewChange,
   status,
   identityId,
+  onLoginClick,
+  onLogout,
 }: {
   view: View;
   onViewChange: (view: View) => void;
   status: SessionStatus;
   identityId: string | null;
+  onLoginClick: () => void;
+  onLogout: () => void;
 }) {
+  const isAuthenticated = status === "authenticated" && Boolean(identityId);
+
   return (
     <div className="topbar">
       <div className="brand">
@@ -41,22 +47,34 @@ export function TopNav({
           </button>
         ))}
       </div>
-      <span
-        className={`identity-pill ${
-          status === "authenticated" && identityId ? "signed-in" : ""
-        }`}
-        title={
-          status === "authenticated" && identityId
-            ? shortId(identityId)
-            : undefined
-        }
-      >
-        {status === "authenticated" && identityId
-          ? "Signed in"
-          : status === "connecting"
-            ? "Connecting..."
-            : "Read-only"}
-      </span>
+      <div className="topbar-auth">
+        {isAuthenticated ? (
+          <>
+            <span
+              className="identity-pill signed-in"
+              title={shortId(identityId)}
+            >
+              Signed in
+            </span>
+            <button
+              type="button"
+              className="topbar-auth-button"
+              onClick={onLogout}
+            >
+              Sign out
+            </button>
+          </>
+        ) : (
+          <button
+            type="button"
+            className="identity-pill"
+            onClick={onLoginClick}
+            disabled={status === "connecting"}
+          >
+            {status === "connecting" ? "Connecting..." : "Sign in"}
+          </button>
+        )}
+      </div>
     </div>
   );
 }

@@ -91,7 +91,8 @@ export function readTokenSupplyConfig(
     baseSupply: toBigIntOrNull(tokenConfig.baseSupply) ?? 0n,
     maxSupply: toBigIntOrNull(tokenConfig.maxSupply),
     hasPerpetualDistribution: distribution.perpetualDistribution != null,
-    hasPreProgrammedDistribution: distribution.preProgrammedDistribution != null,
+    hasPreProgrammedDistribution:
+      distribution.preProgrammedDistribution != null,
   };
 }
 

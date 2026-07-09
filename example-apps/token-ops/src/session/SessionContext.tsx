@@ -14,11 +14,18 @@ import {
   saveContractId,
 } from "../dash/contract";
 import { IdentityKeyManager } from "../dash/keyManager";
+import { loginWithPrivateKey } from "../dash/loginWithPrivateKey";
 import { errorMessage, type Logger } from "../dash/logger";
 import type { DashKeyManager, DashSdk } from "../dash/types";
+import { detectSecretShape } from "../lib/detectSecretShape";
+import { keyManagerFromKey } from "./keyManagerFromKey";
 
 export type SessionStatus =
   "idle" | "connecting" | "readonly" | "authenticated" | "error";
+
+export interface LoginOptions {
+  identityIndex?: number;
+}
 
 export interface SessionValue {
   status: SessionStatus;
@@ -29,7 +36,7 @@ export interface SessionValue {
   contractId: string | null;
   setContractId: (id: string | null) => void;
   log: Logger;
-  login: (mnemonic: string, identityIndex?: number) => Promise<void>;
+  login: (secret: string, options?: LoginOptions) => Promise<void>;
   enterReadOnly: () => Promise<void>;
   logout: () => void;
 }
@@ -77,19 +84,32 @@ export function SessionProvider({ children }: { children: ReactNode }) {
   }, [log]);
 
   const login = useCallback(
-    async (mnemonic: string, identityIndex = 0) => {
-      const trimmed = mnemonic.trim();
-      if (!trimmed) throw new Error("Mnemonic is required.");
+    async (secret: string, options: LoginOptions = {}) => {
+      const { identityIndex = 0 } = options;
+      const trimmed = secret.trim();
+      if (!trimmed) throw new Error("Mnemonic or private key is required.");
       setError(null);
       try {
         const connected = sdk ?? (await connect());
-        const manager = await IdentityKeyManager.create({
-          sdk: connected as never,
-          mnemonic: trimmed,
-          network: "testnet",
-          identityIndex,
-        });
-        setKeyManager(manager as unknown as DashKeyManager);
+        const shape = detectSecretShape(trimmed);
+        let manager: DashKeyManager;
+
+        if (shape === "mnemonic") {
+          manager = (await IdentityKeyManager.create({
+            sdk: connected as never,
+            mnemonic: trimmed,
+            network: "testnet",
+            identityIndex,
+          })) as unknown as DashKeyManager;
+        } else {
+          const auth = await loginWithPrivateKey(
+            connected as unknown as DashSdk,
+            trimmed,
+          );
+          manager = keyManagerFromKey(auth.identityId, auth);
+        }
+
+        setKeyManager(manager);
         setIdentityId(manager.identityId ?? null);
         setStatus("authenticated");
         log(

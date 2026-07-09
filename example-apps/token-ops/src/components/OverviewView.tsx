@@ -175,11 +175,7 @@ export function OverviewView({
           <div className="supply-meter-head">
             <strong>{formatAmount(totalSupply)}</strong>
             <span>
-              {hasCap ? (
-                <>of {formatAmount(maxSupply)} max</>
-              ) : (
-                "circulating"
-              )}
+              {hasCap ? <>of {formatAmount(maxSupply)} max</> : "circulating"}
             </span>
           </div>
           {hasCap ? (

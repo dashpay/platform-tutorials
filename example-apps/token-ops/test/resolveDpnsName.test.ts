@@ -30,6 +30,8 @@ describe("resolveDpnsName", () => {
       throw new Error("dpns unavailable");
     });
 
-    await expect(resolveDpnsName(sdkWith(username), "id-1")).resolves.toBeNull();
+    await expect(
+      resolveDpnsName(sdkWith(username), "id-1"),
+    ).resolves.toBeNull();
   });
 });

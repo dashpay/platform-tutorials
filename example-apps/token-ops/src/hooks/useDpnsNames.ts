@@ -8,8 +8,9 @@ type DpnsNames = Record<string, string | null>;
 const cache: DpnsNames = {};
 
 function normalizeIds(identityIds: Iterable<string | null | undefined>) {
-  return [...new Set([...identityIds].map((id) => id?.trim()).filter(Boolean))]
-    .sort() as string[];
+  return [
+    ...new Set([...identityIds].map((id) => id?.trim()).filter(Boolean)),
+  ].sort() as string[];
 }
 
 export function useDpnsNames(
@@ -45,7 +46,10 @@ export function useDpnsNames(
       );
       if (entries.length === 0) return;
       for (const [id, name] of entries) cache[id] = name;
-      setDpnsNames((previous) => ({ ...previous, ...Object.fromEntries(entries) }));
+      setDpnsNames((previous) => ({
+        ...previous,
+        ...Object.fromEntries(entries),
+      }));
     })();
 
     return () => {

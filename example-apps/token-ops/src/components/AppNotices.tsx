@@ -11,7 +11,7 @@ export function AppNotices({
       {!hasContract && (
         <div className="notice info">
           No TokenOps contract configured yet. Register one or paste a contract
-          ID in the Account tab.
+          ID in the Settings tab.
         </div>
       )}
     </>

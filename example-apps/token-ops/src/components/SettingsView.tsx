@@ -1,4 +1,4 @@
-import { useEffect, useState } from "react";
+import { useEffect, useState, type FormEvent } from "react";
 
 import { CopyableId } from "./CopyableId";
 import { IdentityLabel } from "./IdentityLabel";
@@ -23,10 +23,8 @@ const DEFAULT_GROUP_MEMBER_IDS = [
   import.meta.env.VITE_TOKEN_OPS_MEMBER_3_ID,
 ].filter((id): id is string => Boolean(id));
 
-export function AccountView() {
+export function SettingsView() {
   const session = useSession();
-  const [mnemonic, setMnemonic] = useState("");
-  const [identityIndex, setIdentityIndex] = useState("0");
   const [contractInput, setContractInput] = useState(session.contractId ?? "");
   const [groupMembers, setGroupMembers] = useState(
     DEFAULT_GROUP_MEMBER_IDS.join("\n"),
@@ -63,21 +61,7 @@ export function AccountView() {
     };
   }, [session]);
 
-  async function handleSignIn(event: React.FormEvent) {
-    event.preventDefault();
-    setLocalError(null);
-    setBusy(true);
-    try {
-      await session.login(mnemonic, Number(identityIndex) || 0);
-      setMnemonic("");
-    } catch (err) {
-      setLocalError(errorMessage(err));
-    } finally {
-      setBusy(false);
-    }
-  }
-
-  async function handleContractSubmit(event: React.FormEvent) {
+  async function handleContractSubmit(event: FormEvent) {
     event.preventDefault();
     if (!session.sdk) return;
     setLocalError(null);
@@ -165,34 +149,11 @@ export function AccountView() {
         </div>
       ) : (
         <div className="card">
-          <h3>Sign in</h3>
-          <form onSubmit={handleSignIn}>
-            <div className="field">
-              <label htmlFor="mnemonic">Mnemonic</label>
-              <textarea
-                id="mnemonic"
-                rows={2}
-                value={mnemonic}
-                onChange={(event) => setMnemonic(event.target.value)}
-                placeholder="twelve word mnemonic phrase…"
-              />
-            </div>
-            <div className="field">
-              <label htmlFor="identity-index">
-                Identity index (0 = owner, 1-3 = group members)
-              </label>
-              <input
-                id="identity-index"
-                type="number"
-                min={0}
-                value={identityIndex}
-                onChange={(event) => setIdentityIndex(event.target.value)}
-              />
-            </div>
-            <button type="submit" disabled={busy || !mnemonic.trim()}>
-              Sign in
-            </button>
-          </form>
+          <h3>Read-only mode</h3>
+          <p className="muted">
+            Sign in from the top bar to register contracts or submit token
+            operations.
+          </p>
         </div>
       )}
 

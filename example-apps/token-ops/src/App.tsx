@@ -1,34 +1,74 @@
-import { useEffect, useState } from "react";
+import { useCallback, useEffect, useState } from "react";
 import { Toaster } from "sonner";
 
-import { AccountView } from "./components/AccountView";
 import { AppNotices } from "./components/AppNotices";
 import { GovernanceView } from "./components/GovernanceView";
+import { LoginModal } from "./components/LoginModal";
 import { OperationsView } from "./components/OperationsView";
 import { OverviewView } from "./components/OverviewView";
 import { PendingActionsView } from "./components/PendingActionsView";
+import { SettingsView } from "./components/SettingsView";
 import { TopNav, type View } from "./components/TopNav";
 import { useSession } from "./session/useSession";
 
+const VIEWS: View[] = [
+  "overview",
+  "operations",
+  "pending",
+  "governance",
+  "settings",
+];
+
+function viewFromHash(hash: string): View {
+  const candidate = hash.replace(/^#\/?/, "");
+  return VIEWS.includes(candidate as View) ? (candidate as View) : "overview";
+}
+
+function currentHashView(): View {
+  if (typeof window === "undefined") return "overview";
+  return viewFromHash(window.location.hash);
+}
+
 export default function App() {
   const session = useSession();
-  const [view, setView] = useState<View>("overview");
+  const [view, setView] = useState<View>(() => currentHashView());
   const [refreshKey, setRefreshKey] = useState(0);
   const [watchedIdentityIds, setWatchedIdentityIds] = useState<string[]>([]);
+  const [loginOpen, setLoginOpen] = useState(false);
 
   useEffect(() => {
     if (session.status === "idle") void session.enterReadOnly();
   }, [session]);
+
+  useEffect(() => {
+    function handleHashChange() {
+      setView(currentHashView());
+    }
+
+    window.addEventListener("hashchange", handleHashChange);
+    return () => window.removeEventListener("hashchange", handleHashChange);
+  }, []);
+
+  const changeView = useCallback((nextView: View) => {
+    setView(nextView);
+    const nextHash = `#${nextView}`;
+    if (window.location.hash !== nextHash) {
+      window.location.hash = nextHash;
+    }
+  }, []);
 
   return (
     <main className="shell">
       <Toaster position="bottom-center" richColors />
       <TopNav
         view={view}
-        onViewChange={setView}
+        onViewChange={changeView}
         status={session.status}
         identityId={session.identityId}
+        onLoginClick={() => setLoginOpen(true)}
+        onLogout={session.logout}
       />
+      <LoginModal open={loginOpen} onClose={() => setLoginOpen(false)} />
       <div className="content" style={{ padding: "1.5rem" }}>
         <AppNotices
           error={session.error}
@@ -46,7 +86,7 @@ export default function App() {
                   : [...previous, identityId],
               )
             }
-            onNavigateToPending={() => setView("pending")}
+            onNavigateToPending={() => changeView("pending")}
           />
         )}
         {view === "operations" && (
@@ -54,7 +94,7 @@ export default function App() {
         )}
         {view === "pending" && <PendingActionsView key={refreshKey} />}
         {view === "governance" && <GovernanceView key={refreshKey} />}
-        {view === "account" && <AccountView />}
+        {view === "settings" && <SettingsView />}
       </div>
       <footer className="app-footer">
         <a
