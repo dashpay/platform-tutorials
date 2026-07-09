@@ -121,6 +121,46 @@ button.copyable-id:focus-visible {
   font-size: 0.85em;
 }
 
+.copyable-id-link-group {
+  align-items: baseline;
+  display: inline-flex;
+  gap: 0.5rem;
+}
+
+a.copyable-id-link {
+  color: inherit;
+  font-weight: normal;
+  text-decoration: none;
+  transition: color 0.12s ease;
+}
+
+a.copyable-id-link:hover,
+a.copyable-id-link:focus-visible {
+  color: #3454d1;
+  text-decoration: underline;
+}
+
+button.copyable-id-copy {
+  background: transparent;
+  border: 1px solid #c3cbe6;
+  color: #3454d1;
+  cursor: pointer;
+  font-size: 0.7rem;
+  font-weight: 700;
+  letter-spacing: 0.02em;
+  padding: 0.1rem 0.45rem;
+  text-transform: uppercase;
+  transition:
+    background 0.12s ease,
+    border-color 0.12s ease;
+}
+
+button.copyable-id-copy:hover,
+button.copyable-id-copy:focus-visible {
+  background: #eef1fb;
+  border-color: #9fabdd;
+}
+
 input,
 select,
 textarea {
@@ -2125,19 +2165,20 @@ button.danger-outline {
   font-size: 0.78rem;
 }
 
-.overview-id-stack {
+.token-details-panel {
+  align-content: start;
   display: grid;
   gap: 1rem;
 }
 
-.id-panel {
+.id-row {
   align-items: center;
   display: flex;
   gap: 1rem;
   justify-content: space-between;
 }
 
-.id-panel > span {
+.id-row > span {
   color: #6a7290;
   font-size: 0.72rem;
   font-weight: 800;
@@ -2145,15 +2186,54 @@ button.danger-outline {
   text-transform: uppercase;
 }
 
-.id-panel strong {
+.id-row strong {
   color: #111827;
   font-size: 0.9rem;
   text-align: right;
 }
 
-.id-panel code {
+.id-row code {
   background: transparent;
   padding: 0;
+}
+
+.pending-count {
+  border-radius: 999px;
+  display: inline-block;
+  font-size: 0.8rem;
+  font-weight: 800;
+  min-width: 1.6rem;
+  padding: 0.1rem 0.5rem;
+  text-align: center;
+}
+
+.pending-count.none {
+  background: #eef0f7;
+  color: #6a7290;
+}
+
+.pending-count.active {
+  background: #fff3cf;
+  color: #8a6100;
+}
+
+button.id-row-button {
+  background: transparent;
+  border: 0;
+  border-radius: 8px;
+  color: inherit;
+  cursor: pointer;
+  font: inherit;
+  margin: -0.35rem -0.5rem;
+  padding: 0.35rem 0.5rem;
+  text-align: left;
+  transition: background 0.12s ease;
+  width: calc(100% + 1rem);
+}
+
+button.id-row-button:hover,
+button.id-row-button:focus-visible {
+  background: #f3f5fb;
 }
 
 .identity-inspector {
@@ -2264,18 +2344,19 @@ th {
     grid-template-columns: 1fr;
   }
 
-  .identity-lookup-form,
-  .id-panel {
+  .identity-lookup-form {
     align-items: stretch;
     grid-template-columns: 1fr;
   }
 
-  .id-panel {
+  .id-row {
+    align-items: stretch;
     display: grid;
+    grid-template-columns: 1fr;
     justify-content: stretch;
   }
 
-  .id-panel strong {
+  .id-row strong {
     text-align: left;
   }
 }

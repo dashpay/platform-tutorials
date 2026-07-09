@@ -3,6 +3,7 @@ import { useEffect, useState } from "react";
 import { CopyableId } from "./CopyableId";
 import { TOKEN_MAX_SUPPLY } from "../dash/contract";
 import { fetchTokenOpsGovernance } from "../dash/governance";
+import { listPendingActions } from "../dash/groupActions";
 import { errorMessage } from "../dash/logger";
 import { fetchIdentityTokenStates, fetchTokenOverview } from "../dash/token";
 import { useSession } from "../session/useSession";
@@ -25,9 +26,11 @@ function supplyPercent(totalSupply: bigint): number {
 export function OverviewView({
   watchedIdentityIds,
   onWatchIdentity,
+  onNavigateToPending,
 }: {
   watchedIdentityIds: string[];
   onWatchIdentity: (identityId: string) => void;
+  onNavigateToPending: () => void;
 }) {
   const session = useSession();
   const [lookupId, setLookupId] = useState("");
@@ -39,12 +42,14 @@ export function OverviewView({
   const [identityRows, setIdentityRows] = useState<Map<string, IdentityTokenState>>(
     new Map(),
   );
+  const [pendingCount, setPendingCount] = useState<number | null>(null);
   const [error, setError] = useState<string | null>(null);
 
   async function refresh(extraIdentityId?: string) {
     if (!session.sdk || !session.contractId) {
       setOverview(null);
       setIdentityRows(new Map());
+      setPendingCount(null);
       return;
     }
     setError(null);
@@ -82,6 +87,22 @@ export function OverviewView({
         }
         return next;
       });
+
+      // Count every ACTIVE group action across all groups — the same total
+      // the Pending Actions tab lists. Group actions are per-group, so fan
+      // out across governance.groups and sum the lengths.
+      const pendingPerGroup = await Promise.all(
+        governance.groups.map((group) =>
+          listPendingActions({
+            sdk: session.sdk!,
+            contractId: session.contractId!,
+            groupPosition: group.groupPosition,
+          }),
+        ),
+      );
+      setPendingCount(
+        pendingPerGroup.reduce((total, actions) => total + actions.length, 0),
+      );
     } catch (err) {
       setError(errorMessage(err));
     }
@@ -134,20 +155,44 @@ export function OverviewView({
           </div>
         </section>
 
-        <div className="overview-id-stack">
-          <section className="overview-panel id-panel">
-            <span>Contract</span>
+        <section className="overview-panel token-details-panel">
+          <h3>Token details</h3>
+          <div className="id-row">
+            <span>Contract ID</span>
             <strong>
-              <CopyableId id={session.contractId} />
+              <CopyableId id={session.contractId} explorer="dataContract" />
             </strong>
-          </section>
-          <section className="overview-panel id-panel">
+          </div>
+          <div className="id-row">
             <span>Token ID</span>
             <strong>
-              {overview ? <CopyableId id={overview.tokenId} /> : "Loading..."}
+              {overview ? (
+                <CopyableId id={overview.tokenId} explorer="token" />
+              ) : (
+                "Loading..."
+              )}
             </strong>
-          </section>
-        </div>
+          </div>
+          <button
+            type="button"
+            className="id-row id-row-button"
+            onClick={onNavigateToPending}
+            title="View pending operations"
+          >
+            <span>Pending operations</span>
+            <strong>
+              {pendingCount === null ? (
+                <span className="pending-count none">…</span>
+              ) : (
+                <span
+                  className={`pending-count ${pendingCount > 0 ? "active" : "none"}`}
+                >
+                  {pendingCount}
+                </span>
+              )}
+            </strong>
+          </button>
+        </section>
       </div>
 
       <section className="overview-panel identity-inspector">

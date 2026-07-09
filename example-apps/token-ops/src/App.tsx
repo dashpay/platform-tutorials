@@ -44,6 +44,7 @@ export default function App() {
                 previous.includes(identityId) ? previous : [...previous, identityId],
               )
             }
+            onNavigateToPending={() => setView("pending")}
           />
         )}
         {view === "operations" && (
