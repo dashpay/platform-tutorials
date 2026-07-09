@@ -1,8 +1,12 @@
 import { useEffect, useState } from "react";
 
 import { CopyableId } from "./CopyableId";
-import { registerContract } from "../dash/contract";
+import { TOKEN_POSITION, registerContract } from "../dash/contract";
 import { errorMessage } from "../dash/logger";
+import {
+  resolveTokenRef,
+  type ResolvedTokenRef,
+} from "../dash/resolveTokenRef";
 import { fetchTokenBalance } from "../dash/token";
 import { useSession } from "../session/useSession";
 
@@ -26,6 +30,8 @@ export function AccountView() {
     DEFAULT_GROUP_MEMBER_IDS.join("\n"),
   );
   const [busy, setBusy] = useState(false);
+  const [resolving, setResolving] = useState(false);
+  const [resolved, setResolved] = useState<ResolvedTokenRef | null>(null);
   const [balance, setBalance] = useState<bigint | null>(null);
   const [localError, setLocalError] = useState<string | null>(null);
 
@@ -67,9 +73,33 @@ export function AccountView() {
     }
   }
 
-  function handleContractSubmit(event: React.FormEvent) {
+  async function handleContractSubmit(event: React.FormEvent) {
     event.preventDefault();
-    session.setContractId(contractInput.trim());
+    if (!session.sdk) return;
+    setLocalError(null);
+    setResolved(null);
+    const input = contractInput.trim();
+    if (!input) return;
+
+    setResolving(true);
+    try {
+      const ref = await resolveTokenRef(session.sdk, input);
+      if (ref.tokenPosition !== TOKEN_POSITION) {
+        // The app drives the token at TOKEN_POSITION; a token elsewhere on a
+        // multi-token contract isn't something TokenOps can operate.
+        setLocalError(
+          `That token is at position ${ref.tokenPosition} on its contract. TokenOps operates the token at position ${TOKEN_POSITION}.`,
+        );
+        return;
+      }
+      session.setContractId(ref.contractId);
+      setContractInput(ref.contractId);
+      setResolved(ref);
+    } catch (err) {
+      setLocalError(errorMessage(err));
+    } finally {
+      setResolving(false);
+    }
   }
 
   async function handleRegisterContract() {
@@ -118,10 +148,29 @@ export function AccountView() {
           <input
             value={contractInput}
             onChange={(event) => setContractInput(event.target.value)}
-            placeholder="Contract ID"
+            placeholder="Contract or token ID"
           />
-          <button type="submit">Use</button>
+          <button type="submit" disabled={resolving}>
+            {resolving ? "Resolving…" : "Use"}
+          </button>
         </form>
+        <p className="muted" style={{ marginTop: "0.5rem" }}>
+          Paste either a data contract ID or a token ID — a token ID is resolved
+          back to its contract.
+        </p>
+        {resolved &&
+          (resolved.resolvedFrom === "token" ? (
+            <p className="notice info" style={{ marginTop: "0.5rem" }}>
+              Resolved token{" "}
+              <CopyableId id={resolved.tokenId} explorer="token" /> to contract{" "}
+              <CopyableId id={resolved.contractId} explorer="dataContract" />.
+            </p>
+          ) : (
+            <p className="notice info" style={{ marginTop: "0.5rem" }}>
+              Using contract{" "}
+              <CopyableId id={resolved.contractId} explorer="dataContract" />.
+            </p>
+          ))}
         <div className="row" style={{ marginTop: "0.75rem" }}>
           <button
             type="button"
@@ -137,6 +186,7 @@ export function AccountView() {
             onClick={() => {
               session.setContractId(null);
               setContractInput("");
+              setResolved(null);
             }}
           >
             Clear override

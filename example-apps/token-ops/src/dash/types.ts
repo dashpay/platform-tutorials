@@ -99,7 +99,21 @@ export interface DashSdk {
       tokenId: string,
     ): Promise<{ totalSupply: bigint; tokenId: string } | undefined>;
     statuses(tokenIds: string[]): Promise<Map<string, { isPaused: boolean }>>;
-    contractInfo(tokenId: string): Promise<unknown>;
+    /**
+     * Reverse of calculateId: given a token ID, returns the contract that
+     * defines it and the token's position within that contract. Resolves to
+     * `undefined` when the ID is not a token ID (e.g. a data contract ID).
+     * `contractId` is an SDK identifier — stringify before use.
+     */
+    contractInfo(
+      tokenId: string,
+    ): Promise<
+      | {
+          contractId: string | { toString(): string };
+          tokenContractPosition: number;
+        }
+      | undefined
+    >;
     mint(args: {
       dataContractId: string;
       tokenPosition: number;
