@@ -29,6 +29,7 @@ export function AccountView() {
   const [groupMembers, setGroupMembers] = useState(
     DEFAULT_GROUP_MEMBER_IDS.join("\n"),
   );
+  const [registering, setRegistering] = useState(false);
   const [busy, setBusy] = useState(false);
   const [resolving, setResolving] = useState(false);
   const [resolved, setResolved] = useState<ResolvedTokenRef | null>(null);
@@ -132,6 +133,7 @@ export function AccountView() {
       });
       session.setContractId(id);
       setContractInput(id);
+      setRegistering(false);
     } catch (err) {
       setLocalError(errorMessage(err));
     } finally {
@@ -142,81 +144,6 @@ export function AccountView() {
   return (
     <div>
       {localError && <div className="notice error">{localError}</div>}
-      <div className="card">
-        <h3>TokenOps contract</h3>
-        <form onSubmit={handleContractSubmit} className="row">
-          <input
-            value={contractInput}
-            onChange={(event) => setContractInput(event.target.value)}
-            placeholder="Contract or token ID"
-          />
-          <button type="submit" disabled={resolving}>
-            {resolving ? "Resolving…" : "Use"}
-          </button>
-        </form>
-        <p className="muted" style={{ marginTop: "0.5rem" }}>
-          Paste either a data contract ID or a token ID — a token ID is resolved
-          back to its contract.
-        </p>
-        {resolved &&
-          (resolved.resolvedFrom === "token" ? (
-            <p className="notice info" style={{ marginTop: "0.5rem" }}>
-              Resolved token{" "}
-              <CopyableId id={resolved.tokenId} explorer="token" /> to contract{" "}
-              <CopyableId id={resolved.contractId} explorer="dataContract" />.
-            </p>
-          ) : (
-            <p className="notice info" style={{ marginTop: "0.5rem" }}>
-              Using contract{" "}
-              <CopyableId id={resolved.contractId} explorer="dataContract" />.
-            </p>
-          ))}
-        <div className="row" style={{ marginTop: "0.75rem" }}>
-          <button
-            type="button"
-            className="secondary"
-            onClick={handleRegisterContract}
-            disabled={busy || !session.keyManager}
-          >
-            Register new TokenOps contract
-          </button>
-          <button
-            type="button"
-            className="secondary"
-            onClick={() => {
-              session.setContractId(null);
-              setContractInput("");
-              setResolved(null);
-            }}
-          >
-            Clear override
-          </button>
-        </div>
-        {!session.keyManager && (
-          <p className="notice info" style={{ marginTop: "0.75rem" }}>
-            Sign in before registering a new contract.
-          </p>
-        )}
-        <div className="field" style={{ marginTop: "0.75rem" }}>
-          <label htmlFor="group-members">
-            Initial group member identity IDs
-          </label>
-          <textarea
-            id="group-members"
-            rows={3}
-            value={groupMembers}
-            onChange={(event) => setGroupMembers(event.target.value)}
-            placeholder="three identity IDs, one per line"
-          />
-        </div>
-        <p className="muted" style={{ marginTop: "0.5rem" }}>
-          Registering creates one TokenOps token and three initial groups from
-          these identity IDs. Treasury handles mint/burn, access handles
-          freeze/unfreeze, and emergency handles pause/resume and destroy-frozen
-          actions. The signing identity receives the initial token supply.
-        </p>
-      </div>
-
       {session.status === "authenticated" ? (
         <div className="card">
           <h3>Signed in</h3>
@@ -225,7 +152,7 @@ export function AccountView() {
           </p>
           {balance != null && (
             <p>
-              TokenOps balance: <strong>{balance.toString()}</strong>
+              Token balance: <strong>{balance.toString()}</strong>
             </p>
           )}
           <button type="button" className="secondary" onClick={session.logout}>
@@ -264,6 +191,121 @@ export function AccountView() {
           </form>
         </div>
       )}
+
+      <div className="card">
+        <h3>Contract</h3>
+        <form onSubmit={handleContractSubmit} className="row">
+          <input
+            value={contractInput}
+            onChange={(event) => setContractInput(event.target.value)}
+            placeholder="Contract or token ID"
+          />
+          <button type="submit" disabled={resolving}>
+            {resolving ? "Resolving…" : "Use"}
+          </button>
+        </form>
+        <p className="muted" style={{ marginTop: "0.5rem" }}>
+          Paste either a data contract ID or a token ID — a token ID is resolved
+          back to its contract.
+        </p>
+        {resolved &&
+          (resolved.resolvedFrom === "token" ? (
+            <p className="notice info" style={{ marginTop: "0.5rem" }}>
+              Resolved token{" "}
+              <CopyableId id={resolved.tokenId} explorer="token" /> to contract{" "}
+              <CopyableId id={resolved.contractId} explorer="dataContract" />.
+            </p>
+          ) : (
+            <p className="notice info" style={{ marginTop: "0.5rem" }}>
+              Using contract{" "}
+              <CopyableId id={resolved.contractId} explorer="dataContract" />.
+            </p>
+          ))}
+        <div className="row" style={{ marginTop: "0.75rem" }}>
+          <button
+            type="button"
+            className="secondary"
+            onClick={() => {
+              session.setContractId(null);
+              setContractInput("");
+              setResolved(null);
+            }}
+          >
+            Clear override
+          </button>
+        </div>
+      </div>
+
+      <div className="card">
+        <h3>Register a new contract</h3>
+        {!registering ? (
+          <>
+            <p className="muted">
+              Deploy a fresh TokenOps contract with one token and three initial
+              groups.
+            </p>
+            <button
+              type="button"
+              className="secondary"
+              style={{ marginTop: "0.75rem" }}
+              onClick={() => {
+                setLocalError(null);
+                setRegistering(true);
+              }}
+              disabled={busy || !session.keyManager}
+            >
+              Register new TokenOps contract…
+            </button>
+            {!session.keyManager && (
+              <p className="notice info" style={{ marginTop: "0.75rem" }}>
+                Sign in before registering a new contract.
+              </p>
+            )}
+          </>
+        ) : (
+          <>
+            <div className="field">
+              <label htmlFor="group-members">
+                Initial group member identity IDs
+              </label>
+              <textarea
+                id="group-members"
+                rows={3}
+                value={groupMembers}
+                onChange={(event) => setGroupMembers(event.target.value)}
+                placeholder="three identity IDs, one per line"
+              />
+            </div>
+            <p className="muted" style={{ marginTop: "0.5rem" }}>
+              Registering creates one TokenOps token and three initial groups
+              from these identity IDs. Treasury handles mint/burn, access
+              handles freeze/unfreeze, and emergency handles pause/resume and
+              destroy-frozen actions. The signing identity receives the initial
+              token supply.
+            </p>
+            <div className="row" style={{ marginTop: "0.75rem" }}>
+              <button
+                type="button"
+                onClick={handleRegisterContract}
+                disabled={busy || !session.keyManager}
+              >
+                {busy ? "Registering…" : "Register contract"}
+              </button>
+              <button
+                type="button"
+                className="secondary"
+                onClick={() => {
+                  setRegistering(false);
+                  setLocalError(null);
+                }}
+                disabled={busy}
+              >
+                Cancel
+              </button>
+            </div>
+          </>
+        )}
+      </div>
     </div>
   );
 }
