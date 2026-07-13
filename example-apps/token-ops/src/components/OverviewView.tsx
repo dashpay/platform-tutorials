@@ -116,7 +116,7 @@ function authorityCard(
       key: authorityKey(authority),
       title: `Group ${position ?? "?"}`,
       meta: group
-        ? `${group.requiredPower} power required · ${group.members.size} ${group.members.size === 1 ? "member" : "members"}`
+        ? `${group.members.size} ${group.members.size === 1 ? "member" : "members"} · ${group.requiredPower} signers required`
         : "Group details unavailable",
       accent: display.accent,
     };

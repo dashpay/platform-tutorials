@@ -14,6 +14,7 @@ import {
   burnToken,
   destroyFrozenToken,
   emergencyTokenAction,
+  transferToken,
 } from "../src/dash/tokenOperations";
 import type { RuleInfo, TokenOpsGovernance } from "../src/dash/governance";
 import { useSession } from "../src/session/useSession";
@@ -329,5 +330,77 @@ describe("OperationsView", () => {
         }),
       ),
     );
+  });
+
+  it("surfaces the app's current whole-base-unit input limitation", async () => {
+    // This documents a TokenOps UI limitation, not a Dash token invariant.
+    // Tokens may define decimal places, but this view currently accepts raw
+    // integer base units and does not yet convert decimal display amounts.
+    vi.mocked(useSession).mockReturnValue({
+      status: "authenticated",
+      sdk: { contracts: {} },
+      keyManager: {},
+      contractId: "contract-1",
+      identityId: "operator-member",
+      log: vi.fn(),
+    } as never);
+    vi.mocked(fetchTokenOpsGovernance).mockResolvedValue(allMemberGovernance);
+
+    render(<OperationsView />);
+
+    await screen.findByRole("button", { name: "Transfer" });
+    fireEvent.change(screen.getByLabelText("Transfer amount"), {
+      target: { value: "1.5" },
+    });
+    fireEvent.change(screen.getByLabelText("Transfer recipient identity ID"), {
+      target: { value: "recipient-id" },
+    });
+    fireEvent.click(screen.getByRole("button", { name: "Transfer" }));
+
+    expect(
+      await screen.findByText("Amount must be a whole number."),
+    ).toBeTruthy();
+    expect(transferToken).not.toHaveBeenCalled();
+  });
+
+  it("submits a direct transfer with normalized inputs", async () => {
+    const log = vi.fn();
+    const onComplete = vi.fn();
+    const sdk = { contracts: {} };
+    const keyManager = {};
+    vi.mocked(useSession).mockReturnValue({
+      status: "authenticated",
+      sdk,
+      keyManager,
+      contractId: "contract-1",
+      identityId: "operator-member",
+      log,
+    } as never);
+    vi.mocked(fetchTokenOpsGovernance).mockResolvedValue(allMemberGovernance);
+    vi.mocked(transferToken).mockResolvedValue({} as never);
+
+    render(<OperationsView onComplete={onComplete} />);
+
+    await screen.findByRole("button", { name: "Transfer" });
+    fireEvent.change(screen.getByLabelText("Transfer amount"), {
+      target: { value: " 8 " },
+    });
+    fireEvent.change(screen.getByLabelText("Transfer recipient identity ID"), {
+      target: { value: "  recipient-id  " },
+    });
+    fireEvent.click(screen.getByRole("button", { name: "Transfer" }));
+
+    await waitFor(() =>
+      expect(transferToken).toHaveBeenCalledWith({
+        sdk,
+        keyManager,
+        contractId: "contract-1",
+        log,
+        amount: 8n,
+        recipientId: "recipient-id",
+      }),
+    );
+    expect(log).toHaveBeenCalledWith("Transfer submitted.", "success");
+    expect(onComplete).toHaveBeenCalledOnce();
   });
 });

@@ -42,9 +42,7 @@ test.describe("Read-only browsing", () => {
   });
 
   test("governance view renders without signing in", async ({ page }) => {
-    await page
-      .getByRole("button", { name: "Governance", exact: true })
-      .click();
+    await page.getByRole("button", { name: "Governance", exact: true }).click();
     // Access control and Groups are subnav tabs; the access pane (default)
     // shows the Capability authority matrix heading.
     await expect(

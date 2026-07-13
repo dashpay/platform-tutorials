@@ -601,7 +601,7 @@ export function OperationsView({ onComplete }: { onComplete?: () => void }) {
                   transferToken({
                     ...common,
                     amount: toAmount(amount),
-                    recipientId,
+                    recipientId: recipientId.trim(),
                   }),
                 )
               }

@@ -100,6 +100,8 @@ The authoritative, user-facing limitations list lives in [README.md](README.md#l
 
 Vitest ([test/](test/), `test/**/*.test.{ts,tsx}`, default env `node`, jsdom via per-file `// @vitest-environment jsdom`) covers:
 
+> **Test scope:** Component scenarios use groups created by TokenOps, where every member has unit power and `requiredPower` is therefore a signature-count threshold. Broader weighted-member group behavior and presentation are intentionally out of scope for this test pass.
+
 - rule preset operator-vs-admin separation and initial token config wiring ([contract.test.ts](test/contract.test.ts) — still asserts the literal 2/2/3 thresholds and "exactly 3 members" for the _initial_ groups; keep that product-invariant intent when editing the docs)
 - governance rule derivation, authority classification, deferred rows, and `appendTokenOpsGroup` (Map + object shapes, larger-than-3 groups) ([governance.test.ts](test/governance.test.ts))
 - proposer/co-signer `groupInfo` call shapes, publicNote policy, and config-item mapping ([tokenOperations.test.ts](test/tokenOperations.test.ts))
@@ -113,7 +115,7 @@ E2E ([test/e2e/](test/e2e/), Playwright, port 5184, real testnet, chromium only,
 ## Gotchas
 
 - **Read `maxSupply` from the fetched contract**, not the static `TOKEN_MAX_SUPPLY` constant — the app browses arbitrary contracts, and the constant only describes ones it registers.
-- Group members carry **unit power** in the initial contract, so `requiredPower` reads as an N-of-M threshold — but the code handles weighted power generally (`signedPower` sums the map values). Don't assume 1-per-member when reading signer progress.
+- Group members carry **unit power** in contracts created by TokenOps, so `requiredPower` reads as an N-of-M threshold. SDK signer progress still exposes `signedPower`, but weighted-member group presentation and component-test coverage are not currently supported; do not describe unit power as a Dash Platform invariant.
 - `explorer.ts` and the whole app are **testnet-only** — the explorer base and `createClient("testnet")` are hardcoded.
 - The `@dashevo/evo-sdk` WASM bundle is ~8MB; this is expected and not a build error. See [Performance](#performance--load-anchor-rules) for the load-anchor rules that keep it off the boot critical path.
 - `allowJs: true` in [tsconfig.app.json](tsconfig.app.json) so TypeScript can import the JSDoc-typed `.mjs` core at the host repo root.

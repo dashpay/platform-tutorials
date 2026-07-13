@@ -219,7 +219,7 @@ describe("OverviewView dashboard", () => {
     expect(within(groupCard).getByText("Burn")).toBeTruthy();
     expect(within(groupCard).getByText("Group 0")).toBeTruthy();
     expect(
-      within(groupCard).getByText("2 power required · 2 members"),
+      within(groupCard).getByText("2 members · 2 signers required"),
     ).toBeTruthy();
 
     const ownerCard = screen.getByText("Freeze").closest("article");
