@@ -113,6 +113,7 @@ export function LoginModal({ open, onClose }: LoginModalProps) {
             <input
               id="login-secret"
               type="password"
+              autoFocus
               autoComplete="off"
               spellCheck={false}
               value={secret}
