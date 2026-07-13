@@ -139,7 +139,7 @@ export function LoginModal({ open, onClose }: LoginModalProps) {
               {showAdvanced && (
                 <div className="field login-advanced-field">
                   <label htmlFor="login-identity-index">
-                    Identity index (0 = owner, 1-3 = group members)
+                    Identity index
                   </label>
                   <input
                     id="login-identity-index"
@@ -154,6 +154,18 @@ export function LoginModal({ open, onClose }: LoginModalProps) {
           )}
 
           {error && <div className="notice error">{error}</div>}
+
+          <p className="muted login-modal-bridge">
+            Don&apos;t have a testnet identity?{" "}
+            <a
+              href="https://bridge.thepasta.org/"
+              target="_blank"
+              rel="noreferrer"
+            >
+              Create one on Dash Bridge
+            </a>{" "}
+            — funded automatically in about 30 seconds.
+          </p>
 
           <div className="modal-actions">
             <button type="submit" disabled={submitting || !secret.trim()}>

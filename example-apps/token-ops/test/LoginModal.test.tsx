@@ -104,6 +104,18 @@ describe("LoginModal", () => {
     expect(onClose).toHaveBeenCalledOnce();
   });
 
+  it("offers a Dash Bridge link for creating a testnet identity", () => {
+    mockSession();
+
+    render(<LoginModal open onClose={vi.fn()} />);
+
+    const bridgeLink = screen.getByRole("link", {
+      name: "Create one on Dash Bridge",
+    }) as HTMLAnchorElement;
+    expect(bridgeLink.href).toBe("https://bridge.thepasta.org/");
+    expect(bridgeLink.target).toBe("_blank");
+  });
+
   it("hides mnemonic-only advanced settings for WIF-shaped input", () => {
     mockSession();
 

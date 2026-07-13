@@ -62,9 +62,9 @@ test.describe("Settings (read-only)", () => {
 
     // A successful resolve renders the "Using contract" / "Resolved token"
     // info notice; no error notice appears.
-    await expect(
-      page.getByText(/Using contract|Resolved token/),
-    ).toBeVisible({ timeout: 60_000 });
+    await expect(page.getByText(/Using contract|Resolved token/)).toBeVisible({
+      timeout: 60_000,
+    });
     await expect(page.locator(".notice.error")).toHaveCount(0);
   });
 });

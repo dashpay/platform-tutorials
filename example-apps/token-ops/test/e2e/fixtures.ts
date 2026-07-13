@@ -96,9 +96,8 @@ export async function deriveWifFromMnemonic(
   // Import from the repo-root SDK copy (matching scripts/bootstrap-identities.mjs).
   // Build the DIP-13 path from the same wallet instance so derivation matches
   // the app's key manager exactly (setupDashClient-core.mjs#dip13KeyPath).
-  const { wallet } = await import(
-    "../../../../node_modules/@dashevo/evo-sdk/dist/evo-sdk.module.js"
-  );
+  const { wallet } =
+    await import("../../../../node_modules/@dashevo/evo-sdk/dist/evo-sdk.module.js");
 
   const network = "testnet";
   const base = await wallet.derivationPathDip13Testnet(5);

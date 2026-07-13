@@ -26,9 +26,7 @@ test.describe("Authenticated (read-only)", () => {
     await loginAs(page, 0);
 
     // TopNav flips to signed-in.
-    await expect(
-      page.getByRole("button", { name: "Sign out" }),
-    ).toBeVisible();
+    await expect(page.getByRole("button", { name: "Sign out" })).toBeVisible();
 
     // Settings shows the signed-in card.
     await page.getByRole("button", { name: "Settings", exact: true }).click();

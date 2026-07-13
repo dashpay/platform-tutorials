@@ -1759,6 +1759,14 @@ button.identity-pill:hover:not(:disabled) {
   margin: 0.4rem 0 0;
 }
 
+.login-modal-bridge {
+  margin: 0;
+  padding: 0.65rem 0.75rem;
+  background: #f7f8fc;
+  border: 1px dashed #d5daf0;
+  border-radius: 8px;
+}
+
 .login-advanced-toggle {
   justify-self: start;
 }

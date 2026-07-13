@@ -20,9 +20,9 @@ test.describe("Dashboard (read-only)", () => {
     await expect(attention.locator("strong")).toHaveText("—");
 
     // Membership card reports the signed-out state.
-    await expect(
-      page.locator(".dashboard-membership-card"),
-    ).toContainText("Signed out");
+    await expect(page.locator(".dashboard-membership-card")).toContainText(
+      "Signed out",
+    );
   });
 
   test("priority cards navigate to Pending", async ({ page }) => {
@@ -46,7 +46,9 @@ test.describe("Dashboard (read-only)", () => {
 
     await page.getByRole("button", { name: "Open governance" }).click();
     await expect(page).toHaveURL(/#governance$/);
-    await expect(page.getByRole("tab", { name: "Access control" })).toBeVisible();
+    await expect(
+      page.getByRole("tab", { name: "Access control" }),
+    ).toBeVisible();
   });
 
   test("identity inspector opens and reads a balance", async ({ page }) => {
