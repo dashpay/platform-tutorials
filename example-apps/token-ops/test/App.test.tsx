@@ -21,13 +21,18 @@ vi.mock("../src/components/LoginModal", () => ({
 vi.mock("../src/components/OverviewView", () => ({
   OverviewView: ({
     onNavigateToPending,
+    onNavigateToGovernance,
   }: {
     onNavigateToPending: () => void;
+    onNavigateToGovernance: () => void;
   }) => (
     <section>
-      <h2>Overview page</h2>
+      <h2>Dashboard page</h2>
       <button type="button" onClick={onNavigateToPending}>
         Pending shortcut
+      </button>
+      <button type="button" onClick={onNavigateToGovernance}>
+        Governance shortcut
       </button>
     </section>
   ),
@@ -120,5 +125,18 @@ describe("App hash routing", () => {
 
     expect(window.location.hash).toBe("#pending");
     expect(screen.getByRole("heading", { name: "Pending page" })).toBeTruthy();
+  });
+
+  it("uses hash routing for the dashboard governance shortcut", () => {
+    render(<App />);
+
+    fireEvent.click(
+      screen.getByRole("button", { name: "Governance shortcut" }),
+    );
+
+    expect(window.location.hash).toBe("#governance");
+    expect(
+      screen.getByRole("heading", { name: "Governance page" }),
+    ).toBeTruthy();
   });
 });

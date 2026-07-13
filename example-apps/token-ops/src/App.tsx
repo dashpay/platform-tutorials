@@ -33,7 +33,6 @@ export default function App() {
   const session = useSession();
   const [view, setView] = useState<View>(() => currentHashView());
   const [refreshKey, setRefreshKey] = useState(0);
-  const [watchedIdentityIds, setWatchedIdentityIds] = useState<string[]>([]);
   const [loginOpen, setLoginOpen] = useState(false);
 
   useEffect(() => {
@@ -78,15 +77,8 @@ export default function App() {
         {view === "overview" && (
           <OverviewView
             key={refreshKey}
-            watchedIdentityIds={watchedIdentityIds}
-            onWatchIdentity={(identityId) =>
-              setWatchedIdentityIds((previous) =>
-                previous.includes(identityId)
-                  ? previous
-                  : [...previous, identityId],
-              )
-            }
             onNavigateToPending={() => changeView("pending")}
+            onNavigateToGovernance={() => changeView("governance")}
           />
         )}
         {view === "operations" && (

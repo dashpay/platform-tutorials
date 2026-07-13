@@ -7,7 +7,7 @@ export type View =
   "overview" | "operations" | "pending" | "governance" | "settings";
 
 const TABS: { id: View; label: string }[] = [
-  { id: "overview", label: "Overview" },
+  { id: "overview", label: "Dashboard" },
   { id: "operations", label: "Operations" },
   { id: "pending", label: "Pending" },
   { id: "governance", label: "Governance" },
