@@ -2,7 +2,9 @@ import { test, expect } from "./fixtures";
 
 test.describe("Read-only browsing", () => {
   test("app boots and shows TokenOps navigation", async ({ page }) => {
-    await expect(page.getByText("TokenOps")).toBeVisible();
+    await expect(
+      page.getByRole("heading", { name: "TokenOps", level: 1 }),
+    ).toBeVisible();
     for (const label of [
       "Dashboard",
       "Operations",
@@ -10,8 +12,6 @@ test.describe("Read-only browsing", () => {
       "Governance",
       "Settings",
     ]) {
-      // `exact` so the "Operations" nav button doesn't also match the
-      // "Pending operations" card button in the Token details panel.
       await expect(
         page.getByRole("button", { name: label, exact: true }),
       ).toBeVisible();
@@ -27,13 +27,24 @@ test.describe("Read-only browsing", () => {
     await expect(
       page.getByRole("heading", { name: "Who controls what" }),
     ).toBeVisible();
+
+    const authorityCards = page.locator(".dashboard-group-card");
+    await expect(authorityCards.first()).toBeVisible();
+
+    const tokenCard = page.locator(".dashboard-token-card");
     await expect(
-      page.getByRole("heading", { name: "TokenOps", level: 3 }),
+      tokenCard.getByRole("heading", { name: "TokenOps", level: 3 }),
     ).toBeVisible();
+    await expect(tokenCard.getByText("Check balances")).toBeVisible();
+    await expect(
+      tokenCard.locator("details.dashboard-identity-inspector"),
+    ).not.toHaveAttribute("open", "");
   });
 
   test("governance view renders without signing in", async ({ page }) => {
-    await page.getByRole("button", { name: "Governance" }).click();
+    await page
+      .getByRole("button", { name: "Governance", exact: true })
+      .click();
     // Access control and Groups are subnav tabs; the access pane (default)
     // shows the Capability authority matrix heading.
     await expect(

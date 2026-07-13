@@ -470,7 +470,7 @@ export function OverviewView({
           <span className="dashboard-card-label">Your governance access</span>
           {!session.identityId ? (
             <>
-              <strong>Read-only</strong>
+              <strong>Signed out</strong>
               <span>Sign in to check group membership</span>
             </>
           ) : memberships.length === 0 ? (
