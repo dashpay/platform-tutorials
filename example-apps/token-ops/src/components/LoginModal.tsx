@@ -138,9 +138,7 @@ export function LoginModal({ open, onClose }: LoginModalProps) {
 
               {showAdvanced && (
                 <div className="field login-advanced-field">
-                  <label htmlFor="login-identity-index">
-                    Identity index
-                  </label>
+                  <label htmlFor="login-identity-index">Identity index</label>
                   <input
                     id="login-identity-index"
                     type="number"
