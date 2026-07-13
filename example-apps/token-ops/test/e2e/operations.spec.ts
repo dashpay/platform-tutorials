@@ -53,6 +53,18 @@ test.describe("Operations (read-only)", () => {
       page.getByRole("button", { name: "Propose burn...", exact: true }),
     ).toBeDisabled();
     await expect(
+      page.getByRole("button", { name: "Propose freeze", exact: true }),
+    ).toBeDisabled();
+    await expect(
+      page.getByRole("button", { name: "Propose unfreeze", exact: true }),
+    ).toBeDisabled();
+    await expect(
+      page.getByRole("button", { name: "Propose pause", exact: true }),
+    ).toBeDisabled();
+    await expect(
+      page.getByRole("button", { name: "Propose resume", exact: true }),
+    ).toBeDisabled();
+    await expect(
       page.getByRole("button", { name: "Transfer", exact: true }),
     ).toBeDisabled();
   });
