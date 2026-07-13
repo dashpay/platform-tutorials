@@ -58,3 +58,57 @@ export async function loginAs(page: Page, identityIndex: number) {
     timeout: 60_000,
   });
 }
+
+/**
+ * Sign in via the top-bar modal with a WIF private key. The modal hides the
+ * mnemonic-only "advanced settings" toggle for WIF-shaped input, and no
+ * identity index applies — the identity is whichever holds the key. Caller
+ * should `test.skip(!HAS_MNEMONIC, …)` first (the WIF is derived from the
+ * mnemonic — see deriveWifFromMnemonic).
+ */
+export async function loginWithWif(page: Page, wif: string) {
+  await page.getByRole("button", { name: "Sign in", exact: true }).click();
+  const dialog = page.getByRole("dialog", { name: "Sign in to TokenOps" });
+  await dialog.getByLabel("Mnemonic or private key").fill(wif);
+  await dialog.getByRole("button", { name: "Sign in", exact: true }).click();
+
+  await expect(page.getByRole("button", { name: "Sign out" })).toBeVisible({
+    timeout: 60_000,
+  });
+}
+
+/**
+ * Derive a WIF private key from PLATFORM_MNEMONIC for the given identity/key
+ * index, using the same DIP-13 derivation the app's key manager uses. Runs in
+ * the Node test process (not the browser). Key index 2 is the CRITICAL auth
+ * key, which satisfies loginWithPrivateKey's AUTHENTICATION-at-HIGH/CRITICAL
+ * gate — the same key the app signs with. This lets one funded mnemonic drive
+ * both the mnemonic- and WIF-login e2e paths for the same identity.
+ */
+export async function deriveWifFromMnemonic(
+  identityIndex = 0,
+  keyIndex = 2,
+): Promise<string> {
+  const mnemonic = process.env.PLATFORM_MNEMONIC?.trim();
+  if (!mnemonic) {
+    throw new Error("PLATFORM_MNEMONIC is required to derive a WIF");
+  }
+  // Import from the repo-root SDK copy (matching scripts/bootstrap-identities.mjs).
+  // Build the DIP-13 path from the same wallet instance so derivation matches
+  // the app's key manager exactly (setupDashClient-core.mjs#dip13KeyPath).
+  const { wallet } = await import(
+    "../../../../node_modules/@dashevo/evo-sdk/dist/evo-sdk.module.js"
+  );
+
+  const network = "testnet";
+  const base = await wallet.derivationPathDip13Testnet(5);
+  const path = `${base.path}/0'/0'/${identityIndex}'/${keyIndex}'`;
+  const derived = await wallet.deriveKeyFromSeedWithPath({
+    mnemonic,
+    path,
+    network,
+  });
+  const wif: string = derived.toObject().privateKeyWif;
+  if (!wif) throw new Error("WIF derivation returned no privateKeyWif");
+  return wif;
+}

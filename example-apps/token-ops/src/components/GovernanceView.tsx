@@ -628,30 +628,28 @@ export function GovernanceView() {
             {refreshing ? "Refreshing..." : "Refresh"}
           </button>
         </div>
-        <div className="standing-summary">
-          <strong>Your standing</strong>
-          {isAuthenticated ? (
+        {isAuthenticated && (
+          <div className="standing-summary">
+            <strong>Your standing</strong>
             <span>
               {memberGroups.length === 0
                 ? "This identity is not a member of any loaded approval group."
                 : `Member of ${memberGroupLabels.join(", ")}.`}
             </span>
-          ) : (
-            <span>Sign in to see which groups include this identity.</span>
-          )}
-          {memberGroups.length > 0 && (
-            <button
-              type="button"
-              className="link-button"
-              onClick={() => {
-                setActiveView("groups");
-                setGroupFilter("mine");
-              }}
-            >
-              Show my groups
-            </button>
-          )}
-        </div>
+            {memberGroups.length > 0 && (
+              <button
+                type="button"
+                className="link-button"
+                onClick={() => {
+                  setActiveView("groups");
+                  setGroupFilter("mine");
+                }}
+              >
+                Show my groups
+              </button>
+            )}
+          </div>
+        )}
         <div
           className="governance-subnav"
           role="tablist"

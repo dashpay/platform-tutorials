@@ -65,6 +65,29 @@ describe("GovernanceView", () => {
     vi.clearAllMocks();
   });
 
+  it("hides identity standing when signed out", async () => {
+    vi.mocked(useSession).mockReturnValue({
+      status: "readonly",
+      sdk: { contracts: {} },
+      keyManager: null,
+      contractId: "contract-1",
+      identityId: null,
+      log: vi.fn(),
+    } as never);
+    vi.mocked(fetchTokenOpsGovernance).mockResolvedValue({
+      groups: [],
+      rules: [],
+    });
+
+    render(<GovernanceView />);
+
+    await waitFor(() => expect(fetchTokenOpsGovernance).toHaveBeenCalledOnce());
+    expect(screen.queryByText("Your standing")).toBeNull();
+    expect(
+      screen.queryByText("Sign in to see which groups include this identity."),
+    ).toBeNull();
+  });
+
   it("summarizes membership, capabilities, and empty-group consequences", async () => {
     const governance: TokenOpsGovernance = {
       groups: [
