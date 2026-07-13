@@ -31,9 +31,12 @@ test.describe("Read-only browsing", () => {
 
   test("governance view renders without signing in", async ({ page }) => {
     await page.getByRole("button", { name: "Governance" }).click();
-    await expect(
-      page.getByRole("heading", { name: "Access control", level: 4 }),
-    ).toBeVisible();
+    // Access control and Groups are subnav tabs; the access pane (default)
+    // shows the Capability authority matrix heading.
+    await expect(page.getByRole("tab", { name: "Access control" })).toBeVisible();
     await expect(page.getByRole("tab", { name: "Groups" })).toBeVisible();
+    await expect(
+      page.getByRole("heading", { name: "Capability authority", level: 4 }),
+    ).toBeVisible();
   });
 });
