@@ -51,9 +51,7 @@ describe("LoginModal", () => {
   it("focuses the secret field when opened", () => {
     mockSession();
 
-    const { rerender } = render(
-      <LoginModal open={false} onClose={vi.fn()} />,
-    );
+    const { rerender } = render(<LoginModal open={false} onClose={vi.fn()} />);
     rerender(<LoginModal open onClose={vi.fn()} />);
 
     expect(document.activeElement).toBe(

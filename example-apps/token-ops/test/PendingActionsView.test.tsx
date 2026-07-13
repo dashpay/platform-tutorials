@@ -262,4 +262,138 @@ describe("PendingActionsView", () => {
       ),
     );
   });
+
+  it("collapses proposals whose capability is assigned to another group", async () => {
+    vi.mocked(useSession).mockReturnValue({
+      status: "authenticated",
+      sdk: {},
+      keyManager: { id: "key-manager" },
+      contractId: "contract-1",
+      identityId: "member-b",
+      log: vi.fn(),
+    } as never);
+    vi.mocked(fetchTokenOpsGovernance).mockResolvedValue({
+      groups: [
+        {
+          groupPosition: 0,
+          requiredPower: 2,
+          members: new Map([
+            ["member-a", 1],
+            ["member-b", 1],
+          ]),
+        },
+        {
+          groupPosition: 1,
+          requiredPower: 2,
+          members: new Map([
+            ["member-c", 1],
+            ["member-d", 1],
+          ]),
+        },
+      ],
+      rules: [
+        {
+          key: "manualMinting",
+          label: "Manual minting",
+          ruleName: "manualMintingRules",
+          operator: { type: "Group", groupPosition: 1 },
+          admin: { type: "ContractOwner" },
+          canSetOperatorToNoOne: false,
+          canSetAdminToNoOne: false,
+          supportsGroupAction: true,
+        },
+      ],
+    });
+    vi.mocked(listPendingActions).mockImplementation(
+      async ({ groupPosition }) =>
+        groupPosition === 0
+          ? [
+              {
+                actionId: "stranded-action",
+                proposerId: "member-a",
+                eventName: "Token: mint",
+                params: {
+                  kind: "mint",
+                  amount: 3n,
+                  recipientId: "recipient-1",
+                },
+              },
+            ]
+          : [],
+    );
+    vi.mocked(listActionSigners).mockResolvedValue({
+      signers: new Map([["member-a", 1n]]),
+      signedPower: 1n,
+      requiredPower: 2,
+      hasSigned: (identityId: string) => identityId === "member-a",
+    });
+
+    render(<PendingActionsView />);
+
+    const summary = await screen.findByText("Not currently actionable");
+    const section = summary.closest("details") as HTMLDetailsElement;
+    expect(section.open).toBe(false);
+    expect(screen.getByText("Show proposals")).toBeTruthy();
+    expect(
+      screen.getByText(
+        /groups that are no longer authorized to approve the requested action/i,
+      ),
+    ).toBeTruthy();
+    expect(
+      screen.queryByRole("button", { name: "Sign & execute mint" }),
+    ).toBeNull();
+
+    fireEvent.click(summary);
+
+    expect(section.open).toBe(true);
+    expect(screen.getByText("Hide proposals")).toBeTruthy();
+    expect(
+      screen.getByText(
+        /currently assigned to Group 1.*proposal belongs to Group 0/i,
+      ),
+    ).toBeTruthy();
+    expect(
+      screen.queryByRole("button", { name: "Sign & execute mint" }),
+    ).toBeNull();
+    expect(mintToken).not.toHaveBeenCalled();
+
+    vi.mocked(fetchTokenOpsGovernance).mockResolvedValue({
+      groups: [
+        {
+          groupPosition: 0,
+          requiredPower: 2,
+          members: new Map([
+            ["member-a", 1],
+            ["member-b", 1],
+          ]),
+        },
+        {
+          groupPosition: 1,
+          requiredPower: 2,
+          members: new Map([
+            ["member-c", 1],
+            ["member-d", 1],
+          ]),
+        },
+      ],
+      rules: [
+        {
+          key: "manualMinting",
+          label: "Manual minting",
+          ruleName: "manualMintingRules",
+          operator: { type: "Group", groupPosition: 0 },
+          admin: { type: "ContractOwner" },
+          canSetOperatorToNoOne: false,
+          canSetAdminToNoOne: false,
+          supportsGroupAction: true,
+        },
+      ],
+    });
+    fireEvent.click(screen.getByRole("button", { name: "Refresh" }));
+
+    expect(
+      await screen.findByRole("button", { name: "Sign & execute mint" }),
+    ).toBeTruthy();
+    expect(screen.queryByText("Not currently actionable")).toBeNull();
+  });
 });

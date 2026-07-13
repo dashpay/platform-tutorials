@@ -82,6 +82,10 @@ Remember a `ChangeControlRules` object has two authorities: `authorizedToMakeCha
 - **WIF sign-in** ([loginWithPrivateKey.ts](src/dash/loginWithPrivateKey.ts)): `PrivateKey.fromWIF` → `privateKey.getPublicKeyHash()` → `sdk.identities.byPublicKeyHash(hash)` first, then `byNonUniquePublicKeyHash(hash)` if the unique lookup misses. The resolver matches the WIF against the identity's `publicKeys[]` by decoding `entry.data` as hex-or-base64 and comparing either full public-key bytes or the 20-byte public-key hash, since SDK serialization varies. It then gates on `purpose === AUTHENTICATION` + `securityLevel ∈ {HIGH, CRITICAL}` + not disabled, and throws `AmbiguousIdentityError` instead of guessing if non-unique lookup returns multiple valid auth matches. `IdentitySigner.addKeyFromWif` builds the signer. `DashSdk.identities` includes `byPublicKeyHash(...)` and `byNonUniquePublicKeyHash(...)` members in [types.ts](src/dash/types.ts) for this.
 - Direct purchase, distribution claims, and admin/control-group updates are displayed or documented but intentionally deferred from v1.
 
+## Limitations
+
+The authoritative, user-facing limitations list lives in [README.md](README.md#limitations) — keep the two in sync when you change scope. The one item worth restating here for contributors: **reassignment only touches the operator (`authorizedToMakeChange`), never the admin (`adminActionTakers`).** The reassign modal is titled "Reassign operator" and `configurationChangeItemForRule` only builds operator changes; the admin column in the Governance matrix is read-only.
+
 ## Bootstrap script
 
 `npm run bootstrap:identities` ([scripts/bootstrap-identities.mjs](scripts/bootstrap-identities.mjs)) registers four identities from one mnemonic. Each `identityIndex` (0–3) is a distinct DIP-13 path, so one mnemonic yields four genuinely distinct, independently-registerable identities — it saves managing four seed phrases, **not** the on-chain cost (each still needs its own funded identity-create tx).

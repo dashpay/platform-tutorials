@@ -33,7 +33,9 @@ test.describe("Read-only browsing", () => {
     await page.getByRole("button", { name: "Governance" }).click();
     // Access control and Groups are subnav tabs; the access pane (default)
     // shows the Capability authority matrix heading.
-    await expect(page.getByRole("tab", { name: "Access control" })).toBeVisible();
+    await expect(
+      page.getByRole("tab", { name: "Access control" }),
+    ).toBeVisible();
     await expect(page.getByRole("tab", { name: "Groups" })).toBeVisible();
     await expect(
       page.getByRole("heading", { name: "Capability authority", level: 4 }),

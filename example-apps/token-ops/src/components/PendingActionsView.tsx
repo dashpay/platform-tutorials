@@ -225,6 +225,50 @@ function personalStatus({
   return { label: "Waiting for another signer", className: "neutral" };
 }
 
+function ruleKeyForAction(
+  params: PendingTokenActionParams | null,
+): string | null {
+  if (!params) return null;
+  switch (params.kind) {
+    case "mint":
+      return "manualMinting";
+    case "burn":
+      return "manualBurning";
+    case "freeze":
+      return "freeze";
+    case "unfreeze":
+      return "unfreeze";
+    case "destroyFrozen":
+      return "destroyFrozenFunds";
+    case "emergency":
+      return "emergencyAction";
+  }
+}
+
+function unavailableRule(
+  action: PendingWithGroup,
+  rules: RuleInfo[],
+): RuleInfo | null {
+  const ruleKey = ruleKeyForAction(action.params);
+  const rule = rules.find((candidate) => candidate.key === ruleKey);
+  if (!rule || rule.operator.type === "Unknown") return null;
+  if (rule.operator.type === "Group" && rule.operator.groupPosition == null) {
+    return null;
+  }
+  return rule.operator.type !== "Group" ||
+    rule.operator.groupPosition !== action.group.groupPosition
+    ? rule
+    : null;
+}
+
+function unavailableReason(action: PendingWithGroup, rule: RuleInfo): string {
+  const proposalGroup = `Group ${action.group.groupPosition}`;
+  if (rule.operator.type === "Group" && rule.operator.groupPosition != null) {
+    return `${rule.label} is currently assigned to Group ${rule.operator.groupPosition}. This proposal belongs to ${proposalGroup} and cannot be signed unless authorization changes.`;
+  }
+  return `${rule.label} is no longer assigned to ${proposalGroup}. This proposal cannot be signed unless authorization changes.`;
+}
+
 export function PendingActionsView() {
   const session = useSession();
   const [actions, setActions] = useState<PendingWithGroup[]>([]);
@@ -414,8 +458,8 @@ export function PendingActionsView() {
         <div>
           <h3>Pending group actions</h3>
           <p className="muted">
-            Eligible unsigned group members can co-sign supported token
-            proposals directly from this list.
+            Review pending action proposals and add your signature when your
+            approval is required.
           </p>
         </div>
         <div className="pending-toolbar-actions">
@@ -450,7 +494,9 @@ export function PendingActionsView() {
           const enriched = actions
             .map((action) => {
               const p = progress.get(action.actionId);
-              const canSign = canCurrentIdentitySign(action, p);
+              const currentUnavailableRule = unavailableRule(action, rules);
+              const canSign =
+                !currentUnavailableRule && canCurrentIdentitySign(action, p);
               const hasSigned = Boolean(
                 session.identityId && p?.hasSigned(session.identityId),
               );
@@ -458,17 +504,32 @@ export function PendingActionsView() {
                 session.identityId &&
                 action.group.members.has(session.identityId),
               );
-              const status = personalStatus({
+              const status = currentUnavailableRule
+                ? { label: "Not currently actionable", className: "neutral" }
+                : personalStatus({
+                    canSign,
+                    hasSigned,
+                    isMember,
+                    isSupported: Boolean(action.params),
+                  });
+              return {
+                action,
+                p,
                 canSign,
                 hasSigned,
                 isMember,
-                isSupported: Boolean(action.params),
-              });
-              return { action, p, canSign, hasSigned, isMember, status };
+                status,
+                currentUnavailableRule,
+              };
             })
             .sort((a, b) => Number(b.canSign) - Number(a.canSign));
           const needsSignature = enriched.filter((item) => item.canSign);
-          const waiting = enriched.filter((item) => !item.canSign);
+          const waiting = enriched.filter(
+            (item) => !item.canSign && !item.currentUnavailableRule,
+          );
+          const notCurrentlyActionable = enriched.filter(
+            (item) => item.currentUnavailableRule,
+          );
           const renderCard = ({
             action,
             p,
@@ -476,6 +537,7 @@ export function PendingActionsView() {
             hasSigned,
             isMember,
             status,
+            currentUnavailableRule,
           }: (typeof enriched)[number]) => {
             const percent = progressPercent(p, action.group.requiredPower);
             const kind = actionKind(action);
@@ -521,7 +583,13 @@ export function PendingActionsView() {
                   isExpanded ? "is-expanded" : "is-collapsed"
                 } ${hasSigned ? "is-signed" : ""} ${
                   canSign ? "needs-signature" : ""
-                } ${!canSign ? "waiting-on-others" : ""}`}
+                } ${
+                  currentUnavailableRule
+                    ? "not-currently-actionable"
+                    : !canSign
+                      ? "waiting-on-others"
+                      : ""
+                }`}
               >
                 <div className="proposal-header">
                   <div>
@@ -626,11 +694,13 @@ export function PendingActionsView() {
                   {!isExpanded && (
                     <div className="metadata-item">
                       <strong>
-                        {p
-                          ? `${signatureProgressText(action, p)}${
-                              !isMember ? " · you're not in this group" : ""
-                            }`
-                          : "Loading"}
+                        {currentUnavailableRule
+                          ? unavailableReason(action, currentUnavailableRule)
+                          : p
+                            ? `${signatureProgressText(action, p)}${
+                                !isMember ? " · you're not in this group" : ""
+                              }`
+                            : "Loading"}
                       </strong>
                     </div>
                   )}
@@ -740,10 +810,38 @@ export function PendingActionsView() {
                   {needsSignature.map(renderCard)}
                 </section>
               )}
-              <section className="pending-section">
-                <h3>Waiting on others</h3>
-                {waiting.map(renderCard)}
-              </section>
+              {waiting.length > 0 && (
+                <section className="pending-section">
+                  <h3>Waiting on others</h3>
+                  {waiting.map(renderCard)}
+                </section>
+              )}
+              {notCurrentlyActionable.length > 0 && (
+                <details className="pending-section pending-section-collapsible">
+                  <summary>
+                    <span className="section-disclosure-chevron" aria-hidden>
+                      ›
+                    </span>
+                    <span className="section-summary-copy">
+                      <span className="section-summary-title">
+                        Not currently actionable
+                        <span className="count-badge neutral-count">
+                          {notCurrentlyActionable.length}
+                        </span>
+                      </span>
+                      <span className="section-summary-description">
+                        Proposals submitted by groups that are no longer
+                        authorized to approve the requested action.
+                      </span>
+                    </span>
+                    <span className="section-disclosure-action">
+                      <span className="when-collapsed">Show proposals</span>
+                      <span className="when-expanded">Hide proposals</span>
+                    </span>
+                  </summary>
+                  {notCurrentlyActionable.map(renderCard)}
+                </details>
+              )}
             </div>
           );
         })()

@@ -54,7 +54,7 @@ export async function loginAs(page: Page, identityIndex: number) {
   await dialog.getByLabel(/identity index/i).fill(String(identityIndex));
   await dialog.getByRole("button", { name: "Sign in", exact: true }).click();
 
-  await expect(
-    page.getByRole("button", { name: "Sign out" }),
-  ).toBeVisible({ timeout: 60_000 });
+  await expect(page.getByRole("button", { name: "Sign out" })).toBeVisible({
+    timeout: 60_000,
+  });
 }

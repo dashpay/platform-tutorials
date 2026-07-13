@@ -455,6 +455,80 @@ button.identity-pill:hover:not(:disabled) {
   margin: 0;
 }
 
+.pending-section-collapsible > summary {
+  align-items: center;
+  color: #596078;
+  cursor: pointer;
+  display: grid;
+  font-size: 0.95rem;
+  font-weight: 700;
+  gap: 0.75rem;
+  grid-template-columns: auto minmax(0, 1fr) auto;
+  list-style: none;
+  padding: 0.25rem 0;
+}
+
+.pending-section-collapsible > summary::-webkit-details-marker {
+  display: none;
+}
+
+.pending-section-collapsible[open] > summary {
+  margin-bottom: 0.75rem;
+}
+
+.section-disclosure-chevron {
+  align-items: center;
+  border: 1px solid #cbd0df;
+  border-radius: 999px;
+  display: inline-flex;
+  font-size: 1.2rem;
+  height: 1.65rem;
+  justify-content: center;
+  line-height: 1;
+  transition: transform 150ms ease;
+  width: 1.65rem;
+}
+
+.pending-section-collapsible[open] .section-disclosure-chevron {
+  transform: rotate(90deg);
+}
+
+.section-summary-copy {
+  display: grid;
+  gap: 0.2rem;
+}
+
+.section-summary-title {
+  align-items: center;
+  color: #33395c;
+  display: flex;
+  gap: 0.5rem;
+}
+
+.section-summary-description {
+  color: #6a7290;
+  font-size: 0.82rem;
+  font-weight: 500;
+}
+
+.section-disclosure-action {
+  color: #3454d1;
+  font-size: 0.82rem;
+  white-space: nowrap;
+}
+
+.when-expanded {
+  display: none;
+}
+
+.pending-section-collapsible[open] .when-collapsed {
+  display: none;
+}
+
+.pending-section-collapsible[open] .when-expanded {
+  display: inline;
+}
+
 .count-badge {
   align-items: center;
   background: #c24632;
@@ -466,6 +540,10 @@ button.identity-pill:hover:not(:disabled) {
   justify-content: center;
   min-width: 1.35rem;
   padding: 0 0.4rem;
+}
+
+.count-badge.neutral-count {
+  background: #6a7290;
 }
 
 .empty-state {
@@ -505,6 +583,11 @@ button.identity-pill:hover:not(:disabled) {
 
 .proposal-card.is-signed {
   background: #fafbfe;
+}
+
+.proposal-card.not-currently-actionable {
+  --proposal-accent: #7d8499;
+  background: #f7f8fb;
 }
 
 .proposal-card.needs-signature {
@@ -1801,6 +1884,14 @@ button.identity-pill:hover:not(:disabled) {
 
   .content {
     padding: 1rem;
+  }
+
+  .pending-section-collapsible > summary {
+    grid-template-columns: auto minmax(0, 1fr);
+  }
+
+  .section-disclosure-action {
+    grid-column: 2;
   }
 
   .pending-screen,

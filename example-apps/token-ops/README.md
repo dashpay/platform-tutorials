@@ -115,6 +115,17 @@ Group-managed operations (everything except direct transfer) follow propose → 
 
 The Pending tab surfaces ACTIVE actions (`sdk.group.actions`), shows "N of M" signing progress (`sdk.group.actionSigners`), and splits them into "needs your signature" vs "waiting on others".
 
+## Limitations
+
+TokenOps is a **group-governance demo**. It uses a token only as the vehicle for showing `ChangeControlRules` group governance — it is not a complete token toolkit. Its token surface is deliberately minimal: a single token at position `0`, testnet only, in-memory keys, and several token config controls (max supply, conventions, distribution, marketplace, direct purchase) are shown read-only rather than made editable. The point is the groups.
+
+Within group governance itself, a few things are intentionally not exercised in v1:
+
+- **The `MainGroup` (main control group) is never used as an authority.** The contract registers one (`mainControlGroup: Treasury`, `mainControlGroupCanBeModified: NoOne`) and the Governance matrix will render "Main group" if it sees it ([`governance.ts`](src/dash/governance.ts)), but no capability is assigned to it and there is no UI to modify it.
+- **Appended groups always use unit voting power.** The Governance → Groups "Append group" form takes a member list and a single required-power threshold, so every group it creates gives each member power `1`. The read/display side handles weighted power generally (see `usesOnePowerPerSignature` in [`PendingActionsView.tsx`](src/components/PendingActionsView.tsx)), but there's no form field to assign disparate per-member power.
+- **Capabilities can only be reassigned to a `Group`.** The reassign control lists existing groups only, and `configurationChangeItemForRule` ([`tokenOperations.ts`](src/dash/tokenOperations.ts)) always builds `AuthorizedActionTakers.Group(...)`. The matrix reads and displays ContractOwner, Identity, MainGroup, and NoOne authorities, but the app can't assign to (or away from) them.
+- **Only the operator authority is reassignable, not the admin.** Reassignment changes `authorizedToMakeChange` (who performs the action); it never changes `adminActionTakers` (who can later reassign the operator), which is displayed but not editable.
+
 ## Reading this codebase
 
 1. **[`src/dash/`](src/dash/)** — start here. [`contract.ts`](src/dash/contract.ts) defines the token config, rule presets, and initial groups; [`tokenOperations.ts`](src/dash/tokenOperations.ts) shows the propose/co-sign pattern; [`governance.ts`](src/dash/governance.ts) reads and appends authorities.
