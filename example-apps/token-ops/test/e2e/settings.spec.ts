@@ -67,4 +67,30 @@ test.describe("Settings (read-only)", () => {
     });
     await expect(page.locator(".notice.error")).toHaveCount(0);
   });
+
+  test("clear override refills the input with the default contract", async ({
+    page,
+  }) => {
+    const DEFAULT = "KMMJJdJo9LTjjevsuJ4jkbNZEY8xCq8n44cDmba7o2A";
+    await expect(
+      page.getByRole("button", { name: "Sign in", exact: true }),
+    ).toBeEnabled({ timeout: 60_000 });
+    await page.getByRole("button", { name: "Settings", exact: true }).click();
+
+    // Set an override, then clear it. Clearing re-derives the session back to
+    // the default contract; the input must refill with that resolved value in
+    // place — regression test: it previously blanked and only refilled on a
+    // remount (nav away and back).
+    const input = page.getByPlaceholder("Contract or token ID");
+    await input.fill(DEFAULT);
+    await page.getByRole("button", { name: "Use", exact: true }).click();
+    await expect(page.getByText(/Using contract|Resolved token/)).toBeVisible({
+      timeout: 60_000,
+    });
+
+    await page
+      .getByRole("button", { name: "Clear override", exact: true })
+      .click();
+    await expect(input).toHaveValue(DEFAULT);
+  });
 });

@@ -3,6 +3,7 @@ import { useEffect, useState, type FormEvent } from "react";
 import { CopyableId } from "./CopyableId";
 import { IdentityLabel } from "./IdentityLabel";
 import { TOKEN_POSITION, registerContract } from "../dash/contract";
+import { loadStoredContractId } from "../dash/contractStorage";
 import { errorMessage } from "../dash/logger";
 import {
   resolveTokenRef,
@@ -192,7 +193,11 @@ export function SettingsView() {
             className="secondary"
             onClick={() => {
               session.setContractId(null);
-              setContractInput("");
+              // Clearing the override re-derives the session back to the
+              // default contract; keep the input in sync with that resolved
+              // value rather than blanking it (it would otherwise only refill
+              // on remount).
+              setContractInput(loadStoredContractId() ?? "");
               setResolved(null);
             }}
           >
