@@ -1,3 +1,5 @@
+import { useEffect, useRef } from "react";
+
 import { shortId } from "../lib/format";
 import type { SessionStatus } from "../session/SessionContext";
 
@@ -28,6 +30,14 @@ export function TopNav({
   onLogout: () => void;
 }) {
   const isAuthenticated = status === "authenticated" && Boolean(identityId);
+  const activeTabRef = useRef<HTMLButtonElement | null>(null);
+
+  useEffect(() => {
+    activeTabRef.current?.scrollIntoView?.({
+      block: "nearest",
+      inline: "center",
+    });
+  }, [view]);
 
   return (
     <div className="topbar">
@@ -40,6 +50,7 @@ export function TopNav({
           <button
             key={tab.id}
             type="button"
+            ref={view === tab.id ? activeTabRef : undefined}
             className={view === tab.id ? "active" : ""}
             onClick={() => onViewChange(tab.id)}
           >
@@ -49,21 +60,14 @@ export function TopNav({
       </div>
       <div className="topbar-auth">
         {isAuthenticated ? (
-          <>
-            <span
-              className="identity-pill signed-in"
-              title={shortId(identityId)}
-            >
-              Signed in
-            </span>
-            <button
-              type="button"
-              className="topbar-auth-button"
-              onClick={onLogout}
-            >
-              Sign out
-            </button>
-          </>
+          <button
+            type="button"
+            className="topbar-auth-button"
+            onClick={onLogout}
+            title={`Signed in as ${shortId(identityId)}`}
+          >
+            Sign out
+          </button>
         ) : (
           <button
             type="button"

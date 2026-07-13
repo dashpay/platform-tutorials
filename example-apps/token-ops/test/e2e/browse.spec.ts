@@ -39,4 +39,26 @@ test.describe("Read-only browsing", () => {
       page.getByRole("heading", { name: "Capability authority", level: 4 }),
     ).toBeVisible();
   });
+
+  test("pending view does not overflow horizontally on mobile", async ({
+    page,
+  }) => {
+    await page.setViewportSize({ width: 375, height: 812 });
+    await page.getByRole("button", { name: "Pending", exact: true }).click();
+
+    await expect(
+      page.getByRole("heading", { name: "Pending group actions" }),
+    ).toBeVisible();
+    await expect(page.getByText(/^Updated /)).toBeVisible({ timeout: 60_000 });
+    await expect(
+      page.locator(".empty-state, .proposal-card").first(),
+    ).toBeVisible();
+
+    const dimensions = await page.evaluate(() => ({
+      clientWidth: document.documentElement.clientWidth,
+      scrollWidth: document.documentElement.scrollWidth,
+    }));
+
+    expect(dimensions.scrollWidth).toBeLessThanOrEqual(dimensions.clientWidth);
+  });
 });

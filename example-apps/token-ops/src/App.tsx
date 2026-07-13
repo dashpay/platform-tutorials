@@ -69,7 +69,7 @@ export default function App() {
         onLogout={session.logout}
       />
       <LoginModal open={loginOpen} onClose={() => setLoginOpen(false)} />
-      <div className="content" style={{ padding: "1.5rem" }}>
+      <div className="content">
         <AppNotices
           error={session.error}
           hasContract={Boolean(session.contractId)}

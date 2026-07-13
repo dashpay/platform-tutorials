@@ -26,7 +26,7 @@ describe("TopNav", () => {
     expect(onLoginClick).toHaveBeenCalledOnce();
   });
 
-  it("shows sign out when authenticated", () => {
+  it("shows only sign out when authenticated", () => {
     const onLogout = vi.fn();
 
     render(
@@ -40,7 +40,7 @@ describe("TopNav", () => {
       />,
     );
 
-    expect(screen.getByText("Signed in")).toBeTruthy();
+    expect(screen.queryByText("Signed in")).toBeNull();
     fireEvent.click(screen.getByRole("button", { name: "Sign out" }));
 
     expect(onLogout).toHaveBeenCalledOnce();
