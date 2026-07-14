@@ -1,12 +1,12 @@
-import { useEffect, useMemo, useState } from "react";
+import { useEffect, useMemo, useRef, useState } from "react";
 
 import { ConfirmActionPanel } from "./ConfirmActionPanel";
 import { CopyableId } from "./CopyableId";
 import { IdentityLabel } from "./IdentityLabel";
 import { errorMessage } from "../dash/logger";
 import {
-  fetchTokenOpsGovernance,
   type RuleInfo,
+  type TokenOpsGovernance,
   type TokenOpsGroupInfo,
 } from "../dash/governance";
 import { formatGroupIdentity } from "../dash/groupDisplay";
@@ -269,10 +269,16 @@ function unavailableReason(action: PendingWithGroup, rule: RuleInfo): string {
   return `${rule.label} is no longer assigned to ${proposalGroup}. This proposal cannot be signed unless authorization changes.`;
 }
 
-export function PendingActionsView() {
+export function PendingActionsView({
+  governance,
+  refreshGovernance,
+}: {
+  governance: TokenOpsGovernance | null;
+  refreshGovernance: () => Promise<TokenOpsGovernance | null>;
+}) {
   const session = useSession();
   const [actions, setActions] = useState<PendingWithGroup[]>([]);
-  const [rules, setRules] = useState<RuleInfo[]>([]);
+  const rules = governance?.rules ?? [];
   const [progress, setProgress] = useState<Map<string, ActionSignerProgress>>(
     new Map(),
   );
@@ -286,20 +292,27 @@ export function PendingActionsView() {
   const [lastUpdatedAt, setLastUpdatedAt] = useState<Date | null>(null);
   const [error, setError] = useState<string | null>(null);
   const [refreshing, setRefreshing] = useState(false);
+  // Manual refresh records the exact context it loaded before React runs the
+  // passive governance effect, allowing that one redundant reload to be skipped.
+  const manuallyLoadedContext = useRef<{
+    governance: TokenOpsGovernance;
+    sdk: typeof session.sdk;
+    contractId: string;
+  } | null>(null);
 
-  async function refresh() {
+  async function refresh(
+    governanceSnapshot: TokenOpsGovernance | null = governance,
+    manageRefreshing = true,
+  ) {
     if (!session.sdk || !session.contractId) return;
+    if (!governanceSnapshot) return;
     setError(null);
-    setRefreshing(true);
+    if (manageRefreshing) setRefreshing(true);
     try {
-      const governance = await fetchTokenOpsGovernance({
-        sdk: session.sdk,
-        contractId: session.contractId,
-      });
       const nextActions: PendingWithGroup[] = [];
       const nextProgress = new Map<string, ActionSignerProgress>();
       await Promise.all(
-        governance.groups.map(async (group) => {
+        governanceSnapshot.groups.map(async (group) => {
           const pending = await listPendingActions({
             sdk: session.sdk!,
             contractId: session.contractId!,
@@ -323,21 +336,49 @@ export function PendingActionsView() {
         }),
       );
       setActions(nextActions);
-      setRules(governance.rules);
       setProgress(nextProgress);
       setLastUpdatedAt(new Date());
     } catch (err) {
       setError(errorMessage(err));
+    } finally {
+      if (manageRefreshing) setRefreshing(false);
+    }
+  }
+
+  async function refreshSharedState() {
+    setError(null);
+    setRefreshing(true);
+    try {
+      const nextGovernance = await refreshGovernance();
+      if (nextGovernance) {
+        manuallyLoadedContext.current = {
+          governance: nextGovernance,
+          sdk: session.sdk,
+          contractId: session.contractId!,
+        };
+        await refresh(nextGovernance, false);
+      }
     } finally {
       setRefreshing(false);
     }
   }
 
   useEffect(() => {
+    const manuallyLoaded = manuallyLoadedContext.current;
+    if (
+      governance &&
+      governance === manuallyLoaded?.governance &&
+      session.sdk === manuallyLoaded.sdk &&
+      session.contractId === manuallyLoaded.contractId
+    ) {
+      manuallyLoadedContext.current = null;
+      return;
+    }
+    manuallyLoadedContext.current = null;
     const timer = window.setTimeout(() => void refresh(), 0);
     return () => window.clearTimeout(timer);
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [session.sdk, session.contractId]);
+  }, [session.sdk, session.contractId, governance]);
 
   async function coSign(action: PendingWithGroup) {
     if (
@@ -454,14 +495,8 @@ export function PendingActionsView() {
   return (
     <div className="pending-screen">
       {error && <div className="notice error">{error}</div>}
-      <div className="pending-toolbar">
-        <div>
-          <h3>Pending group actions</h3>
-          <p className="muted">
-            Review pending action proposals and add your signature when your
-            approval is required.
-          </p>
-        </div>
+      <div className="actions-section-heading pending-toolbar">
+        <h2>Review pending actions</h2>
         <div className="pending-toolbar-actions">
           <span className="muted">
             {refreshing
@@ -476,8 +511,8 @@ export function PendingActionsView() {
           <button
             type="button"
             className="secondary"
-            onClick={() => void refresh()}
-            disabled={refreshing}
+            onClick={() => void refreshSharedState()}
+            disabled={refreshing || !governance}
           >
             Refresh
           </button>
@@ -487,7 +522,9 @@ export function PendingActionsView() {
       {actions.length === 0 ? (
         <div className="empty-state">
           <strong>No pending actions</strong>
-          <span>Use Operations to propose a group-governed token action.</span>
+          <span>
+            Use the form above to propose a group-governed token action.
+          </span>
         </div>
       ) : (
         (() => {

@@ -8,8 +8,7 @@ import {
 } from "@testing-library/react";
 import { afterEach, describe, expect, it, vi } from "vitest";
 
-import { OperationsView } from "../src/components/OperationsView";
-import { fetchTokenOpsGovernance } from "../src/dash/governance";
+import { ProposeActionPanel } from "../src/components/ProposeActionPanel";
 import {
   burnToken,
   destroyFrozenToken,
@@ -18,15 +17,6 @@ import {
 } from "../src/dash/tokenOperations";
 import type { RuleInfo, TokenOpsGovernance } from "../src/dash/governance";
 import { useSession } from "../src/session/useSession";
-
-vi.mock("../src/dash/governance", async (importOriginal) => {
-  const actual =
-    await importOriginal<typeof import("../src/dash/governance")>();
-  return {
-    ...actual,
-    fetchTokenOpsGovernance: vi.fn(),
-  };
-});
 
 vi.mock("../src/session/useSession", () => ({
   useSession: vi.fn(),
@@ -59,17 +49,29 @@ const governance: TokenOpsGovernance = {
   groups: [
     {
       groupPosition: 0,
-      members: new Map([["treasury-member", 1]]),
+      members: new Map([
+        ["treasury-member", 1],
+        ["treasury-member-2", 1],
+        ["treasury-member-3", 1],
+      ]),
       requiredPower: 2,
     },
     {
       groupPosition: 1,
-      members: new Map([["access-member", 1]]),
+      members: new Map([
+        ["access-member", 1],
+        ["access-member-2", 1],
+        ["access-member-3", 1],
+      ]),
       requiredPower: 2,
     },
     {
       groupPosition: 2,
-      members: new Map([["emergency-member", 1]]),
+      members: new Map([
+        ["emergency-member", 1],
+        ["emergency-member-2", 1],
+        ["emergency-member-3", 1],
+      ]),
       requiredPower: 3,
     },
   ],
@@ -86,12 +88,16 @@ const governance: TokenOpsGovernance = {
 const allMemberGovernance: TokenOpsGovernance = {
   groups: governance.groups.map((group) => ({
     ...group,
-    members: new Map([["operator-member", 1]]),
+    members: new Map([
+      ["operator-member", 1],
+      ["operator-member-2", 1],
+      ["operator-member-3", 1],
+    ]),
   })),
   rules: governance.rules,
 };
 
-describe("OperationsView", () => {
+describe("ProposeActionPanel", () => {
   afterEach(() => {
     cleanup();
     vi.clearAllMocks();
@@ -106,35 +112,49 @@ describe("OperationsView", () => {
       identityId: "access-member",
       log: vi.fn(),
     } as never);
-    vi.mocked(fetchTokenOpsGovernance).mockResolvedValue(governance);
-
-    render(<OperationsView />);
+    render(<ProposeActionPanel governance={governance} />);
 
     await waitFor(() =>
-      expect(screen.getByText(/member of Group 1 · Access/i)).toBeTruthy(),
+      expect(
+        screen.getByText(/You can propose for Group 1 · Access/i),
+      ).toBeTruthy(),
     );
 
-    const transfer = screen.getByRole("button", {
-      name: "Transfer",
-    }) as HTMLButtonElement;
-    const freeze = screen.getByRole("button", {
-      name: "Propose freeze",
-    }) as HTMLButtonElement;
+    const mintSelector = screen.getByRole("tab", { name: "Mint" });
+    const freezeSelector = screen.getByRole("tab", { name: "Freeze" });
+    expect(mintSelector.getAttribute("aria-disabled")).toBe("true");
+    expect(mintSelector.title).toBe(
+      "Requires membership in Group 0 · Treasury.",
+    );
+    expect(freezeSelector.getAttribute("aria-disabled")).toBe("false");
 
+    const mint = screen.getByRole("button", {
+      name: /Propose mint/,
+    }) as HTMLButtonElement;
+    fireEvent.click(screen.getByRole("tab", { name: "Transfer" }));
     fireEvent.change(screen.getByLabelText("Transfer recipient identity ID"), {
       target: { value: "recipient-id" },
     });
-    fireEvent.change(screen.getByLabelText("Access target identity ID"), {
+    const transfer = screen.getByRole("button", {
+      name: /Transfer/,
+    }) as HTMLButtonElement;
+    fireEvent.click(screen.getByRole("tab", { name: "Freeze" }));
+    fireEvent.change(screen.getByLabelText("Freeze target identity ID"), {
       target: { value: "target-id" },
     });
+    const freeze = screen.getByRole("button", {
+      name: /Propose freeze/,
+    }) as HTMLButtonElement;
+    const destroyFrozenSelector = screen.getByRole("tab", {
+      name: "Destroy frozen",
+    });
 
-    expect(
-      screen.getByText("Requires membership in Group 0 · Treasury."),
-    ).toBeTruthy();
-    expect(
-      screen.getByText("Requires membership in Group 2 · Access + Emergency."),
-    ).toBeTruthy();
-    expect(screen.queryByRole("button", { name: "Burn..." })).toBeNull();
+    expect(mint.title).toBe("Requires membership in Group 0 · Treasury.");
+    expect(destroyFrozenSelector.getAttribute("aria-disabled")).toBe("true");
+    expect(destroyFrozenSelector.title).toBe(
+      "Requires membership in Group 2 · Access + Emergency.",
+    );
+    expect(screen.queryByRole("button", { name: /Propose burn/ })).toBeNull();
     expect(screen.queryByRole("button", { name: "Propose pause" })).toBeNull();
     expect(transfer.disabled).toBe(false);
     expect(freeze.disabled).toBe(false);
@@ -149,9 +169,7 @@ describe("OperationsView", () => {
       identityId: "non-member",
       log: vi.fn(),
     } as never);
-    vi.mocked(fetchTokenOpsGovernance).mockResolvedValue(governance);
-
-    render(<OperationsView />);
+    render(<ProposeActionPanel governance={governance} />);
 
     await waitFor(() =>
       expect(screen.getByText("No group operation permissions")).toBeTruthy(),
@@ -173,33 +191,33 @@ describe("OperationsView", () => {
       identityId: null,
       log: vi.fn(),
     } as never);
-    vi.mocked(fetchTokenOpsGovernance).mockResolvedValue(governance);
-
-    render(<OperationsView />);
+    render(<ProposeActionPanel governance={governance} />);
 
     await waitFor(() =>
       expect(
-        screen.getByText(/submission controls are disabled/i),
+        screen.getByText(
+          "Explore supported token actions and their approval requirements.",
+        ),
       ).toBeTruthy(),
     );
 
-    expect(screen.getByText("Supply")).toBeTruthy();
-    expect(screen.getByText("Access")).toBeTruthy();
-    expect(screen.getByText("Emergency")).toBeTruthy();
+    expect(screen.getAllByText(/Sign in/i)).toHaveLength(1);
 
     const mint = screen.getByRole("button", {
-      name: "Propose mint",
+      name: /Propose mint/,
     }) as HTMLButtonElement;
+    expect(screen.queryByLabelText("Freeze target identity ID")).toBeNull();
+    fireEvent.click(screen.getByRole("tab", { name: "Freeze" }));
     const freeze = screen.getByRole("button", {
-      name: "Propose freeze",
+      name: /Propose freeze/,
     }) as HTMLButtonElement;
-    const transfer = screen.getByRole("button", {
-      name: "Transfer",
-    }) as HTMLButtonElement;
-
+    fireEvent.click(screen.getByRole("tab", { name: "Transfer" }));
     fireEvent.change(screen.getByLabelText("Transfer recipient identity ID"), {
       target: { value: "recipient-id" },
     });
+    const transfer = screen.getByRole("button", {
+      name: /Transfer/,
+    }) as HTMLButtonElement;
 
     expect(mint.disabled).toBe(true);
     expect(mint.title).toBe("Sign in to propose this action.");
@@ -208,6 +226,33 @@ describe("OperationsView", () => {
     expect(transfer.disabled).toBe(true);
     expect(transfer.title).toBe("Sign in to transfer tokens.");
     expect(screen.queryByText("No group operation permissions")).toBeNull();
+  });
+
+  it("shows only the fields relevant to the selected proposal type", async () => {
+    vi.mocked(useSession).mockReturnValue({
+      status: "authenticated",
+      sdk: { contracts: {} },
+      keyManager: {},
+      contractId: "contract-1",
+      identityId: "operator-member",
+      log: vi.fn(),
+    } as never);
+    render(<ProposeActionPanel governance={allMemberGovernance} />);
+
+    await screen.findByLabelText("Mint amount");
+    expect(screen.getByLabelText("Mint recipient identity ID")).toBeTruthy();
+    expect(screen.queryByLabelText("Freeze target identity ID")).toBeNull();
+
+    fireEvent.click(screen.getByRole("tab", { name: "Unfreeze" }));
+    expect(screen.getByLabelText("Unfreeze target identity ID")).toBeTruthy();
+    expect(screen.queryByLabelText("Mint amount")).toBeNull();
+    expect(
+      screen.getByRole("button", { name: /Propose unfreeze/ }),
+    ).toBeTruthy();
+
+    fireEvent.click(screen.getByRole("tab", { name: "Resume" }));
+    expect(screen.getByRole("button", { name: /Propose resume/ })).toBeTruthy();
+    expect(screen.queryByLabelText("Unfreeze target identity ID")).toBeNull();
   });
 
   it("gates burn with an inline confirmation panel", async () => {
@@ -219,16 +264,16 @@ describe("OperationsView", () => {
       identityId: "operator-member",
       log: vi.fn(),
     } as never);
-    vi.mocked(fetchTokenOpsGovernance).mockResolvedValue(allMemberGovernance);
     vi.mocked(burnToken).mockResolvedValue({});
 
-    render(<OperationsView />);
+    render(<ProposeActionPanel governance={allMemberGovernance} />);
 
-    await screen.findByRole("button", { name: "Propose burn..." });
-    fireEvent.change(screen.getByLabelText("Supply amount"), {
+    await screen.findByRole("tab", { name: "Burn" });
+    fireEvent.click(screen.getByRole("tab", { name: "Burn" }));
+    fireEvent.change(screen.getByLabelText("Burn amount"), {
       target: { value: "7" },
     });
-    fireEvent.click(screen.getByRole("button", { name: "Propose burn..." }));
+    fireEvent.click(screen.getByRole("button", { name: /Propose burn/ }));
 
     expect(burnToken).not.toHaveBeenCalled();
     expect(
@@ -237,18 +282,16 @@ describe("OperationsView", () => {
       ),
     ).toBeTruthy();
     expect(
-      (screen.getByLabelText("Supply amount") as HTMLInputElement).value,
+      (screen.getByLabelText("Burn amount") as HTMLInputElement).value,
     ).toBe("7");
 
     fireEvent.click(screen.getByRole("button", { name: "Cancel" }));
+    expect(screen.getByRole("button", { name: /Propose burn/ })).toBeTruthy();
     expect(
-      screen.getByRole("button", { name: "Propose burn..." }),
-    ).toBeTruthy();
-    expect(
-      (screen.getByLabelText("Supply amount") as HTMLInputElement).value,
+      (screen.getByLabelText("Burn amount") as HTMLInputElement).value,
     ).toBe("7");
 
-    fireEvent.click(screen.getByRole("button", { name: "Propose burn..." }));
+    fireEvent.click(screen.getByRole("button", { name: /Propose burn/ }));
     fireEvent.click(screen.getByRole("button", { name: "Confirm burn" }));
 
     await waitFor(() =>
@@ -270,18 +313,24 @@ describe("OperationsView", () => {
       identityId: "operator-member",
       log: vi.fn(),
     } as never);
-    vi.mocked(fetchTokenOpsGovernance).mockResolvedValue(allMemberGovernance);
     vi.mocked(destroyFrozenToken).mockResolvedValue({});
     vi.mocked(emergencyTokenAction).mockResolvedValue({});
 
-    render(<OperationsView />);
+    render(<ProposeActionPanel governance={allMemberGovernance} />);
 
-    await screen.findByRole("button", { name: "Destroy frozen..." });
-    fireEvent.change(screen.getByLabelText("Access target identity ID"), {
-      target: { value: "target-id" },
-    });
+    await screen.findByRole("tab", { name: "Destroy frozen" });
+    fireEvent.click(screen.getByRole("tab", { name: "Destroy frozen" }));
+    await screen.findByRole("button", { name: /Propose destroy frozen/ });
+    fireEvent.change(
+      screen.getByLabelText("Destroy frozen target identity ID"),
+      {
+        target: { value: "target-id" },
+      },
+    );
 
-    fireEvent.click(screen.getByRole("button", { name: "Destroy frozen..." }));
+    fireEvent.click(
+      screen.getByRole("button", { name: /Propose destroy frozen/ }),
+    );
     expect(destroyFrozenToken).not.toHaveBeenCalled();
     fireEvent.click(screen.getByRole("button", { name: "Confirm destroy" }));
     await waitFor(() =>
@@ -293,14 +342,8 @@ describe("OperationsView", () => {
       ),
     );
 
-    fireEvent.click(screen.getByRole("button", { name: "Propose pause" }));
-    expect(
-      (
-        screen.getByRole("button", {
-          name: "Propose resume",
-        }) as HTMLButtonElement
-      ).disabled,
-    ).toBe(true);
+    fireEvent.click(screen.getByRole("tab", { name: "Pause" }));
+    fireEvent.click(screen.getByRole("button", { name: /Propose pause/ }));
     expect(emergencyTokenAction).not.toHaveBeenCalled();
     fireEvent.click(screen.getByRole("button", { name: "Confirm pause" }));
     await waitFor(() =>
@@ -312,14 +355,8 @@ describe("OperationsView", () => {
       ),
     );
 
-    fireEvent.click(screen.getByRole("button", { name: "Propose resume" }));
-    expect(
-      (
-        screen.getByRole("button", {
-          name: "Propose pause",
-        }) as HTMLButtonElement
-      ).disabled,
-    ).toBe(true);
+    fireEvent.click(screen.getByRole("tab", { name: "Resume" }));
+    fireEvent.click(screen.getByRole("button", { name: /Propose resume/ }));
     expect(emergencyTokenAction).toHaveBeenCalledTimes(1);
     fireEvent.click(screen.getByRole("button", { name: "Confirm resume" }));
     await waitFor(() =>
@@ -344,18 +381,17 @@ describe("OperationsView", () => {
       identityId: "operator-member",
       log: vi.fn(),
     } as never);
-    vi.mocked(fetchTokenOpsGovernance).mockResolvedValue(allMemberGovernance);
+    render(<ProposeActionPanel governance={allMemberGovernance} />);
 
-    render(<OperationsView />);
-
-    await screen.findByRole("button", { name: "Transfer" });
+    await screen.findByRole("tab", { name: "Transfer" });
+    fireEvent.click(screen.getByRole("tab", { name: "Transfer" }));
     fireEvent.change(screen.getByLabelText("Transfer amount"), {
       target: { value: "1.5" },
     });
     fireEvent.change(screen.getByLabelText("Transfer recipient identity ID"), {
       target: { value: "recipient-id" },
     });
-    fireEvent.click(screen.getByRole("button", { name: "Transfer" }));
+    fireEvent.click(screen.getByRole("button", { name: /Transfer/ }));
 
     expect(
       await screen.findByText("Amount must be a whole number."),
@@ -376,19 +412,24 @@ describe("OperationsView", () => {
       identityId: "operator-member",
       log,
     } as never);
-    vi.mocked(fetchTokenOpsGovernance).mockResolvedValue(allMemberGovernance);
     vi.mocked(transferToken).mockResolvedValue({} as never);
 
-    render(<OperationsView onComplete={onComplete} />);
+    render(
+      <ProposeActionPanel
+        governance={allMemberGovernance}
+        onComplete={onComplete}
+      />,
+    );
 
-    await screen.findByRole("button", { name: "Transfer" });
+    await screen.findByRole("tab", { name: "Transfer" });
+    fireEvent.click(screen.getByRole("tab", { name: "Transfer" }));
     fireEvent.change(screen.getByLabelText("Transfer amount"), {
       target: { value: " 8 " },
     });
     fireEvent.change(screen.getByLabelText("Transfer recipient identity ID"), {
       target: { value: "  recipient-id  " },
     });
-    fireEvent.click(screen.getByRole("button", { name: "Transfer" }));
+    fireEvent.click(screen.getByRole("button", { name: /Transfer/ }));
 
     await waitFor(() =>
       expect(transferToken).toHaveBeenCalledWith({

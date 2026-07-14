@@ -404,29 +404,27 @@ button.identity-pill:hover:not(:disabled) {
 
 .pending-screen {
   display: grid;
-  gap: 1rem;
+  gap: 0.75rem;
 }
 
-.pending-toolbar {
-  align-items: flex-start;
-  background: #f7f8fc;
-  border: 1px solid #e2e5f2;
-  border-radius: 12px;
+.actions-section-heading {
+  align-items: center;
   display: flex;
   gap: 1rem;
   justify-content: space-between;
-  padding: 1rem 1.25rem;
 }
 
-.pending-toolbar h3,
-.pending-toolbar p {
+.actions-section-heading h2 {
+  color: #111827;
+  font-size: 1rem;
   margin: 0;
 }
 
-.pending-toolbar h3 {
-  color: #111827;
-  font-size: 1rem;
-  margin-bottom: 0.25rem;
+.pending-toolbar {
+  background: transparent;
+  border: 0;
+  border-radius: 0;
+  padding: 0;
 }
 
 .pending-toolbar-actions {
@@ -571,14 +569,14 @@ button.identity-pill:hover:not(:disabled) {
   border-left: 5px solid var(--proposal-accent);
   border-radius: 12px;
   display: grid;
-  gap: 0.85rem;
-  padding: 1rem 1.25rem;
+  gap: 0.7rem;
+  padding: 0.65rem 1.25rem;
 }
 
 .proposal-card.is-collapsed {
   grid-template-columns: minmax(0, 1fr) auto;
-  gap: 0.25rem 1rem;
-  padding: 1rem 1.25rem;
+  gap: 0.2rem 1rem;
+  padding: 0.65rem 1.25rem;
 }
 
 .proposal-card.is-signed {
@@ -2345,25 +2343,125 @@ button.dashboard-attention-card:focus-visible {
   max-width: 60ch;
 }
 
+.actions-screen {
+  display: grid;
+  gap: 1.5rem;
+}
+
 .operations-screen {
   display: grid;
   gap: 1rem;
 }
 
-.eligibility-strip {
-  align-items: center;
-  background: white;
+.propose-action-panel {
+  background: #f8f9fc;
   border: 1px solid #e2e5f2;
   border-radius: 12px;
-  display: flex;
-  gap: 0.75rem;
-  padding: 0.75rem 1rem;
+  display: grid;
+  gap: 0.8rem;
+  padding: 1rem;
 }
 
-.eligibility-strip p {
-  color: #33395c;
-  font-size: 0.86rem;
+.proposal-availability,
+.proposal-context {
   margin: 0;
+}
+
+.proposal-availability,
+.proposal-context {
+  color: #59627c;
+  font-size: 0.82rem;
+}
+
+.proposal-availability {
+  text-align: left;
+}
+
+.proposal-selector {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 0.45rem;
+}
+
+.proposal-selector button {
+  align-items: center;
+  background: white;
+  border: 1px solid #d6dceb;
+  color: #536080;
+  display: inline-flex;
+  gap: 0.4rem;
+  padding: 0.45rem 0.75rem;
+}
+
+.proposal-selector button.selected {
+  background: #eef1fb;
+  border-color: #3454d1;
+  color: #26399e;
+}
+
+.proposal-selector button.unavailable {
+  background: #f0f2f7;
+  border-color: #dfe3ed;
+  color: #8b93a8;
+  cursor: not-allowed;
+  opacity: 0.65;
+}
+
+.proposal-selector button.unavailable:hover {
+  filter: none;
+}
+
+.propose-action-panel .operation-group-list {
+  gap: 0;
+}
+
+.proposal-fields {
+  min-width: 0;
+}
+
+.propose-action-panel .operation-inline-form {
+  align-items: stretch;
+}
+
+.propose-action-panel .operation-inline-form input,
+.propose-action-panel .operation-inline-form > button {
+  height: 44px;
+}
+
+.proposal-fields.supply.mint .supply-form {
+  grid-template-columns: minmax(90px, 0.14fr) minmax(0, 1fr) auto;
+}
+
+.proposal-fields.supply.burn .supply-form {
+  grid-template-columns: minmax(90px, 0.14fr) minmax(0, 1fr) auto;
+}
+
+.proposal-fields.supply.burn .supply-form > button {
+  grid-column: 3;
+}
+
+.proposal-fields.access .access-form {
+  grid-template-columns: minmax(0, 1fr) auto;
+}
+
+.proposal-fields.transfer .transfer-form {
+  grid-template-columns: minmax(90px, 0.14fr) minmax(0, 1fr) auto;
+}
+
+.proposal-fields.emergency .emergency-form {
+  grid-template-columns: auto auto;
+}
+
+.proposal-fields .confirm-action-panel {
+  grid-column: 1 / -1;
+}
+
+.proposal-context strong {
+  color: #33395c;
+}
+
+.dangerous-form {
+  grid-template-columns: minmax(0, 1fr) auto;
 }
 
 .operations-intro {
@@ -2401,42 +2499,6 @@ button.dashboard-attention-card:focus-visible {
 .operation-group-list {
   display: grid;
   gap: 0.75rem;
-}
-
-.operation-group {
-  background: white;
-  border: 1px solid #e2e5f2;
-  border-radius: 12px;
-  display: grid;
-  gap: 0.8rem;
-  grid-template-columns: 1fr;
-  padding: 0.95rem 1rem;
-}
-
-.operation-group.transfer {
-  background: #fbfcff;
-}
-
-.operation-group-head > div {
-  align-items: center;
-  display: flex;
-  flex-wrap: wrap;
-  gap: 0.45rem 0.65rem;
-}
-
-.operation-group h3,
-.operation-group p {
-  margin: 0;
-}
-
-.operation-group h3 {
-  color: #111827;
-  font-size: 0.98rem;
-}
-
-.operation-group p {
-  color: #6a7290;
-  font-size: 0.82rem;
 }
 
 .operation-capability-icon {
@@ -2492,16 +2554,6 @@ button.dashboard-attention-card:focus-visible {
   background: #e2e5f2;
   height: 1.8rem;
   width: 1px;
-}
-
-.locked-line {
-  background: #f7f8fc;
-  border: 1px solid #e2e5f2;
-  border-radius: 8px;
-  color: #59627c;
-  font-size: 0.84rem;
-  margin: 0;
-  padding: 0.65rem 0.75rem;
 }
 
 .operation-card-grid {
@@ -2564,7 +2616,6 @@ button.dashboard-attention-card:focus-visible {
   font-size: 0.82rem;
 }
 
-.eligibility-pill,
 .risk-pill {
   border-radius: 999px;
   flex: 0 0 auto;
@@ -2572,26 +2623,6 @@ button.dashboard-attention-card:focus-visible {
   font-weight: 800;
   padding: 0.22rem 0.55rem;
   text-transform: uppercase;
-}
-
-.eligibility-pill.can-submit {
-  background: #e3f3e6;
-  color: #206a2c;
-}
-
-.eligibility-pill.can-submit::before {
-  content: "\2022";
-  margin-right: 0.3rem;
-}
-
-.eligibility-pill.blocked {
-  background: #eef1f8;
-  color: #59627c;
-}
-
-.eligibility-pill.blocked::before {
-  content: "\1f512";
-  margin-right: 0.3rem;
 }
 
 .risk-pill.irreversible {
@@ -2860,9 +2891,28 @@ th {
 }
 
 @media (max-width: 900px) {
-  .operation-group {
-    align-items: stretch;
+  .proposal-selector {
+    flex-wrap: nowrap;
+    margin-inline: -1rem;
+    overflow-x: auto;
+    padding-inline: 1rem;
+  }
+
+  .proposal-selector button {
+    flex: 0 0 auto;
+  }
+
+  .proposal-fields.supply.mint .supply-form,
+  .proposal-fields.supply.burn .supply-form,
+  .proposal-fields.access .access-form,
+  .proposal-fields.emergency .emergency-form,
+  .proposal-fields.transfer .transfer-form,
+  .dangerous-form {
     grid-template-columns: 1fr;
+  }
+
+  .proposal-fields.supply.burn .supply-form > button {
+    grid-column: auto;
   }
 
   .supply-form,
@@ -2924,19 +2974,13 @@ th {
     grid-template-columns: 1fr;
   }
 
-  .eligibility-strip {
-    align-items: flex-start;
-    flex-direction: column;
-  }
-
   .operations-intro,
   .operation-card-head {
     align-items: stretch;
     flex-direction: column;
   }
 
-  .membership-pill,
-  .eligibility-pill {
+  .membership-pill {
     align-self: flex-start;
   }
 

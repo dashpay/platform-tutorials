@@ -1,4 +1,5 @@
 // @vitest-environment jsdom
+import { useState } from "react";
 import {
   cleanup,
   fireEvent,
@@ -9,17 +10,13 @@ import {
 import { afterEach, describe, expect, it, vi } from "vitest";
 
 import { PendingActionsView } from "../src/components/PendingActionsView";
-import { fetchTokenOpsGovernance } from "../src/dash/governance";
+import type { TokenOpsGovernance } from "../src/dash/governance";
 import {
   listActionSigners,
   listPendingActions,
 } from "../src/dash/groupActions";
 import { burnToken, mintToken } from "../src/dash/tokenOperations";
 import { useSession } from "../src/session/useSession";
-
-vi.mock("../src/dash/governance", () => ({
-  fetchTokenOpsGovernance: vi.fn(),
-}));
 
 vi.mock("../src/dash/groupActions", async (importOriginal) => {
   const actual =
@@ -44,6 +41,28 @@ vi.mock("../src/session/useSession", () => ({
   useSession: vi.fn(),
 }));
 
+function renderPending(
+  initialGovernance: TokenOpsGovernance,
+  loadGovernance = vi.fn().mockResolvedValue(initialGovernance),
+) {
+  function Harness() {
+    const [governance, setGovernance] = useState(initialGovernance);
+    async function refreshGovernance() {
+      const nextGovernance = await loadGovernance();
+      if (nextGovernance) setGovernance(nextGovernance);
+      return nextGovernance;
+    }
+    return (
+      <PendingActionsView
+        governance={governance}
+        refreshGovernance={refreshGovernance}
+      />
+    );
+  }
+
+  return render(<Harness />);
+}
+
 describe("PendingActionsView", () => {
   afterEach(() => {
     cleanup();
@@ -59,7 +78,7 @@ describe("PendingActionsView", () => {
       identityId: "member-b",
       log: vi.fn(),
     } as never);
-    vi.mocked(fetchTokenOpsGovernance).mockResolvedValue({
+    const governance: TokenOpsGovernance = {
       groups: [
         {
           groupPosition: 0,
@@ -71,7 +90,7 @@ describe("PendingActionsView", () => {
         },
       ],
       rules: [],
-    });
+    };
     vi.mocked(listPendingActions).mockResolvedValue([
       {
         actionId: "action-1",
@@ -93,7 +112,7 @@ describe("PendingActionsView", () => {
     });
     vi.mocked(mintToken).mockResolvedValue({ groupPower: 2 });
 
-    render(<PendingActionsView />);
+    renderPending(governance);
 
     const button = await screen.findByRole("button", {
       name: "Sign & execute mint",
@@ -134,7 +153,7 @@ describe("PendingActionsView", () => {
       identityId: "member-b",
       log: vi.fn(),
     } as never);
-    vi.mocked(fetchTokenOpsGovernance).mockResolvedValue({
+    const governance: TokenOpsGovernance = {
       groups: [
         {
           groupPosition: 0,
@@ -147,7 +166,7 @@ describe("PendingActionsView", () => {
         },
       ],
       rules: [],
-    });
+    };
     vi.mocked(listPendingActions).mockResolvedValue([
       {
         actionId: "action-2",
@@ -169,7 +188,7 @@ describe("PendingActionsView", () => {
     });
     vi.mocked(mintToken).mockResolvedValue({ groupPower: 1 });
 
-    render(<PendingActionsView />);
+    renderPending(governance);
 
     const button = await screen.findByRole("button", {
       name: "Add your signature",
@@ -202,7 +221,7 @@ describe("PendingActionsView", () => {
       identityId: "member-b",
       log: vi.fn(),
     } as never);
-    vi.mocked(fetchTokenOpsGovernance).mockResolvedValue({
+    const governance: TokenOpsGovernance = {
       groups: [
         {
           groupPosition: 0,
@@ -215,7 +234,7 @@ describe("PendingActionsView", () => {
         },
       ],
       rules: [],
-    });
+    };
     vi.mocked(listPendingActions).mockResolvedValue([
       {
         actionId: "action-3",
@@ -237,7 +256,7 @@ describe("PendingActionsView", () => {
     });
     vi.mocked(burnToken).mockResolvedValue({});
 
-    render(<PendingActionsView />);
+    renderPending(governance);
 
     fireEvent.click(
       await screen.findByRole("button", { name: "Add your signature" }),
@@ -272,7 +291,7 @@ describe("PendingActionsView", () => {
       identityId: "member-b",
       log: vi.fn(),
     } as never);
-    vi.mocked(fetchTokenOpsGovernance).mockResolvedValue({
+    const governance: TokenOpsGovernance = {
       groups: [
         {
           groupPosition: 0,
@@ -303,7 +322,7 @@ describe("PendingActionsView", () => {
           supportsGroupAction: true,
         },
       ],
-    });
+    };
     vi.mocked(listPendingActions).mockImplementation(
       async ({ groupPosition }) =>
         groupPosition === 0
@@ -328,7 +347,8 @@ describe("PendingActionsView", () => {
       hasSigned: (identityId: string) => identityId === "member-a",
     });
 
-    render(<PendingActionsView />);
+    const refreshGovernance = vi.fn();
+    renderPending(governance, refreshGovernance);
 
     const summary = await screen.findByText("Not currently actionable");
     const section = summary.closest("details") as HTMLDetailsElement;
@@ -357,7 +377,7 @@ describe("PendingActionsView", () => {
     ).toBeNull();
     expect(mintToken).not.toHaveBeenCalled();
 
-    vi.mocked(fetchTokenOpsGovernance).mockResolvedValue({
+    const refreshedGovernance: TokenOpsGovernance = {
       groups: [
         {
           groupPosition: 0,
@@ -388,12 +408,19 @@ describe("PendingActionsView", () => {
           supportsGroupAction: true,
         },
       ],
-    });
+    };
+    refreshGovernance.mockResolvedValue(refreshedGovernance);
+    const pendingLoadsBeforeRefresh =
+      vi.mocked(listPendingActions).mock.calls.length;
     fireEvent.click(screen.getByRole("button", { name: "Refresh" }));
 
     expect(
       await screen.findByRole("button", { name: "Sign & execute mint" }),
     ).toBeTruthy();
     expect(screen.queryByText("Not currently actionable")).toBeNull();
+    await new Promise((resolve) => window.setTimeout(resolve, 0));
+    expect(listPendingActions).toHaveBeenCalledTimes(
+      pendingLoadsBeforeRefresh + refreshedGovernance.groups.length,
+    );
   });
 });

@@ -38,12 +38,13 @@ vi.mock("../src/components/OverviewView", () => ({
   ),
 }));
 
-vi.mock("../src/components/OperationsView", () => ({
-  OperationsView: () => <h2>Operations page</h2>,
-}));
-
-vi.mock("../src/components/PendingActionsView", () => ({
-  PendingActionsView: () => <h2>Pending page</h2>,
+vi.mock("../src/components/ActionsView", () => ({
+  ActionsView: () => (
+    <>
+      <h2>Operations page</h2>
+      <h2>Pending page</h2>
+    </>
+  ),
 }));
 
 vi.mock("../src/components/GovernanceView", () => ({
@@ -101,12 +102,13 @@ describe("App hash routing", () => {
   it("updates the hash when changing tabs", () => {
     render(<App />);
 
-    fireEvent.click(screen.getByRole("button", { name: "Operations" }));
+    fireEvent.click(screen.getByRole("button", { name: "Actions" }));
 
-    expect(window.location.hash).toBe("#operations");
+    expect(window.location.hash).toBe("#actions");
     expect(
       screen.getByRole("heading", { name: "Operations page" }),
     ).toBeTruthy();
+    expect(screen.getByRole("heading", { name: "Pending page" })).toBeTruthy();
   });
 
   it("updates the selected page when the hash changes", () => {
@@ -123,7 +125,7 @@ describe("App hash routing", () => {
 
     fireEvent.click(screen.getByRole("button", { name: "Pending shortcut" }));
 
-    expect(window.location.hash).toBe("#pending");
+    expect(window.location.hash).toBe("#actions");
     expect(screen.getByRole("heading", { name: "Pending page" })).toBeTruthy();
   });
 

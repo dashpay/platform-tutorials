@@ -3,13 +3,11 @@ import { useEffect, useRef } from "react";
 import { shortId } from "../lib/format";
 import type { SessionStatus } from "../session/SessionContext";
 
-export type View =
-  "overview" | "operations" | "pending" | "governance" | "settings";
+export type View = "overview" | "actions" | "governance" | "settings";
 
 const TABS: { id: View; label: string }[] = [
   { id: "overview", label: "Dashboard" },
-  { id: "operations", label: "Operations" },
-  { id: "pending", label: "Pending" },
+  { id: "actions", label: "Actions" },
   { id: "governance", label: "Governance" },
   { id: "settings", label: "Settings" },
 ];

@@ -34,11 +34,16 @@ test.describe("Authenticated (read-only)", () => {
       page.getByRole("heading", { name: "Signed in" }),
     ).toBeVisible();
 
-    // Operations eligibility pill flips away from "Read-only".
-    await page.getByRole("button", { name: "Operations", exact: true }).click();
-    await expect(
-      page.locator(".eligibility-pill", { hasText: "Eligibility" }),
-    ).toBeVisible({ timeout: 60_000 });
+    // Actions become executable after authentication. Select Transfer and
+    // provide a recipient so its button is enabled, but do not submit it.
+    await page.getByRole("button", { name: "Actions", exact: true }).click();
+    await page.getByRole("tab", { name: "Transfer", exact: true }).click();
+    await page
+      .getByLabel("Transfer recipient identity ID")
+      .fill("read-only-recipient-check");
+    await expect(page.getByRole("button", { name: /Transfer/ })).toBeEnabled({
+      timeout: 60_000,
+    });
 
     // Dashboard membership card reflects real standing (no longer "Signed out").
     await page.getByRole("button", { name: "Dashboard", exact: true }).click();

@@ -1,23 +1,16 @@
 import { useCallback, useEffect, useState } from "react";
 import { Toaster } from "sonner";
 
+import { ActionsView } from "./components/ActionsView";
 import { AppNotices } from "./components/AppNotices";
 import { GovernanceView } from "./components/GovernanceView";
 import { LoginModal } from "./components/LoginModal";
-import { OperationsView } from "./components/OperationsView";
 import { OverviewView } from "./components/OverviewView";
-import { PendingActionsView } from "./components/PendingActionsView";
 import { SettingsView } from "./components/SettingsView";
 import { TopNav, type View } from "./components/TopNav";
 import { useSession } from "./session/useSession";
 
-const VIEWS: View[] = [
-  "overview",
-  "operations",
-  "pending",
-  "governance",
-  "settings",
-];
+const VIEWS: View[] = ["overview", "actions", "governance", "settings"];
 
 function viewFromHash(hash: string): View {
   const candidate = hash.replace(/^#\/?/, "");
@@ -77,14 +70,16 @@ export default function App() {
         {view === "overview" && (
           <OverviewView
             key={refreshKey}
-            onNavigateToPending={() => changeView("pending")}
+            onNavigateToPending={() => changeView("actions")}
             onNavigateToGovernance={() => changeView("governance")}
           />
         )}
-        {view === "operations" && (
-          <OperationsView onComplete={() => setRefreshKey((v) => v + 1)} />
+        {view === "actions" && (
+          <ActionsView
+            key={refreshKey}
+            onComplete={() => setRefreshKey((v) => v + 1)}
+          />
         )}
-        {view === "pending" && <PendingActionsView key={refreshKey} />}
         {view === "governance" && <GovernanceView key={refreshKey} />}
         {view === "settings" && <SettingsView />}
       </div>

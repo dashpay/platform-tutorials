@@ -15,57 +15,77 @@ import { test, expect } from "./fixtures";
  * The irreversible destroyFrozen path stays behind an explicit manual flag
  * even when write flows are added.
  */
-test.describe("Operations (read-only)", () => {
-  test("shows the read-only notice and read-only eligibility pill", async ({
-    page,
-  }) => {
-    await page.getByRole("button", { name: "Operations", exact: true }).click();
+test.describe("Actions — operations (read-only)", () => {
+  test("shows the read-only notice and proposal guidance", async ({ page }) => {
+    await page.getByRole("button", { name: "Actions", exact: true }).click();
 
+    await expect(page.getByText(/Sign in to submit an action/)).toBeVisible();
     await expect(
-      page.getByText(/Sign in to propose or run token operations/),
-    ).toBeVisible();
-    await expect(
-      page.locator(".eligibility-pill", { hasText: "Read-only" }),
+      page.getByText(
+        "Explore supported token actions and their approval requirements.",
+      ),
     ).toBeVisible();
   });
 
-  test("renders all four operation sections", async ({ page }) => {
-    await page.getByRole("button", { name: "Operations", exact: true }).click();
+  test("renders the proposal selector", async ({ page }) => {
+    await page.getByRole("button", { name: "Actions", exact: true }).click();
 
-    for (const heading of ["Supply", "Access", "Emergency", "Transfer"]) {
+    await expect(
+      page.getByRole("heading", { name: "Propose new action", level: 2 }),
+    ).toBeVisible({ timeout: 60_000 });
+    for (const action of [
+      "Mint",
+      "Burn",
+      "Freeze",
+      "Unfreeze",
+      "Destroy frozen",
+      "Pause",
+      "Resume",
+      "Transfer",
+    ]) {
       await expect(
-        page.getByRole("heading", { name: heading, level: 3 }),
+        page.getByRole("tab", { name: action, exact: true }),
       ).toBeVisible({ timeout: 60_000 });
     }
   });
 
   test("submission controls are disabled when signed out", async ({ page }) => {
-    await page.getByRole("button", { name: "Operations", exact: true }).click();
+    await page.getByRole("button", { name: "Actions", exact: true }).click();
 
     // Fields are present read-only, but every submit button is disabled.
-    await expect(page.getByLabel("Supply amount")).toBeVisible({
+    await expect(page.getByLabel("Mint amount")).toBeVisible({
       timeout: 60_000,
     });
     await expect(
-      page.getByRole("button", { name: "Propose mint" }),
+      page.getByRole("button", { name: /Propose mint/ }),
     ).toBeDisabled();
+    await page.getByRole("tab", { name: "Burn", exact: true }).click();
     await expect(
-      page.getByRole("button", { name: "Propose burn...", exact: true }),
+      page.getByRole("button", { name: /Propose burn/ }),
     ).toBeDisabled();
+    await page.getByRole("tab", { name: "Freeze", exact: true }).click();
     await expect(
-      page.getByRole("button", { name: "Propose freeze", exact: true }),
+      page.getByRole("button", { name: /Propose freeze/ }),
     ).toBeDisabled();
+    await page.getByRole("tab", { name: "Unfreeze", exact: true }).click();
     await expect(
-      page.getByRole("button", { name: "Propose unfreeze", exact: true }),
+      page.getByRole("button", { name: /Propose unfreeze/ }),
     ).toBeDisabled();
+    await page
+      .getByRole("tab", { name: "Destroy frozen", exact: true })
+      .click();
     await expect(
-      page.getByRole("button", { name: "Propose pause", exact: true }),
+      page.getByRole("button", { name: /Propose destroy frozen/ }),
     ).toBeDisabled();
+    await page.getByRole("tab", { name: "Pause", exact: true }).click();
     await expect(
-      page.getByRole("button", { name: "Propose resume", exact: true }),
+      page.getByRole("button", { name: /Propose pause/ }),
     ).toBeDisabled();
+    await page.getByRole("tab", { name: "Resume", exact: true }).click();
     await expect(
-      page.getByRole("button", { name: "Transfer", exact: true }),
+      page.getByRole("button", { name: /Propose resume/ }),
     ).toBeDisabled();
+    await page.getByRole("tab", { name: "Transfer", exact: true }).click();
+    await expect(page.getByRole("button", { name: /Transfer/ })).toBeDisabled();
   });
 });

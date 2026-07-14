@@ -5,13 +5,7 @@ test.describe("Read-only browsing", () => {
     await expect(
       page.getByRole("heading", { name: "TokenOps", level: 1 }),
     ).toBeVisible();
-    for (const label of [
-      "Dashboard",
-      "Operations",
-      "Pending",
-      "Governance",
-      "Settings",
-    ]) {
+    for (const label of ["Dashboard", "Actions", "Governance", "Settings"]) {
       await expect(
         page.getByRole("button", { name: label, exact: true }),
       ).toBeVisible();
@@ -58,10 +52,10 @@ test.describe("Read-only browsing", () => {
     page,
   }) => {
     await page.setViewportSize({ width: 375, height: 812 });
-    await page.getByRole("button", { name: "Pending", exact: true }).click();
+    await page.getByRole("button", { name: "Actions", exact: true }).click();
 
     await expect(
-      page.getByRole("heading", { name: "Pending group actions" }),
+      page.getByRole("heading", { name: "Review pending actions" }),
     ).toBeVisible();
     await expect(page.getByText(/^Updated /)).toBeVisible({ timeout: 60_000 });
     await expect(

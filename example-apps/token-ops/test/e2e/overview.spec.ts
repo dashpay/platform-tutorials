@@ -33,9 +33,9 @@ test.describe("Dashboard (read-only)", () => {
     await page
       .locator(".dashboard-attention-card", { hasText: "Needs your signature" })
       .click();
-    await expect(page).toHaveURL(/#pending$/);
+    await expect(page).toHaveURL(/#actions$/);
     await expect(
-      page.getByRole("heading", { name: "Pending group actions" }),
+      page.getByRole("heading", { name: "Review pending actions" }),
     ).toBeVisible();
   });
 

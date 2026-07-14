@@ -19,11 +19,11 @@ import { test, expect } from "./fixtures";
  * The irreversible destroyFrozen path stays behind an explicit manual flag
  * even when write flows are added.
  */
-test.describe("Pending (read-only)", () => {
+test.describe("Actions — pending (read-only)", () => {
   test.beforeEach(async ({ page }) => {
-    await page.getByRole("button", { name: "Pending", exact: true }).click();
+    await page.getByRole("button", { name: "Actions", exact: true }).click();
     await expect(
-      page.getByRole("heading", { name: "Pending group actions" }),
+      page.getByRole("heading", { name: "Review pending actions" }),
     ).toBeVisible({ timeout: 60_000 });
   });
 
