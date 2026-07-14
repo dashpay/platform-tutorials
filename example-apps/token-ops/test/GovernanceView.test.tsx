@@ -59,6 +59,13 @@ function authenticatedSession(identityId = "member-a") {
   };
 }
 
+function governance(
+  value: Omit<TokenOpsGovernance, "contractOwnerId">,
+  contractOwnerId = "member-a",
+): TokenOpsGovernance {
+  return { ...value, contractOwnerId };
+}
+
 describe("GovernanceView", () => {
   afterEach(() => {
     cleanup();
@@ -74,10 +81,12 @@ describe("GovernanceView", () => {
       identityId: null,
       log: vi.fn(),
     } as never);
-    vi.mocked(fetchTokenOpsGovernance).mockResolvedValue({
-      groups: [],
-      rules: [],
-    });
+    vi.mocked(fetchTokenOpsGovernance).mockResolvedValue(
+      governance({
+        groups: [],
+        rules: [],
+      }),
+    );
 
     render(<GovernanceView />);
 
@@ -88,8 +97,47 @@ describe("GovernanceView", () => {
     ).toBeNull();
   });
 
+  it("lets signed-out visitors inspect reassignment without submitting", async () => {
+    vi.mocked(useSession).mockReturnValue({
+      status: "readonly",
+      sdk: { contracts: {} },
+      keyManager: null,
+      contractId: "contract-1",
+      identityId: null,
+      log: vi.fn(),
+    } as never);
+    vi.mocked(fetchTokenOpsGovernance).mockResolvedValue(
+      governance({
+        groups: [
+          {
+            groupPosition: 1,
+            members: new Map([["member-a", 1]]),
+            requiredPower: 1,
+          },
+        ],
+        rules: [groupRule("freeze", 1)],
+      }),
+    );
+
+    render(<GovernanceView />);
+
+    fireEvent.click(await screen.findByRole("button", { name: "Edit" }));
+    expect(
+      screen.getByText(
+        /must sign in with an identity that has admin authority/,
+      ),
+    ).toBeTruthy();
+    expect(
+      (
+        screen.getByRole("button", {
+          name: "Confirm reassignment",
+        }) as HTMLButtonElement
+      ).disabled,
+    ).toBe(true);
+  });
+
   it("summarizes membership, capabilities, and empty-group consequences", async () => {
-    const governance: TokenOpsGovernance = {
+    const governanceSnapshot = governance({
       groups: [
         {
           groupPosition: 1,
@@ -117,7 +165,7 @@ describe("GovernanceView", () => {
           deferred: true,
         },
       ],
-    };
+    });
 
     vi.mocked(useSession).mockReturnValue({
       status: "authenticated",
@@ -127,7 +175,7 @@ describe("GovernanceView", () => {
       identityId: "member-a",
       log: vi.fn(),
     } as never);
-    vi.mocked(fetchTokenOpsGovernance).mockResolvedValue(governance);
+    vi.mocked(fetchTokenOpsGovernance).mockResolvedValue(governanceSnapshot);
 
     render(<GovernanceView />);
 
@@ -155,7 +203,7 @@ describe("GovernanceView", () => {
   });
 
   it("reassigns a capability to a different group and refreshes governance", async () => {
-    const governance: TokenOpsGovernance = {
+    const governanceSnapshot = governance({
       groups: [
         {
           groupPosition: 1,
@@ -169,10 +217,10 @@ describe("GovernanceView", () => {
         },
       ],
       rules: [groupRule("freeze", 1)],
-    };
+    });
     const session = authenticatedSession();
     vi.mocked(useSession).mockReturnValue(session as never);
-    vi.mocked(fetchTokenOpsGovernance).mockResolvedValue(governance);
+    vi.mocked(fetchTokenOpsGovernance).mockResolvedValue(governanceSnapshot);
     vi.mocked(assignTokenFunctionGroup).mockResolvedValue({} as never);
 
     render(<GovernanceView />);
@@ -209,10 +257,10 @@ describe("GovernanceView", () => {
   });
 
   it("appends a group with parsed members and refreshes governance", async () => {
-    const governance: TokenOpsGovernance = { groups: [], rules: [] };
+    const governanceSnapshot = governance({ groups: [], rules: [] });
     const session = authenticatedSession();
     vi.mocked(useSession).mockReturnValue(session as never);
-    vi.mocked(fetchTokenOpsGovernance).mockResolvedValue(governance);
+    vi.mocked(fetchTokenOpsGovernance).mockResolvedValue(governanceSnapshot);
     vi.mocked(appendTokenOpsGroup).mockResolvedValue({} as never);
 
     render(<GovernanceView />);
@@ -245,10 +293,12 @@ describe("GovernanceView", () => {
   it("surfaces append-group validation errors", async () => {
     const session = authenticatedSession();
     vi.mocked(useSession).mockReturnValue(session as never);
-    vi.mocked(fetchTokenOpsGovernance).mockResolvedValue({
-      groups: [],
-      rules: [],
-    });
+    vi.mocked(fetchTokenOpsGovernance).mockResolvedValue(
+      governance({
+        groups: [],
+        rules: [],
+      }),
+    );
     vi.mocked(appendTokenOpsGroup).mockRejectedValue(
       new Error("TokenOps groups need 2-256 members, got 0"),
     );
@@ -267,33 +317,35 @@ describe("GovernanceView", () => {
     vi.mocked(useSession).mockReturnValue(
       authenticatedSession("member-a") as never,
     );
-    vi.mocked(fetchTokenOpsGovernance).mockResolvedValue({
-      groups: [
-        {
-          groupPosition: 3,
-          members: new Map([
-            ["member-a", 1],
-            ["member-c", 1],
-          ]),
-          requiredPower: 1,
-        },
-        {
-          groupPosition: 1,
-          members: new Map([["member-b", 1]]),
-          requiredPower: 1,
-        },
-        {
-          groupPosition: 2,
-          members: new Map([
-            ["member-d", 1],
-            ["member-e", 1],
-            ["member-f", 1],
-          ]),
-          requiredPower: 3,
-        },
-      ],
-      rules: [groupRule("freeze", 1), groupRule("unfreeze", 1)],
-    });
+    vi.mocked(fetchTokenOpsGovernance).mockResolvedValue(
+      governance({
+        groups: [
+          {
+            groupPosition: 3,
+            members: new Map([
+              ["member-a", 1],
+              ["member-c", 1],
+            ]),
+            requiredPower: 1,
+          },
+          {
+            groupPosition: 1,
+            members: new Map([["member-b", 1]]),
+            requiredPower: 1,
+          },
+          {
+            groupPosition: 2,
+            members: new Map([
+              ["member-d", 1],
+              ["member-e", 1],
+              ["member-f", 1],
+            ]),
+            requiredPower: 3,
+          },
+        ],
+        rules: [groupRule("freeze", 1), groupRule("unfreeze", 1)],
+      }),
+    );
 
     render(<GovernanceView />);
     fireEvent.click(await screen.findByRole("tab", { name: "Groups" }));
@@ -334,5 +386,49 @@ describe("GovernanceView", () => {
       target: { value: "members" },
     });
     expect(visiblePositions()).toEqual(["Group 2", "Group 3", "Group 1"]);
+  });
+
+  it("shows governance changes read-only to an identity without authority", async () => {
+    vi.mocked(useSession).mockReturnValue(
+      authenticatedSession("member-b") as never,
+    );
+    vi.mocked(fetchTokenOpsGovernance).mockResolvedValue(
+      governance({
+        groups: [
+          {
+            groupPosition: 1,
+            members: new Map([["member-b", 1]]),
+            requiredPower: 1,
+          },
+        ],
+        rules: [groupRule("freeze", 1)],
+      }),
+    );
+
+    render(<GovernanceView />);
+
+    await screen.findByText("freeze");
+    fireEvent.click(screen.getByRole("button", { name: "Edit" }));
+    expect(
+      screen.getByText(/does not have the admin authority required/),
+    ).toBeTruthy();
+    expect(
+      (
+        screen.getByRole("button", {
+          name: "Confirm reassignment",
+        }) as HTMLButtonElement
+      ).disabled,
+    ).toBe(true);
+    fireEvent.click(screen.getByRole("button", { name: "Close" }));
+
+    fireEvent.click(screen.getByRole("tab", { name: "Groups" }));
+    expect(screen.getByText(/only the contract owner can append/)).toBeTruthy();
+    expect(
+      (
+        screen.getByRole("button", {
+          name: "Append group",
+        }) as HTMLButtonElement
+      ).disabled,
+    ).toBe(true);
   });
 });

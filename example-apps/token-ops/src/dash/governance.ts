@@ -39,6 +39,7 @@ export interface RuleInfo {
 export interface TokenOpsGovernance {
   groups: TokenOpsGroupInfo[];
   rules: RuleInfo[];
+  contractOwnerId: string | null;
 }
 
 type UnknownRecord = Record<string, unknown>;
@@ -378,6 +379,14 @@ export async function fetchTokenOpsGovernance({
   );
 
   return {
+    contractOwnerId:
+      String(
+        contract.ownerId ??
+          contract.$ownerId ??
+          toJsonRecord(contract).ownerId ??
+          toJsonRecord(contract).$ownerId ??
+          "",
+      ) || null,
     groups: [...groupsByPosition.values()].sort(
       (a, b) => a.groupPosition - b.groupPosition,
     ),

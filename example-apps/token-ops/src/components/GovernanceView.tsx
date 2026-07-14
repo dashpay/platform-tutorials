@@ -118,6 +118,7 @@ export function GovernanceView() {
   const session = useSession();
   const [groups, setGroups] = useState<TokenOpsGroupInfo[]>([]);
   const [rules, setRules] = useState<RuleInfo[]>([]);
+  const [contractOwnerId, setContractOwnerId] = useState<string | null>(null);
   const [groupChoice, setGroupChoice] = useState<Record<string, string>>({});
   const [editingRule, setEditingRule] = useState<string | null>(null);
   const [newMembers, setNewMembers] = useState("");
@@ -144,6 +145,7 @@ export function GovernanceView() {
       });
       setGroups(governance.groups);
       setRules(governance.rules);
+      setContractOwnerId(governance.contractOwnerId);
     } catch (err) {
       setError(errorMessage(err));
     } finally {
@@ -193,6 +195,13 @@ export function GovernanceView() {
     if (!session.sdk || !session.keyManager || !session.contractId) return;
     const ownerId = session.identityId;
     if (!ownerId) return;
+    const rule = rules.find((candidate) => candidate.key === ruleKind);
+    if (!rule || !hasAuthority(rule.admin)) {
+      setError(
+        "This identity does not have admin authority to reassign this capability.",
+      );
+      return;
+    }
     setBusyRuleKey(ruleKind);
     try {
       await assignTokenFunctionGroup({
@@ -221,6 +230,10 @@ export function GovernanceView() {
   async function handleAppendGroup(event: React.FormEvent) {
     event.preventDefault();
     if (!session.sdk || !session.keyManager || !session.contractId) return;
+    if (!canAppendGroup) {
+      setError("Only the contract owner can append an approval group.");
+      return;
+    }
     try {
       const { identityKey, signer } = await session.keyManager.getAuth();
       await appendTokenOpsGroup({
@@ -255,6 +268,27 @@ export function GovernanceView() {
   const memberGroupLabels = memberGroups.map(
     (group) => `Group ${group.groupPosition}`,
   );
+
+  function hasAuthority(authority: RuleAuthority): boolean {
+    if (!isAuthenticated || !signedInIdentityId) return false;
+    switch (authority.type) {
+      case "ContractOwner":
+        return signedInIdentityId === contractOwnerId;
+      case "Identity":
+        return signedInIdentityId === authority.identityId;
+      case "Group":
+        return Boolean(
+          groups
+            .find((group) => group.groupPosition === authority.groupPosition)
+            ?.members.has(signedInIdentityId),
+        );
+      default:
+        return false;
+    }
+  }
+
+  const canAppendGroup =
+    isAuthenticated && signedInIdentityId === contractOwnerId;
   const identityIds = useMemo(
     () => [
       signedInIdentityId,
@@ -421,8 +455,7 @@ export function GovernanceView() {
       : null;
     const operatorMeta = authorityMeta(rule.operator, groups);
     const adminMeta = authorityMeta(rule.admin, groups);
-    const canReassign =
-      isAuthenticated && REASSIGNABLE.has(rule.key) && groups.length > 0;
+    const canReassign = REASSIGNABLE.has(rule.key) && groups.length > 0;
     const isOperatorMember = Boolean(
       signedInIdentityId && operatorGroup?.members.has(signedInIdentityId),
     );
@@ -504,6 +537,7 @@ export function GovernanceView() {
         ? String(rule.operator.groupPosition)
         : "";
     const isNoOp = chosen === currentValue;
+    const canSubmit = hasAuthority(rule.admin);
     const category = ruleCategory(rule.key);
 
     return (
@@ -565,15 +599,19 @@ export function GovernanceView() {
             </label>
             {chosenGroupInfo && (
               <p className="reassign-warning">
-                {isNoOp
-                  ? "Choose a different group to reassign this capability."
-                  : `${rule.label} will move from ${authorityLabel(
-                      rule.operator,
-                    )} to Group ${chosenGroupInfo.groupPosition}. ${
-                      rule.operator.type === "Group"
-                        ? `Group ${rule.operator.groupPosition} members lose the ability to perform this action.`
-                        : ""
-                    }`}
+                {!canSubmit
+                  ? isAuthenticated
+                    ? "You can inspect this change, but this identity does not have the admin authority required to submit it."
+                    : "You can inspect this change, but you must sign in with an identity that has admin authority to submit it."
+                  : isNoOp
+                    ? "Choose a different group to reassign this capability."
+                    : `${rule.label} will move from ${authorityLabel(
+                        rule.operator,
+                      )} to Group ${chosenGroupInfo.groupPosition}. ${
+                        rule.operator.type === "Group"
+                          ? `Group ${rule.operator.groupPosition} members lose the ability to perform this action.`
+                          : ""
+                      }`}
               </p>
             )}
           </div>
@@ -588,7 +626,7 @@ export function GovernanceView() {
             </button>
             <button
               type="button"
-              disabled={isNoOp || busyRuleKey === rule.key}
+              disabled={!canSubmit || isNoOp || busyRuleKey === rule.key}
               onClick={() =>
                 void handleConfirmReassign(
                   rule.key as ReassignableRuleKind,
@@ -849,13 +887,19 @@ export function GovernanceView() {
                 No groups match the current search and filters.
               </p>
             )}
-            {session.status === "authenticated" && (
+            {isAuthenticated && (
               <div className="append-group-section">
                 <h4>Append approval group</h4>
                 <p className="muted">
                   Existing groups are immutable. To change membership, append a
                   successor group and reassign the relevant capabilities to it.
                 </p>
+                {!canAppendGroup && (
+                  <p className="notice">
+                    You can inspect this form, but only the contract owner can
+                    append an approval group.
+                  </p>
+                )}
                 <form onSubmit={handleAppendGroup}>
                   <div className="field">
                     <label htmlFor="new-members">Member identity IDs</label>
@@ -863,6 +907,7 @@ export function GovernanceView() {
                       id="new-members"
                       rows={2}
                       value={newMembers}
+                      disabled={!canAppendGroup}
                       onChange={(e) => setNewMembers(e.target.value)}
                       placeholder="comma or space separated"
                     />
@@ -879,6 +924,7 @@ export function GovernanceView() {
                       min={1}
                       max={appendMemberCount || undefined}
                       value={newRequiredPower}
+                      disabled={!canAppendGroup}
                       onChange={(e) => setNewRequiredPower(e.target.value)}
                     />
                     <p className="muted">
@@ -886,7 +932,9 @@ export function GovernanceView() {
                       {appendMemberCount || MIN_GROUP_MEMBERS}).
                     </p>
                   </div>
-                  <button type="submit">Append group</button>
+                  <button type="submit" disabled={!canAppendGroup}>
+                    Append group
+                  </button>
                 </form>
               </div>
             )}
