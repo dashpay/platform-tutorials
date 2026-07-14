@@ -89,7 +89,7 @@ describe("TokenOps rule presets", () => {
   it("separates operator authority from admin authority", async () => {
     const { createRulePresets, TREASURY_GROUP_POSITION } =
       await import("../src/dash/contract");
-    const presets = createRulePresets("owner-1") as unknown as {
+    const presets = (await createRulePresets("owner-1")) as unknown as {
       treasuryRules: { options: PresetOptions };
     };
 
@@ -118,7 +118,7 @@ describe("TokenOps rule presets", () => {
       ACCESS_GROUP_POSITION,
       EMERGENCY_GROUP_POSITION,
     } = await import("../src/dash/contract");
-    const presets = createRulePresets("owner-1") as unknown as {
+    const presets = (await createRulePresets("owner-1")) as unknown as {
       accessRules: { options: PresetOptions };
       emergencyRules: { options: PresetOptions };
       ownerRules: { options: PresetOptions };
@@ -148,7 +148,7 @@ describe("TokenOps rule presets", () => {
 
   it("locks the locked preset to NoOne on both authorities", async () => {
     const { createRulePresets } = await import("../src/dash/contract");
-    const presets = createRulePresets("owner-1") as unknown as {
+    const presets = (await createRulePresets("owner-1")) as unknown as {
       lockedRules: { options: PresetOptions };
     };
     expect(presets.lockedRules.options).toEqual({
@@ -166,7 +166,9 @@ describe("TokenOps token configuration", () => {
       TREASURY_GROUP_POSITION,
       createTokenOpsTokenConfiguration,
     } = await import("../src/dash/contract");
-    const config = createTokenOpsTokenConfiguration("owner-1") as unknown as {
+    const config = (await createTokenOpsTokenConfiguration(
+      "owner-1",
+    )) as unknown as {
       options: Record<string, { options: Record<string, unknown> }>;
     };
 
@@ -197,7 +199,9 @@ describe("TokenOps token configuration", () => {
     // The mock TokenKeepsHistoryRules constructor throws if the source passes
     // any key other than the six history flags, so a mis-wired flag name fails
     // at construction here. This value assertion then confirms each flag is on.
-    const config = createTokenOpsTokenConfiguration("owner-1") as unknown as {
+    const config = (await createTokenOpsTokenConfiguration(
+      "owner-1",
+    )) as unknown as {
       options: { keepsHistory: { options: Record<string, boolean> } };
     };
 
@@ -220,7 +224,11 @@ describe("TokenOps groups", () => {
       TREASURY_GROUP_POSITION,
       createTokenOpsGroups,
     } = await import("../src/dash/contract");
-    const groups = createTokenOpsGroups(["a", "b", "c"]) as unknown as Record<
+    const groups = (await createTokenOpsGroups([
+      "a",
+      "b",
+      "c",
+    ])) as unknown as Record<
       number,
       { members: Map<string, number>; requiredPower: number }
     >;
@@ -260,25 +268,27 @@ describe("TokenOps groups", () => {
 describe("createTokenOpsGroup validation", () => {
   it("requires exactly three members", async () => {
     const { createTokenOpsGroup } = await import("../src/dash/contract");
-    expect(() => createTokenOpsGroup(["a", "b"], 2)).toThrow(
+    await expect(createTokenOpsGroup(["a", "b"], 2)).rejects.toThrow(
       /exactly 3 members/,
     );
-    expect(() => createTokenOpsGroup(["a", "b", "c", "d"], 2)).toThrow(
+    await expect(createTokenOpsGroup(["a", "b", "c", "d"], 2)).rejects.toThrow(
       /exactly 3 members/,
     );
   });
 
   it("rejects duplicate member identities", async () => {
     const { createTokenOpsGroup } = await import("../src/dash/contract");
-    expect(() => createTokenOpsGroup(["a", "a", "b"], 2)).toThrow(/distinct/);
+    await expect(createTokenOpsGroup(["a", "a", "b"], 2)).rejects.toThrow(
+      /distinct/,
+    );
   });
 
   it("rejects a required power outside 1..3", async () => {
     const { createTokenOpsGroup } = await import("../src/dash/contract");
-    expect(() => createTokenOpsGroup(["a", "b", "c"], 0)).toThrow(
+    await expect(createTokenOpsGroup(["a", "b", "c"], 0)).rejects.toThrow(
       /required power/,
     );
-    expect(() => createTokenOpsGroup(["a", "b", "c"], 4)).toThrow(
+    await expect(createTokenOpsGroup(["a", "b", "c"], 4)).rejects.toThrow(
       /required power/,
     );
   });
@@ -288,7 +298,7 @@ describe("buildTokenOpsGroup validation", () => {
   it("accepts any member count within Platform bounds", async () => {
     const { buildTokenOpsGroup, MIN_GROUP_MEMBERS, MAX_GROUP_MEMBERS } =
       await import("../src/dash/contract");
-    const two = buildTokenOpsGroup(["a", "b"], 2) as unknown as {
+    const two = (await buildTokenOpsGroup(["a", "b"], 2)) as unknown as {
       members: Map<string, number>;
       requiredPower: number;
     };
@@ -296,7 +306,7 @@ describe("buildTokenOpsGroup validation", () => {
     expect(two.requiredPower).toBe(2);
 
     const ids = Array.from({ length: 5 }, (_, i) => `id-${i}`);
-    const five = buildTokenOpsGroup(ids, 3) as unknown as {
+    const five = (await buildTokenOpsGroup(ids, 3)) as unknown as {
       members: Map<string, number>;
     };
     expect(five.members.size).toBe(5);
@@ -307,8 +317,8 @@ describe("buildTokenOpsGroup validation", () => {
 
   it("rejects fewer than the minimum members", async () => {
     const { buildTokenOpsGroup } = await import("../src/dash/contract");
-    expect(() => buildTokenOpsGroup(["a"], 1)).toThrow(/2-256 members/);
-    expect(() => buildTokenOpsGroup([], 1)).toThrow(/2-256 members/);
+    await expect(buildTokenOpsGroup(["a"], 1)).rejects.toThrow(/2-256 members/);
+    await expect(buildTokenOpsGroup([], 1)).rejects.toThrow(/2-256 members/);
   });
 
   it("rejects more than the maximum members", async () => {
@@ -318,22 +328,30 @@ describe("buildTokenOpsGroup validation", () => {
       { length: MAX_GROUP_MEMBERS + 1 },
       (_, i) => `id-${i}`,
     );
-    expect(() => buildTokenOpsGroup(tooMany, 1)).toThrow(/2-256 members/);
+    await expect(buildTokenOpsGroup(tooMany, 1)).rejects.toThrow(
+      /2-256 members/,
+    );
   });
 
   it("rejects duplicate member identities", async () => {
     const { buildTokenOpsGroup } = await import("../src/dash/contract");
-    expect(() => buildTokenOpsGroup(["a", "a", "b"], 2)).toThrow(/distinct/);
+    await expect(buildTokenOpsGroup(["a", "a", "b"], 2)).rejects.toThrow(
+      /distinct/,
+    );
   });
 
   it("rejects a required power above the member count", async () => {
     const { buildTokenOpsGroup } = await import("../src/dash/contract");
-    expect(() => buildTokenOpsGroup(["a", "b"], 0)).toThrow(/required power/);
-    expect(() => buildTokenOpsGroup(["a", "b"], 3)).toThrow(/required power/);
+    await expect(buildTokenOpsGroup(["a", "b"], 0)).rejects.toThrow(
+      /required power/,
+    );
+    await expect(buildTokenOpsGroup(["a", "b"], 3)).rejects.toThrow(
+      /required power/,
+    );
     // Scales with the member count: 4-of-5 is fine.
-    expect(() =>
+    await expect(
       buildTokenOpsGroup(["a", "b", "c", "d", "e"], 4),
-    ).not.toThrow();
+    ).resolves.toBeDefined();
   });
 });
 

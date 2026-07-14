@@ -7,18 +7,35 @@ import {
   type ReactNode,
 } from "react";
 
-import { createClient } from "../dash/client";
 import {
   clearStoredContractId,
   loadStoredContractId,
   saveContractId,
 } from "../dash/contract";
-import { IdentityKeyManager } from "../dash/keyManager";
-import { loginWithPrivateKey } from "../dash/loginWithPrivateKey";
 import { errorMessage, type Logger } from "../dash/logger";
 import type { DashKeyManager, DashSdk } from "../dash/types";
 import { detectSecretShape } from "../lib/detectSecretShape";
 import { keyManagerFromKey } from "./keyManagerFromKey";
+
+// createClient + IdentityKeyManager pull in @dashevo/evo-sdk (and its ~8MB
+// WASM bundle), so load the shared core lazily on first use to keep the app
+// shell off the boot critical path. Cached after first call; cleared on
+// failure so a transient chunk fetch can retry. This is a distinct loader
+// from dash/sdkModule.ts (the @dashevo/evo-sdk value-import loader) on
+// purpose — see the load-anchor rules in CLAUDE.md.
+type SdkCore = typeof import("../../../../setupDashClient-core.mjs");
+let sdkCorePromise: Promise<SdkCore> | null = null;
+function loadSdkCore(): Promise<SdkCore> {
+  if (!sdkCorePromise) {
+    sdkCorePromise = import("../../../../setupDashClient-core.mjs").catch(
+      (err) => {
+        sdkCorePromise = null;
+        throw err;
+      },
+    );
+  }
+  return sdkCorePromise;
+}
 
 export type SessionStatus =
   "idle" | "connecting" | "readonly" | "authenticated" | "error";
@@ -77,6 +94,7 @@ export function SessionProvider({ children }: { children: ReactNode }) {
     setStatus("connecting");
     setError(null);
     log("Connecting to Dash Platform testnet…");
+    const { createClient } = await loadSdkCore();
     const connected = await createClient("testnet");
     setSdk(connected as unknown as DashSdk);
     log("Connected to Dash Platform testnet.");
@@ -95,6 +113,7 @@ export function SessionProvider({ children }: { children: ReactNode }) {
         let manager: DashKeyManager;
 
         if (shape === "mnemonic") {
+          const { IdentityKeyManager } = await loadSdkCore();
           manager = (await IdentityKeyManager.create({
             sdk: connected as never,
             mnemonic: trimmed,
@@ -102,6 +121,12 @@ export function SessionProvider({ children }: { children: ReactNode }) {
             identityIndex,
           })) as unknown as DashKeyManager;
         } else {
+          // Dynamic import keeps loginWithPrivateKey (and its transitive
+          // @dashevo/evo-sdk value dependency) out of the app shell. The
+          // mnemonic branch already pays the SDK fetch via loadSdkCore();
+          // the WIF path fetches this module on first use here.
+          const { loginWithPrivateKey } =
+            await import("../dash/loginWithPrivateKey");
           const auth = await loginWithPrivateKey(
             connected as unknown as DashSdk,
             trimmed,

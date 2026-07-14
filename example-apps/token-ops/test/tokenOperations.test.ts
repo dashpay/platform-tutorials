@@ -286,7 +286,7 @@ describe("configurationChangeItemForRule", () => {
     ] as const;
 
     for (const [kind, item] of cases) {
-      expect(configurationChangeItemForRule(kind, 4)).toEqual({
+      expect(await configurationChangeItemForRule(kind, 4)).toEqual({
         item,
         actionTaker: { type: "Group", position: 4 },
       });
@@ -312,7 +312,10 @@ describe("assignTokenFunctionGroup", () => {
     expect(configUpdate).toHaveBeenCalledWith(
       expect.objectContaining({
         identityId: "owner-1",
-        configurationChangeItem: configurationChangeItemForRule("freeze", 5),
+        configurationChangeItem: await configurationChangeItemForRule(
+          "freeze",
+          5,
+        ),
       }),
     );
   });

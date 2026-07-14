@@ -7,21 +7,17 @@
  * SDK methods: sdk.tokens.mint / burn / transfer / freeze / unfreeze /
  * destroyFrozen / emergencyAction / configUpdate.
  */
-import {
-  AuthorizedActionTakers,
-  GroupStateTransitionInfoStatus,
-  TokenConfigurationChangeItem,
-} from "@dashevo/evo-sdk";
-
 import { TOKEN_POSITION, type ReassignableRuleKind } from "./contract";
 import { errorMessage, type Logger } from "./logger";
+import { loadSdkModule } from "./sdkModule";
 import type {
   DashKeyManager,
   DashSdk,
   DashTokenGroupActionResult,
 } from "./types";
 
-function groupInfo(groupPosition: number, actionId?: string) {
+async function groupInfo(groupPosition: number, actionId?: string) {
+  const { GroupStateTransitionInfoStatus } = await loadSdkModule();
   return actionId
     ? GroupStateTransitionInfoStatus.otherSigner(groupPosition, actionId)
     : GroupStateTransitionInfoStatus.proposer(groupPosition);
@@ -76,7 +72,7 @@ export async function mintToken({
       ),
       identityKey,
       signer,
-      groupInfo: groupInfo(groupPosition, actionId),
+      groupInfo: await groupInfo(groupPosition, actionId),
     });
   } catch (err) {
     log?.(`Mint error: ${errorMessage(err)}`, "error");
@@ -118,7 +114,7 @@ export async function burnToken({
       ),
       identityKey,
       signer,
-      groupInfo: groupInfo(groupPosition, actionId),
+      groupInfo: await groupInfo(groupPosition, actionId),
     });
   } catch (err) {
     log?.(`Burn error: ${errorMessage(err)}`, "error");
@@ -188,7 +184,7 @@ export async function freezeToken({
     ),
     identityKey,
     signer,
-    groupInfo: groupInfo(groupPosition, actionId),
+    groupInfo: await groupInfo(groupPosition, actionId),
   });
 }
 
@@ -225,7 +221,7 @@ export async function unfreezeToken({
     ),
     identityKey,
     signer,
-    groupInfo: groupInfo(groupPosition, actionId),
+    groupInfo: await groupInfo(groupPosition, actionId),
   });
 }
 
@@ -264,7 +260,7 @@ export async function destroyFrozenToken({
     ),
     identityKey,
     signer,
-    groupInfo: groupInfo(groupPosition, actionId),
+    groupInfo: await groupInfo(groupPosition, actionId),
   });
 }
 
@@ -301,14 +297,16 @@ export async function emergencyTokenAction({
     ),
     identityKey,
     signer,
-    groupInfo: groupInfo(groupPosition, actionId),
+    groupInfo: await groupInfo(groupPosition, actionId),
   });
 }
 
-export function configurationChangeItemForRule(
+export async function configurationChangeItemForRule(
   ruleKind: ReassignableRuleKind,
   groupPosition: number,
 ) {
+  const { AuthorizedActionTakers, TokenConfigurationChangeItem } =
+    await loadSdkModule();
   const actionTaker = AuthorizedActionTakers.Group(groupPosition);
   if (ruleKind === "manualMinting") {
     return TokenConfigurationChangeItem.ManualMintingItem(actionTaker);
@@ -351,7 +349,7 @@ export async function assignTokenFunctionGroup({
     dataContractId: contractId,
     tokenPosition: TOKEN_POSITION,
     identityId: ownerId,
-    configurationChangeItem: configurationChangeItemForRule(
+    configurationChangeItem: await configurationChangeItemForRule(
       ruleKind,
       groupPosition,
     ),

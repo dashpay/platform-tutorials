@@ -87,8 +87,8 @@ Every SDK call lives under [`src/dash/`](src/dash/), one file per concern, each 
 
 | Concern                         | File                                                        | SDK method(s)                                                                                                          |
 | ------------------------------- | ----------------------------------------------------------- | ---------------------------------------------------------------------------------------------------------------------- |
-| Connect to testnet              | [`client.ts`](src/dash/client.ts)                           | `EvoSDK.testnetTrusted()` + `sdk.connect()` (via shared core)                                                          |
-| Derive identity keys (mnemonic) | [`keyManager.ts`](src/dash/keyManager.ts)                   | `wallet.deriveKeyFromSeedWithPath` (via shared core)                                                                   |
+| Connect to testnet              | [`SessionContext.tsx`](src/session/SessionContext.tsx)      | `EvoSDK.testnetTrusted()` + `sdk.connect()` (via shared core, lazy-loaded)                                             |
+| Derive identity keys (mnemonic) | [`SessionContext.tsx`](src/session/SessionContext.tsx)      | `IdentityKeyManager` / `wallet.deriveKeyFromSeedWithPath` (via shared core, lazy-loaded)                               |
 | Sign in with a WIF private key  | [`loginWithPrivateKey.ts`](src/dash/loginWithPrivateKey.ts) | `sdk.identities.byPublicKeyHash` / `byNonUniquePublicKeyHash`, `PrivateKey.fromWIF`, `IdentitySigner.addKeyFromWif`    |
 | Register contract               | [`contract.ts`](src/dash/contract.ts)                       | `sdk.identities.nonce`, `sdk.contracts.publish`                                                                        |
 | Persist / look up contract      | [`contractStorage.ts`](src/dash/contractStorage.ts)         | `sdk.contracts.fetch`                                                                                                  |
@@ -99,7 +99,7 @@ Every SDK call lives under [`src/dash/`](src/dash/), one file per concern, each 
 | Resolve contract-or-token ID    | [`resolveTokenRef.ts`](src/dash/resolveTokenRef.ts)         | `sdk.tokens.contractInfo`, `sdk.tokens.calculateId`                                                                    |
 | Resolve DPNS name               | [`resolveDpnsName.ts`](src/dash/resolveDpnsName.ts)         | `sdk.dpns.username`                                                                                                    |
 
-[`client.ts`](src/dash/client.ts) and [`keyManager.ts`](src/dash/keyManager.ts) re-export directly from the repo-root `setupDashClient-core.mjs` — the same browser-safe core the Node tutorials use. The `@dashevo/evo-sdk` bare specifier is aliased to the app's local copy in [`vite.config.ts`](vite.config.ts).
+`createClient` and `IdentityKeyManager` come from the repo-root `setupDashClient-core.mjs` — the same browser-safe core the Node tutorials use — loaded lazily via `SessionContext`'s cached dynamic import so the ~8 MB `@dashevo/evo-sdk` bundle stays off the boot critical path (the build splits it into its own chunk; the entry chunk is ~315 kB). The `@dashevo/evo-sdk` bare specifier is aliased to the app's local copy in [`vite.config.ts`](vite.config.ts).
 
 Supporting files:
 

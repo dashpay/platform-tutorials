@@ -3,13 +3,19 @@ import { act, cleanup, renderHook } from "@testing-library/react";
 import type { ReactNode } from "react";
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 
-import { createClient } from "../src/dash/client";
+// SessionContext loads createClient + IdentityKeyManager lazily via a dynamic
+// import of the shared core (../../../../setupDashClient-core.mjs, relative to
+// src/session/ → ../../../ from here) to keep @dashevo/evo-sdk off the boot
+// path. Mock that specifier so the test never pulls the real 8MB SDK.
+import {
+  createClient,
+  IdentityKeyManager,
+} from "../../../setupDashClient-core.mjs";
 import {
   clearStoredContractId,
   loadStoredContractId,
   saveContractId,
 } from "../src/dash/contract";
-import { IdentityKeyManager } from "../src/dash/keyManager";
 import { loginWithPrivateKey } from "../src/dash/loginWithPrivateKey";
 import { SessionProvider } from "../src/session/SessionContext";
 import { useSession } from "../src/session/useSession";
@@ -18,11 +24,8 @@ vi.mock("sonner", () => ({
   toast: { success: vi.fn(), error: vi.fn() },
 }));
 
-vi.mock("../src/dash/client", () => ({
+vi.mock("../../../setupDashClient-core.mjs", () => ({
   createClient: vi.fn(),
-}));
-
-vi.mock("../src/dash/keyManager", () => ({
   IdentityKeyManager: { create: vi.fn() },
 }));
 

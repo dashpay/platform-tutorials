@@ -6,22 +6,9 @@
  * The operator performs the token action; the admin can later reassign that
  * operator through token config updates.
  */
-import {
-  AuthorizedActionTakers,
-  ChangeControlRules,
-  DataContract,
-  Group,
-  TokenConfiguration,
-  TokenConfigurationConvention,
-  TokenConfigurationLocalization,
-  TokenDistributionRules,
-  TokenKeepsHistoryRules,
-  TokenMarketplaceRules,
-  TokenTradeMode,
-} from "@dashevo/evo-sdk";
-
 import { loadStoredContractId, saveContractId } from "./contractStorage";
 import type { Logger } from "./logger";
+import { loadSdkModule } from "./sdkModule";
 import type { DashKeyManager, DashSdk } from "./types";
 
 export {
@@ -107,7 +94,8 @@ export const PLACEHOLDER_SCHEMAS = {
   },
 } as const;
 
-export function createRulePresets(ownerId: string) {
+export async function createRulePresets(ownerId: string) {
+  const { AuthorizedActionTakers, ChangeControlRules } = await loadSdkModule();
   const contractOwner = AuthorizedActionTakers.ContractOwner();
   const noOne = AuthorizedActionTakers.NoOne();
   const treasuryGroup = AuthorizedActionTakers.Group(TREASURY_GROUP_POSITION);
@@ -157,14 +145,24 @@ export function createRulePresets(ownerId: string) {
   };
 }
 
-export function createTokenOpsTokenConfiguration(ownerId: string) {
+export async function createTokenOpsTokenConfiguration(ownerId: string) {
+  const {
+    AuthorizedActionTakers,
+    TokenConfiguration,
+    TokenConfigurationConvention,
+    TokenConfigurationLocalization,
+    TokenDistributionRules,
+    TokenKeepsHistoryRules,
+    TokenMarketplaceRules,
+    TokenTradeMode,
+  } = await loadSdkModule();
   const {
     lockedRules,
     ownerRules,
     treasuryRules,
     accessRules,
     emergencyRules,
-  } = createRulePresets(ownerId);
+  } = await createRulePresets(ownerId);
 
   return new TokenConfiguration({
     conventions: new TokenConfigurationConvention(
@@ -214,7 +212,10 @@ export function createTokenOpsTokenConfiguration(ownerId: string) {
 
 // Builds a group of any Platform-valid size. Every member gets power 1, so
 // `requiredPower` is the signature threshold and must be 1..memberCount.
-export function buildTokenOpsGroup(memberIds: string[], requiredPower: number) {
+export async function buildTokenOpsGroup(
+  memberIds: string[],
+  requiredPower: number,
+) {
   const cleanIds = memberIds.map((id) => id.trim()).filter(Boolean);
   if (
     cleanIds.length < MIN_GROUP_MEMBERS ||
@@ -236,10 +237,14 @@ export function buildTokenOpsGroup(memberIds: string[], requiredPower: number) {
       `TokenOps group required power must be 1-${cleanIds.length}, got ${requiredPower}`,
     );
   }
+  // Load the SDK only after validation so malformed input fails fast with the
+  // validation error, not a chunk-fetch error (mirrors appendTokenOpsGroup's
+  // "validate before network work" intent).
+  const { Group } = await loadSdkModule();
   return new Group(new Map(cleanIds.map((id) => [id, 1])), requiredPower);
 }
 
-export function createTokenOpsGroup(
+export async function createTokenOpsGroup(
   memberIds: string[],
   requiredPower: number,
 ) {
@@ -252,20 +257,16 @@ export function createTokenOpsGroup(
   return buildTokenOpsGroup(cleanIds, requiredPower);
 }
 
-export function createTokenOpsGroups(memberIds: string[]) {
+export async function createTokenOpsGroups(memberIds: string[]) {
+  const [treasury, access, emergency] = await Promise.all([
+    createTokenOpsGroup(memberIds, GROUP_DEFINITIONS.treasury.requiredPower),
+    createTokenOpsGroup(memberIds, GROUP_DEFINITIONS.access.requiredPower),
+    createTokenOpsGroup(memberIds, GROUP_DEFINITIONS.emergency.requiredPower),
+  ]);
   return {
-    [TREASURY_GROUP_POSITION]: createTokenOpsGroup(
-      memberIds,
-      GROUP_DEFINITIONS.treasury.requiredPower,
-    ),
-    [ACCESS_GROUP_POSITION]: createTokenOpsGroup(
-      memberIds,
-      GROUP_DEFINITIONS.access.requiredPower,
-    ),
-    [EMERGENCY_GROUP_POSITION]: createTokenOpsGroup(
-      memberIds,
-      GROUP_DEFINITIONS.emergency.requiredPower,
-    ),
+    [TREASURY_GROUP_POSITION]: treasury,
+    [ACCESS_GROUP_POSITION]: access,
+    [EMERGENCY_GROUP_POSITION]: emergency,
   };
 }
 
@@ -281,6 +282,7 @@ export async function registerContract({
   log?: Logger;
 }): Promise<string> {
   log?.("Registering TokenOps contract...");
+  const { DataContract } = await loadSdkModule();
   const { identity, identityKey, signer } = await keyManager.getAuth();
   const ownerId = identity.id.toString();
   const identityNonce = await sdk.identities.nonce(ownerId);
@@ -289,12 +291,12 @@ export async function registerContract({
     identityNonce: (identityNonce || 0n) + 1n,
     schemas: PLACEHOLDER_SCHEMAS,
     tokens: {
-      [TOKEN_POSITION]: createTokenOpsTokenConfiguration(ownerId),
+      [TOKEN_POSITION]: await createTokenOpsTokenConfiguration(ownerId),
     },
     fullValidation: true,
   });
 
-  dataContract.groups = createTokenOpsGroups(groupMemberIds);
+  dataContract.groups = await createTokenOpsGroups(groupMemberIds);
 
   const published = await sdk.contracts.publish({
     dataContract,
