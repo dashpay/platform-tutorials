@@ -15,7 +15,7 @@
   color: var(--color-text);
   background: #eef0f5;
   font-family:
-    "Inter",
+    Inter,
     ui-sans-serif,
     system-ui,
     -apple-system,
@@ -577,6 +577,7 @@ button.identity-pill:hover:not(:disabled) {
 
 .proposal-card {
   --proposal-accent: var(--color-accent);
+
   background: white;
   border: 1px solid var(--color-border);
   border-left: 5px solid var(--proposal-accent);
@@ -598,6 +599,7 @@ button.identity-pill:hover:not(:disabled) {
 
 .proposal-card.not-currently-actionable {
   --proposal-accent: #7d8499;
+
   background: #f7f8fb;
 }
 
@@ -688,7 +690,7 @@ button.identity-pill:hover:not(:disabled) {
 .operation-capability-icon svg {
   fill: none;
   height: 1.1rem;
-  stroke: currentColor;
+  stroke: currentcolor;
   stroke-linecap: round;
   stroke-linejoin: round;
   stroke-width: 2;
@@ -1188,7 +1190,7 @@ button.identity-pill:hover:not(:disabled) {
 
 .access-authority .authority-label {
   border: 0;
-  clip: rect(0 0 0 0);
+  clip-path: inset(50%);
   height: 1px;
   margin: -1px;
   overflow: hidden;
@@ -1354,7 +1356,7 @@ button.identity-pill:hover:not(:disabled) {
   display: block;
   fill: none;
   height: 0.9rem;
-  stroke: currentColor;
+  stroke: currentcolor;
   stroke-linecap: round;
   stroke-linejoin: round;
   stroke-width: 2.2;
@@ -1711,7 +1713,7 @@ button.identity-pill:hover:not(:disabled) {
   display: block;
   fill: none;
   height: 1.1rem;
-  stroke: currentColor;
+  stroke: currentcolor;
   stroke-linecap: round;
   stroke-linejoin: round;
   stroke-width: 2.2;
@@ -1956,7 +1958,7 @@ button.identity-pill:hover:not(:disabled) {
     flex: 1 1 auto;
     max-width: 100%;
     white-space: normal;
-    word-break: break-word;
+    overflow-wrap: anywhere;
   }
 
   .proposal-card.is-collapsed {
@@ -2035,7 +2037,7 @@ button.identity-pill:hover:not(:disabled) {
   }
 
   .access-authority .authority-label {
-    clip: auto;
+    clip-path: none;
     flex: 1 0 100%;
     height: auto;
     margin: 0;
