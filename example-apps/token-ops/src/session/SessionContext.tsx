@@ -11,7 +11,7 @@ import {
   clearStoredContractId,
   loadStoredContractId,
   saveContractId,
-} from "../dash/contract";
+} from "../dash/contractStorage";
 import { errorMessage, type Logger } from "../dash/logger";
 import type { DashKeyManager, DashSdk } from "../dash/types";
 import { detectSecretShape } from "../lib/detectSecretShape";

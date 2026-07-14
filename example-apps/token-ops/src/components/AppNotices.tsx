@@ -7,7 +7,11 @@ export function AppNotices({
 }) {
   return (
     <>
-      {error && <div className="notice error">{error}</div>}
+      {error && (
+        <div className="notice error" role="alert">
+          {error}
+        </div>
+      )}
       {!hasContract && (
         <div className="notice info">
           No TokenOps contract configured yet. Register one or paste a contract

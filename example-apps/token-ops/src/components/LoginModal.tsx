@@ -31,6 +31,7 @@ export function LoginModal({ open, onClose }: LoginModalProps) {
 
   const resetForm = useCallback(() => {
     setSecret("");
+    setIdentityIndex("0");
     setError(null);
     setSubmitting(false);
     setShowAdvanced(false);
@@ -41,14 +42,19 @@ export function LoginModal({ open, onClose }: LoginModalProps) {
     onClose();
   }, [onClose, resetForm]);
 
+  const requestClose = useCallback(() => {
+    if (submitting) return;
+    handleClose();
+  }, [submitting, handleClose]);
+
   useEffect(() => {
     if (!open) return;
     function handleKeyDown(event: KeyboardEvent) {
-      if (event.key === "Escape") handleClose();
+      if (event.key === "Escape") requestClose();
     }
     window.addEventListener("keydown", handleKeyDown);
     return () => window.removeEventListener("keydown", handleKeyDown);
-  }, [open, handleClose]);
+  }, [open, requestClose]);
 
   if (!open) return null;
 
@@ -73,7 +79,7 @@ export function LoginModal({ open, onClose }: LoginModalProps) {
     <div
       className="modal-backdrop"
       onMouseDown={(event) => {
-        if (event.target === event.currentTarget) handleClose();
+        if (event.target === event.currentTarget) requestClose();
       }}
     >
       <section
@@ -101,7 +107,8 @@ export function LoginModal({ open, onClose }: LoginModalProps) {
             type="button"
             className="modal-close-button"
             aria-label="Close sign in"
-            onClick={handleClose}
+            disabled={submitting}
+            onClick={requestClose}
           >
             x
           </button>
@@ -173,7 +180,7 @@ export function LoginModal({ open, onClose }: LoginModalProps) {
               type="button"
               className="secondary"
               disabled={submitting}
-              onClick={handleClose}
+              onClick={requestClose}
             >
               Cancel
             </button>

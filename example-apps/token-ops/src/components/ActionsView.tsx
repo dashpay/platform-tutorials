@@ -19,6 +19,7 @@ export function ActionsView({ onComplete }: { onComplete?: () => void }) {
     const currentRequestId = ++requestId.current;
     if (!session.sdk || !session.contractId) {
       setGovernance(null);
+      setGovernanceError(null);
       return null;
     }
     setGovernanceError(null);

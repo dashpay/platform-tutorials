@@ -149,7 +149,14 @@ export function ProposeActionPanel({
       };
     }
     const rule = actionRule(kind);
-    if (rule && rule.operator.type !== "Group") {
+    if (!rule) {
+      return {
+        canSubmit: false,
+        groupPosition,
+        reason: "No action rule is loaded for this action.",
+      };
+    }
+    if (rule.operator.type !== "Group") {
       return {
         canSubmit: false,
         groupPosition,

@@ -204,12 +204,12 @@ export async function resolveIdentityFromWif(
     )
     .filter((match): match is MatchedIdentity => match != null);
 
+  if (matches.length > 1) {
+    throw new AmbiguousIdentityError();
+  }
   const validMatches = matches.filter((match) => !match.error);
   if (validMatches.length === 1) {
     return resolvedIdentity(validMatches[0]);
-  }
-  if (validMatches.length > 1 || matches.length > 1) {
-    throw new AmbiguousIdentityError();
   }
   if (matches.length === 1) {
     throw matches[0].error ?? new UnknownIdentityError();

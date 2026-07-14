@@ -173,11 +173,7 @@ function readAuthority(raw: unknown): RuleAuthority {
 }
 
 function readRule(tokenConfig: UnknownRecord, ruleName: string): UnknownRecord {
-  return toJsonRecord(
-    tokenConfig[ruleName] ??
-      tokenConfig[`${ruleName}_rules`] ??
-      tokenConfig[ruleName.replace("Rules", "_rules")],
-  );
+  return toJsonRecord(tokenConfig[ruleName]);
 }
 
 export const RULE_DEFINITIONS = [

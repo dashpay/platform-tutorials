@@ -59,7 +59,7 @@ test.describe("Read-only browsing", () => {
     ).toBeVisible();
     await expect(page.getByText(/^Updated /)).toBeVisible({ timeout: 60_000 });
     await expect(
-      page.locator(".empty-state, .proposal-card").first(),
+      page.locator(".empty-state, .proposal-card:visible").first(),
     ).toBeVisible();
 
     const dimensions = await page.evaluate(() => ({

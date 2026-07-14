@@ -160,6 +160,36 @@ describe("ProposeActionPanel", () => {
     expect(freeze.disabled).toBe(false);
   });
 
+  it("does not authorize a default-group member when the action rule is absent", () => {
+    vi.mocked(useSession).mockReturnValue({
+      status: "authenticated",
+      sdk: { contracts: {} },
+      keyManager: {},
+      contractId: "contract-1",
+      identityId: "treasury-member",
+      log: vi.fn(),
+    } as never);
+    const governanceWithoutMintRule = {
+      ...governance,
+      rules: governance.rules.filter((rule) => rule.key !== "manualMinting"),
+    };
+
+    render(<ProposeActionPanel governance={governanceWithoutMintRule} />);
+
+    const mintSelector = screen.getByRole("tab", { name: "Mint" });
+    expect(mintSelector.getAttribute("aria-disabled")).toBe("true");
+    expect(mintSelector.title).toBe(
+      "No action rule is loaded for this action.",
+    );
+    expect(
+      (
+        screen.getByRole("button", {
+          name: /Propose mint/,
+        }) as HTMLButtonElement
+      ).disabled,
+    ).toBe(true);
+  });
+
   it("shows a prominent warning when no group-managed operations are available", async () => {
     vi.mocked(useSession).mockReturnValue({
       status: "authenticated",

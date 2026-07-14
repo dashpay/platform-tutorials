@@ -90,8 +90,15 @@ async function resolveExistingIdentityId({ sdk, mnemonic, identityIndex }) {
       identityIndex,
     });
     return manager.identityId ?? null;
-  } catch {
-    return null;
+  } catch (error) {
+    if (
+      error instanceof Error &&
+      error.message ===
+        "No identity found for the given mnemonic (key 0 public key hash)"
+    ) {
+      return null;
+    }
+    throw error;
   }
 }
 
@@ -232,69 +239,74 @@ function upsertEnvVar(key, value) {
   }
 }
 
-for (let identityIndex = 0; identityIndex < 4; identityIndex += 1) {
-  const role = ROLES[identityIndex];
-  const minCredits = ROLE_MIN_CREDITS[identityIndex];
+try {
+  for (let identityIndex = 0; identityIndex < 4; identityIndex += 1) {
+    const role = ROLES[identityIndex];
+    const minCredits = ROLE_MIN_CREDITS[identityIndex];
 
-  const { sdk, keyManager, addressKeyManager } = await setupDashClient({
-    requireIdentity: false,
-    identityIndex,
-  });
-  const walletAddress = addressKeyManager.primaryAddress.bech32m;
-  const walletBalanceRef = {
-    value: await fetchWalletBalance(addressKeyManager),
-  };
+    const { sdk, keyManager, addressKeyManager } = await setupDashClient({
+      requireIdentity: false,
+      identityIndex,
+    });
+    const walletAddress = addressKeyManager.primaryAddress.bech32m;
+    const walletBalanceRef = {
+      value: await fetchWalletBalance(addressKeyManager),
+    };
 
-  const existingId = await resolveExistingIdentityId({
-    sdk,
-    mnemonic: process.env.PLATFORM_MNEMONIC,
-    identityIndex,
-  });
-
-  let identityId = existingId;
-  const alreadyRegistered = Boolean(existingId);
-  if (!existingId) {
-    identityId = await registerIdentity({
+    const existingId = await resolveExistingIdentityId({
       sdk,
-      keyManager,
+      mnemonic: process.env.PLATFORM_MNEMONIC,
+      identityIndex,
+    });
+
+    let identityId = existingId;
+    const alreadyRegistered = Boolean(existingId);
+    if (!existingId) {
+      identityId = await registerIdentity({
+        sdk,
+        keyManager,
+        addressKeyManager,
+        role,
+        identityIndex,
+        walletAddress,
+        walletBalanceRef,
+      });
+      walletBalanceRef.value = await fetchWalletBalance(addressKeyManager);
+    }
+
+    const { topUpAmount, finalBalance } = await ensureIdentityBalance({
+      sdk,
       addressKeyManager,
+      identityId,
+      minCredits,
       role,
       identityIndex,
       walletAddress,
       walletBalanceRef,
     });
-    walletBalanceRef.value = await fetchWalletBalance(addressKeyManager);
+
+    const registrationState = alreadyRegistered
+      ? "already registered"
+      : "newly registered";
+    const topUpState =
+      topUpAmount > 0n
+        ? `topped up +${formatCredits(topUpAmount)} credits`
+        : "at or above minimum";
+    console.log(
+      `[${role}] identityIndex=${identityIndex} → ${identityId} ` +
+        `(${registrationState}, ${topUpState}, balance=${formatCredits(finalBalance)}, ` +
+        `min=${formatCredits(minCredits)})`,
+    );
+
+    const envKey = ENV_KEYS[identityIndex];
+    if (envKey) upsertEnvVar(envKey, identityId);
   }
 
-  const { topUpAmount, finalBalance } = await ensureIdentityBalance({
-    sdk,
-    addressKeyManager,
-    identityId,
-    minCredits,
-    role,
-    identityIndex,
-    walletAddress,
-    walletBalanceRef,
-  });
-
-  const registrationState = alreadyRegistered
-    ? "already registered"
-    : "newly registered";
-  const topUpState =
-    topUpAmount > 0n
-      ? `topped up +${formatCredits(topUpAmount)} credits`
-      : "at or above minimum";
+  console.log(`\nWrote TokenOps group member IDs to ${envPath}`);
   console.log(
-    `[${role}] identityIndex=${identityIndex} → ${identityId} ` +
-      `(${registrationState}, ${topUpState}, balance=${formatCredits(finalBalance)}, ` +
-      `min=${formatCredits(minCredits)})`,
+    "Sign in to TokenOps with identityIndex 0 as owner, or 1/2/3 as group members.",
   );
-
-  const envKey = ENV_KEYS[identityIndex];
-  if (envKey) upsertEnvVar(envKey, identityId);
+} catch (error) {
+  console.error("Something went wrong:\n", error.message);
+  process.exitCode = 1;
 }
-
-console.log(`\nWrote TokenOps group member IDs to ${envPath}`);
-console.log(
-  "Sign in to TokenOps with identityIndex 0 as owner, or 1/2/3 as group members.",
-);

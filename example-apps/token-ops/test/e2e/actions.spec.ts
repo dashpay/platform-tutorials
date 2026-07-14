@@ -123,7 +123,7 @@ test.describe("Actions — pending (read-only)", () => {
   }) => {
     await expect(page.getByText(/^Updated /)).toBeVisible({ timeout: 60_000 });
     await expect(
-      page.locator(".empty-state, .proposal-card").first(),
+      page.locator(".empty-state, .proposal-card:visible").first(),
     ).toBeVisible();
   });
 
@@ -145,7 +145,7 @@ test.describe("Actions — pending (read-only)", () => {
   }) => {
     await expect(page.getByText(/^Updated /)).toBeVisible({ timeout: 60_000 });
 
-    const card = page.locator(".proposal-card").first();
+    const card = page.locator(".proposal-card:visible").first();
     // Details expand is only reachable when the contract has a live pending
     // action; skip rather than fail when there's nothing to expand.
     test.skip(

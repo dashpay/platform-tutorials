@@ -162,6 +162,7 @@ describe("LoginModal", () => {
 
   it("disables the submit button while login is in flight", async () => {
     let resolveLogin: (() => void) | undefined;
+    const onClose = vi.fn();
     mockSession(
       vi.fn(
         () =>
@@ -171,7 +172,7 @@ describe("LoginModal", () => {
       ),
     );
 
-    render(<LoginModal open onClose={vi.fn()} />);
+    render(<LoginModal open onClose={onClose} />);
 
     fireEvent.change(screen.getByLabelText("Mnemonic or private key"), {
       target: { value: "abandon abandon abandon" },
@@ -182,6 +183,37 @@ describe("LoginModal", () => {
       name: "Connecting...",
     })) as HTMLButtonElement;
     expect(connecting.disabled).toBe(true);
+
+    resolveLogin?.();
+    await waitFor(() => expect(onClose).toHaveBeenCalledOnce());
+  });
+
+  it("blocks dismissal while login is in flight", async () => {
+    let resolveLogin: (() => void) | undefined;
+    mockSession(
+      vi.fn(
+        () =>
+          new Promise<void>((resolve) => {
+            resolveLogin = resolve;
+          }),
+      ),
+    );
+    const onClose = vi.fn();
+
+    render(<LoginModal open onClose={onClose} />);
+
+    fireEvent.change(screen.getByLabelText("Mnemonic or private key"), {
+      target: { value: "abandon abandon abandon" },
+    });
+    fireEvent.click(screen.getByRole("button", { name: "Sign in" }));
+    await screen.findByRole("button", { name: "Connecting..." });
+
+    // None of the user-initiated dismissal paths should close mid-submission.
+    fireEvent.keyDown(window, { key: "Escape" });
+    fireEvent.mouseDown(document.querySelector(".modal-backdrop")!);
+    fireEvent.click(screen.getByRole("button", { name: "Close sign in" }));
+    fireEvent.click(screen.getByRole("button", { name: "Cancel" }));
+    expect(onClose).not.toHaveBeenCalled();
 
     resolveLogin?.();
   });
@@ -199,6 +231,31 @@ describe("LoginModal", () => {
     rerender(<LoginModal open onClose={onClose} />);
     fireEvent.keyDown(window, { key: "Escape" });
     expect(onClose).toHaveBeenCalledOnce();
+  });
+
+  it("resets the identity index when reopened after closing", () => {
+    mockSession();
+
+    const { rerender } = render(<LoginModal open onClose={vi.fn()} />);
+
+    fireEvent.click(
+      screen.getByRole("button", { name: "Show advanced settings" }),
+    );
+    fireEvent.change(screen.getByLabelText(/identity index/i), {
+      target: { value: "3" },
+    });
+
+    // Cancel triggers resetForm, then the parent hides and reopens the modal.
+    fireEvent.click(screen.getByRole("button", { name: "Cancel" }));
+    rerender(<LoginModal open={false} onClose={vi.fn()} />);
+    rerender(<LoginModal open onClose={vi.fn()} />);
+
+    fireEvent.click(
+      screen.getByRole("button", { name: "Show advanced settings" }),
+    );
+    expect(
+      (screen.getByLabelText(/identity index/i) as HTMLInputElement).value,
+    ).toBe("0");
   });
 
   it("surfaces login errors and keeps the modal open", async () => {

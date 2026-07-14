@@ -102,4 +102,27 @@ describe("ActionsView", () => {
     expect(screen.getByText("Queue groups: 2")).toBeTruthy();
     expect(fetchTokenOpsGovernance).toHaveBeenCalledTimes(2);
   });
+
+  it("clears a stale governance error when the contract becomes unavailable", async () => {
+    vi.mocked(useSession).mockReturnValue({
+      sdk: {},
+      contractId: "contract-1",
+    } as never);
+    vi.mocked(fetchTokenOpsGovernance).mockRejectedValue(
+      new Error("Governance fetch failed"),
+    );
+
+    const { rerender } = render(<ActionsView />);
+    await screen.findByText("Governance fetch failed");
+
+    vi.mocked(useSession).mockReturnValue({
+      sdk: {},
+      contractId: null,
+    } as never);
+    rerender(<ActionsView />);
+
+    await waitFor(() =>
+      expect(screen.queryByText("Governance fetch failed")).toBeNull(),
+    );
+  });
 });

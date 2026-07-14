@@ -15,7 +15,7 @@ import {
   clearStoredContractId,
   loadStoredContractId,
   saveContractId,
-} from "../src/dash/contract";
+} from "../src/dash/contractStorage";
 import { loginWithPrivateKey } from "../src/dash/loginWithPrivateKey";
 import { SessionProvider } from "../src/session/SessionContext";
 import { useSession } from "../src/session/useSession";
@@ -33,7 +33,7 @@ vi.mock("../src/dash/loginWithPrivateKey", () => ({
   loginWithPrivateKey: vi.fn(),
 }));
 
-vi.mock("../src/dash/contract", () => ({
+vi.mock("../src/dash/contractStorage", () => ({
   clearStoredContractId: vi.fn(),
   loadStoredContractId: vi.fn(),
   saveContractId: vi.fn(),

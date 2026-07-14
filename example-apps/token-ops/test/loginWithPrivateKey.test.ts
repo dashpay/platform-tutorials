@@ -206,6 +206,24 @@ describe("loginWithPrivateKey", () => {
     expect(addKeyFromWif).not.toHaveBeenCalled();
   });
 
+  it("rejects multiple matches when only one has a valid authentication key", async () => {
+    fromWIF.mockReturnValue(privateKey(ourPubKeyHashHex));
+
+    await expect(
+      resolveIdentityFromWif(
+        sdkWithLookups(null, [
+          identity({ id: "identity-valid", data: ourPubKeyHashBase64 }),
+          identity({
+            id: "identity-wrong-purpose",
+            purpose: TRANSFER,
+            data: ourPubKeyHashBase64,
+          }),
+        ]),
+        "wif",
+      ),
+    ).rejects.toBeInstanceOf(AmbiguousIdentityError);
+  });
+
   it("rejects empty non-unique lookup results", async () => {
     fromWIF.mockReturnValue(privateKey(ourPubKeyHashHex));
 
