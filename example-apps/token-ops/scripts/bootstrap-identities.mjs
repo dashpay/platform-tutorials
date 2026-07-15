@@ -8,10 +8,14 @@
 // on-chain identity-create transaction (adapted from
 // 1-Identities-and-Names/identity-register.mjs, looped over 4 indices).
 //
-// Usage: npm run bootstrap:identities
-// Requires PLATFORM_MNEMONIC set in the repo-root .env, funded with enough
-// testnet credits to register 4 identities and top each up to its role's
-// demo minimum (see ROLE_MIN_CREDITS below).
+// Usage (from example-apps/token-ops/): npm run bootstrap:identities
+// Prerequisites:
+//   - repository-root `npm install` (this script imports setupDashClient.mjs
+//     and the root @dashevo/evo-sdk copy — app-local node_modules alone is
+//     not enough; see README.md#group-members)
+//   - PLATFORM_MNEMONIC set in the repo-root .env, funded with enough
+//     testnet credits to register 4 identities and top each up to its role's
+//     demo minimum (see ROLE_MIN_CREDITS below).
 //
 // Idempotent on both axes: a re-run skips creating any identity that
 // already resolves on-chain and only tops up existing balances that dipped

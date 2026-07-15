@@ -4,6 +4,11 @@
  * @dashevo/evo-sdk module (and its WASM bundle) into the entry chunk.
  *
  * SDK method (fetchContractOwnerId): sdk.contracts.fetch(...)
+ *
+ * localStorage access is best-effort: restricted contexts (SecurityError,
+ * QuotaExceededError, missing storage) must not prevent the app from
+ * mounting or discard a successfully published contract ID. Callers still
+ * keep the in-memory / returned ID when persistence fails.
  */
 import type { DashSdk } from "./types";
 
@@ -18,15 +23,27 @@ export const DEFAULT_CONTRACT_ID: string | null =
   "KMMJJdJo9LTjjevsuJ4jkbNZEY8xCq8n44cDmba7o2A";
 
 export function loadStoredContractId(): string | null {
-  return localStorage.getItem(STORAGE_KEY) ?? DEFAULT_CONTRACT_ID;
+  try {
+    return localStorage.getItem(STORAGE_KEY) ?? DEFAULT_CONTRACT_ID;
+  } catch {
+    return DEFAULT_CONTRACT_ID;
+  }
 }
 
 export function saveContractId(id: string): void {
-  localStorage.setItem(STORAGE_KEY, id);
+  try {
+    localStorage.setItem(STORAGE_KEY, id);
+  } catch {
+    // Persistence is best-effort; callers still retain the contract ID.
+  }
 }
 
 export function clearStoredContractId(): void {
-  localStorage.removeItem(STORAGE_KEY);
+  try {
+    localStorage.removeItem(STORAGE_KEY);
+  } catch {
+    // Persistence is best-effort; callers can still restore the fallback.
+  }
 }
 
 export async function fetchContractOwnerId({

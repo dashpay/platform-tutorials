@@ -126,6 +126,10 @@ export function GovernanceView() {
   const [error, setError] = useState<string | null>(null);
   const [refreshing, setRefreshing] = useState(false);
   const [busyRuleKey, setBusyRuleKey] = useState<string | null>(null);
+  // State drives the disabled/loading UI; the ref is the real mutex so two
+  // submits that land before the next render cannot both pass the guard.
+  const [appendingGroup, setAppendingGroup] = useState(false);
+  const appendInFlightRef = useRef(false);
   const [activeView, setActiveView] = useState<GovernanceSubView>("access");
   const [groupSearch, setGroupSearch] = useState("");
   const [groupFilter, setGroupFilter] = useState<GroupFilter>("all");
@@ -234,6 +238,14 @@ export function GovernanceView() {
       setError("Only the contract owner can append an approval group.");
       return;
     }
+    // Synchronous mutex before the first await. React state alone is not
+    // enough: two submits dispatched before the next render both see
+    // appendingGroup === false. Platform groups are immutable, so a
+    // duplicate would stick at a new position.
+    if (appendInFlightRef.current) return;
+    appendInFlightRef.current = true;
+    setAppendingGroup(true);
+    setError(null);
     try {
       const { identityKey, signer } = await session.keyManager.getAuth();
       await appendTokenOpsGroup({
@@ -249,6 +261,9 @@ export function GovernanceView() {
       await refresh();
     } catch (err) {
       setError(errorMessage(err));
+    } finally {
+      appendInFlightRef.current = false;
+      setAppendingGroup(false);
     }
   }
 
@@ -269,6 +284,13 @@ export function GovernanceView() {
     (group) => `Group ${group.groupPosition}`,
   );
 
+  /**
+   * Whether the signed-in identity can submit a *direct* admin config update
+   * for this authority. Group admins are intentionally false until TokenOps
+   * supports the propose → co-sign lifecycle for group-managed config updates
+   * (`assignTokenFunctionGroup` has no `groupInfo` / actionId path, and
+   * PendingActionsView does not execute configuration proposals).
+   */
   function hasAuthority(authority: RuleAuthority): boolean {
     if (!isAuthenticated || !signedInIdentityId) return false;
     switch (authority.type) {
@@ -277,18 +299,22 @@ export function GovernanceView() {
       case "Identity":
         return signedInIdentityId === authority.identityId;
       case "Group":
-        return Boolean(
-          groups
-            .find((group) => group.groupPosition === authority.groupPosition)
-            ?.members.has(signedInIdentityId),
-        );
+        // Group membership alone is not enough for a direct configUpdate —
+        // Platform requires a multi-signer group action that this app does
+        // not yet implement for reassignment.
+        return false;
       default:
         return false;
     }
   }
 
+  function groupAdminSubmissionUnsupported(authority: RuleAuthority): boolean {
+    return authority.type === "Group";
+  }
+
   const canAppendGroup =
     isAuthenticated && signedInIdentityId === contractOwnerId;
+  const appendFormDisabled = !canAppendGroup || appendingGroup;
   const identityIds = useMemo(
     () => [
       signedInIdentityId,
@@ -538,6 +564,7 @@ export function GovernanceView() {
         : "";
     const isNoOp = chosen === currentValue;
     const canSubmit = hasAuthority(rule.admin);
+    const groupAdminUnsupported = groupAdminSubmissionUnsupported(rule.admin);
     const category = ruleCategory(rule.key);
 
     return (
@@ -599,19 +626,21 @@ export function GovernanceView() {
             </label>
             {chosenGroupInfo && (
               <p className="reassign-warning">
-                {!canSubmit
-                  ? isAuthenticated
-                    ? "You can inspect this change, but this identity does not have the admin authority required to submit it."
-                    : "You can inspect this change, but you must sign in with an identity that has admin authority to submit it."
-                  : isNoOp
-                    ? "Choose a different group to reassign this capability."
-                    : `${rule.label} will move from ${authorityLabel(
-                        rule.operator,
-                      )} to Group ${chosenGroupInfo.groupPosition}. ${
-                        rule.operator.type === "Group"
-                          ? `Group ${rule.operator.groupPosition} members lose the ability to perform this action.`
-                          : ""
-                      }`}
+                {groupAdminUnsupported
+                  ? "You can inspect this change, but group-admin reassignment is not supported yet. TokenOps only submits direct config updates for ContractOwner or Identity admins; group-managed reassignment needs a propose and co-sign lifecycle that is not implemented."
+                  : !canSubmit
+                    ? isAuthenticated
+                      ? "You can inspect this change, but this identity does not have the admin authority required to submit it."
+                      : "You can inspect this change, but you must sign in with an identity that has admin authority to submit it."
+                    : isNoOp
+                      ? "Choose a different group to reassign this capability."
+                      : `${rule.label} will move from ${authorityLabel(
+                          rule.operator,
+                        )} to Group ${chosenGroupInfo.groupPosition}. ${
+                          rule.operator.type === "Group"
+                            ? `Group ${rule.operator.groupPosition} members lose the ability to perform this action.`
+                            : ""
+                        }`}
               </p>
             )}
           </div>
@@ -907,7 +936,7 @@ export function GovernanceView() {
                       id="new-members"
                       rows={2}
                       value={newMembers}
-                      disabled={!canAppendGroup}
+                      disabled={appendFormDisabled}
                       onChange={(e) => setNewMembers(e.target.value)}
                       placeholder="comma or space separated"
                     />
@@ -924,7 +953,7 @@ export function GovernanceView() {
                       min={1}
                       max={appendMemberCount || undefined}
                       value={newRequiredPower}
-                      disabled={!canAppendGroup}
+                      disabled={appendFormDisabled}
                       onChange={(e) => setNewRequiredPower(e.target.value)}
                     />
                     <p className="muted">
@@ -932,8 +961,8 @@ export function GovernanceView() {
                       {appendMemberCount || MIN_GROUP_MEMBERS}).
                     </p>
                   </div>
-                  <button type="submit" disabled={!canAppendGroup}>
-                    Append group
+                  <button type="submit" disabled={appendFormDisabled}>
+                    {appendingGroup ? "Appending..." : "Append group"}
                   </button>
                 </form>
               </div>

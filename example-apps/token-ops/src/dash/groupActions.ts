@@ -205,6 +205,13 @@ export function parsePendingTokenActionParams(
   return null;
 }
 
+/**
+ * Hard cap on ACTIVE actions returned per group. TokenOps issues a single
+ * `sdk.group.actions` query (no cursor pagination), so later proposals beyond
+ * this limit are not shown.
+ */
+export const PENDING_ACTIONS_QUERY_LIMIT = 100;
+
 export async function listPendingActions({
   sdk,
   contractId,
@@ -218,10 +225,14 @@ export async function listPendingActions({
   log?: Logger;
 }): Promise<PendingAction[]> {
   log?.("Loading pending group actions...");
+  // One query only — TokenOps does not walk `startAt` pages. The explicit
+  // limit documents the UI surface: up to PENDING_ACTIONS_QUERY_LIMIT ACTIVE
+  // actions per group.
   const actions = await sdk.group.actions({
     dataContractId: contractId,
     groupContractPosition: groupPosition,
     status: "ACTIVE",
+    limit: PENDING_ACTIONS_QUERY_LIMIT,
   });
 
   const pending: PendingAction[] = [];

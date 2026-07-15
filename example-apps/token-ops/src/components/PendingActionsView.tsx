@@ -14,6 +14,7 @@ import {
   describeGroupAction,
   listActionSigners,
   listPendingActions,
+  PENDING_ACTIONS_QUERY_LIMIT,
   type ActionSignerProgress,
   type PendingAction,
   type PendingTokenActionParams,
@@ -518,6 +519,9 @@ export function PendingActionsView({
           </button>
         </div>
       </div>
+      <p className="muted pending-query-limit-note">
+        Shows up to {PENDING_ACTIONS_QUERY_LIMIT} active actions per group.
+      </p>
 
       {actions.length === 0 ? (
         <div className="empty-state">

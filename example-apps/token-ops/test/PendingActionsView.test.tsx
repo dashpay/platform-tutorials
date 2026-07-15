@@ -14,6 +14,7 @@ import type { TokenOpsGovernance } from "../src/dash/governance";
 import {
   listActionSigners,
   listPendingActions,
+  PENDING_ACTIONS_QUERY_LIMIT,
 } from "../src/dash/groupActions";
 import { burnToken, mintToken } from "../src/dash/tokenOperations";
 import { useSession } from "../src/session/useSession";
@@ -67,6 +68,45 @@ describe("PendingActionsView", () => {
   afterEach(() => {
     cleanup();
     vi.clearAllMocks();
+  });
+
+  it("documents the single-query active-actions limit per group", async () => {
+    vi.mocked(useSession).mockReturnValue({
+      status: "authenticated",
+      sdk: {},
+      keyManager: { id: "key-manager" },
+      contractId: "contract-1",
+      identityId: "member-b",
+      log: vi.fn(),
+    } as never);
+    const governance: TokenOpsGovernance = {
+      groups: [
+        {
+          groupPosition: 0,
+          requiredPower: 2,
+          members: new Map([
+            ["member-a", 1],
+            ["member-b", 1],
+          ]),
+        },
+      ],
+      rules: [],
+    };
+    vi.mocked(listPendingActions).mockResolvedValue([]);
+    vi.mocked(listActionSigners).mockResolvedValue({
+      signers: new Map(),
+      signedPower: 0n,
+      requiredPower: 2,
+      hasSigned: () => false,
+    });
+
+    renderPending(governance);
+
+    expect(
+      await screen.findByText(
+        `Shows up to ${PENDING_ACTIONS_QUERY_LIMIT} active actions per group.`,
+      ),
+    ).toBeTruthy();
   });
 
   it("requires confirmation when the current signature will execute the action", async () => {

@@ -290,6 +290,79 @@ describe("GovernanceView", () => {
     );
   });
 
+  it("blocks a second append while the first submission is in flight", async () => {
+    const governanceSnapshot = governance({ groups: [], rules: [] });
+    const session = authenticatedSession();
+    vi.mocked(useSession).mockReturnValue(session as never);
+    vi.mocked(fetchTokenOpsGovernance).mockResolvedValue(governanceSnapshot);
+
+    let resolveAppend: ((value: unknown) => void) | undefined;
+    vi.mocked(appendTokenOpsGroup).mockImplementation(
+      () =>
+        new Promise((resolve) => {
+          resolveAppend = resolve;
+        }),
+    );
+
+    render(<GovernanceView />);
+    fireEvent.click(await screen.findByRole("tab", { name: "Groups" }));
+    fireEvent.change(screen.getByLabelText("Member identity IDs"), {
+      target: { value: "member-b member-c" },
+    });
+    fireEvent.change(screen.getByLabelText("Required power"), {
+      target: { value: "2" },
+    });
+
+    const form = screen
+      .getByRole("button", { name: "Append group" })
+      .closest("form")!;
+    // Dispatch both submits immediately, before any waitFor/rerender. A
+    // state-only mutex would let both pass and produce two getAuth /
+    // appendTokenOpsGroup calls; the ref mutex must keep each at one.
+    fireEvent.submit(form);
+    fireEvent.submit(form);
+
+    await waitFor(() => {
+      expect(session.keyManager.getAuth).toHaveBeenCalledOnce();
+      expect(appendTokenOpsGroup).toHaveBeenCalledOnce();
+    });
+
+    expect(screen.getByRole("button", { name: "Appending..." })).toBeTruthy();
+    expect(
+      (
+        screen.getByRole("button", {
+          name: "Appending...",
+        }) as HTMLButtonElement
+      ).disabled,
+    ).toBe(true);
+    expect(
+      (screen.getByLabelText("Member identity IDs") as HTMLTextAreaElement)
+        .disabled,
+    ).toBe(true);
+    expect(
+      (screen.getByLabelText("Required power") as HTMLInputElement).disabled,
+    ).toBe(true);
+
+    // Still only one in-flight operation after the UI has reflected busy state.
+    fireEvent.submit(
+      screen.getByRole("button", { name: "Appending..." }).closest("form")!,
+    );
+    expect(session.keyManager.getAuth).toHaveBeenCalledOnce();
+    expect(appendTokenOpsGroup).toHaveBeenCalledOnce();
+
+    resolveAppend?.({});
+    await waitFor(() =>
+      expect(screen.getByRole("button", { name: "Append group" })).toBeTruthy(),
+    );
+    expect(
+      (
+        screen.getByRole("button", {
+          name: "Append group",
+        }) as HTMLButtonElement
+      ).disabled,
+    ).toBe(false);
+  });
+
   it("surfaces append-group validation errors", async () => {
     const session = authenticatedSession();
     vi.mocked(useSession).mockReturnValue(session as never);
@@ -430,5 +503,101 @@ describe("GovernanceView", () => {
         }) as HTMLButtonElement
       ).disabled,
     ).toBe(true);
+  });
+
+  it("disables group-admin reassignment until propose/co-sign is supported", async () => {
+    vi.mocked(useSession).mockReturnValue(
+      authenticatedSession("member-b") as never,
+    );
+    vi.mocked(fetchTokenOpsGovernance).mockResolvedValue(
+      governance(
+        {
+          groups: [
+            {
+              groupPosition: 1,
+              members: new Map([
+                ["member-b", 1],
+                ["member-c", 1],
+              ]),
+              requiredPower: 2,
+            },
+            {
+              groupPosition: 2,
+              members: new Map([["member-d", 1]]),
+              requiredPower: 1,
+            },
+          ],
+          rules: [
+            {
+              ...groupRule("freeze", 1),
+              admin: { type: "Group", groupPosition: 1 },
+            },
+          ],
+        },
+        "owner-1",
+      ),
+    );
+
+    render(<GovernanceView />);
+
+    fireEvent.click(await screen.findByRole("button", { name: "Edit" }));
+    fireEvent.change(screen.getByLabelText("New operator group"), {
+      target: { value: "2" },
+    });
+    expect(
+      screen.getByText(/group-admin reassignment is not supported yet/),
+    ).toBeTruthy();
+    const confirm = screen.getByRole("button", {
+      name: "Confirm reassignment",
+    }) as HTMLButtonElement;
+    expect(confirm.disabled).toBe(true);
+    fireEvent.click(confirm);
+    expect(assignTokenFunctionGroup).not.toHaveBeenCalled();
+  });
+
+  it("still lets a ContractOwner admin submit a direct reassignment", async () => {
+    const session = authenticatedSession("owner-1");
+    vi.mocked(useSession).mockReturnValue(session as never);
+    vi.mocked(fetchTokenOpsGovernance).mockResolvedValue(
+      governance(
+        {
+          groups: [
+            {
+              groupPosition: 1,
+              members: new Map([["member-a", 1]]),
+              requiredPower: 1,
+            },
+            {
+              groupPosition: 2,
+              members: new Map([["member-b", 1]]),
+              requiredPower: 1,
+            },
+          ],
+          rules: [groupRule("freeze", 1)],
+        },
+        "owner-1",
+      ),
+    );
+    vi.mocked(assignTokenFunctionGroup).mockResolvedValue({} as never);
+
+    render(<GovernanceView />);
+
+    fireEvent.click(await screen.findByRole("button", { name: "Edit" }));
+    fireEvent.change(screen.getByLabelText("New operator group"), {
+      target: { value: "2" },
+    });
+    fireEvent.click(
+      screen.getByRole("button", { name: "Confirm reassignment" }),
+    );
+
+    await waitFor(() =>
+      expect(assignTokenFunctionGroup).toHaveBeenCalledWith(
+        expect.objectContaining({
+          ownerId: "owner-1",
+          ruleKind: "freeze",
+          groupPosition: 2,
+        }),
+      ),
+    );
   });
 });

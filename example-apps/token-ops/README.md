@@ -9,11 +9,12 @@ The app is built around the idea that a token action has two authorities: an **o
 - Node 22.22+ (`engines.node` pins `>=22.22.0 <22.23.0`)
 - **Browse-only mode needs nothing** — a default contract is baked in, so a fresh install can read the token, groups, and rule matrix without any identity.
 - Writing needs a funded Dash Platform testnet identity (BIP-39 mnemonic + identity index).
-- Exercising the **group signing flow** end-to-end needs three additional funded identities (the group members). `npm run bootstrap:identities` derives and funds all four from one mnemonic — see [Group members](#group-members).
+- Exercising the **group signing flow** end-to-end needs three additional funded identities (the group members). `npm run bootstrap:identities` derives and funds all four from one mnemonic — see [Group members](#group-members). That bootstrap path also requires a **repository-root `npm install`** (in addition to this app's local install) so `setupDashClient.mjs` and the shared root `@dashevo/evo-sdk` copy resolve — see [Group members](#group-members).
 
 ## Quick start
 
 ```bash
+# From this directory (example-apps/token-ops):
 npm install
 npm run dev
 ```
@@ -73,9 +74,16 @@ These thresholds describe the **initial** contract. Platform groups are immutabl
 
 ## Group members
 
-The group-signing flow needs three additional funded identities. The bootstrap script derives four identities (owner + three members) from a single `PLATFORM_MNEMONIC` — each identity index is a distinct DIP-13 path, so one mnemonic yields four independently-registerable, independently-funded identities:
+The group-signing flow needs three additional funded identities. The bootstrap script derives four identities (owner + three members) from a single `PLATFORM_MNEMONIC` — each identity index is a distinct DIP-13 path, so one mnemonic yields four independently-registerable, independently-funded identities.
+
+**Root install is required for bootstrap.** `scripts/bootstrap-identities.mjs` imports the repo-root `setupDashClient.mjs` helper and the root `@dashevo/evo-sdk` package (not this app's local copy) so Node 22 keeps a single module instance for `instanceof` checks inside the SDK. An app-local `npm install` alone is not enough — without root `node_modules`, bootstrap fails with `ERR_MODULE_NOT_FOUND` for the root SDK path.
 
 ```bash
+# From the repository root (once per clone):
+npm install
+
+# Then from this directory:
+npm install          # if you have not already for the Vite app
 npm run bootstrap:identities
 ```
 
@@ -115,7 +123,7 @@ Group-managed operations (everything except direct transfer) follow propose → 
 2. Other members **co-sign** the same action — the same call with `GroupStateTransitionInfoStatus.otherSigner(groupPosition, actionId)`.
 3. When accumulated signing power reaches the group's required power, Platform **executes** it automatically.
 
-The Actions tab surfaces ACTIVE actions (`sdk.group.actions`) below the proposal form, shows "N of M" signing progress (`sdk.group.actionSigners`), and splits them into "needs your signature" vs "waiting on others".
+The Actions tab surfaces ACTIVE actions (`sdk.group.actions`) below the proposal form, shows "N of M" signing progress (`sdk.group.actionSigners`), and splits them into "needs your signature" vs "waiting on others". Each group is loaded with a single query capped at 100 ACTIVE actions (`PENDING_ACTIONS_QUERY_LIMIT` in [`groupActions.ts`](src/dash/groupActions.ts)); later proposals beyond that cap are not listed.
 
 ## Limitations
 
@@ -127,6 +135,8 @@ Within group governance itself, a few things are intentionally not exercised in 
 - **Appended groups always use unit voting power.** The Governance → Groups "Append group" form takes a member list and a single required-power threshold, so every group it creates gives each member power `1`. The read/display side handles weighted power generally (see `usesOnePowerPerSignature` in [`PendingActionsView.tsx`](src/components/PendingActionsView.tsx)), but there's no form field to assign disparate per-member power.
 - **Capabilities can only be reassigned to a `Group`.** The reassign control lists existing groups only, and `configurationChangeItemForRule` ([`tokenOperations.ts`](src/dash/tokenOperations.ts)) always builds `AuthorizedActionTakers.Group(...)`. The matrix reads and displays ContractOwner, Identity, MainGroup, and NoOne authorities, but the app can't assign to (or away from) them.
 - **Only the operator authority is reassignable, not the admin.** Reassignment changes `authorizedToMakeChange` (who performs the action); it never changes `adminActionTakers` (who can later reassign the operator), which is displayed but not editable.
+- **Group-admin reassignment is not supported yet.** Direct `configUpdate` only works when the rule admin is `ContractOwner` or a specific `Identity`. If `adminActionTakers` is a Group, the reassign modal stays inspect-only until TokenOps implements the multi-signer propose/co-sign lifecycle for configuration updates.
+- **Pending actions are limited to 100 ACTIVE proposals per group.** The queue issues one `sdk.group.actions` call with `limit: 100` and does not paginate further pages, so older/later proposals beyond that window are not shown.
 
 ## Reading this codebase
 

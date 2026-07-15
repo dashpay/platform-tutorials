@@ -3,7 +3,9 @@ import { describe, expect, it, vi } from "vitest";
 import {
   describeGroupAction,
   listActionSigners,
+  listPendingActions,
   parsePendingTokenActionParams,
+  PENDING_ACTIONS_QUERY_LIMIT,
 } from "../src/dash/groupActions";
 
 /**
@@ -217,6 +219,76 @@ describe("describeGroupAction", () => {
 
   it("falls back to the raw name for unrecognized events", () => {
     expect(describeGroupAction("SomethingElse")).toBe("SomethingElse");
+  });
+});
+
+function makeAction(actionId: string, proposerId = "proposer-1") {
+  return {
+    proposerId: { toString: () => proposerId },
+    event: {
+      eventName: () => "TokenMintEvent",
+      tokenEvent: () => ({
+        toJSON: () => ({
+          type: "mint",
+          data: ["1", "recipient-1", null],
+        }),
+      }),
+    },
+  };
+}
+
+describe("listPendingActions", () => {
+  it("issues one ACTIVE query with the documented per-group limit", async () => {
+    const actions = vi.fn().mockResolvedValue(
+      new Map([
+        ["action-1", makeAction("action-1")],
+        ["action-2", makeAction("action-2", "proposer-2")],
+      ]),
+    );
+
+    const pending = await listPendingActions({
+      sdk: { group: { actions } } as never,
+      contractId: "contract-1",
+      groupPosition: 0,
+    });
+
+    expect(PENDING_ACTIONS_QUERY_LIMIT).toBe(100);
+    expect(actions).toHaveBeenCalledTimes(1);
+    expect(actions).toHaveBeenCalledWith({
+      dataContractId: "contract-1",
+      groupContractPosition: 0,
+      status: "ACTIVE",
+      limit: PENDING_ACTIONS_QUERY_LIMIT,
+    });
+    expect(pending.map((entry) => entry.actionId)).toEqual([
+      "action-1",
+      "action-2",
+    ]);
+    expect(pending[0]?.params).toMatchObject({
+      kind: "mint",
+      amount: 1n,
+      recipientId: "recipient-1",
+    });
+  });
+
+  it("does not request additional pages even when the first page is full", async () => {
+    const fullPage = new Map(
+      Array.from({ length: PENDING_ACTIONS_QUERY_LIMIT }, (_, index) => [
+        `action-${index + 1}`,
+        makeAction(`action-${index + 1}`),
+      ]),
+    );
+    const actions = vi.fn().mockResolvedValue(fullPage);
+
+    const pending = await listPendingActions({
+      sdk: { group: { actions } } as never,
+      contractId: "contract-1",
+      groupPosition: 2,
+    });
+
+    expect(actions).toHaveBeenCalledTimes(1);
+    expect(actions.mock.calls[0][0]).not.toHaveProperty("startAt");
+    expect(pending).toHaveLength(PENDING_ACTIONS_QUERY_LIMIT);
   });
 });
 
