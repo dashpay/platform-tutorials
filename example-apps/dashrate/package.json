@@ -1,7 +1,7 @@
 {
   "name": "dashrate",
   "displayName": "DashRate",
-  "description": "Rate Platform tutorial resources with Dash Platform v4 aggregate queries and review history.",
+  "description": "Explore aggregate document queries through a resource-rating app on Dash Platform.",
   "private": true,
   "version": "0.0.0",
   "type": "module",

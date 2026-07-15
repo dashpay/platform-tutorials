@@ -1,7 +1,7 @@
 {
   "name": "token-ops",
   "displayName": "TokenOps",
-  "description": "Dash Platform token management and group governance demo.",
+  "description": "Propose, co-sign, and govern token actions through a multi-signer group on Dash Platform.",
   "private": true,
   "version": "0.0.0",
   "type": "module",

@@ -1,7 +1,7 @@
 {
   "name": "dashnote-starter",
   "displayName": "Dashnote Starter",
-  "description": "Minimal React + Vite example for Dash Platform notes — full CRUD, mnemonic auth, no UX polish. Read top-to-bottom to learn the SDK.",
+  "description": "Dashnote reduced to the essentials: a simple UI and clear examples of note CRUD on Dash Platform.",
   "private": true,
   "version": "0.0.0",
   "type": "module",
