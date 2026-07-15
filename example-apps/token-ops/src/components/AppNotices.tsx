@@ -1,0 +1,23 @@
+export function AppNotices({
+  error,
+  hasContract,
+}: {
+  error: string | null;
+  hasContract: boolean;
+}) {
+  return (
+    <>
+      {error && (
+        <div className="notice error" role="alert">
+          {error}
+        </div>
+      )}
+      {!hasContract && (
+        <div className="notice info">
+          No TokenOps contract configured yet. Register one or paste a contract
+          ID in the Settings tab.
+        </div>
+      )}
+    </>
+  );
+}
