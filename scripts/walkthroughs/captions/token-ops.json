@@ -1,0 +1,21 @@
+{
+  "intro": "TokenOps makes multi-signer token governance on Dash Platform visible from one dashboard.",
+  "signIn": "With walkthrough credentials available, TokenOps signs in locally to reveal identity-specific governance status.",
+  "signedIn": "The signed-in dashboard shows whether this identity belongs to an operator group or has proposals awaiting approval.",
+  "readOnly": "Browse-only mode still exposes the live token, authority model, approval groups, and active proposals without an identity.",
+  "proposalStatus": "The priority cards summarize proposals needing attention, all active proposals, and the current identity's governance access.",
+  "authoritySummary": "Who controls what groups token capabilities by their live operator authority, keeping operational control easy to scan.",
+  "tokenDetails": "The compact token panel connects governance to live supply, status, contract, and token identifiers.",
+  "actionTypes": "Actions exposes mint, burn, access, emergency, and transfer paths while explaining which approval group controls each operation.",
+  "pendingActions": "Group-managed operations follow propose, co-sign, and automatic execution when the required signing power is reached.",
+  "signingProgress": "Each active proposal shows its target, proposer, signing progress, and whether the current identity can add a signature.",
+  "emptyActions": "When no proposals are active, the same view remains ready to surface the next group-governed action and its signing progress.",
+  "accessControl": "The governance matrix separates who can perform each capability from who can later reassign that authority.",
+  "groups": "Approval groups are append-only bodies with visible membership, signature thresholds, and assigned capabilities.",
+  "groupDetails": "Expanding a group reveals its members and makes the threshold behind multi-signer control concrete.",
+  "authenticatedSettings": "Settings confirms the signed-in identity and provides contract tools without requiring any action during this walkthrough.",
+  "readOnlySettings": "Settings clearly marks browse-only mode and points to sign-in when contract registration or token operations are needed.",
+  "contractResolver": "A contract or token ID can select another TokenOps deployment; token IDs resolve back to their owning contract.",
+  "registrationPath": "Authenticated owners can register a fresh contract and approval groups here, but this walkthrough performs no Platform writes.",
+  "outro": "That is TokenOps: live authority mapping, approval groups, and multi-signer token actions without hiding the governance model."
+}

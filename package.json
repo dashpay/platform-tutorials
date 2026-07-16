@@ -14,7 +14,8 @@
     "walkthrough:dashmint-lab": "node scripts/walkthroughs/record.mjs dashmint-lab",
     "walkthrough:dashnote": "node scripts/walkthroughs/record.mjs dashnote",
     "walkthrough:dashnote-starter": "node scripts/walkthroughs/record.mjs dashnote-starter",
-    "walkthrough:dashrate": "node scripts/walkthroughs/record.mjs dashrate"
+    "walkthrough:dashrate": "node scripts/walkthroughs/record.mjs dashrate",
+    "walkthrough:token-ops": "node scripts/walkthroughs/record.mjs token-ops"
   },
   "repository": {
     "type": "git",

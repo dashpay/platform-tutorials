@@ -40,6 +40,14 @@ const appConfigs = {
     run: runDashrate,
     viewport: { width: 1440, height: 1000 },
   },
+  'token-ops': {
+    appDir: 'example-apps/token-ops',
+    fileStem: 'token-ops',
+    title: 'TokenOps',
+    outputDir: 'walkthrough',
+    run: runTokenOps,
+    viewport: { width: 1440, height: 1000 },
+  },
 };
 
 const usage = `Usage:
@@ -50,10 +58,12 @@ Apps:
   dashnote
   dashmint-lab
   dashrate
+  token-ops
 
 Output:
   example-apps/<app>/walkthrough/<app>-walkthrough.webm
   example-apps/<app>/walkthrough/<app>-preview.png
+  TokenOps is the exception and writes to walkthrough/token-ops-*.{webm,png}.
 
 Environment:
   The recorder automatically loads .env.walkthrough when it exists. Supported
@@ -1172,6 +1182,152 @@ async function runDashrate(page) {
   await driver.captionKey('outro', 1900);
 }
 
+async function runTokenOps(page) {
+  page.logStep('Navigating to app');
+  await page.goto(page.walkthroughUrl, {
+    waitUntil: 'domcontentloaded',
+    timeout: 15000,
+  });
+  await page.getByRole('heading', { name: 'TokenOps', level: 1 }).waitFor({
+    state: 'visible',
+    timeout: 15000,
+  });
+  await page.getByRole('heading', { name: /Governance at a glance|Your signature is needed/ }).waitFor({
+    state: 'visible',
+    timeout: 60000,
+  });
+
+  await addWalkthroughOverlay(page, '#008de4');
+  await page.evaluate(() => {
+    document.documentElement.style.setProperty(
+      '--walkthrough-caption-offset',
+      '80px',
+    );
+  });
+
+  const driver = makeDriver(page);
+  const navButton = (name) =>
+    page.locator('.tabs').getByRole('button', { name, exact: true });
+  const goToNav = async (name, target) => {
+    await driver.scrollToTop();
+    await driver.clickLocator(navButton(name));
+    await driver.scrollToTop();
+    await target.waitFor({ state: 'visible', timeout: 60000 });
+    await driver.delay(900);
+  };
+
+  await driver.delay(900);
+  await driver.captionKey('intro');
+
+  if (page.walkthroughCredentials) {
+    page.logStep('Signing in with walkthrough mnemonic');
+    await driver.captionKey('signIn');
+    await driver.clickLocator(
+      page.getByRole('button', { name: 'Sign in', exact: true }),
+    );
+    const secret = page.locator('#login-secret');
+    await secret.waitFor({ state: 'visible', timeout: 10000 });
+    await page.addStyleTag({
+      content:
+        '#login-secret { color: transparent !important; caret-color: transparent !important; }',
+    });
+    await secret.fill(page.walkthroughCredentials.mnemonic);
+    if (page.walkthroughCredentials.identityIndex !== 0) {
+      await driver.clickLocator(
+        page.getByRole('button', { name: 'Show advanced settings' }),
+      );
+      await page
+        .locator('#login-identity-index')
+        .fill(String(page.walkthroughCredentials.identityIndex));
+    }
+    await driver.clickLocator(
+      page
+        .getByRole('dialog', { name: 'Sign in to TokenOps' })
+        .getByRole('button', { name: 'Sign in', exact: true }),
+    );
+    await page.getByRole('button', { name: 'Sign out' }).waitFor({
+      state: 'visible',
+      timeout: 60000,
+    });
+    await driver.captionKey('signedIn');
+  } else {
+    await driver.captionKey('readOnly');
+  }
+
+  await driver.scrollToTop();
+  await driver.moveToLocator(page.locator('.dashboard-priority-grid'));
+  await driver.captionKey('proposalStatus');
+  await driver.scrollToLocator(page.locator('.dashboard-control-panel'));
+  await driver.captionKey('authoritySummary');
+  await driver.scrollToLocator(page.locator('.dashboard-token-card'));
+  await driver.captionKey('tokenDetails');
+
+  page.logStep('Switching to Actions');
+  await goToNav(
+    'Actions',
+    page.getByRole('heading', { name: 'Propose new action' }),
+  );
+  await driver.moveToLocator(page.locator('.proposal-selector'));
+  await driver.captionKey('actionTypes');
+  await driver.scrollToLocator(
+    page.getByRole('heading', { name: 'Review pending actions' }),
+    'start',
+  );
+  await driver.captionKey('pendingActions');
+  const proposalCard = page.locator('.proposal-card').first();
+  if ((await proposalCard.count()) === 1) {
+    await driver.scrollToLocator(proposalCard);
+    await driver.moveToLocator(proposalCard);
+    await driver.captionKey('signingProgress');
+  } else {
+    await driver.captionKey('emptyActions');
+  }
+
+  page.logStep('Switching to Governance');
+  await goToNav(
+    'Governance',
+    page.getByRole('heading', { name: 'Governance', level: 3 }),
+  );
+  await driver.scrollToLocator(
+    page.getByRole('heading', { name: 'Capability authority' }),
+    'start',
+  );
+  await driver.captionKey('accessControl');
+  await driver.scrollToTop();
+  await driver.clickLocator(page.getByRole('tab', { name: 'Groups' }));
+  const firstGroup = page.locator('.group-row-main').first();
+  await firstGroup.waitFor({ state: 'visible', timeout: 30000 });
+  await driver.scrollToLocator(firstGroup);
+  await driver.captionKey('groups');
+  await driver.clickFirstLocator(page.locator('.group-row-main'));
+  await page.locator('.group-detail-panel').waitFor({
+    state: 'visible',
+    timeout: 10000,
+  });
+  await driver.captionKey('groupDetails');
+
+  page.logStep('Switching to Settings');
+  await goToNav(
+    'Settings',
+    page.locator('h3').filter({ hasText: /^Contract$/ }),
+  );
+  await driver.captionKey(
+    page.walkthroughCredentials ? 'authenticatedSettings' : 'readOnlySettings',
+  );
+  await driver.moveToLocator(
+    page.getByPlaceholder('Contract or token ID'),
+  );
+  await driver.captionKey('contractResolver');
+  await driver.scrollToLocator(
+    page.getByRole('heading', {
+      name: 'Register a new contract',
+      exact: true,
+    }),
+  );
+  await driver.captionKey('registrationPath');
+  await driver.captionKey('outro', 2200);
+}
+
 function logStep(label) {
   const ts = new Date().toISOString().slice(11, 19);
   console.log(`[${ts}] ${label}`);
@@ -1184,7 +1340,9 @@ async function main() {
   const config = appConfigs[args.app];
   const captions = await loadCaptionCopy(args.app);
   const appDir = path.join(repoRoot, config.appDir);
-  const outDir = path.join(appDir, 'walkthrough');
+  const outDir = config.outputDir
+    ? path.join(repoRoot, config.outputDir)
+    : path.join(appDir, 'walkthrough');
   const tmpVideoDir = path.join(
     os.tmpdir(),
     `${config.fileStem}-video-${Date.now()}`,
@@ -1232,14 +1390,9 @@ async function main() {
   } finally {
     const video = page.video();
     try {
-      await context.close();
+      await page.close({ runBeforeUnload: false });
     } catch (err) {
-      logStep(`context.close failed: ${err.message}`);
-    }
-    try {
-      await browser.close();
-    } catch (err) {
-      logStep(`browser.close failed: ${err.message}`);
+      logStep(`page.close failed: ${err.message}`);
     }
     if (video) {
       try {
@@ -1253,6 +1406,16 @@ async function main() {
           logStep(`video copy fallback failed: ${copyErr.message}`);
         }
       }
+    }
+    try {
+      await context.close();
+    } catch (err) {
+      logStep(`context.close failed: ${err.message}`);
+    }
+    try {
+      await browser.close();
+    } catch (err) {
+      logStep(`browser.close failed: ${err.message}`);
     }
   }
 
