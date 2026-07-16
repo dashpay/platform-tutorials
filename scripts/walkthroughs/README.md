@@ -42,11 +42,11 @@ browse-only/no-login recording:
 npm run walkthrough:dashmint-lab -- --no-login
 ```
 
-Outputs are written beside each app:
+Outputs are written to a per-app directory under `walkthrough/`:
 
 ```text
-example-apps/<app>/walkthrough/<app>-walkthrough.webm
-example-apps/<app>/walkthrough/<app>-preview.png
+walkthrough/<app>/<app>-walkthrough.webm
+walkthrough/<app>/<app>-preview.png
 ```
 
 ## Caption Copy

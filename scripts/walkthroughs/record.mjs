@@ -44,7 +44,6 @@ const appConfigs = {
     appDir: 'example-apps/token-ops',
     fileStem: 'token-ops',
     title: 'TokenOps',
-    outputDir: 'walkthrough',
     run: runTokenOps,
     viewport: { width: 1440, height: 1000 },
   },
@@ -61,9 +60,8 @@ Apps:
   token-ops
 
 Output:
-  example-apps/<app>/walkthrough/<app>-walkthrough.webm
-  example-apps/<app>/walkthrough/<app>-preview.png
-  TokenOps is the exception and writes to walkthrough/token-ops-*.{webm,png}.
+  walkthrough/<app>/<app>-walkthrough.webm
+  walkthrough/<app>/<app>-preview.png
 
 Environment:
   The recorder automatically loads .env.walkthrough when it exists. Supported
@@ -1340,9 +1338,7 @@ async function main() {
   const config = appConfigs[args.app];
   const captions = await loadCaptionCopy(args.app);
   const appDir = path.join(repoRoot, config.appDir);
-  const outDir = config.outputDir
-    ? path.join(repoRoot, config.outputDir)
-    : path.join(appDir, 'walkthrough');
+  const outDir = path.join(repoRoot, 'walkthrough', args.app);
   const tmpVideoDir = path.join(
     os.tmpdir(),
     `${config.fileStem}-video-${Date.now()}`,
