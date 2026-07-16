@@ -2,7 +2,12 @@
 
 import { describe, expect, it, vi } from "vitest";
 
-import { getNote, listMyNotes, normalizeNotes } from "../src/dash/queries";
+import {
+  getNote,
+  listMyNotes,
+  listMyNotesPage,
+  normalizeNotes,
+} from "../src/dash/queries";
 
 function makeSdk(result: unknown) {
   return {
@@ -10,6 +15,25 @@ function makeSdk(result: unknown) {
       query: vi.fn().mockResolvedValue(result),
       get: vi.fn().mockResolvedValue(result),
     },
+  };
+}
+
+function makePagedSdk(...results: unknown[]) {
+  const sdk = makeSdk(undefined);
+  for (const result of results) {
+    sdk.documents.query.mockResolvedValueOnce(result);
+  }
+  return sdk;
+}
+
+function noteDocument(updatedAt: number) {
+  return {
+    $ownerId: "owner-1",
+    $createdAt: updatedAt,
+    $updatedAt: updatedAt,
+    title: `Note ${updatedAt}`,
+    message: "Body",
+    $revision: 0,
   };
 }
 
@@ -85,6 +109,125 @@ describe("listMyNotes", () => {
       limit: 100,
     });
     expect(notes.map((note) => note.id)).toEqual(["note-new", "note-old"]);
+  });
+
+  it("uses the last server-ordered ID as the exclusive next-page cursor", async () => {
+    const sdk = makeSdk(
+      new Map([
+        ["note-new", noteDocument(5000)],
+        ["note-old", noteDocument(1000)],
+      ]),
+    );
+
+    const page = await listMyNotesPage({
+      sdk: sdk as never,
+      contractId: "contract-1",
+      ownerId: "owner-1",
+      limit: 2,
+    });
+
+    expect(page.notes.map((note) => note.id)).toEqual(["note-new", "note-old"]);
+    expect(page.nextCursor).toBe("note-old");
+  });
+
+  it("walks first, next, and final pages without skipping the boundary", async () => {
+    const sdk = makePagedSdk(
+      new Map([
+        ["note-old", noteDocument(1000)],
+        ["note-middle", noteDocument(2000)],
+      ]),
+      new Map([["note-new", noteDocument(3000)]]),
+    );
+
+    const notes = await listMyNotes({
+      sdk: sdk as never,
+      contractId: "contract-1",
+      ownerId: "owner-1",
+      limit: 2,
+    });
+
+    expect(sdk.documents.query).toHaveBeenNthCalledWith(1, {
+      dataContractId: "contract-1",
+      documentTypeName: "note",
+      where: [["$ownerId", "==", "owner-1"]],
+      orderBy: [
+        ["$ownerId", "asc"],
+        ["$updatedAt", "asc"],
+      ],
+      limit: 2,
+    });
+    expect(sdk.documents.query).toHaveBeenNthCalledWith(2, {
+      dataContractId: "contract-1",
+      documentTypeName: "note",
+      where: [["$ownerId", "==", "owner-1"]],
+      orderBy: [
+        ["$ownerId", "asc"],
+        ["$updatedAt", "asc"],
+      ],
+      limit: 2,
+      startAfter: "note-middle",
+    });
+    expect(notes.map((note) => note.id)).toEqual([
+      "note-new",
+      "note-middle",
+      "note-old",
+    ]);
+  });
+
+  it("queries once more when the final populated page is exactly full", async () => {
+    const sdk = makePagedSdk(
+      new Map([
+        ["note-old", noteDocument(1000)],
+        ["note-new", noteDocument(2000)],
+      ]),
+      new Map(),
+    );
+
+    const notes = await listMyNotes({
+      sdk: sdk as never,
+      contractId: "contract-1",
+      ownerId: "owner-1",
+      limit: 2,
+    });
+
+    expect(sdk.documents.query).toHaveBeenCalledTimes(2);
+    expect(sdk.documents.query).toHaveBeenLastCalledWith(
+      expect.objectContaining({ startAfter: "note-new" }),
+    );
+    expect(notes.map((note) => note.id)).toEqual(["note-new", "note-old"]);
+  });
+
+  it("rejects a page that repeats the exclusive cursor", async () => {
+    const sdk = makeSdk(
+      new Map([
+        ["note-old", noteDocument(1000)],
+        ["note-cursor", noteDocument(2000)],
+      ]),
+    );
+
+    await expect(
+      listMyNotesPage({
+        sdk: sdk as never,
+        contractId: "contract-1",
+        ownerId: "owner-1",
+        startAfter: "note-cursor",
+        limit: 2,
+      }),
+    ).rejects.toThrow("Document pagination made no progress.");
+  });
+
+  it("rejects page sizes outside the SDK's 1 to 100 range", async () => {
+    const sdk = makeSdk(new Map());
+
+    await expect(
+      listMyNotesPage({
+        sdk: sdk as never,
+        contractId: "contract-1",
+        ownerId: "owner-1",
+        limit: 0,
+      }),
+    ).rejects.toThrow("Note page size must be an integer from 1 to 100.");
+    expect(sdk.documents.query).not.toHaveBeenCalled();
   });
 });
 
