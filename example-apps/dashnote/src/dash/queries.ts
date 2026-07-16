@@ -73,42 +73,50 @@ function toNote(id: string | null, raw: DashNoteQueryDocument): NoteRecord {
   };
 }
 
-interface QueryPageEntries {
-  entries: Array<[string | null, DashNoteQueryDocument]>;
+interface QueryPage {
+  notes: NoteRecord[];
   resultCount: number;
   lastId: string | null;
 }
 
-function queryPageEntries(results: DashNoteQueryResults): QueryPageEntries {
+/**
+ * Flatten an SDK query result into notes while preserving server order and the
+ * raw page size. `lastId` always comes from the final server-ordered entry
+ * before any client-side sorting — Map/object keys first, otherwise the
+ * document's own id.
+ */
+function queryPage(results: DashNoteQueryResults): QueryPage {
   if (Array.isArray(results)) {
-    const documents = results.filter(Boolean) as DashNoteQueryDocument[];
-    const last = documents.at(-1);
+    const notes: NoteRecord[] = [];
+    for (const document of results) {
+      if (!document) continue;
+      notes.push(toNote(null, document as DashNoteQueryDocument));
+    }
     return {
-      entries: documents.map((document) => [null, document]),
+      notes,
       resultCount: results.length,
-      lastId: last ? toNote(null, last).id || null : null,
+      lastId: notes.at(-1)?.id || null,
     };
   }
 
-  const entries =
-    results instanceof Map ? Array.from(results.entries()) : Object.entries(results);
+  const rawEntries =
+    results instanceof Map
+      ? Array.from(results.entries())
+      : Object.entries(results);
+  const notes: NoteRecord[] = [];
+  for (const [id, document] of rawEntries) {
+    if (!document) continue;
+    notes.push(toNote(id, document as DashNoteQueryDocument));
+  }
   return {
-    entries: entries
-      .filter((entry): entry is [string, DashNoteQueryDocument] =>
-        Boolean(entry[1]),
-      )
-      .map(([id, document]) => [id, document]),
-    resultCount: entries.length,
-    // The cursor must come from the last entry in the SDK's server-ordered
-    // result, before any client-side sorting or filtering.
-    lastId: entries.at(-1)?.[0] ?? null,
+    notes,
+    resultCount: rawEntries.length,
+    lastId: rawEntries.at(-1)?.[0] ?? null,
   };
 }
 
 export function normalizeNotes(results: DashNoteQueryResults): NoteRecord[] {
-  return queryPageEntries(results).entries.map(([id, document]) =>
-    toNote(id, document),
-  );
+  return queryPage(results).notes;
 }
 
 export function normalizeSingleNote(
@@ -135,12 +143,14 @@ export async function listMyNotesPage({
   ownerId,
   startAfter,
   limit = MAX_QUERY_LIMIT,
+  log,
 }: {
   sdk: DashSdk;
   contractId: string;
   ownerId: string;
   startAfter?: string;
   limit?: number;
+  log?: Logger;
 }): Promise<NotePage> {
   if (!Number.isInteger(limit) || limit < 1 || limit > MAX_QUERY_LIMIT) {
     throw new RangeError(
@@ -148,6 +158,7 @@ export async function listMyNotesPage({
     );
   }
 
+  log?.(startAfter ? "Loading next page of notes…" : "Loading your notes…");
   const results = await sdk.documents.query({
     dataContractId: contractId,
     documentTypeName: "note",
@@ -162,7 +173,7 @@ export async function listMyNotesPage({
     limit,
     ...(startAfter ? { startAfter } : {}),
   });
-  const page = queryPageEntries(results);
+  const page = queryPage(results);
   const nextCursor = page.resultCount === limit ? page.lastId : null;
 
   if (page.resultCount === limit && !nextCursor) {
@@ -173,7 +184,7 @@ export async function listMyNotesPage({
   }
 
   return {
-    notes: page.entries.map(([id, document]) => toNote(id, document)),
+    notes: page.notes,
     nextCursor,
   };
 }
@@ -196,9 +207,7 @@ export async function listMyNotes({
   limit?: number;
   log?: Logger;
 }): Promise<NoteRecord[]> {
-  log?.("Loading your notes…");
-  const notes: NoteRecord[] = [];
-  const seenNoteIds = new Set<string>();
+  const notesById = new Map<string, NoteRecord>();
   const seenCursors = new Set<string>();
   let startAfter: string | undefined;
 
@@ -209,12 +218,11 @@ export async function listMyNotes({
       ownerId,
       startAfter,
       limit,
+      log,
     });
 
     for (const note of page.notes) {
-      if (seenNoteIds.has(note.id)) continue;
-      seenNoteIds.add(note.id);
-      notes.push(note);
+      if (!notesById.has(note.id)) notesById.set(note.id, note);
     }
 
     if (!page.nextCursor) break;
@@ -225,7 +233,7 @@ export async function listMyNotes({
     startAfter = page.nextCursor;
   }
 
-  return notes.sort(
+  return [...notesById.values()].sort(
     (left, right) => (right.updatedAt ?? 0) - (left.updatedAt ?? 0),
   );
 }

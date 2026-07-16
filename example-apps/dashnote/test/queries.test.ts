@@ -37,6 +37,20 @@ function noteDocument(updatedAt: number) {
   };
 }
 
+function ownerNotesQuery(limit: number, startAfter?: string) {
+  return {
+    dataContractId: "contract-1",
+    documentTypeName: "note",
+    where: [["$ownerId", "==", "owner-1"]],
+    orderBy: [
+      ["$ownerId", "asc"],
+      ["$createdAt", "asc"],
+    ],
+    limit,
+    ...(startAfter ? { startAfter } : {}),
+  };
+}
+
 describe("normalizeNotes", () => {
   it("normalizes arrays, maps, and revision values", () => {
     const notes = normalizeNotes(
@@ -98,16 +112,7 @@ describe("listMyNotes", () => {
       ownerId: "owner-1",
     });
 
-    expect(sdk.documents.query).toHaveBeenCalledWith({
-      dataContractId: "contract-1",
-      documentTypeName: "note",
-      where: [["$ownerId", "==", "owner-1"]],
-      orderBy: [
-        ["$ownerId", "asc"],
-        ["$createdAt", "asc"],
-      ],
-      limit: 100,
-    });
+    expect(sdk.documents.query).toHaveBeenCalledWith(ownerNotesQuery(100));
     expect(notes.map((note) => note.id)).toEqual(["note-new", "note-old"]);
   });
 
@@ -138,35 +143,25 @@ describe("listMyNotes", () => {
       ]),
       new Map([["note-new", noteDocument(3000)]]),
     );
+    const log = vi.fn();
 
     const notes = await listMyNotes({
       sdk: sdk as never,
       contractId: "contract-1",
       ownerId: "owner-1",
       limit: 2,
+      log,
     });
 
-    expect(sdk.documents.query).toHaveBeenNthCalledWith(1, {
-      dataContractId: "contract-1",
-      documentTypeName: "note",
-      where: [["$ownerId", "==", "owner-1"]],
-      orderBy: [
-        ["$ownerId", "asc"],
-        ["$createdAt", "asc"],
-      ],
-      limit: 2,
-    });
-    expect(sdk.documents.query).toHaveBeenNthCalledWith(2, {
-      dataContractId: "contract-1",
-      documentTypeName: "note",
-      where: [["$ownerId", "==", "owner-1"]],
-      orderBy: [
-        ["$ownerId", "asc"],
-        ["$createdAt", "asc"],
-      ],
-      limit: 2,
-      startAfter: "note-middle",
-    });
+    expect(log.mock.calls.map(([message]) => message)).toEqual([
+      "Loading your notes…",
+      "Loading next page of notes…",
+    ]);
+    expect(sdk.documents.query).toHaveBeenNthCalledWith(1, ownerNotesQuery(2));
+    expect(sdk.documents.query).toHaveBeenNthCalledWith(
+      2,
+      ownerNotesQuery(2, "note-middle"),
+    );
     expect(notes.map((note) => note.id)).toEqual([
       "note-new",
       "note-middle",
