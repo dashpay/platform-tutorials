@@ -152,9 +152,12 @@ export async function listMyNotesPage({
     dataContractId: contractId,
     documentTypeName: "note",
     where: [["$ownerId", "==", ownerId]],
+    // Traverse the immutable creation-time index so editing a note between page
+    // requests cannot move it across the cursor boundary. The completed list is
+    // still sorted by $updatedAt for the existing recent-notes UX.
     orderBy: [
       ["$ownerId", "asc"],
-      ["$updatedAt", "asc"],
+      ["$createdAt", "asc"],
     ],
     limit,
     ...(startAfter ? { startAfter } : {}),

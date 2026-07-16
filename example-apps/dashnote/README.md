@@ -55,7 +55,7 @@ npm run preview       # Serve the production build
 ## Contract schema notes
 
 - The schema in [`src/dash/contract.ts`](./src/dash/contract.ts) defines a single document type, `note`, with `title` (optional, max 120 chars), `message` (required, max 10000 chars), and required Platform-managed `$createdAt` / `$updatedAt`.
-- Indices: `byOwnerUpdated` (`$ownerId`, `$updatedAt`) and `byOwnerCreated` (`$ownerId`, `$createdAt`) — both are how the recent-notes list paginates and sorts.
+- Indices: `byOwnerUpdated` (`$ownerId`, `$updatedAt`) and `byOwnerCreated` (`$ownerId`, `$createdAt`). The list walks the immutable creation-time index for stable cursor pagination, then sorts the completed result by `$updatedAt` for display.
 - `documentsMutable: true` and `canBeDeleted: true` — notes are editable and deletable.
 - `keepsHistory` is forced to `false`. `keepsHistory: true` triggers [dashpay/platform#3165](https://github.com/dashpay/platform/issues/3165), where `sdk.contracts.fetch()` returns undefined and breaks `sdk.documents.query` with "Data contract not found". This is why v1 only shows revision metadata, not previous versions of notes.
 
@@ -73,8 +73,21 @@ Every SDK call lives in its own file under [`src/dash/`](./src/dash/). Open the 
 | Create a note          | [`src/dash/createNote.ts`](./src/dash/createNote.ts)                   | `sdk.documents.create`                                                                         |
 | Update a note          | [`src/dash/updateNote.ts`](./src/dash/updateNote.ts)                   | `sdk.documents.get` + `sdk.documents.replace`                                                  |
 | Delete a note          | [`src/dash/deleteNote.ts`](./src/dash/deleteNote.ts)                   | `sdk.documents.delete`                                                                         |
-| List my notes          | [`src/dash/queries.ts`](./src/dash/queries.ts)                         | `sdk.documents.query`                                                                          |
+| List my notes          | [`src/dash/queries.ts`](./src/dash/queries.ts)                         | `sdk.documents.query` + `startAfter`                                                           |
 | Get one note           | [`src/dash/queries.ts`](./src/dash/queries.ts)                         | `sdk.documents.get`                                                                            |
+
+### Query pagination
+
+[`listMyNotesPage`](./src/dash/queries.ts) demonstrates the Evo SDK's document cursor directly:
+
+1. The first query sends no cursor.
+2. A full page uses the **last document ID in the SDK's returned `Map` order** as `startAfter`.
+3. `startAfter` is exclusive, so the boundary document is not repeated on the next page.
+4. A short or empty page is final. If the final populated page is exactly full, one extra empty query confirms completion.
+
+Every page keeps the same contract, document type, owner filter, creation-time ordering, and limit. The cursor is captured before client-side sorting; sorting a page first and then taking its last item would use the wrong index position and can skip or repeat documents. `listMyNotes` walks the pages, deduplicates defensively by document ID, and only then sorts the complete result by `$updatedAt` for the existing newest-first UI.
+
+The traversal uses the immutable `byOwnerCreated` index rather than the mutable `$updatedAt` index, so editing a note while pages are loading cannot move it across a cursor boundary. Like other live cursor APIs, `documents.query` does not provide a cross-request snapshot: deleting the cursor document can invalidate the next request, and documents created after the traversal finishes appear on the next reload.
 
 Update flow always fetches the document first to read its current revision, then submits a replace with `revision = BigInt(existing.revision ?? 0) + 1n`. Replays without bumping the revision are rejected by the state transition.
 
@@ -114,7 +127,7 @@ For deeper architecture and gotchas, see [`CLAUDE.md`](./CLAUDE.md).
 The Vitest suite covers:
 
 - contract schema and registration config
-- note query normalization and sorting
+- note query normalization, cursor pagination, and sorting
 - create / update / delete mutation helpers
 - WIF login (`loginWithPrivateKey`), secret-shape detection, and WIF preview hook
 - DPNS name resolution

@@ -104,7 +104,7 @@ describe("listMyNotes", () => {
       where: [["$ownerId", "==", "owner-1"]],
       orderBy: [
         ["$ownerId", "asc"],
-        ["$updatedAt", "asc"],
+        ["$createdAt", "asc"],
       ],
       limit: 100,
     });
@@ -152,7 +152,7 @@ describe("listMyNotes", () => {
       where: [["$ownerId", "==", "owner-1"]],
       orderBy: [
         ["$ownerId", "asc"],
-        ["$updatedAt", "asc"],
+        ["$createdAt", "asc"],
       ],
       limit: 2,
     });
@@ -162,11 +162,38 @@ describe("listMyNotes", () => {
       where: [["$ownerId", "==", "owner-1"]],
       orderBy: [
         ["$ownerId", "asc"],
-        ["$updatedAt", "asc"],
+        ["$createdAt", "asc"],
       ],
       limit: 2,
       startAfter: "note-middle",
     });
+    expect(notes.map((note) => note.id)).toEqual([
+      "note-new",
+      "note-middle",
+      "note-old",
+    ]);
+  });
+
+  it("deduplicates an overlapping page by document ID", async () => {
+    const sdk = makePagedSdk(
+      new Map([
+        ["note-old", noteDocument(1000)],
+        ["note-middle", noteDocument(2000)],
+      ]),
+      new Map([
+        ["note-middle", noteDocument(2000)],
+        ["note-new", noteDocument(3000)],
+      ]),
+      new Map(),
+    );
+
+    const notes = await listMyNotes({
+      sdk: sdk as never,
+      contractId: "contract-1",
+      ownerId: "owner-1",
+      limit: 2,
+    });
+
     expect(notes.map((note) => note.id)).toEqual([
       "note-new",
       "note-middle",

@@ -51,7 +51,7 @@ Schema lives in [src/dash/contract.ts](src/dash/contract.ts) as `NOTE_SCHEMAS`. 
 - **Create note**: `sdk.documents.create({ document, identityKey, signer })` where `document = new Document({ properties: { title?, message }, documentTypeName: "note", dataContractId, ownerId })`
 - **Update note**: fetch existing via `sdk.documents.get(...)`, bump `revision = BigInt(existing.revision) + 1n`, then `sdk.documents.replace({ document, identityKey, signer })`
 - **Delete note**: `sdk.documents.delete({ document: { id, ownerId, dataContractId, documentTypeName: "note" }, identityKey, signer })`
-- **List my notes**: `sdk.documents.query({ dataContractId, documentTypeName: "note", where: [["$ownerId", "==", ownerId]], orderBy: [["$ownerId", "asc"], ["$updatedAt", "asc"]], limit })`
+- **List my notes**: `listMyNotesPage` calls `sdk.documents.query({ dataContractId, documentTypeName: "note", where: [["$ownerId", "==", ownerId]], orderBy: [["$ownerId", "asc"], ["$createdAt", "asc"]], limit, startAfter? })`; `listMyNotes` walks every page, then sorts the complete list newest-first by `$updatedAt` for display.
 - **Get one note**: `sdk.documents.get(contractId, "note", noteId)`
 
 `normalizeNotes()` and `normalizeSingleNote()` in [queries.ts](src/dash/queries.ts) flatten whatever shape `sdk.documents.query` / `sdk.documents.get` returns (array, Map, or plain object) into `NoteRecord[]` so UI code never branches on it.
