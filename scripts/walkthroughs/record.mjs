@@ -93,8 +93,9 @@ function parseArgs(argv) {
       args.url = argv[++i];
       if (!args.url) throw new Error('--url requires a value');
     } else if (arg === '--env-file') {
-      args.envFile = path.resolve(argv[++i]);
-      if (!args.envFile) throw new Error('--env-file requires a value');
+      const envFile = argv[++i];
+      if (!envFile) throw new Error('--env-file requires a value');
+      args.envFile = path.resolve(envFile);
     } else if (arg === '--no-login') {
       args.login = false;
     } else if (arg === '--headed') {
@@ -921,14 +922,7 @@ async function runDashmintLab(page) {
     await driver.delay(1200);
   } else {
     await driver.captionKey('loginPath');
-    const loginButtons = await page
-      .getByRole('button', { name: 'Login' })
-      .all();
-    const loginBox = await loginButtons[loginButtons.length - 1].boundingBox();
-    await driver.clickCursor(
-      loginBox.x + loginBox.width / 2,
-      loginBox.y + loginBox.height / 2,
-    );
+    await driver.clickLastLocator(page.getByRole('button', { name: 'Login' }));
     await page.locator('input[type="password"]').waitFor({
       state: 'visible',
       timeout: 10000,
@@ -1190,10 +1184,14 @@ async function runTokenOps(page) {
     state: 'visible',
     timeout: 15000,
   });
-  await page.getByRole('heading', { name: /Governance at a glance|Your signature is needed/ }).waitFor({
-    state: 'visible',
-    timeout: 60000,
-  });
+  await page
+    .getByRole('heading', {
+      name: /Governance at a glance|Your signature is needed/,
+    })
+    .waitFor({
+      state: 'visible',
+      timeout: 60000,
+    });
 
   await addWalkthroughOverlay(page, '#008de4');
   await page.evaluate(() => {
@@ -1312,9 +1310,7 @@ async function runTokenOps(page) {
   await driver.captionKey(
     page.walkthroughCredentials ? 'authenticatedSettings' : 'readOnlySettings',
   );
-  await driver.moveToLocator(
-    page.getByPlaceholder('Contract or token ID'),
-  );
+  await driver.moveToLocator(page.getByPlaceholder('Contract or token ID'));
   await driver.captionKey('contractResolver');
   await driver.scrollToLocator(
     page.getByRole('heading', {
@@ -1377,6 +1373,7 @@ async function main() {
   });
 
   logStep(`Recording ${config.title} at ${args.url}`);
+  let persistError = null;
   try {
     await Promise.race([config.run(page), bail]);
     if (!interrupted) {
@@ -1400,6 +1397,7 @@ async function main() {
           await fs.copyFile(source, targetWebm);
         } catch (copyErr) {
           logStep(`video copy fallback failed: ${copyErr.message}`);
+          persistError = copyErr;
         }
       }
     }
@@ -1413,6 +1411,17 @@ async function main() {
     } catch (err) {
       logStep(`browser.close failed: ${err.message}`);
     }
+    try {
+      await fs.rm(tmpVideoDir, { recursive: true, force: true });
+    } catch (err) {
+      logStep(`temporary video cleanup failed: ${err.message}`);
+    }
+  }
+
+  if (persistError) {
+    throw new Error(
+      `Failed to persist walkthrough video: ${persistError.message}`,
+    );
   }
 
   if (interrupted) {

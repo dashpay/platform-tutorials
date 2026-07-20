@@ -10,6 +10,7 @@ npm run walkthrough:dashmint-lab
 npm run walkthrough:dashnote
 npm run walkthrough:dashnote-starter
 npm run walkthrough:dashrate
+npm run walkthrough:token-ops
 ```
 
 The recorder assumes the app is available at `http://127.0.0.1:5173/`. Override
@@ -59,6 +60,7 @@ scripts/walkthroughs/captions/dashnote.json
 scripts/walkthroughs/captions/dashnote-starter.json
 scripts/walkthroughs/captions/dashmint-lab.json
 scripts/walkthroughs/captions/dashrate.json
+scripts/walkthroughs/captions/token-ops.json
 ```
 
 Each entry is a stable step name with the text shown in the video:
