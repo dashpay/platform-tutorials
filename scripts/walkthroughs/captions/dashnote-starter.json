@@ -1,0 +1,15 @@
+{
+  "intro": "Dashnote Starter: a minimal React app for notes on Dash Platform testnet.",
+  "identityAccess": "Start here: the app explains what it stores and asks for identity access only when you are ready.",
+  "signInForm": "The sign-in form keeps access local and links to the testnet identity setup path.",
+  "signedInWriteAccess": "Signing in unlocks the write actions that are otherwise unavailable in the starter preview.",
+  "authenticatedWorkspace": "Authenticated view shows the resolved identity, active contract, note editor, and note list.",
+  "noWritesDefault": "The default walkthrough does not create, update, or delete notes; it stops before any testnet write.",
+  "writeAccessCrud": "With write access, this same flow can exercise a full CRUD demo when needed.",
+  "readOnlyTour": "Without sign-in, the walkthrough stops before write actions and tours the read-only starter screen.",
+  "sampleNotes": "Sample notes preview the authenticated workspace without loading the SDK or touching the network first.",
+  "exampleConcepts": "The examples call out the core concepts: identity-owned data, shared contracts, and revisions.",
+  "aboutSection": "The About section summarizes how the starter maps React UI to a hardcoded Dash Platform contract.",
+  "fullAppFlow": "With write access, the full app flow is create, list, edit, refresh, and delete notes.",
+  "outro": "That is Dashnote Starter: deliberately small, readable, and focused on the SDK calls."
+}
