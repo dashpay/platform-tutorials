@@ -1,6 +1,6 @@
 # 🚀 Example Apps
 
-Stand-alone applications built on top of the same `@dashevo/evo-sdk` used by the Node tutorials in the parent repo. Each example is an independent npm project — `cd` into its directory and run `npm install` there for the Vite app itself.
+Independently runnable applications built on the same `@dashevo/evo-sdk` used by the Node tutorials in the parent repo. Each example has its own npm project — `cd` into its directory and run `npm install` there for the Vite app itself — while sharing the repository-root `setupDashClient-core.mjs` helper for browser SDK setup and key management.
 
 Some app scripts still depend on the **repository-root** install. TokenOps `npm run bootstrap:identities` imports the root `setupDashClient.mjs` helper and the root `@dashevo/evo-sdk` copy (to keep a single module instance for SDK `instanceof` checks). For that path, run `npm install` at the repo root as well — see [token-ops/README.md](./token-ops/README.md#group-members).
 
