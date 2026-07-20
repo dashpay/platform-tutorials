@@ -301,7 +301,7 @@ export default function App() {
 
       <footer className="app-footer">
         <a
-          href="https://github.com/dashpay/platform-tutorials"
+          href="https://github.com/dashpay/platform-tutorials/tree/main/example-apps/dashrate"
           target="_blank"
           rel="noreferrer"
         >
