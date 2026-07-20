@@ -82,12 +82,15 @@ export interface DashSdk {
   };
   documents?: Record<string, unknown>;
   identities: {
-    byPublicKeyHash(publicKeyHash: unknown): Promise<Identity | undefined>;
-    byNonUniquePublicKeyHash?(
-      publicKeyHash: unknown,
-      startAfter?: unknown,
-    ): Promise<Identity[]>;
+    fetch(identityId: string): Promise<Identity | null | undefined>;
     nonce(identityId: string): Promise<bigint | null | undefined>;
+    byPublicKeyHash(
+      publicKeyHash: Uint8Array,
+    ): Promise<Identity | null | undefined>;
+    byNonUniquePublicKeyHash?(
+      publicKeyHash: Uint8Array,
+      startAfter?: string,
+    ): Promise<Identity[]>;
     balance(identityId: string): Promise<bigint>;
   };
   tokens: {

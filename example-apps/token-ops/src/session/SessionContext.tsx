@@ -42,6 +42,7 @@ export type SessionStatus =
 
 export interface LoginOptions {
   identityIndex?: number;
+  expectedIdentityId?: string;
 }
 
 export interface SessionValue {
@@ -103,7 +104,7 @@ export function SessionProvider({ children }: { children: ReactNode }) {
 
   const login = useCallback(
     async (secret: string, options: LoginOptions = {}) => {
-      const { identityIndex = 0 } = options;
+      const { identityIndex = 0, expectedIdentityId } = options;
       const trimmed = secret.trim();
       if (!trimmed) throw new Error("Mnemonic or private key is required.");
       setError(null);
@@ -130,6 +131,7 @@ export function SessionProvider({ children }: { children: ReactNode }) {
           const auth = await loginWithPrivateKey(
             connected as unknown as DashSdk,
             trimmed,
+            expectedIdentityId,
           );
           manager = keyManagerFromKey(auth.identityId, auth);
         }

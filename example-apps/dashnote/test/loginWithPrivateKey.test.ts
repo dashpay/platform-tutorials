@@ -1,18 +1,14 @@
-// @vitest-environment jsdom
-
 import { afterEach, describe, expect, it, vi } from "vitest";
 
-const { mockFromWIF, mockGetPublicKeyHash, mockSignerAddKeyFromWif } =
-  vi.hoisted(() => ({
-    mockFromWIF: vi.fn(),
-    mockGetPublicKeyHash: vi.fn(),
-    mockSignerAddKeyFromWif: vi.fn(),
-  }));
+const fromWIF = vi.hoisted(() => vi.fn());
+const addKeyFromWif = vi.hoisted(() => vi.fn());
 
 vi.mock("@dashevo/evo-sdk", () => ({
-  PrivateKey: { fromWIF: mockFromWIF },
-  IdentitySigner: function MockSigner() {
-    return { addKeyFromWif: mockSignerAddKeyFromWif };
+  IdentitySigner: class {
+    addKeyFromWif = addKeyFromWif;
+  },
+  PrivateKey: {
+    fromWIF,
   },
   Purpose: {
     AUTHENTICATION: 0,
@@ -29,17 +25,26 @@ vi.mock("@dashevo/evo-sdk", () => ({
 
 import {
   AmbiguousIdentityError,
-  KeyDisabledError,
   InvalidPrivateKeyError,
-  loginWithPrivateKey,
-  resolveIdentityFromWif,
+  KeyDisabledError,
   UnknownIdentityError,
   WrongKeyPurposeError,
+  loginWithPrivateKey,
+  resolveIdentityFromWif,
 } from "../src/dash/loginWithPrivateKey";
 import type { DashSdk } from "../src/dash/types";
 
+const AUTHENTICATION = 0;
+const ENCRYPTION = 1;
+const TRANSFER = 2;
+const MASTER = 0;
+const CRITICAL = 1;
+const HIGH = 2;
+const MEDIUM = 3;
+
 const ourPubKeyHex =
   "02aabbccddeeff00112233445566778899aabbccddeeff00112233445566778899";
+const ourPubKeyHashHex = "11223344556677889900aabbccddeeff00112233";
 const ourPubKeyBytes = (() => {
   const bytes = new Uint8Array(ourPubKeyHex.length / 2);
   for (let i = 0; i < bytes.length; i += 1) {
@@ -47,197 +52,224 @@ const ourPubKeyBytes = (() => {
   }
   return bytes;
 })();
+const ourPubKeyHashBytes = (() => {
+  const bytes = new Uint8Array(ourPubKeyHashHex.length / 2);
+  for (let i = 0; i < bytes.length; i += 1) {
+    bytes[i] = parseInt(ourPubKeyHashHex.slice(i * 2, i * 2 + 2), 16);
+  }
+  return bytes;
+})();
 const ourPubKeyBase64 = (() => {
   let binary = "";
-  ourPubKeyBytes.forEach((b) => {
-    binary += String.fromCharCode(b);
+  ourPubKeyBytes.forEach((byte) => {
+    binary += String.fromCharCode(byte);
+  });
+  return btoa(binary);
+})();
+const ourPubKeyHashBase64 = (() => {
+  let binary = "";
+  ourPubKeyHashBytes.forEach((byte) => {
+    binary += String.fromCharCode(byte);
   });
   return btoa(binary);
 })();
 
-function setupValidWifMocks() {
-  mockGetPublicKeyHash.mockReturnValue(new Uint8Array(20));
-  mockFromWIF.mockReturnValue({
-    getPublicKeyHash: mockGetPublicKeyHash,
+function privateKey(hash: string | Uint8Array = "hash") {
+  return {
+    getPublicKeyHash: () => hash,
     getPublicKey: () => ({
       toBytes: () => ourPubKeyBytes,
     }),
-  });
+  };
 }
 
-function makeSdk(byPublicKeyHash: ReturnType<typeof vi.fn>): DashSdk {
+function identity({
+  id = "identity-1",
+  purpose = AUTHENTICATION,
+  securityLevel = CRITICAL,
+  type = undefined as number | undefined,
+  disabled = false,
+  disabledAt = null as number | string | null,
+  data = ourPubKeyBase64,
+} = {}) {
+  const identityKey = { id: 2 };
   return {
-    identities: {
-      byPublicKeyHash,
-      nonce: vi.fn(),
-    },
-  } as unknown as DashSdk;
-}
-
-function makeSdkWithFallback(identities: unknown[]): DashSdk {
-  return {
-    identities: {
-      fetch: vi
-        .fn()
-        .mockImplementation(async (identityId: string) =>
-          identities.find(
-            (identity) => (identity as { id?: string }).id === identityId,
-          ),
-        ),
-      byPublicKeyHash: vi.fn().mockResolvedValue(undefined),
-      byNonUniquePublicKeyHash: vi
-        .fn()
-        .mockImplementation(async (_hash, startAfter) =>
-          startAfter ? [] : identities,
-        ),
-      nonce: vi.fn(),
-    },
-  } as unknown as DashSdk;
-}
-
-function matchingIdentity(id: string, data = ourPubKeyBase64, type?: number) {
-  return {
-    id,
+    id: { toString: () => id },
+    getPublicKeyById: vi.fn().mockReturnValue(identityKey),
     toJSON: () => ({
       publicKeys: [
         {
           id: 2,
-          purpose: 0,
-          securityLevel: 2,
+          purpose,
+          securityLevel,
           type,
           data,
+          disabled,
+          disabledAt,
         },
       ],
     }),
-    getPublicKeyById: vi.fn().mockReturnValue({ id: 2 }),
   };
 }
 
-afterEach(() => {
-  mockFromWIF.mockReset();
-  mockGetPublicKeyHash.mockReset();
-  mockSignerAddKeyFromWif.mockReset();
-});
+function sdkWithIdentity(value: unknown): DashSdk {
+  return {
+    identities: {
+      fetch: vi.fn().mockResolvedValue(undefined),
+      byPublicKeyHash: vi.fn().mockResolvedValue(value),
+      byNonUniquePublicKeyHash: vi.fn().mockResolvedValue([]),
+    },
+  } as unknown as DashSdk;
+}
+
+function sdkWithLookups(unique: unknown, nonUnique: unknown[]): DashSdk {
+  return {
+    identities: {
+      fetch: vi.fn().mockImplementation(async (identityId: string) =>
+        nonUnique.find((candidate) => {
+          const id = (candidate as { id?: string | { toString(): string } }).id;
+          return typeof id === "string"
+            ? id === identityId
+            : id?.toString() === identityId;
+        }),
+      ),
+      byPublicKeyHash: vi.fn().mockResolvedValue(unique),
+      byNonUniquePublicKeyHash: vi
+        .fn()
+        .mockImplementation(async (_hash, startAfter) =>
+          startAfter ? [] : nonUnique,
+        ),
+    },
+  } as unknown as DashSdk;
+}
 
 describe("loginWithPrivateKey", () => {
-  it("throws InvalidPrivateKeyError when the WIF can't be parsed", async () => {
-    mockFromWIF.mockImplementation(() => {
-      throw new Error("bad checksum");
-    });
-    const sdk = makeSdk(vi.fn());
-
-    await expect(loginWithPrivateKey(sdk, "not-a-key")).rejects.toBeInstanceOf(
-      InvalidPrivateKeyError,
-    );
+  afterEach(() => {
+    vi.clearAllMocks();
   });
 
-  it("throws UnknownIdentityError when no identity matches the key", async () => {
-    setupValidWifMocks();
-    const byPublicKeyHash = vi.fn().mockResolvedValue(undefined);
-    const sdk = makeSdk(byPublicKeyHash);
+  it("rejects invalid WIF input", async () => {
+    fromWIF.mockImplementation(() => {
+      throw new Error("invalid");
+    });
 
     await expect(
-      loginWithPrivateKey(sdk, "valid-wif-stub"),
+      resolveIdentityFromWif(sdkWithIdentity(null), "not-a-wif"),
+    ).rejects.toBeInstanceOf(InvalidPrivateKeyError);
+  });
+
+  it("rejects invalid WIF input through the signer-building login path", async () => {
+    fromWIF.mockImplementation(() => {
+      throw new Error("invalid");
+    });
+
+    await expect(
+      loginWithPrivateKey(sdkWithIdentity(null), "not-a-wif"),
+    ).rejects.toBeInstanceOf(InvalidPrivateKeyError);
+    expect(addKeyFromWif).not.toHaveBeenCalled();
+  });
+
+  it("rejects keys with no registered identity", async () => {
+    fromWIF.mockReturnValue(privateKey());
+
+    await expect(
+      resolveIdentityFromWif(sdkWithIdentity(null), "wif"),
     ).rejects.toBeInstanceOf(UnknownIdentityError);
   });
 
-  it("falls back to a non-unique lookup and resolves its sole match", async () => {
-    setupValidWifMocks();
-    const identity = matchingIdentity("fallback-identity");
+  it("falls back to non-unique public-key-hash lookup", async () => {
+    const resolvedIdentity = identity({
+      id: "identity-non-unique",
+      data: ourPubKeyHashBase64,
+    });
+    fromWIF.mockReturnValue(privateKey(ourPubKeyHashHex));
 
     const result = await loginWithPrivateKey(
-      makeSdkWithFallback([identity]),
-      "valid-wif-stub",
+      sdkWithLookups(null, [resolvedIdentity]),
+      "wif",
     );
 
-    expect(result.identityId).toBe("fallback-identity");
-    expect(result.identity).toBe(identity);
+    expect(result.identity).toBe(resolvedIdentity);
+    expect(result.identityId).toBe("identity-non-unique");
+    expect(result.identityKey).toEqual({ id: 2 });
+    expect(addKeyFromWif).toHaveBeenCalledWith("wif");
   });
 
-  it("requires an identity ID when the fallback finds multiple matches", async () => {
-    setupValidWifMocks();
-    const sdk = makeSdkWithFallback([
-      matchingIdentity("identity-a"),
-      matchingIdentity("identity-b"),
-    ]);
+  it("matches base64-encoded public-key hash data", async () => {
+    fromWIF.mockReturnValue(privateKey(ourPubKeyHashHex));
 
-    await expect(
-      resolveIdentityFromWif(sdk, "valid-wif-stub"),
-    ).rejects.toBeInstanceOf(AmbiguousIdentityError);
-  });
-
-  it("fetches and verifies the exact expected identity directly", async () => {
-    setupValidWifMocks();
-    const identityA = matchingIdentity("identity-a");
-    const identityB = matchingIdentity("identity-b");
-    const sdk = makeSdkWithFallback([identityB, identityA]);
-
-    const result = await resolveIdentityFromWif(
-      sdk,
-      "valid-wif-stub",
-      "identity-a",
+    const result = await loginWithPrivateKey(
+      sdkWithIdentity(identity({ data: ourPubKeyHashBase64 })),
+      "wif",
     );
 
-    expect(result.identityId).toBe("identity-a");
-    expect(result.identity).toBe(identityA);
-    expect(sdk.identities.fetch).toHaveBeenCalledWith("identity-a");
-    expect(sdk.identities.byNonUniquePublicKeyHash).not.toHaveBeenCalled();
+    expect(result.identityId).toBe("identity-1");
   });
 
-  it("rejects an expected identity that is not among the matches", async () => {
-    setupValidWifMocks();
-    const sdk = makeSdkWithFallback([matchingIdentity("identity-a")]);
+  it("matches hex-encoded public-key hash data", async () => {
+    fromWIF.mockReturnValue(privateKey(ourPubKeyHashBytes));
 
-    await expect(
-      resolveIdentityFromWif(sdk, "valid-wif-stub", "identity-other"),
-    ).rejects.toBeInstanceOf(UnknownIdentityError);
-  });
-
-  it("matches a HASH160 key encoded as base64", async () => {
-    const hashBytes = new Uint8Array(20);
-    hashBytes.fill(7);
-    let binary = "";
-    hashBytes.forEach((byte) => {
-      binary += String.fromCharCode(byte);
-    });
-    setupValidWifMocks();
-    mockGetPublicKeyHash.mockReturnValue(hashBytes);
-
-    const result = await resolveIdentityFromWif(
-      makeSdkWithFallback([matchingIdentity("hash-identity", btoa(binary), 2)]),
-      "valid-wif-stub",
+    const result = await loginWithPrivateKey(
+      sdkWithIdentity(identity({ data: ourPubKeyHashHex })),
+      "wif",
     );
 
-    expect(result.identityId).toBe("hash-identity");
+    expect(result.identityId).toBe("identity-1");
   });
 
   it.each([3, 4])(
-    "does not match HASH160 bytes belonging to key type %s",
+    "rejects HASH160 bytes belonging to key type %s",
     async (type) => {
-      const hashBytes = new Uint8Array(20);
-      hashBytes.fill(7);
-      let binary = "";
-      hashBytes.forEach((byte) => {
-        binary += String.fromCharCode(byte);
-      });
-      setupValidWifMocks();
-      mockGetPublicKeyHash.mockReturnValue(hashBytes);
+      fromWIF.mockReturnValue(privateKey(ourPubKeyHashHex));
 
       await expect(
         resolveIdentityFromWif(
-          makeSdkWithFallback([
-            matchingIdentity("wrong-type", btoa(binary), type),
-          ]),
-          "valid-wif-stub",
+          sdkWithLookups(null, [identity({ data: ourPubKeyHashBase64, type })]),
+          "wif",
         ),
       ).rejects.toBeInstanceOf(UnknownIdentityError);
     },
   );
 
+  it("fetches and verifies an explicitly selected identity directly", async () => {
+    const identityA = identity({
+      id: "identity-a",
+      data: ourPubKeyHashBase64,
+      type: 2,
+    });
+    const identityB = identity({
+      id: "identity-b",
+      data: ourPubKeyHashBase64,
+      type: 2,
+    });
+    fromWIF.mockReturnValue(privateKey(ourPubKeyHashHex));
+    const sdk = sdkWithLookups(null, [identityB, identityA]);
+
+    const result = await resolveIdentityFromWif(sdk, "wif", "identity-a");
+
+    expect(result.identityId).toBe("identity-a");
+    expect(sdk.identities.fetch).toHaveBeenCalledWith("identity-a");
+    expect(sdk.identities.byNonUniquePublicKeyHash).not.toHaveBeenCalled();
+  });
+
+  it("rejects an explicitly selected identity that does not match the WIF", async () => {
+    fromWIF.mockReturnValue(privateKey(ourPubKeyHashHex));
+
+    await expect(
+      resolveIdentityFromWif(
+        sdkWithLookups(null, [
+          identity({ id: "identity-a", data: ourPubKeyHashBase64 }),
+        ]),
+        "wif",
+        "identity-other",
+      ),
+    ).rejects.toBeInstanceOf(UnknownIdentityError);
+  });
+
   it("continues pagination until a second match establishes ambiguity", async () => {
-    setupValidWifMocks();
-    const identityA = matchingIdentity("identity-a");
-    const identityB = matchingIdentity("identity-b");
+    const identityA = identity({ id: "identity-a" });
+    const identityB = identity({ id: "identity-b" });
+    fromWIF.mockReturnValue(privateKey());
     const byNonUniquePublicKeyHash = vi
       .fn()
       .mockImplementation(async (_hash, startAfter) => {
@@ -250,13 +282,12 @@ describe("loginWithPrivateKey", () => {
         fetch: vi.fn(),
         byPublicKeyHash: vi.fn().mockResolvedValue(undefined),
         byNonUniquePublicKeyHash,
-        nonce: vi.fn(),
       },
     } as unknown as DashSdk;
 
-    await expect(
-      resolveIdentityFromWif(sdk, "valid-wif-stub"),
-    ).rejects.toBeInstanceOf(AmbiguousIdentityError);
+    await expect(resolveIdentityFromWif(sdk, "wif")).rejects.toBeInstanceOf(
+      AmbiguousIdentityError,
+    );
     expect(byNonUniquePublicKeyHash).toHaveBeenNthCalledWith(
       2,
       expect.anything(),
@@ -264,56 +295,71 @@ describe("loginWithPrivateKey", () => {
     );
   });
 
-  it("throws WrongKeyPurposeError carrying the identity ID for transfer keys", async () => {
-    setupValidWifMocks();
-    const identityId = "identity-1";
-    const identity = {
-      id: identityId,
-      toJSON: () => ({
-        publicKeys: [
-          {
-            id: 3,
-            purpose: 2, // TRANSFER
-            securityLevel: 1, // CRITICAL
-            data: ourPubKeyBase64,
-          },
-        ],
-      }),
-      getPublicKeyById: vi.fn(),
-    };
-    const sdk = makeSdk(vi.fn().mockResolvedValue(identity));
+  it("rejects ambiguous non-unique identity matches", async () => {
+    fromWIF.mockReturnValue(privateKey(ourPubKeyHashHex));
 
-    const promise = loginWithPrivateKey(sdk, "valid-wif-stub");
+    await expect(
+      loginWithPrivateKey(
+        sdkWithLookups(null, [
+          identity({ id: "identity-a", data: ourPubKeyHashBase64 }),
+          identity({ id: "identity-b", data: ourPubKeyHashBase64 }),
+        ]),
+        "wif",
+      ),
+    ).rejects.toBeInstanceOf(AmbiguousIdentityError);
+    expect(addKeyFromWif).not.toHaveBeenCalled();
+  });
+
+  it("rejects multiple matches when only one has a valid authentication key", async () => {
+    fromWIF.mockReturnValue(privateKey(ourPubKeyHashHex));
+
+    await expect(
+      resolveIdentityFromWif(
+        sdkWithLookups(null, [
+          identity({ id: "identity-valid", data: ourPubKeyHashBase64 }),
+          identity({
+            id: "identity-wrong-purpose",
+            purpose: TRANSFER,
+            data: ourPubKeyHashBase64,
+          }),
+        ]),
+        "wif",
+      ),
+    ).rejects.toBeInstanceOf(AmbiguousIdentityError);
+  });
+
+  it("rejects empty non-unique lookup results", async () => {
+    fromWIF.mockReturnValue(privateKey(ourPubKeyHashHex));
+
+    await expect(
+      resolveIdentityFromWif(sdkWithLookups(null, []), "wif"),
+    ).rejects.toBeInstanceOf(UnknownIdentityError);
+  });
+
+  it("rejects non-authentication keys", async () => {
+    fromWIF.mockReturnValue(privateKey());
+
+    const promise = resolveIdentityFromWif(
+      sdkWithIdentity(identity({ purpose: TRANSFER })),
+      "wif",
+    );
+
     await expect(promise).rejects.toBeInstanceOf(WrongKeyPurposeError);
     await promise.catch((err: WrongKeyPurposeError) => {
-      expect(err.identityId).toBe(identityId);
+      expect(err.identityId).toBe("identity-1");
       expect(err.purposeName).toBe("TRANSFER");
       expect(err.securityLevelName).toBe("CRITICAL");
     });
   });
 
-  it("labels MASTER auth keys with securityLevelName=MASTER on the error", async () => {
-    // Eager preview UI uses securityLevelName to differentiate "AUTHENTICATION
-    // + MASTER" (MASTER auth key) from "TRANSFER" / "ENCRYPTION" purposes —
-    // both throw WrongKeyPurposeError but read very differently to the user.
-    setupValidWifMocks();
-    const identity = {
-      id: "identity-master",
-      toJSON: () => ({
-        publicKeys: [
-          {
-            id: 0,
-            purpose: 0, // AUTHENTICATION
-            securityLevel: 0, // MASTER
-            data: ourPubKeyBase64,
-          },
-        ],
-      }),
-      getPublicKeyById: vi.fn(),
-    };
-    const sdk = makeSdk(vi.fn().mockResolvedValue(identity));
+  it("labels MASTER auth keys on wrong-purpose errors", async () => {
+    fromWIF.mockReturnValue(privateKey());
 
-    const promise = loginWithPrivateKey(sdk, "valid-wif-stub");
+    const promise = resolveIdentityFromWif(
+      sdkWithIdentity(identity({ securityLevel: MASTER })),
+      "wif",
+    );
+
     await expect(promise).rejects.toBeInstanceOf(WrongKeyPurposeError);
     await promise.catch((err: WrongKeyPurposeError) => {
       expect(err.purposeName).toBe("AUTHENTICATION");
@@ -321,290 +367,162 @@ describe("loginWithPrivateKey", () => {
     });
   });
 
-  it("throws KeyDisabledError when the matching key has a disabledAt timestamp", async () => {
-    setupValidWifMocks();
-    const identityId = "identity-2";
-    const identity = {
-      id: identityId,
-      toJSON: () => ({
-        publicKeys: [
-          {
-            id: 1,
-            purpose: 0, // AUTHENTICATION
-            securityLevel: 2, // HIGH
-            data: ourPubKeyBase64,
-            disabledAt: 1700000000,
-          },
-        ],
-      }),
-      getPublicKeyById: vi.fn(),
-    };
-    const sdk = makeSdk(vi.fn().mockResolvedValue(identity));
-
-    const promise = loginWithPrivateKey(sdk, "valid-wif-stub");
-    await expect(promise).rejects.toBeInstanceOf(KeyDisabledError);
-    await promise.catch((err: KeyDisabledError) => {
-      expect(err.identityId).toBe(identityId);
-    });
-  });
-
-  it("throws KeyDisabledError when the matching key has disabled: true", async () => {
-    // Some SDK versions surface the disabled state as a boolean rather than
-    // a timestamp. The check must catch both shapes.
-    setupValidWifMocks();
-    const identityId = "identity-disabled-bool";
-    const identity = {
-      id: identityId,
-      toJSON: () => ({
-        publicKeys: [
-          {
-            id: 1,
-            purpose: 0,
-            securityLevel: 2,
-            data: ourPubKeyBase64,
-            disabled: true,
-          },
-        ],
-      }),
-      getPublicKeyById: vi.fn(),
-    };
-    const sdk = makeSdk(vi.fn().mockResolvedValue(identity));
-
-    const promise = loginWithPrivateKey(sdk, "valid-wif-stub");
-    await expect(promise).rejects.toBeInstanceOf(KeyDisabledError);
-    await promise.catch((err: KeyDisabledError) => {
-      expect(err.identityId).toBe(identityId);
-    });
-  });
-
-  it("throws UnknownIdentityError when the identity has an empty publicKeys array", async () => {
-    // Defensive: byPublicKeyHash matched, so a key must exist on the
-    // identity. An empty publicKeys[] indicates an SDK shape we don't
-    // understand; fail closed rather than guessing.
-    setupValidWifMocks();
-    const identity = {
-      id: "identity-no-keys",
-      toJSON: () => ({ publicKeys: [] }),
-      getPublicKeyById: vi.fn(),
-    };
-    const sdk = makeSdk(vi.fn().mockResolvedValue(identity));
-
-    await expect(
-      loginWithPrivateKey(sdk, "valid-wif-stub"),
-    ).rejects.toBeInstanceOf(UnknownIdentityError);
-  });
-
-  it("throws UnknownIdentityError when no publicKeys[].data matches our pubkey bytes", async () => {
-    // Defensive: byPublicKeyHash returned an identity, but the JSON
-    // encoding of its keys' data field is something we can't reconcile
-    // (different encoding, different pubkey shape). Fail closed instead
-    // of silently picking the first key.
-    setupValidWifMocks();
-    // Use a base64 string that contains characters outside [0-9a-fA-F] so
-    // tryDecodeKeyData skips its hex branch and exercises the base64 path
-    // we actually want to verify here. 33 bytes of 0xff base64-encodes
-    // with '/' and '=' — definitively not hex.
-    const otherKeyBase64 = btoa("\xff".repeat(33));
-    expect(otherKeyBase64).toMatch(/[^0-9a-fA-F]/);
-    const identity = {
+  it("rejects keys whose public key data cannot be matched", async () => {
+    fromWIF.mockReturnValue(privateKey());
+    const otherIdentity = {
       id: "identity-encoding-skew",
-      toJSON: () => ({
-        publicKeys: [
-          {
-            id: 1,
-            purpose: 0,
-            securityLevel: 2,
-            data: otherKeyBase64,
-          },
-        ],
-      }),
       getPublicKeyById: vi.fn(),
-    };
-    const sdk = makeSdk(vi.fn().mockResolvedValue(identity));
-
-    await expect(
-      loginWithPrivateKey(sdk, "valid-wif-stub"),
-    ).rejects.toBeInstanceOf(UnknownIdentityError);
-  });
-
-  it("returns the matched key + signer wired with the original WIF", async () => {
-    setupValidWifMocks();
-    const identityId = "identity-3";
-    const identityKey = { mock: "identity-public-key" };
-    const getPublicKeyById = vi.fn().mockReturnValue(identityKey);
-    const identity = {
-      id: identityId,
       toJSON: () => ({
         publicKeys: [
           {
             id: 2,
-            purpose: 0, // AUTHENTICATION
-            securityLevel: 1, // CRITICAL
-            data: ourPubKeyBase64,
+            purpose: AUTHENTICATION,
+            securityLevel: HIGH,
+            data: btoa("\xff".repeat(33)),
           },
         ],
       }),
-      getPublicKeyById,
     };
-    const sdk = makeSdk(vi.fn().mockResolvedValue(identity));
 
-    const result = await loginWithPrivateKey(sdk, "valid-wif-stub");
-
-    expect(result.identityId).toBe(identityId);
-    expect(result.identity).toBe(identity);
-    expect(result.identityKey).toBe(identityKey);
-    expect(getPublicKeyById).toHaveBeenCalledWith(2);
-    expect(mockSignerAddKeyFromWif).toHaveBeenCalledWith("valid-wif-stub");
+    await expect(
+      resolveIdentityFromWif(sdkWithIdentity(otherIdentity), "wif"),
+    ).rejects.toBeInstanceOf(UnknownIdentityError);
   });
 
-  it("matches keys whose JSON data is hex-encoded", async () => {
-    setupValidWifMocks();
-    const identity = {
+  it("rejects identities whose serialized public-key list is empty", async () => {
+    fromWIF.mockReturnValue(privateKey());
+    const identityWithoutKeys = {
+      id: "identity-no-keys",
+      getPublicKeyById: vi.fn(),
+      toJSON: () => ({ publicKeys: [] }),
+    };
+
+    await expect(
+      resolveIdentityFromWif(sdkWithIdentity(identityWithoutKeys), "wif"),
+    ).rejects.toBeInstanceOf(UnknownIdentityError);
+  });
+
+  it("rejects disabled keys", async () => {
+    fromWIF.mockReturnValue(privateKey());
+
+    await expect(
+      resolveIdentityFromWif(
+        sdkWithIdentity(identity({ disabledAt: 123 })),
+        "wif",
+      ),
+    ).rejects.toBeInstanceOf(KeyDisabledError);
+  });
+
+  it("rejects disabled keys surfaced as a boolean", async () => {
+    fromWIF.mockReturnValue(privateKey());
+
+    await expect(
+      resolveIdentityFromWif(
+        sdkWithIdentity(identity({ disabled: true })),
+        "wif",
+      ),
+    ).rejects.toBeInstanceOf(KeyDisabledError);
+  });
+
+  it("returns auth data and signer for a valid auth key", async () => {
+    const resolvedIdentity = identity();
+    fromWIF.mockReturnValue(privateKey());
+
+    const result = await loginWithPrivateKey(
+      sdkWithIdentity(resolvedIdentity),
+      "wif",
+    );
+
+    expect(result.identity).toBe(resolvedIdentity);
+    expect(result.identityId).toBe("identity-1");
+    expect(result.identityKey).toEqual({ id: 2 });
+    expect(addKeyFromWif).toHaveBeenCalledWith("wif");
+  });
+
+  it("matches keys whose public-key data is hex-encoded", async () => {
+    const resolvedIdentity = {
       id: "identity-hex",
+      getPublicKeyById: vi.fn().mockReturnValue({ id: 1 }),
       toJSON: () => ({
         publicKeys: [
           {
             id: 1,
-            purpose: 0,
-            securityLevel: 2, // HIGH
+            purpose: AUTHENTICATION,
+            securityLevel: HIGH,
             data: ourPubKeyHex,
           },
         ],
       }),
-      getPublicKeyById: vi.fn().mockReturnValue({}),
     };
-    const sdk = makeSdk(vi.fn().mockResolvedValue(identity));
+    fromWIF.mockReturnValue(privateKey());
 
-    const result = await loginWithPrivateKey(sdk, "valid-wif-stub");
+    const result = await loginWithPrivateKey(
+      sdkWithIdentity(resolvedIdentity),
+      "wif",
+    );
+
     expect(result.identityId).toBe("identity-hex");
+    expect(result.identityKey).toEqual({ id: 1 });
   });
 
-  describe("resolveIdentityFromWif", () => {
-    // The eager preview path uses resolveIdentityFromWif so it can validate
-    // the WIF + key purpose without touching the WASM signer. The contract:
-    // same checks, same errors, no signer side effects.
-    it("returns identity + matched key without invoking the signer", async () => {
-      setupValidWifMocks();
-      const identityKey = { mock: "identity-public-key" };
-      const getPublicKeyById = vi.fn().mockReturnValue(identityKey);
-      const identity = {
-        id: "identity-resolve",
-        toJSON: () => ({
-          publicKeys: [
-            {
-              id: 1,
-              purpose: 0, // AUTHENTICATION
-              securityLevel: 2, // HIGH
-              data: ourPubKeyBase64,
-            },
-          ],
-        }),
-        getPublicKeyById,
-      };
-      const sdk = makeSdk(vi.fn().mockResolvedValue(identity));
+  it("resolves WIF identity details without constructing a signer", async () => {
+    const resolvedIdentity = identity({ securityLevel: HIGH });
+    fromWIF.mockReturnValue(privateKey());
 
-      const result = await resolveIdentityFromWif(sdk, "valid-wif-stub");
+    const result = await resolveIdentityFromWif(
+      sdkWithIdentity(resolvedIdentity),
+      "wif",
+    );
 
-      expect(result.identityId).toBe("identity-resolve");
-      expect(result.identity).toBe(identity);
-      expect(result.identityKey).toBe(identityKey);
-      expect(result.matched.id).toBe(1);
-      // No signer construction in the preview path.
-      expect(mockSignerAddKeyFromWif).not.toHaveBeenCalled();
-    });
-
-    it("throws the same WrongKeyPurposeError as loginWithPrivateKey", async () => {
-      setupValidWifMocks();
-      const identity = {
-        id: "identity-resolve-wrong",
-        toJSON: () => ({
-          publicKeys: [
-            {
-              id: 1,
-              purpose: 2, // TRANSFER
-              securityLevel: 1,
-              data: ourPubKeyBase64,
-            },
-          ],
-        }),
-        getPublicKeyById: vi.fn(),
-      };
-      const sdk = makeSdk(vi.fn().mockResolvedValue(identity));
-
-      await expect(
-        resolveIdentityFromWif(sdk, "valid-wif-stub"),
-      ).rejects.toBeInstanceOf(WrongKeyPurposeError);
-      expect(mockSignerAddKeyFromWif).not.toHaveBeenCalled();
-    });
-
-    it("throws InvalidPrivateKeyError for unparseable WIFs", async () => {
-      mockFromWIF.mockImplementation(() => {
-        throw new Error("bad checksum");
-      });
-      const sdk = makeSdk(vi.fn());
-
-      await expect(
-        resolveIdentityFromWif(sdk, "not-a-key"),
-      ).rejects.toBeInstanceOf(InvalidPrivateKeyError);
-      expect(mockSignerAddKeyFromWif).not.toHaveBeenCalled();
-    });
+    expect(result.identity).toBe(resolvedIdentity);
+    expect(result.identityId).toBe("identity-1");
+    expect(result.matched.id).toBe(2);
+    expect(result.identityKey).toEqual({ id: 2 });
+    expect(addKeyFromWif).not.toHaveBeenCalled();
   });
 
-  describe("security level gate", () => {
-    function makeIdentityWithKey(opts: { purpose: number; level: number }) {
-      return {
-        id: `identity-p${opts.purpose}-l${opts.level}`,
-        toJSON: () => ({
-          publicKeys: [
-            {
-              id: 1,
-              purpose: opts.purpose,
-              securityLevel: opts.level,
-              data: ourPubKeyBase64,
-            },
-          ],
-        }),
-        getPublicKeyById: vi.fn().mockReturnValue({}),
-      };
-    }
+  it("applies the same purpose validation without constructing a signer", async () => {
+    fromWIF.mockReturnValue(privateKey());
 
-    // SecurityLevel: MASTER=0, CRITICAL=1, HIGH=2, MEDIUM=3
-    // Purpose: AUTHENTICATION=0, ENCRYPTION=1, TRANSFER=2
-    // Document/contract operations require AUTHENTICATION + (HIGH | CRITICAL).
-    // Anything else must be rejected up front so we don't reach a
-    // "level ... is not a valid level for these state transitions" failure
-    // mid-flow.
-    it.each([
-      { purpose: 0, level: 0, name: "AUTHENTICATION + MASTER" },
-      { purpose: 0, level: 3, name: "AUTHENTICATION + MEDIUM" },
-      { purpose: 1, level: 0, name: "ENCRYPTION + MASTER" },
-      { purpose: 1, level: 1, name: "ENCRYPTION + CRITICAL" },
-      { purpose: 1, level: 2, name: "ENCRYPTION + HIGH" },
-      { purpose: 1, level: 3, name: "ENCRYPTION + MEDIUM" },
-      { purpose: 2, level: 0, name: "TRANSFER + MASTER" },
-      { purpose: 2, level: 1, name: "TRANSFER + CRITICAL" },
-      { purpose: 2, level: 2, name: "TRANSFER + HIGH" },
-      { purpose: 2, level: 3, name: "TRANSFER + MEDIUM" },
-    ])("rejects $name", async ({ purpose, level }) => {
-      setupValidWifMocks();
-      const identity = makeIdentityWithKey({ purpose, level });
-      const sdk = makeSdk(vi.fn().mockResolvedValue(identity));
-
-      await expect(
-        loginWithPrivateKey(sdk, "valid-wif-stub"),
-      ).rejects.toBeInstanceOf(WrongKeyPurposeError);
-    });
-
-    it.each([
-      { level: 1, name: "CRITICAL" },
-      { level: 2, name: "HIGH" },
-    ])("accepts AUTHENTICATION + $name", async ({ level }) => {
-      setupValidWifMocks();
-      const identity = makeIdentityWithKey({ purpose: 0, level });
-      const sdk = makeSdk(vi.fn().mockResolvedValue(identity));
-
-      const result = await loginWithPrivateKey(sdk, "valid-wif-stub");
-      expect(result.identityId).toBe(`identity-p0-l${level}`);
-    });
+    await expect(
+      resolveIdentityFromWif(
+        sdkWithIdentity(identity({ purpose: TRANSFER })),
+        "wif",
+      ),
+    ).rejects.toBeInstanceOf(WrongKeyPurposeError);
+    expect(addKeyFromWif).not.toHaveBeenCalled();
   });
+
+  it.each([
+    { purpose: AUTHENTICATION, securityLevel: MASTER },
+    { purpose: AUTHENTICATION, securityLevel: MEDIUM },
+    { purpose: ENCRYPTION, securityLevel: MASTER },
+    { purpose: ENCRYPTION, securityLevel: CRITICAL },
+    { purpose: ENCRYPTION, securityLevel: HIGH },
+    { purpose: ENCRYPTION, securityLevel: MEDIUM },
+    { purpose: TRANSFER, securityLevel: MASTER },
+    { purpose: TRANSFER, securityLevel: CRITICAL },
+    { purpose: TRANSFER, securityLevel: HIGH },
+    { purpose: TRANSFER, securityLevel: MEDIUM },
+  ])("rejects unsupported key purpose/level %#", async (key) => {
+    fromWIF.mockReturnValue(privateKey());
+
+    await expect(
+      loginWithPrivateKey(sdkWithIdentity(identity(key)), "wif"),
+    ).rejects.toBeInstanceOf(WrongKeyPurposeError);
+  });
+
+  it.each([CRITICAL, HIGH])(
+    "accepts authentication key security level %i",
+    async (securityLevel) => {
+      fromWIF.mockReturnValue(privateKey());
+
+      const result = await loginWithPrivateKey(
+        sdkWithIdentity(identity({ securityLevel })),
+        "wif",
+      );
+
+      expect(result.identityId).toBe("identity-1");
+    },
+  );
 });

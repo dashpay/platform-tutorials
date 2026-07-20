@@ -87,6 +87,7 @@ function identity({
   id = "identity-1",
   purpose = AUTHENTICATION,
   securityLevel = CRITICAL,
+  type = undefined as number | undefined,
   disabled = false,
   disabledAt = null as number | string | null,
   data = ourPubKeyBase64,
@@ -101,6 +102,7 @@ function identity({
           id: 2,
           purpose,
           securityLevel,
+          type,
           data,
           disabled,
           disabledAt,
@@ -113,6 +115,7 @@ function identity({
 function sdkWithIdentity(value: unknown): DashSdk {
   return {
     identities: {
+      fetch: vi.fn().mockResolvedValue(undefined),
       byPublicKeyHash: vi.fn().mockResolvedValue(value),
       byNonUniquePublicKeyHash: vi.fn().mockResolvedValue([]),
     },
@@ -122,8 +125,20 @@ function sdkWithIdentity(value: unknown): DashSdk {
 function sdkWithLookups(unique: unknown, nonUnique: unknown[]): DashSdk {
   return {
     identities: {
+      fetch: vi.fn().mockImplementation(async (identityId: string) =>
+        nonUnique.find((candidate) => {
+          const id = (candidate as { id?: string | { toString(): string } }).id;
+          return typeof id === "string"
+            ? id === identityId
+            : id?.toString() === identityId;
+        }),
+      ),
       byPublicKeyHash: vi.fn().mockResolvedValue(unique),
-      byNonUniquePublicKeyHash: vi.fn().mockResolvedValue(nonUnique),
+      byNonUniquePublicKeyHash: vi
+        .fn()
+        .mockImplementation(async (_hash, startAfter) =>
+          startAfter ? [] : nonUnique,
+        ),
     },
   } as unknown as DashSdk;
 }
@@ -141,6 +156,17 @@ describe("loginWithPrivateKey", () => {
     await expect(
       resolveIdentityFromWif(sdkWithIdentity(null), "not-a-wif"),
     ).rejects.toBeInstanceOf(InvalidPrivateKeyError);
+  });
+
+  it("rejects invalid WIF input through the signer-building login path", async () => {
+    fromWIF.mockImplementation(() => {
+      throw new Error("invalid");
+    });
+
+    await expect(
+      loginWithPrivateKey(sdkWithIdentity(null), "not-a-wif"),
+    ).rejects.toBeInstanceOf(InvalidPrivateKeyError);
+    expect(addKeyFromWif).not.toHaveBeenCalled();
   });
 
   it("rejects keys with no registered identity", async () => {
@@ -189,6 +215,84 @@ describe("loginWithPrivateKey", () => {
     );
 
     expect(result.identityId).toBe("identity-1");
+  });
+
+  it.each([3, 4])(
+    "rejects HASH160 bytes belonging to key type %s",
+    async (type) => {
+      fromWIF.mockReturnValue(privateKey(ourPubKeyHashHex));
+
+      await expect(
+        resolveIdentityFromWif(
+          sdkWithLookups(null, [identity({ data: ourPubKeyHashBase64, type })]),
+          "wif",
+        ),
+      ).rejects.toBeInstanceOf(UnknownIdentityError);
+    },
+  );
+
+  it("fetches and verifies an explicitly selected identity directly", async () => {
+    const identityA = identity({
+      id: "identity-a",
+      data: ourPubKeyHashBase64,
+      type: 2,
+    });
+    const identityB = identity({
+      id: "identity-b",
+      data: ourPubKeyHashBase64,
+      type: 2,
+    });
+    fromWIF.mockReturnValue(privateKey(ourPubKeyHashHex));
+    const sdk = sdkWithLookups(null, [identityB, identityA]);
+
+    const result = await resolveIdentityFromWif(sdk, "wif", "identity-a");
+
+    expect(result.identityId).toBe("identity-a");
+    expect(sdk.identities.fetch).toHaveBeenCalledWith("identity-a");
+    expect(sdk.identities.byNonUniquePublicKeyHash).not.toHaveBeenCalled();
+  });
+
+  it("rejects an explicitly selected identity that does not match the WIF", async () => {
+    fromWIF.mockReturnValue(privateKey(ourPubKeyHashHex));
+
+    await expect(
+      resolveIdentityFromWif(
+        sdkWithLookups(null, [
+          identity({ id: "identity-a", data: ourPubKeyHashBase64 }),
+        ]),
+        "wif",
+        "identity-other",
+      ),
+    ).rejects.toBeInstanceOf(UnknownIdentityError);
+  });
+
+  it("continues pagination until a second match establishes ambiguity", async () => {
+    const identityA = identity({ id: "identity-a" });
+    const identityB = identity({ id: "identity-b" });
+    fromWIF.mockReturnValue(privateKey());
+    const byNonUniquePublicKeyHash = vi
+      .fn()
+      .mockImplementation(async (_hash, startAfter) => {
+        if (!startAfter) return [identityA];
+        if (startAfter === "identity-a") return [identityB];
+        return [];
+      });
+    const sdk = {
+      identities: {
+        fetch: vi.fn(),
+        byPublicKeyHash: vi.fn().mockResolvedValue(undefined),
+        byNonUniquePublicKeyHash,
+      },
+    } as unknown as DashSdk;
+
+    await expect(resolveIdentityFromWif(sdk, "wif")).rejects.toBeInstanceOf(
+      AmbiguousIdentityError,
+    );
+    expect(byNonUniquePublicKeyHash).toHaveBeenNthCalledWith(
+      2,
+      expect.anything(),
+      "identity-a",
+    );
   });
 
   it("rejects ambiguous non-unique identity matches", async () => {
@@ -285,6 +389,19 @@ describe("loginWithPrivateKey", () => {
     ).rejects.toBeInstanceOf(UnknownIdentityError);
   });
 
+  it("rejects identities whose serialized public-key list is empty", async () => {
+    fromWIF.mockReturnValue(privateKey());
+    const identityWithoutKeys = {
+      id: "identity-no-keys",
+      getPublicKeyById: vi.fn(),
+      toJSON: () => ({ publicKeys: [] }),
+    };
+
+    await expect(
+      resolveIdentityFromWif(sdkWithIdentity(identityWithoutKeys), "wif"),
+    ).rejects.toBeInstanceOf(UnknownIdentityError);
+  });
+
   it("rejects disabled keys", async () => {
     fromWIF.mockReturnValue(privateKey());
 
@@ -361,6 +478,18 @@ describe("loginWithPrivateKey", () => {
     expect(result.identityId).toBe("identity-1");
     expect(result.matched.id).toBe(2);
     expect(result.identityKey).toEqual({ id: 2 });
+    expect(addKeyFromWif).not.toHaveBeenCalled();
+  });
+
+  it("applies the same purpose validation without constructing a signer", async () => {
+    fromWIF.mockReturnValue(privateKey());
+
+    await expect(
+      resolveIdentityFromWif(
+        sdkWithIdentity(identity({ purpose: TRANSFER })),
+        "wif",
+      ),
+    ).rejects.toBeInstanceOf(WrongKeyPurposeError);
     expect(addKeyFromWif).not.toHaveBeenCalled();
   });
 

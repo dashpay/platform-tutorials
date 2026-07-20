@@ -97,10 +97,32 @@ describe("SessionProvider", () => {
     expect(loginWithPrivateKey).toHaveBeenCalledWith(
       expect.anything(),
       "private-key",
+      undefined,
     );
     expect(result.current.keyManager?.identityId).toBe("wif-identity");
     expect(result.current.identityId).toBe("wif-identity");
     expect(result.current.status).toBe("authenticated");
+  });
+
+  it("forwards an expected identity ID only to private-key login", async () => {
+    vi.mocked(loginWithPrivateKey).mockResolvedValue({
+      identityId: "expected-identity",
+      identityKey: {},
+      signer: {},
+    } as never);
+    const { result } = renderHook(() => useSession(), { wrapper });
+
+    await act(() =>
+      result.current.login("private-key", {
+        expectedIdentityId: "expected-identity",
+      }),
+    );
+
+    expect(loginWithPrivateKey).toHaveBeenCalledWith(
+      expect.anything(),
+      "private-key",
+      "expected-identity",
+    );
   });
 
   it("rejects an empty secret before connecting", async () => {

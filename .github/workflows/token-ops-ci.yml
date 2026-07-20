@@ -5,11 +5,19 @@ on:
     branches: [main]
     paths:
       - 'example-apps/token-ops/**'
+      - 'example-apps/dashnote/src/dash/loginWithPrivateKey.ts'
+      - 'example-apps/dashnote/src/lib/detectSecretShape.ts'
+      - 'example-apps/dashnote/src/session/keyManagerFromKey.ts'
+      - 'scripts/check-shared-auth-parity.sh'
       - '.github/workflows/token-ops-ci.yml'
   pull_request:
     branches: [main]
     paths:
       - 'example-apps/token-ops/**'
+      - 'example-apps/dashnote/src/dash/loginWithPrivateKey.ts'
+      - 'example-apps/dashnote/src/lib/detectSecretShape.ts'
+      - 'example-apps/dashnote/src/session/keyManagerFromKey.ts'
+      - 'scripts/check-shared-auth-parity.sh'
       - '.github/workflows/token-ops-ci.yml'
   workflow_dispatch:
 
@@ -32,6 +40,9 @@ jobs:
       - uses: actions/checkout@de0fac2e4500dabe0009e67214ff5f5447ce83dd # v6.0.2
         with:
           persist-credentials: false
+
+      - name: Check shared authentication parity
+        run: bash ../../scripts/check-shared-auth-parity.sh
 
       - uses: actions/setup-node@48b55a011bda9f5d6aeb4c2d9c7362e8dae4041e # v6.4.0
         with:

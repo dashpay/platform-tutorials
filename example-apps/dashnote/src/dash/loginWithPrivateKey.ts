@@ -34,7 +34,7 @@ export class WrongKeyPurposeError extends Error {
     securityLevelName: string,
   ) {
     super(
-      `Found identity ${identityId}, but this key can't sign document or contract operations. Paste a HIGH or CRITICAL authentication key instead.`,
+      `Found identity ${identityId}, but this key cannot sign state transitions. Paste a HIGH or CRITICAL authentication key instead.`,
     );
     this.name = "WrongKeyPurposeError";
     this.identityId = identityId;
@@ -55,7 +55,7 @@ export class KeyDisabledError extends Error {
 
 export class InvalidPrivateKeyError extends Error {
   constructor() {
-    super("This doesn't look like a valid private key (WIF).");
+    super("This does not look like a valid private key (WIF).");
     this.name = "InvalidPrivateKeyError";
   }
 }
@@ -126,10 +126,10 @@ function tryDecodeKeyData(data: string): Uint8Array | null {
   }
 }
 
-// Document and contract state transitions require HIGH or CRITICAL auth.
+// State transitions require HIGH or CRITICAL authentication.
 // MASTER (key 0) can only sign identity-update transitions, so a user who
 // pastes their master WIF would log in successfully but fail at the first
-// note write — reject up front with a clear message instead.
+// write — reject up front with a clear message instead.
 const AUTH_SECURITY_LEVELS = new Set<number>([
   SecurityLevel.HIGH as unknown as number,
   SecurityLevel.CRITICAL as unknown as number,
