@@ -267,7 +267,7 @@ export function AppShell({
           }`}
         >
           <a
-            href="https://github.com/dashpay/platform-tutorials"
+            href="https://github.com/dashpay/platform-tutorials/tree/main/example-apps/dashnote"
             target="_blank"
             rel="noreferrer"
             className="inline-flex items-center gap-1.5 text-ink-3 hover:text-accent"

@@ -63,6 +63,7 @@ export type SessionStatus =
 export interface LoginOptions {
   identityIndex?: number;
   rememberMe?: boolean;
+  expectedIdentityId?: string;
 }
 
 export interface SessionValue {
@@ -179,7 +180,11 @@ export function SessionProvider({ children }: { children: ReactNode }) {
 
   const login = useCallback(
     async (secret: string, options: LoginOptions = {}) => {
-      const { identityIndex = 0, rememberMe = false } = options;
+      const {
+        identityIndex = 0,
+        rememberMe = false,
+        expectedIdentityId,
+      } = options;
       const trimmed = secret.trim();
       if (!trimmed) throw new Error("Secret is required.");
       // Snapshot session state so a failed login can restore the user's
@@ -215,7 +220,11 @@ export function SessionProvider({ children }: { children: ReactNode }) {
           // we fetch this module on first use here.
           const { loginWithPrivateKey } =
             await import("../dash/loginWithPrivateKey");
-          const auth = await loginWithPrivateKey(connected, trimmed);
+          const auth = await loginWithPrivateKey(
+            connected,
+            trimmed,
+            expectedIdentityId,
+          );
           resolvedKeyManager = keyManagerFromKey(auth.identityId, auth);
         }
 

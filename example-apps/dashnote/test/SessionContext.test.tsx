@@ -516,6 +516,28 @@ describe("SessionProvider", () => {
     expect(ref.current.keyManager?.identityId).toBe("wif-identity-id");
   });
 
+  it("passes the expected identity ID to WIF login", async () => {
+    mockLoginWithPrivateKey.mockResolvedValue({
+      identityId: "expected-id",
+      identity: { id: "expected-id" },
+      identityKey: { mock: "key" },
+      signer: { mock: "signer" },
+    });
+    const ref = mountSession();
+
+    await act(async () => {
+      await ref.current.login("cVHcfvcWNc7DvqaPCwM6Z3", {
+        expectedIdentityId: "expected-id",
+      });
+    });
+
+    expect(mockLoginWithPrivateKey).toHaveBeenCalledWith(
+      expect.anything(),
+      "cVHcfvcWNc7DvqaPCwM6Z3",
+      "expected-id",
+    );
+  });
+
   it("failed WIF login from idle returns to idle without clobbering identity state", async () => {
     mockLoginWithPrivateKey.mockRejectedValue(
       new Error("Found identity X, but this is a transfer key."),

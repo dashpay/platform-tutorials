@@ -28,6 +28,7 @@ vi.mock("@dashevo/evo-sdk", () => ({
 }));
 
 import {
+  AmbiguousIdentityError,
   KeyDisabledError,
   InvalidPrivateKeyError,
   loginWithPrivateKey,
@@ -73,6 +74,45 @@ function makeSdk(byPublicKeyHash: ReturnType<typeof vi.fn>): DashSdk {
   } as unknown as DashSdk;
 }
 
+function makeSdkWithFallback(identities: unknown[]): DashSdk {
+  return {
+    identities: {
+      fetch: vi
+        .fn()
+        .mockImplementation(async (identityId: string) =>
+          identities.find(
+            (identity) => (identity as { id?: string }).id === identityId,
+          ),
+        ),
+      byPublicKeyHash: vi.fn().mockResolvedValue(undefined),
+      byNonUniquePublicKeyHash: vi
+        .fn()
+        .mockImplementation(async (_hash, startAfter) =>
+          startAfter ? [] : identities,
+        ),
+      nonce: vi.fn(),
+    },
+  } as unknown as DashSdk;
+}
+
+function matchingIdentity(id: string, data = ourPubKeyBase64, type?: number) {
+  return {
+    id,
+    toJSON: () => ({
+      publicKeys: [
+        {
+          id: 2,
+          purpose: 0,
+          securityLevel: 2,
+          type,
+          data,
+        },
+      ],
+    }),
+    getPublicKeyById: vi.fn().mockReturnValue({ id: 2 }),
+  };
+}
+
 afterEach(() => {
   mockFromWIF.mockReset();
   mockGetPublicKeyHash.mockReset();
@@ -99,6 +139,129 @@ describe("loginWithPrivateKey", () => {
     await expect(
       loginWithPrivateKey(sdk, "valid-wif-stub"),
     ).rejects.toBeInstanceOf(UnknownIdentityError);
+  });
+
+  it("falls back to a non-unique lookup and resolves its sole match", async () => {
+    setupValidWifMocks();
+    const identity = matchingIdentity("fallback-identity");
+
+    const result = await loginWithPrivateKey(
+      makeSdkWithFallback([identity]),
+      "valid-wif-stub",
+    );
+
+    expect(result.identityId).toBe("fallback-identity");
+    expect(result.identity).toBe(identity);
+  });
+
+  it("requires an identity ID when the fallback finds multiple matches", async () => {
+    setupValidWifMocks();
+    const sdk = makeSdkWithFallback([
+      matchingIdentity("identity-a"),
+      matchingIdentity("identity-b"),
+    ]);
+
+    await expect(
+      resolveIdentityFromWif(sdk, "valid-wif-stub"),
+    ).rejects.toBeInstanceOf(AmbiguousIdentityError);
+  });
+
+  it("fetches and verifies the exact expected identity directly", async () => {
+    setupValidWifMocks();
+    const identityA = matchingIdentity("identity-a");
+    const identityB = matchingIdentity("identity-b");
+    const sdk = makeSdkWithFallback([identityB, identityA]);
+
+    const result = await resolveIdentityFromWif(
+      sdk,
+      "valid-wif-stub",
+      "identity-a",
+    );
+
+    expect(result.identityId).toBe("identity-a");
+    expect(result.identity).toBe(identityA);
+    expect(sdk.identities.fetch).toHaveBeenCalledWith("identity-a");
+    expect(sdk.identities.byNonUniquePublicKeyHash).not.toHaveBeenCalled();
+  });
+
+  it("rejects an expected identity that is not among the matches", async () => {
+    setupValidWifMocks();
+    const sdk = makeSdkWithFallback([matchingIdentity("identity-a")]);
+
+    await expect(
+      resolveIdentityFromWif(sdk, "valid-wif-stub", "identity-other"),
+    ).rejects.toBeInstanceOf(UnknownIdentityError);
+  });
+
+  it("matches a HASH160 key encoded as base64", async () => {
+    const hashBytes = new Uint8Array(20);
+    hashBytes.fill(7);
+    let binary = "";
+    hashBytes.forEach((byte) => {
+      binary += String.fromCharCode(byte);
+    });
+    setupValidWifMocks();
+    mockGetPublicKeyHash.mockReturnValue(hashBytes);
+
+    const result = await resolveIdentityFromWif(
+      makeSdkWithFallback([matchingIdentity("hash-identity", btoa(binary), 2)]),
+      "valid-wif-stub",
+    );
+
+    expect(result.identityId).toBe("hash-identity");
+  });
+
+  it.each([3, 4])(
+    "does not match HASH160 bytes belonging to key type %s",
+    async (type) => {
+      const hashBytes = new Uint8Array(20);
+      hashBytes.fill(7);
+      let binary = "";
+      hashBytes.forEach((byte) => {
+        binary += String.fromCharCode(byte);
+      });
+      setupValidWifMocks();
+      mockGetPublicKeyHash.mockReturnValue(hashBytes);
+
+      await expect(
+        resolveIdentityFromWif(
+          makeSdkWithFallback([
+            matchingIdentity("wrong-type", btoa(binary), type),
+          ]),
+          "valid-wif-stub",
+        ),
+      ).rejects.toBeInstanceOf(UnknownIdentityError);
+    },
+  );
+
+  it("continues pagination until a second match establishes ambiguity", async () => {
+    setupValidWifMocks();
+    const identityA = matchingIdentity("identity-a");
+    const identityB = matchingIdentity("identity-b");
+    const byNonUniquePublicKeyHash = vi
+      .fn()
+      .mockImplementation(async (_hash, startAfter) => {
+        if (!startAfter) return [identityA];
+        if (startAfter === "identity-a") return [identityB];
+        return [];
+      });
+    const sdk = {
+      identities: {
+        fetch: vi.fn(),
+        byPublicKeyHash: vi.fn().mockResolvedValue(undefined),
+        byNonUniquePublicKeyHash,
+        nonce: vi.fn(),
+      },
+    } as unknown as DashSdk;
+
+    await expect(
+      resolveIdentityFromWif(sdk, "valid-wif-stub"),
+    ).rejects.toBeInstanceOf(AmbiguousIdentityError);
+    expect(byNonUniquePublicKeyHash).toHaveBeenNthCalledWith(
+      2,
+      expect.anything(),
+      "identity-a",
+    );
   });
 
   it("throws WrongKeyPurposeError carrying the identity ID for transfer keys", async () => {

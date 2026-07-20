@@ -25,6 +25,8 @@ function loadLoginModule(): Promise<LoginModule> {
 export type WifPreviewState =
   | { status: "idle" }
   | { status: "checking" }
+  | { status: "ambiguous" }
+  | { status: "identity-mismatch" }
   | { status: "resolved"; identityId: string; dpnsName: string | null }
   | {
       status: "wrong-purpose";
@@ -60,6 +62,7 @@ export function useWifPreview(
   sdk: DashSdk | null,
   secret: string,
   enabled: boolean,
+  expectedIdentityId?: string,
 ): WifPreviewState {
   const trimmed = secret.trim();
   const gateOk = enabled && Boolean(sdk) && looksLikeWif(trimmed);
@@ -84,7 +87,9 @@ export function useWifPreview(
       try {
         mod = await loadLoginModule();
         if (cancelled) return;
-        const result = await mod.resolveIdentityFromWif(sdk!, trimmed);
+        const result = expectedIdentityId
+          ? await mod.resolveIdentityFromWif(sdk!, trimmed, expectedIdentityId)
+          : await mod.resolveIdentityFromWif(sdk!, trimmed);
         let dpns: string | null = null;
         try {
           dpns = await resolveDpnsName(sdk!, result.identityId);
@@ -100,7 +105,15 @@ export function useWifPreview(
         // mod is null only if loadLoginModule itself rejected (chunk fetch
         // failure / offline). Treat that as an idle outcome — same silent
         // policy we apply to UnknownIdentity and network blips.
-        if (
+        if (err instanceof Error && err.name === "AmbiguousIdentityError") {
+          next = { status: "ambiguous" };
+        } else if (
+          expectedIdentityId &&
+          mod &&
+          err instanceof mod.UnknownIdentityError
+        ) {
+          next = { status: "identity-mismatch" };
+        } else if (
           mod &&
           (err instanceof mod.WrongKeyPurposeError ||
             err instanceof mod.KeyDisabledError)
@@ -129,8 +142,9 @@ export function useWifPreview(
             };
           }
         } else {
-          // UnknownIdentityError, network failure, import failure, or any
-          // other unexpected error — stay silent until the user submits.
+          // UnknownIdentityError without an explicit identity, network
+          // failure, import failure, or any other unexpected error — stay
+          // silent until the user submits.
           next = IDLE;
         }
       }
@@ -142,7 +156,7 @@ export function useWifPreview(
       cancelled = true;
       window.clearTimeout(timer);
     };
-  }, [sdk, trimmed, gateOk]);
+  }, [sdk, trimmed, gateOk, expectedIdentityId]);
 
   if (!gateOk) return IDLE;
   if (resolved && resolved.wif === trimmed) return resolved.state;

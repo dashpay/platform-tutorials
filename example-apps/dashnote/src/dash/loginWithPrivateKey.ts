@@ -14,6 +14,15 @@ export class UnknownIdentityError extends Error {
   }
 }
 
+export class AmbiguousIdentityError extends Error {
+  constructor() {
+    super(
+      "This key is associated with multiple identities. Enter the full identity ID you want to use.",
+    );
+    this.name = "AmbiguousIdentityError";
+  }
+}
+
 export class WrongKeyPurposeError extends Error {
   identityId: string;
   purposeName: string;
@@ -55,6 +64,7 @@ interface IdentityJsonKey {
   id: number;
   purpose: number;
   securityLevel: number;
+  type?: number;
   data?: string;
   disabled?: boolean;
   disabledAt?: number | string | null;
@@ -153,6 +163,13 @@ interface ResolvedWifIdentity {
   identityKey: unknown;
 }
 
+interface MatchedIdentity {
+  identity: IdentityLike;
+  identityId: string;
+  matched: IdentityJsonKey;
+  error: Error | null;
+}
+
 /**
  * Resolve which identity a WIF private key belongs to and which key on that
  * identity it matches, without building a signer. Performs every check the
@@ -166,6 +183,7 @@ interface ResolvedWifIdentity {
 export async function resolveIdentityFromWif(
   sdk: DashSdk,
   wif: string,
+  expectedIdentityId?: string,
 ): Promise<ResolvedWifIdentity> {
   let privateKey: PrivateKey;
   try {
@@ -176,24 +194,6 @@ export async function resolveIdentityFromWif(
 
   const pubKeyHash = privateKey.getPublicKeyHash();
 
-  const identity = (await sdk.identities.byPublicKeyHash(
-    pubKeyHash as never,
-  )) as IdentityLike | undefined | null;
-  if (!identity) {
-    throw new UnknownIdentityError();
-  }
-
-  const identityId =
-    typeof identity.id === "string" ? identity.id : identity.id.toString();
-
-  const json = identity.toJSON?.();
-  const publicKeys = json?.publicKeys ?? [];
-  if (publicKeys.length === 0) {
-    // Shouldn't happen — byPublicKeyHash matched, so a key exists. Treat as
-    // an unexpected SDK response and fail closed.
-    throw new UnknownIdentityError();
-  }
-
   // Get the public key bytes our WIF derives, so we can identify which
   // entry in publicKeys[] is ours.
   const pkAny = privateKey as unknown as {
@@ -203,41 +203,108 @@ export async function resolveIdentityFromWif(
   const ourPubKey = pkAny.getPublicKey
     ? pkAny.getPublicKey()
     : pkAny.toPublicKey?.();
-  const ourPubKeyBytes: Uint8Array | null = ourPubKey
-    ? extractPubKeyBytes(ourPubKey)
-    : null;
+  const ourPubKeyBytes = ourPubKey ? extractPubKeyBytes(ourPubKey) : null;
+  const ourPubKeyHashBytes = normalizePublicKeyHash(pubKeyHash);
+  const expected = expectedIdentityId?.trim() || null;
 
-  const matched = publicKeys.find((entry) => {
-    if (!entry.data || !ourPubKeyBytes) return false;
-    const entryBytes = tryDecodeKeyData(entry.data);
-    return entryBytes ? bytesEqual(entryBytes, ourPubKeyBytes) : false;
-  });
-  if (!matched) {
-    // Hash matched but we couldn't reconcile against any entry in the JSON
-    // (likely a data-encoding skew). Treat as unexpected and fail closed
-    // rather than silently picking the first key.
-    throw new UnknownIdentityError();
-  }
-
-  if (matched.disabled === true || matched.disabledAt) {
-    throw new KeyDisabledError(identityId);
-  }
-
-  const purposeValue = matched.purpose;
-  const securityLevelValue = matched.securityLevel;
-  const isAuthPurpose =
-    purposeValue === (Purpose.AUTHENTICATION as unknown as number);
-  const isAuthLevel = AUTH_SECURITY_LEVELS.has(securityLevelValue);
-  if (!isAuthPurpose || !isAuthLevel) {
-    throw new WrongKeyPurposeError(
-      identityId,
-      purposeName(purposeValue),
-      securityLevelName(securityLevelValue),
+  if (expected) {
+    const expectedIdentity = (await sdk.identities.fetch(expected)) as
+      | IdentityLike
+      | undefined
+      | null;
+    if (!expectedIdentity) throw new UnknownIdentityError();
+    const selected = matchIdentityKey(
+      expectedIdentity,
+      ourPubKeyBytes,
+      ourPubKeyHashBytes,
     );
+    if (!selected) throw new UnknownIdentityError();
+    if (selected.error) throw selected.error;
+    return resolvedIdentity(selected);
   }
 
-  const identityKey = identity.getPublicKeyById?.(matched.id);
-  return { identity, identityId, matched, identityKey };
+  const identity = (await sdk.identities.byPublicKeyHash(
+    pubKeyHash as never,
+  )) as IdentityLike | undefined | null;
+
+  if (identity) {
+    const match = matchIdentityKey(
+      identity,
+      ourPubKeyBytes,
+      ourPubKeyHashBytes,
+    );
+    if (!match) throw new UnknownIdentityError();
+    if (match.error) throw match.error;
+    return resolvedIdentity(match);
+  }
+
+  const matches = await findNonUniqueMatches(
+    sdk,
+    pubKeyHash,
+    ourPubKeyBytes,
+    ourPubKeyHashBytes,
+  );
+  if (matches.length > 1) throw new AmbiguousIdentityError();
+  if (matches.length === 1) {
+    if (matches[0].error) throw matches[0].error;
+    return resolvedIdentity(matches[0]);
+  }
+  throw new UnknownIdentityError();
+}
+
+async function findNonUniqueMatches(
+  sdk: DashSdk,
+  pubKeyHash: unknown,
+  ourPubKeyBytes: Uint8Array | null,
+  ourPubKeyHashBytes: Uint8Array | null,
+): Promise<MatchedIdentity[]> {
+  const lookup = sdk.identities.byNonUniquePublicKeyHash;
+  if (!lookup) return [];
+
+  const matches: MatchedIdentity[] = [];
+  let startAfter: string | undefined;
+  const seenCursors = new Set<string>();
+
+  while (true) {
+    const candidates = await lookup.call(
+      sdk.identities,
+      pubKeyHash as never,
+      startAfter,
+    );
+    if (candidates.length === 0) break;
+
+    const cursor = identityIdOf(
+      candidates[candidates.length - 1] as IdentityLike,
+    );
+    if (seenCursors.has(cursor)) {
+      throw new Error("Non-unique identity lookup pagination did not advance.");
+    }
+    seenCursors.add(cursor);
+
+    for (const candidate of candidates) {
+      const match = matchIdentityKey(
+        candidate as IdentityLike,
+        ourPubKeyBytes,
+        ourPubKeyHashBytes,
+      );
+      if (match) matches.push(match);
+      // We only need to establish ambiguity, not enumerate identities.
+      if (matches.length > 1) return matches;
+    }
+
+    startAfter = cursor;
+  }
+
+  return matches;
+}
+
+function resolvedIdentity(match: MatchedIdentity): ResolvedWifIdentity {
+  return {
+    identity: match.identity,
+    identityId: match.identityId,
+    matched: match.matched,
+    identityKey: match.identity.getPublicKeyById?.(match.matched.id),
+  };
 }
 
 /**
@@ -249,8 +316,9 @@ export async function resolveIdentityFromWif(
 export async function loginWithPrivateKey(
   sdk: DashSdk,
   wif: string,
+  expectedIdentityId?: string,
 ): Promise<DashAuth & { identityId: string }> {
-  const resolved = await resolveIdentityFromWif(sdk, wif);
+  const resolved = await resolveIdentityFromWif(sdk, wif, expectedIdentityId);
   const signer = new IdentitySigner();
   signer.addKeyFromWif(wif);
 
@@ -260,6 +328,73 @@ export async function loginWithPrivateKey(
     signer,
     identityId: resolved.identityId,
   };
+}
+
+function matchIdentityKey(
+  identity: IdentityLike,
+  ourPubKeyBytes: Uint8Array | null,
+  ourPubKeyHashBytes: Uint8Array | null,
+): MatchedIdentity | null {
+  const identityId =
+    typeof identity.id === "string" ? identity.id : identity.id.toString();
+  const publicKeys = identity.toJSON?.().publicKeys ?? [];
+  const matched = publicKeys.find((entry) => {
+    if (!entry.data) return false;
+    const entryBytes = tryDecodeKeyData(entry.data);
+    if (!entryBytes) return false;
+    // SDK JSON uses type 0 for a full secp256k1 key and type 2 for its
+    // HASH160 representation. Do not treat other 20-byte key types (such as
+    // BIP13 script hashes or EDDSA HASH160) as signable by this WIF. Older
+    // SDK/test shapes may omit `type`, where byte length remains unambiguous.
+    const isFullEcdsa = entry.type === undefined || entry.type === 0;
+    const isEcdsaHash160 = entry.type === undefined || entry.type === 2;
+    return (
+      (isFullEcdsa && ourPubKeyBytes
+        ? bytesEqual(entryBytes, ourPubKeyBytes)
+        : false) ||
+      (isEcdsaHash160 && ourPubKeyHashBytes
+        ? bytesEqual(entryBytes, ourPubKeyHashBytes)
+        : false)
+    );
+  });
+  if (!matched) return null;
+
+  let error: Error | null = null;
+  if (matched.disabled === true || matched.disabledAt) {
+    error = new KeyDisabledError(identityId);
+  } else {
+    const isAuthPurpose =
+      matched.purpose === (Purpose.AUTHENTICATION as unknown as number);
+    const isAuthLevel = AUTH_SECURITY_LEVELS.has(matched.securityLevel);
+    if (!isAuthPurpose || !isAuthLevel) {
+      error = new WrongKeyPurposeError(
+        identityId,
+        purposeName(matched.purpose),
+        securityLevelName(matched.securityLevel),
+      );
+    }
+  }
+  return { identity, identityId, matched, error };
+}
+
+function identityIdOf(identity: IdentityLike): string {
+  return typeof identity.id === "string" ? identity.id : identity.id.toString();
+}
+
+function normalizePublicKeyHash(hash: unknown): Uint8Array | null {
+  if (hash instanceof Uint8Array) return hash;
+  if (Array.isArray(hash)) return new Uint8Array(hash);
+  if (typeof hash === "string") return tryDecodeHex(hash);
+  return null;
+}
+
+function tryDecodeHex(hex: string): Uint8Array | null {
+  if (!/^[0-9a-fA-F]+$/.test(hex) || hex.length % 2 !== 0) return null;
+  const bytes = new Uint8Array(hex.length / 2);
+  for (let i = 0; i < bytes.length; i += 1) {
+    bytes[i] = parseInt(hex.slice(i * 2, i * 2 + 2), 16);
+  }
+  return bytes;
 }
 
 /**
@@ -292,11 +427,7 @@ function extractPubKeyBytes(pubKey: unknown): Uint8Array | null {
     try {
       const hex = candidate.toString("hex");
       if (typeof hex === "string" && /^[0-9a-fA-F]+$/.test(hex)) {
-        const bytes = new Uint8Array(hex.length / 2);
-        for (let i = 0; i < bytes.length; i += 1) {
-          bytes[i] = parseInt(hex.slice(i * 2, i * 2 + 2), 16);
-        }
-        return bytes;
+        return tryDecodeHex(hex);
       }
     } catch {
       // fall through
