@@ -10,6 +10,7 @@ const {
   KeyDisabledError,
   UnknownIdentityError,
   InvalidPrivateKeyError,
+  AmbiguousIdentityError,
 } = vi.hoisted(() => {
   class WrongKeyPurposeError extends Error {
     identityId: string;
@@ -35,6 +36,12 @@ const {
   }
   class UnknownIdentityError extends Error {}
   class InvalidPrivateKeyError extends Error {}
+  class AmbiguousIdentityError extends Error {
+    constructor() {
+      super("ambiguous");
+      this.name = "AmbiguousIdentityError";
+    }
+  }
   return {
     mockResolveIdentityFromWif: vi.fn(),
     mockResolveDpnsName: vi.fn(),
@@ -42,6 +49,7 @@ const {
     KeyDisabledError,
     UnknownIdentityError,
     InvalidPrivateKeyError,
+    AmbiguousIdentityError,
   };
 });
 
@@ -51,6 +59,7 @@ vi.mock("../src/dash/loginWithPrivateKey", () => ({
   KeyDisabledError,
   UnknownIdentityError,
   InvalidPrivateKeyError,
+  AmbiguousIdentityError,
 }));
 
 vi.mock("../src/dash/resolveDpnsName", () => ({
@@ -74,16 +83,19 @@ function Harness({
   enabled = true,
   onState,
   sdkOverride,
+  expectedIdentityId,
 }: {
   secret: string;
   enabled?: boolean;
   onState: (state: WifPreviewState) => void;
   sdkOverride?: DashSdk | null;
+  expectedIdentityId?: string;
 }) {
   const state = useWifPreview(
     sdkOverride === undefined ? sdk : sdkOverride,
     secret,
     enabled,
+    expectedIdentityId,
   );
   onState(state);
   return null;
@@ -113,6 +125,38 @@ async function flushDebounce() {
 }
 
 describe("useWifPreview", () => {
+  it("surfaces ambiguity without exposing candidate identities", async () => {
+    mockResolveIdentityFromWif.mockRejectedValue(new AmbiguousIdentityError());
+    const states: WifPreviewState[] = [];
+
+    render(<Harness secret={VALID_WIF} onState={(s) => states.push(s)} />);
+    await flushDebounce();
+
+    expect(states.at(-1)).toEqual({ status: "ambiguous" });
+  });
+
+  it("passes an expected identity ID back to the resolver", async () => {
+    mockResolveIdentityFromWif.mockResolvedValue({
+      identityId: "identity-a",
+    });
+    const states: WifPreviewState[] = [];
+
+    render(
+      <Harness
+        secret={VALID_WIF}
+        expectedIdentityId="identity-a"
+        onState={(s) => states.push(s)}
+      />,
+    );
+    await flushDebounce();
+
+    expect(mockResolveIdentityFromWif).toHaveBeenCalledWith(
+      sdk,
+      VALID_WIF,
+      "identity-a",
+    );
+  });
+
   it("returns idle when disabled, even for a valid-shaped WIF", async () => {
     const states: WifPreviewState[] = [];
     render(

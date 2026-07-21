@@ -221,7 +221,7 @@ export function AppShell({
         <div className="mx-auto max-w-[1160px]">{children}</div>
         <footer className="mx-auto mt-10 flex max-w-[1160px] justify-center border-t border-line pt-4 text-[12px] text-ink-3">
           <a
-            href="https://github.com/dashpay/platform-tutorials"
+            href="https://github.com/dashpay/platform-tutorials/tree/main/example-apps/dashproof-lab"
             target="_blank"
             rel="noreferrer"
             className="inline-flex items-center gap-1.5 text-ink-3 hover:text-accent"

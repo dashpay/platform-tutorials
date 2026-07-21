@@ -63,18 +63,18 @@ npm run preview       # Serve the production build
 
 Every SDK call lives in its own file under [`src/dash/`](./src/dash/). Open the file to see the full implementation with a JSDoc header naming the SDK method it wraps.
 
-| Operation              | File                                                                   | SDK method                                              |
-| ---------------------- | ---------------------------------------------------------------------- | ------------------------------------------------------- |
-| Connect to testnet     | [`src/dash/client.ts`](./src/dash/client.ts)                           | `EvoSDK.testnetTrusted()` + `sdk.connect()`             |
-| Derive identity keys   | [`src/dash/keyManager.ts`](./src/dash/keyManager.ts)                   | wallet/key derivation helpers (mnemonic path)           |
-| Login by private key   | [`src/dash/loginWithPrivateKey.ts`](./src/dash/loginWithPrivateKey.ts) | `PrivateKey.fromWIF` + `sdk.identities.byPublicKeyHash` |
-| Resolve DPNS name      | [`src/dash/resolveDpnsName.ts`](./src/dash/resolveDpnsName.ts)         | `sdk.dpns.username`                                     |
-| Register note contract | [`src/dash/contract.ts`](./src/dash/contract.ts)                       | `sdk.contracts.publish`                                 |
-| Create a note          | [`src/dash/createNote.ts`](./src/dash/createNote.ts)                   | `sdk.documents.create`                                  |
-| Update a note          | [`src/dash/updateNote.ts`](./src/dash/updateNote.ts)                   | `sdk.documents.get` + `sdk.documents.replace`           |
-| Delete a note          | [`src/dash/deleteNote.ts`](./src/dash/deleteNote.ts)                   | `sdk.documents.delete`                                  |
-| List my notes          | [`src/dash/queries.ts`](./src/dash/queries.ts)                         | `sdk.documents.query`                                   |
-| Get one note           | [`src/dash/queries.ts`](./src/dash/queries.ts)                         | `sdk.documents.get`                                     |
+| Operation              | File                                                                   | SDK method                                                                                     |
+| ---------------------- | ---------------------------------------------------------------------- | ---------------------------------------------------------------------------------------------- |
+| Connect to testnet     | [`src/dash/client.ts`](./src/dash/client.ts)                           | `EvoSDK.testnetTrusted()` + `sdk.connect()`                                                    |
+| Derive identity keys   | [`src/dash/keyManager.ts`](./src/dash/keyManager.ts)                   | wallet/key derivation helpers (mnemonic path)                                                  |
+| Login by private key   | [`src/dash/loginWithPrivateKey.ts`](./src/dash/loginWithPrivateKey.ts) | `PrivateKey.fromWIF` + `sdk.identities.fetch` / `byPublicKeyHash` / `byNonUniquePublicKeyHash` |
+| Resolve DPNS name      | [`src/dash/resolveDpnsName.ts`](./src/dash/resolveDpnsName.ts)         | `sdk.dpns.username`                                                                            |
+| Register note contract | [`src/dash/contract.ts`](./src/dash/contract.ts)                       | `sdk.contracts.publish`                                                                        |
+| Create a note          | [`src/dash/createNote.ts`](./src/dash/createNote.ts)                   | `sdk.documents.create`                                                                         |
+| Update a note          | [`src/dash/updateNote.ts`](./src/dash/updateNote.ts)                   | `sdk.documents.get` + `sdk.documents.replace`                                                  |
+| Delete a note          | [`src/dash/deleteNote.ts`](./src/dash/deleteNote.ts)                   | `sdk.documents.delete`                                                                         |
+| List my notes          | [`src/dash/queries.ts`](./src/dash/queries.ts)                         | `sdk.documents.query`                                                                          |
+| Get one note           | [`src/dash/queries.ts`](./src/dash/queries.ts)                         | `sdk.documents.get`                                                                            |
 
 Update flow always fetches the document first to read its current revision, then submits a replace with `revision = BigInt(existing.revision ?? 0) + 1n`. Replays without bumping the revision are rejected by the state transition.
 
@@ -86,6 +86,8 @@ Supporting files:
 - **[`src/lib/notesCache.ts`](./src/lib/notesCache.ts)** — localStorage-backed note list keyed by `identityId + contractId + network`. Powers optimistic paint on reload before background revalidation completes.
 - **[`src/lib/rememberedIdentity.ts`](./src/lib/rememberedIdentity.ts)** — last-logged-in identity ID plus its DPNS name (when one was resolved) for read-only browse. Never stores the mnemonic or WIF.
 - **[`src/lib/detectSecretShape.ts`](./src/lib/detectSecretShape.ts)** — cheap "mnemonic vs WIF" classifier used by `SessionContext.login` and the login modal's eager WIF preview.
+
+WIF login treats the private key as a credential, not an identity identifier. The resolver accepts ECDSA key data encoded as either a full public key or ECDSA HASH160 value (hex or base64), while rejecting other HASH160 key types. If one key is associated with multiple identities, Dashnote does not list or guess among them: the login modal requires the full intended identity ID, fetches that identity directly, and verifies that the WIF is an enabled HIGH/CRITICAL authentication key for it. The identity ID and optional DPNS label are persisted only when **Remember this identity** is checked; private keys are never persisted.
 
 ## Reading the codebase
 

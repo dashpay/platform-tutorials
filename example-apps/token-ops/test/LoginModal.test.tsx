@@ -276,4 +276,54 @@ describe("LoginModal", () => {
     expect(await screen.findByText("bad key")).toBeTruthy();
     expect(onClose).not.toHaveBeenCalled();
   });
+
+  it("prompts for an exact identity ID after an ambiguous WIF login", async () => {
+    const ambiguity = new Error("ambiguous key");
+    ambiguity.name = "AmbiguousIdentityError";
+    const login = mockSession(
+      vi.fn().mockRejectedValueOnce(ambiguity).mockResolvedValueOnce(undefined),
+    );
+    const onClose = vi.fn();
+    render(<LoginModal open onClose={onClose} />);
+    fireEvent.change(screen.getByLabelText("Mnemonic or private key"), {
+      target: { value: "private-key" },
+    });
+
+    fireEvent.click(screen.getByRole("button", { name: "Sign in" }));
+    const identityInput = await screen.findByLabelText("Identity ID");
+    expect(screen.getByLabelText("Mnemonic or private key")).toHaveProperty(
+      "value",
+      "private-key",
+    );
+    expect(
+      (screen.getByRole("button", { name: "Sign in" }) as HTMLButtonElement)
+        .disabled,
+    ).toBe(true);
+
+    fireEvent.change(identityInput, { target: { value: "identity-intended" } });
+    fireEvent.click(screen.getByRole("button", { name: "Sign in" }));
+
+    await waitFor(() =>
+      expect(login).toHaveBeenLastCalledWith("private-key", {
+        identityIndex: 0,
+        expectedIdentityId: "identity-intended",
+      }),
+    );
+    expect(onClose).toHaveBeenCalledOnce();
+  });
+
+  it("clears the ambiguity prompt when the secret changes", async () => {
+    const ambiguity = new Error("ambiguous key");
+    ambiguity.name = "AmbiguousIdentityError";
+    mockSession(vi.fn().mockRejectedValue(ambiguity));
+    render(<LoginModal open onClose={vi.fn()} />);
+    const secretInput = screen.getByLabelText("Mnemonic or private key");
+    fireEvent.change(secretInput, { target: { value: "private-key" } });
+    fireEvent.click(screen.getByRole("button", { name: "Sign in" }));
+    await screen.findByLabelText("Identity ID");
+
+    fireEvent.change(secretInput, { target: { value: "different-key" } });
+
+    expect(screen.queryByLabelText("Identity ID")).toBeNull();
+  });
 });

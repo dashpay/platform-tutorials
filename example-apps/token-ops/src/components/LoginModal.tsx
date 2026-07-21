@@ -22,12 +22,15 @@ export function LoginModal({ open, onClose }: LoginModalProps) {
   const [error, setError] = useState<string | null>(null);
   const [submitting, setSubmitting] = useState(false);
   const [showAdvanced, setShowAdvanced] = useState(false);
+  const [expectedIdentityId, setExpectedIdentityId] = useState("");
+  const [ambiguousWif, setAmbiguousWif] = useState<string | null>(null);
 
   const secretShape = useMemo(
     () => (secret.trim() ? detectSecretShape(secret) : null),
     [secret],
   );
   const isWifInput = secretShape === "wif";
+  const needsIdentityId = isWifInput && ambiguousWif === secret.trim();
 
   const resetForm = useCallback(() => {
     setSecret("");
@@ -35,6 +38,8 @@ export function LoginModal({ open, onClose }: LoginModalProps) {
     setError(null);
     setSubmitting(false);
     setShowAdvanced(false);
+    setExpectedIdentityId("");
+    setAmbiguousWif(null);
   }, []);
 
   const handleClose = useCallback(() => {
@@ -66,10 +71,16 @@ export function LoginModal({ open, onClose }: LoginModalProps) {
       const index = Number.parseInt(identityIndex, 10);
       await session.login(secret, {
         identityIndex: Number.isNaN(index) ? 0 : index,
+        ...(isWifInput && expectedIdentityId.trim()
+          ? { expectedIdentityId: expectedIdentityId.trim() }
+          : {}),
       });
       handleClose();
     } catch (err) {
       setError(errorMessage(err));
+      if (err instanceof Error && err.name === "AmbiguousIdentityError") {
+        setAmbiguousWif(secret.trim());
+      }
     } finally {
       setSubmitting(false);
     }
@@ -124,7 +135,11 @@ export function LoginModal({ open, onClose }: LoginModalProps) {
               autoComplete="off"
               spellCheck={false}
               value={secret}
-              onChange={(event) => setSecret(event.target.value)}
+              onChange={(event) => {
+                setSecret(event.target.value);
+                setExpectedIdentityId("");
+                setAmbiguousWif(null);
+              }}
               placeholder="Mnemonic phrase or WIF private key"
             />
             <p className="muted login-modal-hint">
@@ -132,6 +147,29 @@ export function LoginModal({ open, onClose }: LoginModalProps) {
               transitions.
             </p>
           </div>
+
+          {needsIdentityId && (
+            <div className="field login-advanced-field">
+              <label htmlFor="login-identity-id">Identity ID</label>
+              <input
+                id="login-identity-id"
+                type="text"
+                autoComplete="off"
+                spellCheck={false}
+                value={expectedIdentityId}
+                onChange={(event) => {
+                  setExpectedIdentityId(event.target.value);
+                  setError(null);
+                }}
+                placeholder="Full Dash Platform identity ID"
+              />
+              <p className="muted login-modal-hint">
+                This key is associated with multiple identities. Token
+                operations will be performed as this exact identity; TokenOps
+                does not list identities associated with the key.
+              </p>
+            </div>
+          )}
 
           {!isWifInput && (
             <>
@@ -173,7 +211,14 @@ export function LoginModal({ open, onClose }: LoginModalProps) {
           </p>
 
           <div className="modal-actions">
-            <button type="submit" disabled={submitting || !secret.trim()}>
+            <button
+              type="submit"
+              disabled={
+                submitting ||
+                !secret.trim() ||
+                (needsIdentityId && !expectedIdentityId.trim())
+              }
+            >
               {submitting ? "Connecting..." : "Sign in"}
             </button>
             <button

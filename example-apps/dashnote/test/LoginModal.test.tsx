@@ -635,6 +635,85 @@ describe("LoginModal", () => {
       );
     });
 
+    it("requires a full identity ID for an ambiguous WIF without listing candidates", () => {
+      renderWithSecret({ status: "ambiguous" });
+
+      expect(
+        screen.getByText(/associated with multiple identities/i),
+      ).toBeTruthy();
+      expect(
+        screen.getByPlaceholderText(/full dash platform identity id/i),
+      ).toBeTruthy();
+      expect(screen.queryByRole("option")).toBeNull();
+      expect(
+        (
+          screen.getByRole("button", {
+            name: /^sign in$/i,
+          }) as HTMLButtonElement
+        ).disabled,
+      ).toBe(true);
+    });
+
+    it("reveals the identity-ID field when submit reports ambiguity", async () => {
+      const error = new Error("ambiguous");
+      error.name = "AmbiguousIdentityError";
+      const login = vi.fn().mockRejectedValue(error);
+      mockUseSession.mockReturnValue(makeSession({ login }));
+      mockUseWifPreview.mockReturnValue({ status: "idle" });
+      render(<LoginModal open onClose={vi.fn()} />);
+      fireEvent.change(screen.getByPlaceholderText(/mnemonic phrase/i), {
+        target: { value: SAMPLE_WIF },
+      });
+
+      fireEvent.click(screen.getByRole("button", { name: /^sign in$/i }));
+
+      expect(
+        await screen.findByPlaceholderText(/full dash platform identity id/i),
+      ).toBeTruthy();
+      expect(screen.getByPlaceholderText(/mnemonic phrase/i)).toHaveProperty(
+        "value",
+        SAMPLE_WIF,
+      );
+    });
+
+    it("submits an ambiguous WIF with the manually entered identity ID", async () => {
+      const login = vi.fn().mockResolvedValue(undefined);
+      mockUseSession.mockReturnValue(makeSession({ login }));
+      mockUseWifPreview.mockImplementation(
+        (
+          _sdk: unknown,
+          _secret: string,
+          _enabled: boolean,
+          expectedIdentityId?: string,
+        ) =>
+          expectedIdentityId
+            ? {
+                status: "resolved",
+                identityId: expectedIdentityId,
+                dpnsName: null,
+              }
+            : { status: "ambiguous" },
+      );
+      render(<LoginModal open onClose={vi.fn()} />);
+      fireEvent.change(screen.getByPlaceholderText(/mnemonic phrase/i), {
+        target: { value: SAMPLE_WIF },
+      });
+      fireEvent.change(
+        screen.getByPlaceholderText(/full dash platform identity id/i),
+        { target: { value: "identity-intended" } },
+      );
+
+      fireEvent.click(screen.getByRole("button", { name: /^sign in$/i }));
+
+      await waitFor(() => {
+        expect(login).toHaveBeenCalledWith(SAMPLE_WIF, {
+          identityIndex: 0,
+          rememberMe: true,
+          expectedIdentityId: "identity-intended",
+        });
+      });
+    });
+
     it("prefers DPNS name over truncated ID on the resolved state", () => {
       renderWithSecret({
         status: "resolved",

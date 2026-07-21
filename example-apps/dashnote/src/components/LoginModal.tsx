@@ -21,6 +21,8 @@ export function LoginModal({ open, onClose }: LoginModalProps) {
   const [showAdvanced, setShowAdvanced] = useState(false);
   const [rememberMe, setRememberMe] = useState(true);
   const [useDifferentIdentity, setUseDifferentIdentity] = useState(false);
+  const [expectedIdentityId, setExpectedIdentityId] = useState("");
+  const [ambiguousWif, setAmbiguousWif] = useState<string | null>(null);
   const showRememberedPanel = Boolean(
     session.rememberedIdentityId && !useDifferentIdentity,
   );
@@ -31,10 +33,38 @@ export function LoginModal({ open, onClose }: LoginModalProps) {
     [secret],
   );
   const isWifInput = secretShape === "wif";
-  const wifPreview = useWifPreview(session.sdk, secret, isWifInput);
+  const rememberedExpectedIdentityId = showRememberedPanel
+    ? (session.rememberedIdentityId ?? undefined)
+    : undefined;
+  const hasIdentityPrompt = isWifInput && expectedIdentityId.length > 0;
+  const effectiveExpectedIdentityId =
+    rememberedExpectedIdentityId ??
+    (hasIdentityPrompt ? expectedIdentityId.trim() || undefined : undefined);
+  const wifPreview = useWifPreview(
+    session.sdk,
+    secret,
+    isWifInput,
+    effectiveExpectedIdentityId,
+  );
+  const needsIdentityId =
+    hasIdentityPrompt ||
+    (isWifInput && ambiguousWif === secret.trim()) ||
+    wifPreview.status === "ambiguous";
   const previewBlocksLogin =
     wifPreview.status === "wrong-purpose" ||
-    wifPreview.status === "key-disabled";
+    wifPreview.status === "key-disabled" ||
+    wifPreview.status === "identity-mismatch" ||
+    wifPreview.status === "ambiguous" ||
+    (needsIdentityId && wifPreview.status !== "resolved");
+
+  useEffect(() => {
+    if (wifPreview.status === "ambiguous") {
+      // The preview is asynchronous state; retain its actionable result while
+      // a follow-up preview transitions through checking or idle.
+      // eslint-disable-next-line react-hooks/set-state-in-effect
+      setAmbiguousWif(secret.trim());
+    }
+  }, [secret, wifPreview.status]);
 
   useEffect(() => {
     if (open) {
@@ -42,6 +72,8 @@ export function LoginModal({ open, onClose }: LoginModalProps) {
       setUseDifferentIdentity(false);
       setError(null);
       setSecret("");
+      setExpectedIdentityId("");
+      setAmbiguousWif(null);
     }
   }, [open]);
 
@@ -54,11 +86,17 @@ export function LoginModal({ open, onClose }: LoginModalProps) {
       await session.login(secret, {
         identityIndex: Number.isNaN(index) ? 0 : index,
         rememberMe,
+        ...(isWifInput && effectiveExpectedIdentityId
+          ? { expectedIdentityId: effectiveExpectedIdentityId }
+          : {}),
       });
       setSecret("");
       onClose();
     } catch (err) {
       setError(errorMessage(err));
+      if (err instanceof Error && err.name === "AmbiguousIdentityError") {
+        setAmbiguousWif(secret.trim());
+      }
     } finally {
       setSubmitting(false);
     }
@@ -143,7 +181,11 @@ export function LoginModal({ open, onClose }: LoginModalProps) {
             autoComplete="off"
             required
             value={secret}
-            onChange={(event) => setSecret(event.target.value)}
+            onChange={(event) => {
+              setSecret(event.target.value);
+              setExpectedIdentityId("");
+              setAmbiguousWif(null);
+            }}
             placeholder="Mnemonic phrase or WIF private key (high/critical)"
             className="rounded-md border border-line bg-bg px-3 py-2 text-[13px] text-ink outline-none transition focus:border-accent-dim"
           />
@@ -164,6 +206,18 @@ export function LoginModal({ open, onClose }: LoginModalProps) {
                       ? `${wifPreview.dpnsName}.dash`
                       : `${wifPreview.identityId.slice(0, 8)}…${wifPreview.identityId.slice(-4)}`}
                   </span>
+                </span>
+              )}
+              {wifPreview.status === "ambiguous" && (
+                <span className="text-[color:var(--color-danger)]">
+                  This key is associated with multiple identities. Enter the
+                  full identity ID you intend to use.
+                </span>
+              )}
+              {wifPreview.status === "identity-mismatch" && (
+                <span className="text-[color:var(--color-danger)]">
+                  This key could not be verified as an eligible authentication
+                  key for that identity ID.
                 </span>
               )}
               {wifPreview.status === "wrong-purpose" && (
@@ -196,6 +250,27 @@ export function LoginModal({ open, onClose }: LoginModalProps) {
           )}
         </label>
 
+        {needsIdentityId && !rememberedExpectedIdentityId && (
+          <label className="flex flex-col gap-1">
+            <span className="text-[10px] font-semibold uppercase tracking-[0.12em] text-ink-4">
+              Identity ID
+            </span>
+            <input
+              type="text"
+              value={expectedIdentityId}
+              onChange={(event) => setExpectedIdentityId(event.target.value)}
+              placeholder="Full Dash Platform identity ID"
+              autoComplete="off"
+              required
+              className="rounded-md border border-line bg-bg px-3 py-2 font-mono text-[12px] text-ink outline-none transition focus:border-accent-dim"
+            />
+            <span className="text-[11px] text-ink-4">
+              New notes will be owned by this exact identity. Dashnote does not
+              list identities associated with the key.
+            </span>
+          </label>
+        )}
+
         <div className="flex items-center gap-1.5 text-[11px] text-ink-4">
           <svg
             width="11"
@@ -218,7 +293,11 @@ export function LoginModal({ open, onClose }: LoginModalProps) {
           >
             <button
               type="button"
-              onClick={() => setUseDifferentIdentity(true)}
+              onClick={() => {
+                setUseDifferentIdentity(true);
+                setExpectedIdentityId("");
+                setAmbiguousWif(null);
+              }}
               className="font-medium text-accent-dim underline-offset-2 hover:text-accent hover:underline"
             >
               Use a different identity

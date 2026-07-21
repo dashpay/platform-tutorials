@@ -93,6 +93,13 @@ the normal lifecycle: info, mint, transfer, and burn.
 Some client configuration options are included as comments in
 [`setupDashClient.mjs`](./setupDashClient.mjs) if more advanced configuration is required.
 
+## Example Apps
+
+The [`example-apps`](./example-apps/README.md) directory contains independently runnable React +
+TypeScript npm projects that demonstrate Dash Platform concepts in complete browser workflows,
+including identities, documents, queries, tokens, and multi-signer groups. The apps have their own
+setup instructions and dependencies but share repository-level SDK client helpers.
+
 ## Testing
 
 Tests run each tutorial as a subprocess and validate its output. No test framework dependencies are
