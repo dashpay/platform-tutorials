@@ -95,7 +95,7 @@ function bytesEqual(a: Uint8Array, b: Uint8Array): boolean {
  * Decode a public-key data field from `identity.toJSON()`.
  *
  * Dash Platform's JSON encoding for bytes has historically been base64,
- * but some versions emit hex. We try base64 first (preferred), then hex,
+ * but some versions emit hex. We try hex first, then fall back to base64
  * before giving up. Returning null lets the caller skip a key it can't
  * compare rather than aborting.
  */

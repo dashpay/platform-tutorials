@@ -36,9 +36,7 @@ export function LoginModal({ open, onClose }: LoginModalProps) {
   const rememberedExpectedIdentityId = showRememberedPanel
     ? (session.rememberedIdentityId ?? undefined)
     : undefined;
-  const hasIdentityPrompt =
-    isWifInput &&
-    (ambiguousWif === secret.trim() || expectedIdentityId.length > 0);
+  const hasIdentityPrompt = isWifInput && expectedIdentityId.length > 0;
   const effectiveExpectedIdentityId =
     rememberedExpectedIdentityId ??
     (hasIdentityPrompt ? expectedIdentityId.trim() || undefined : undefined);
@@ -49,13 +47,24 @@ export function LoginModal({ open, onClose }: LoginModalProps) {
     effectiveExpectedIdentityId,
   );
   const needsIdentityId =
-    hasIdentityPrompt || wifPreview.status === "ambiguous";
+    hasIdentityPrompt ||
+    (isWifInput && ambiguousWif === secret.trim()) ||
+    wifPreview.status === "ambiguous";
   const previewBlocksLogin =
     wifPreview.status === "wrong-purpose" ||
     wifPreview.status === "key-disabled" ||
     wifPreview.status === "identity-mismatch" ||
     wifPreview.status === "ambiguous" ||
     (needsIdentityId && wifPreview.status !== "resolved");
+
+  useEffect(() => {
+    if (wifPreview.status === "ambiguous") {
+      // The preview is asynchronous state; retain its actionable result while
+      // a follow-up preview transitions through checking or idle.
+      // eslint-disable-next-line react-hooks/set-state-in-effect
+      setAmbiguousWif(secret.trim());
+    }
+  }, [secret, wifPreview.status]);
 
   useEffect(() => {
     if (open) {
