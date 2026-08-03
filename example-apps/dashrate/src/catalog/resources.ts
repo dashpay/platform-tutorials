@@ -19,7 +19,7 @@ export const RESOURCES: RatedResource[] = [
     title: "Identities and Names",
     category: "Tutorial",
     summary: "Create identities, fund them, and register DPNS names.",
-    href: "../../1-Identities-and-Names/",
+    href: "https://docs.dash.org/projects/platform/en/stable/docs/tutorials/identities-and-names.html",
   },
   {
     id: "contracts-documents",
@@ -27,14 +27,14 @@ export const RESOURCES: RatedResource[] = [
     category: "Tutorial",
     summary:
       "Register contracts and submit, query, update, and delete documents.",
-    href: "../../2-Contracts-and-Documents/",
+    href: "https://docs.dash.org/projects/platform/en/stable/docs/tutorials/contracts-and-documents.html",
   },
   {
     id: "tokens",
     title: "Tokens",
     category: "Tutorial",
     summary: "Register, mint, transfer, and burn Platform tokens.",
-    href: "../../3-Tokens/",
+    href: "https://docs.dash.org/projects/platform/en/stable/docs/tutorials/tokens.html",
   },
   {
     id: "dashnote",
