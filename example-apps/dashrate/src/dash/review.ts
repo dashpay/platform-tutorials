@@ -7,7 +7,6 @@
  *   sdk.documents.get(...)
  *   sdk.documents.replace(...)
  */
-import { PLATFORM_VERSION_OVERRIDE } from "../../../../platformVersion.mjs";
 import type { Logger } from "../lib/logger";
 import { loadSdkModule } from "./sdkModule";
 import { findMyReviewForResource } from "./queries";
@@ -67,10 +66,7 @@ export async function saveReview({
     await sdk.documents.create({ document, identityKey, signer });
     const json =
       typeof document.toJSON === "function"
-        ? (document.toJSON(PLATFORM_VERSION_OVERRIDE) as Record<
-            string,
-            unknown
-          >)
+        ? (document.toJSON(sdk.version()) as Record<string, unknown>)
         : {};
     const reviewId = String(json.$id ?? json.id ?? "");
     if (!reviewId) throw new Error("Created review returned no ID.");

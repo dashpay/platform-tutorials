@@ -200,8 +200,6 @@ export declare class AddressKeyManager {
 
 export declare const KEY_SPECS: readonly unknown[];
 
-export declare const PLATFORM_VERSION_OVERRIDE: number;
-
 export declare function dip13KeyPath(
   network: string,
   identityIndex: number,

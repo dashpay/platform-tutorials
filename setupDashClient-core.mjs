@@ -25,7 +25,6 @@ import {
   SecurityLevel,
   wallet,
 } from '@dashevo/evo-sdk';
-import { PLATFORM_VERSION_OVERRIDE } from './platformVersion.mjs';
 
 /** @typedef {import('@dashevo/evo-sdk').Identity} Identity */
 /** @typedef {import('@dashevo/evo-sdk').IdentityPublicKey} IdentityPublicKey */
@@ -103,21 +102,25 @@ export async function dip13KeyPath(network, identityIndex, keyIndex) {
 // SDK client helpers
 // ---------------------------------------------------------------------------
 
-export { PLATFORM_VERSION_OVERRIDE };
-
 /**
  * Create and connect an EvoSDK client for the selected network.
+ *
+ * The platform protocol version is deliberately left unset so the SDK
+ * negotiates it with the network: it starts from a conservative version and
+ * ratchets up to whatever the network reports, capped at the newest version
+ * the SDK itself understands. Pinning it via the `version` option disables
+ * that negotiation outright, so a hardcoded value silently goes stale the
+ * next time the network upgrades. Use `sdk.version()` when you need the
+ * negotiated value.
  *
  * @param {string} [network='testnet']
  * @returns {Promise<EvoSDK>}
  */
 export async function createClient(network = 'testnet') {
   const factories = /** @type {Record<string, () => EvoSDK>} */ ({
-    testnet: () =>
-      EvoSDK.testnetTrusted({ version: PLATFORM_VERSION_OVERRIDE }),
-    mainnet: () =>
-      EvoSDK.mainnetTrusted({ version: PLATFORM_VERSION_OVERRIDE }),
-    local: () => EvoSDK.localTrusted({ version: PLATFORM_VERSION_OVERRIDE }),
+    testnet: () => EvoSDK.testnetTrusted(),
+    mainnet: () => EvoSDK.mainnetTrusted(),
+    local: () => EvoSDK.localTrusted(),
   });
 
   const factory = factories[network];
