@@ -105,7 +105,10 @@ setup instructions and dependencies but share repository-level SDK client helper
 Tests run each tutorial as a subprocess and validate its output. No test framework dependencies are
 required — tests use the Node.js built-in test runner.
 
-Ensure your `.env` file is configured (see [`.env.example`](./.env.example)) before running tests.
+`npm test` needs no wallet credentials. The tutorial suites do: configure your `.env` file (see
+[`.env.example`](./.env.example)) before running `test:read-only` or `test:read-write` — without a
+`PLATFORM_MNEMONIC` the read-only suite skips the tutorials that need one, and the write suite
+cannot run at all.
 
 ```shell
 # Default — safe to run, no credits consumed

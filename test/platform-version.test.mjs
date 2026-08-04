@@ -1,10 +1,7 @@
 import assert from 'node:assert/strict';
 import { describe, it } from 'node:test';
-import dotenv from 'dotenv';
 import { EvoSDK } from '@dashevo/evo-sdk';
 import { createClient } from '../setupDashClient-core.mjs';
-
-dotenv.config();
 
 // DPNS — a system contract, so it exists on every network and needs no fixture.
 const DPNS_CONTRACT_ID = 'GWRSAVFMjXx8HpQFaNJMqBV7MBgMK4br5UESsB4S31Ec';
