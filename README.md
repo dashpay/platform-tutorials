@@ -105,11 +105,17 @@ setup instructions and dependencies but share repository-level SDK client helper
 Tests run each tutorial as a subprocess and validate its output. No test framework dependencies are
 required — tests use the Node.js built-in test runner.
 
-Ensure your `.env` file is configured (see [`.env.example`](./.env.example)) before running tests.
+`npm test` needs no wallet credentials. The tutorial suites do: configure your `.env` file (see
+[`.env.example`](./.env.example)) before running `test:read-only` or `test:read-write` — without a
+`PLATFORM_MNEMONIC` the read-only suite skips the tutorials that need one, and the write suite
+cannot run at all.
 
 ```shell
-# Read-only tests (default) — safe to run, no credits consumed
+# Default — safe to run, no credits consumed
 npm test
+
+# Just the tutorial suite
+npm run test:read-only
 
 # Write tests — registers identities/contracts/documents (consumes testnet credits)
 npm run test:read-write
@@ -117,6 +123,11 @@ npm run test:read-write
 # All tests
 npm run test:all
 ```
+
+Alongside the tutorial suite, `npm test` checks a couple of repository invariants that need no
+credits: that the SDK client negotiates the platform protocol version rather than using a hardcoded
+pin, and that each standalone `*-lite.html` page imports the same Evo SDK version as its companion
+app.
 
 ### Importing an existing wallet
 

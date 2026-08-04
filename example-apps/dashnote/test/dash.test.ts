@@ -33,6 +33,7 @@ function makeKeyManager() {
 describe("createNote", () => {
   it("creates a note with a trimmed title", async () => {
     const sdk = {
+      version: () => 13,
       documents: {
         create: vi.fn().mockResolvedValue(undefined),
       },
@@ -61,6 +62,7 @@ describe("createNote", () => {
   it("omits a blank title for body-only notes", async () => {
     mockDocumentConstructor.mockReset();
     const sdk = {
+      version: () => 13,
       documents: {
         create: vi.fn().mockResolvedValue(undefined),
       },

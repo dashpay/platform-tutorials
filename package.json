@@ -6,10 +6,10 @@
   "scripts": {
     "fmt": "prettier --write '**/*.{js,mjs}'",
     "lint": "tsc",
-    "test": "node --test --test-timeout=120000 test/read-only.test.mjs",
+    "test": "node --test --test-timeout=120000 test/read-only.test.mjs test/platform-version.test.mjs test/platform-version-config.test.mjs test/lite-sdk-versions.test.mjs",
     "test:read-only": "node --test --test-timeout=120000 test/read-only.test.mjs",
     "test:read-write": "node --test --test-timeout=300000 --test-concurrency=1 test/read-write.test.mjs",
-    "test:all": "node --test --test-timeout=300000 --test-concurrency=1 test/read-only.test.mjs test/read-write.test.mjs",
+    "test:all": "node --test --test-timeout=300000 --test-concurrency=1 test/read-only.test.mjs test/platform-version.test.mjs test/platform-version-config.test.mjs test/lite-sdk-versions.test.mjs test/read-write.test.mjs",
     "test:setup": "mocha --slow 500 test/setupDashClient.test.mjs --exit",
     "walkthrough:dashmint-lab": "node scripts/walkthroughs/record.mjs dashmint-lab",
     "walkthrough:dashnote": "node scripts/walkthroughs/record.mjs dashnote",

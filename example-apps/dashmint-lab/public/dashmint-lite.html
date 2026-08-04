@@ -119,7 +119,7 @@
     // package and serves it as a browser-native ES module. Pinned to the same
     // version the React app at ../package.json depends on so both UIs behave
     // identically against the same testnet contract.
-    import { EvoSDK } from 'https://esm.sh/@dashevo/evo-sdk@4.0.0';
+    import { EvoSDK } from 'https://esm.sh/@dashevo/evo-sdk@4.1.0';
 
     // The token-enabled "card" data contract is already published on testnet by
     // the React app. Anyone querying with the same contract id hits the same
@@ -131,12 +131,11 @@
     // nodes — no node URL or config needed. connect() does the gRPC handshake
     // + initial sync. No identity or signing is required for read-only queries.
     //
-    // Workaround: pin the platform protocol version for evo-sdk dev.6 so the
-    // SDK doesn't ask testnet for a newer protocol it can't decode. Mirrors
-    // PLATFORM_VERSION_OVERRIDE in setupDashClient-core.mjs. Remove once a
-    // fixed SDK release lands.
+    // The platform protocol version is left unset on purpose: the SDK negotiates
+    // it with the network. Passing `version` pins it and disables that, so a
+    // hardcoded value silently goes stale at the next network upgrade.
     async function connectSdk() {
-      const sdk = EvoSDK.testnetTrusted({ version: 11 });
+      const sdk = EvoSDK.testnetTrusted();
       await sdk.connect();
       return sdk;
     }

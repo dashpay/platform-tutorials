@@ -22,6 +22,8 @@ export interface DashDocumentLike {
 }
 
 export interface DashSdk {
+  /** Platform protocol version negotiated with the network. */
+  version(): number;
   contracts: {
     fetch(contractId: string): Promise<{
       toJSON?: () => Record<string, unknown>;

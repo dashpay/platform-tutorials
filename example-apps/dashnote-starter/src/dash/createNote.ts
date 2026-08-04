@@ -4,7 +4,6 @@
  * SDK method: sdk.documents.create({ document, identityKey, signer })
  */
 import type { Logger } from "../lib/logger";
-import { PLATFORM_VERSION_OVERRIDE } from "../../../../platformVersion.mjs";
 import { loadSdkModule } from "./sdkModule";
 import type { DashKeyManager, DashSdk } from "./types";
 
@@ -47,7 +46,7 @@ export async function createNote({
 
   const json =
     typeof document.toJSON === "function"
-      ? (document.toJSON(PLATFORM_VERSION_OVERRIDE) as Record<string, unknown>)
+      ? (document.toJSON(sdk.version()) as Record<string, unknown>)
       : {};
   const noteId = String(json.$id ?? json.id ?? "");
   if (!noteId) {

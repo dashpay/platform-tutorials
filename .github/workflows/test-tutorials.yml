@@ -41,11 +41,11 @@ jobs:
           node -v
           npm -v
       - run: npm ci
-      - name: Run read-only tutorial tests
+      - name: Run PR-safe tests
         env:
           NETWORK: testnet
           PLATFORM_MNEMONIC: ${{ secrets.PLATFORM_MNEMONIC }}
-        run: npm run test:read-only
+        run: npm test
 
   test-read-write:
     runs-on: ubuntu-latest
