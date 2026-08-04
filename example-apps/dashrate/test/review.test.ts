@@ -43,6 +43,7 @@ function makeKeyManager(): DashKeyManager {
 
 function makeSdk(overrides: Partial<DashSdk["documents"]> = {}): DashSdk {
   return {
+    version: () => 13,
     documents: {
       create: vi.fn().mockResolvedValue(undefined),
       replace: vi.fn().mockResolvedValue(undefined),
