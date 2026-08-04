@@ -19,9 +19,10 @@ Run `node view-wallet.mjs` to confirm the identity is found before proceeding.
 
 ```bash
 nvm use                 # Use the repo's tested Node 22.22.x toolchain
-npm test                # Read-only tests (~2min, safe to run anytime)
+npm test                # All PR-safe suites (~2min, safe to run anytime)
+npm run test:read-only  # Just the tutorial subprocess suite
 npm run test:read-write # Write tests (destructive, consumes testnet credits, ~5min)
-npm run test:all        # Both suites sequentially
+npm run test:all        # Every suite sequentially
 npm run test:setup      # Mocha tests for setupDashClient configuration
 
 npm run lint            # TypeScript type-check all JS files (tsc)
@@ -51,6 +52,8 @@ node 1-Identities-and-Names/identity-retrieve.mjs
 ```bash
 node --test --test-timeout=120000 test/read-only.test.mjs
 ```
+
+**Protocol version:** `createClient()` deliberately leaves the platform protocol version unset so the SDK negotiates it with the network — it starts at a conservative version and ratchets up to whatever the network reports, capped at the newest version the SDK understands. Passing the `version` option pins it and disables negotiation outright, so a hardcoded value silently goes stale at the next network upgrade. Use `sdk.version()` when you need the negotiated value.
 
 ## Architecture
 
@@ -89,7 +92,7 @@ The central helper (~500 lines) that all tutorials import. It handles:
 
 ### Test Framework
 
-Tests use Node.js built-in test runner. Each test runs a tutorial as a **subprocess** via `test/run-tutorial.mjs` and validates:
+Tests use Node.js built-in test runner. The tutorial suites (`read-only`, `read-write`) run each tutorial as a **subprocess** via `test/run-tutorial.mjs` and validate:
 
 - Exit code is 0
 - `stdout`/`stderr` match expected regex patterns
@@ -98,6 +101,14 @@ Tests use Node.js built-in test runner. Each test runs a tutorial as a **subproc
 `test/assertions.mjs` provides helpers like `extractId()` and `extractKeyId()` to capture values from output for use in subsequent dependent tests.
 
 **Read-write tests** maintain a shared state object to pass IDs (contract IDs, document IDs, etc.) between sequential dependent tests.
+
+The remaining suites are repo invariants rather than tutorial runs, which is why they live in their own files:
+
+| File | Checks | Network |
+| - | - | - |
+| `platform-version-config.test.mjs` | `createClient()` passes no `version` to the `*Trusted` factories, so the SDK negotiates the protocol version instead of using a pin | none (factories mocked) |
+| `platform-version.test.mjs` | A live client settles on `min(network active version, SDK ceiling)` after its first proof-bearing read | testnet + mainnet |
+| `lite-sdk-versions.test.mjs` | Each `*-lite.html` page imports exactly the `@dashevo/evo-sdk` version its companion app declares | none |
 
 ### Derivation Paths
 
@@ -135,7 +146,7 @@ Read-only tests skip gracefully when `PLATFORM_MNEMONIC` is unset.
 - **`1-Identities-and-Names/`** — identity registration, top-up, key management, DPNS name registration/lookup
 - **`2-Contracts-and-Documents/`** — data contract variants (minimal, indexed, binary, timestamps, history, NFT), document CRUD, NFT operations
 - **`3-Tokens/`** — token contract registration, info queries, minting, burning, and transfers
-- **`test/`** — test runner, assertions, read-only and read-write test suites
+- **`test/`** — test runner, assertions, tutorial suites (read-only, read-write), and repo-invariant suites (platform version, lite SDK versions)
 - **`docs/`** — HTML/JS interactive tutorial runner (separate from Node tutorials)
 - **`example-apps/`** — Standalone applications (Vite + React + TypeScript) that consume the tutorial SDK code. Each has its own `package.json`, tsconfig, and toolchain — the conventions in this file (Node16 modules, `airbnb-base`, etc.) describe the **root** tutorial code only and do not apply inside `example-apps/`. See each app's local `CLAUDE.md` for its conventions.
 
