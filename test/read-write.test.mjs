@@ -167,7 +167,9 @@ describe('Write tutorials (sequential)', { concurrency: 1 }, () => {
     const result = await runTutorial(
       '2-Contracts-and-Documents/document-set-price.mjs',
       {
-        env: { NAME_LABEL: state.nameLabel },
+        // Pin the price so a DOCUMENT_PRICE of 0 in the developer's .env
+        // cannot delist the name the purchase and transfer tests depend on.
+        env: { NAME_LABEL: state.nameLabel, DOCUMENT_PRICE: '100000000' },
         timeoutMs: 120_000,
       },
     );
