@@ -81,12 +81,15 @@ Proceed with the [Identities and Names tutorials](./1-Identities-and-Names/) fir
 [Tokens tutorials](./3-Tokens/) after that. They align with the tutorials section on the [documentation
 site](https://docs.dash.org/projects/platform/en/stable/docs/tutorials/introduction.html).
 
-The identity ID is automatically resolved from your mnemonic, so there is no need to set it
-manually. After [registering a data
-contract](./2-Contracts-and-Documents/contract-register-minimal.mjs), set `DATA_CONTRACT_ID` in your
-`.env` file to the new contract ID for use in subsequent document tutorials.
-For token tutorials, run
-[`token-register.mjs`](./3-Tokens/token-register.mjs), then set
+- The identity ID is automatically resolved from your mnemonic, so there is no need to set it
+manually.
+- After [registering a data contract](./2-Contracts-and-Documents/contract-register-minimal.mjs),
+set `DATA_CONTRACT_ID` in your `.env` file to the new contract ID for use in subsequent document
+tutorials.
+- The document marketplace tutorials use the DPNS `domain` document behind `NAME_LABEL` to
+demonstrate the general transfer, set-price, and purchase APIs. These APIs also work with other
+document types whose contracts enable `transferable` or `tradeMode` as appropriate.
+- For token tutorials, run [`token-register.mjs`](./3-Tokens/token-register.mjs), then set
 `TOKEN_CONTRACT_ID` in `.env` to the newly registered contract ID. The token tutorials then follow
 the normal lifecycle: info, mint, transfer, and burn.
 
