@@ -1,5 +1,6 @@
 import { describe, it } from 'node:test';
 import assert from 'node:assert/strict';
+import dotenv from 'dotenv';
 import { runTutorial } from './run-tutorial.mjs';
 import {
   assertTutorialSuccess,
@@ -8,8 +9,11 @@ import {
   extractKeyId,
 } from './assertions.mjs';
 
+dotenv.config();
+
 // Accumulated state passed forward as env vars to dependent tutorials.
 const state = {};
+const secondaryMnemonic = process.env.SECONDARY_PLATFORM_MNEMONIC;
 
 describe('Write tutorials (sequential)', { concurrency: 1 }, () => {
   // -----------------------------------------------------------------------
@@ -55,6 +59,13 @@ describe('Write tutorials (sequential)', { concurrency: 1 }, () => {
       expectedPatterns: ['Identity retrieved:'],
       errorPatterns: ['Something went wrong'],
     });
+
+    const id = extractId(result.stdout);
+    assert.ok(
+      id,
+      `Failed to extract identity ID from stdout:\n${result.stdout}`,
+    );
+    state.primaryIdentityId = id;
   });
 
   it('identity-topup', { timeout: 120_000 }, async () => {
@@ -143,6 +154,97 @@ describe('Write tutorials (sequential)', { concurrency: 1 }, () => {
       name: 'name-register',
       expectedPatterns: ['Name registered:'],
       errorPatterns: ['Something went wrong', 'already registered'],
+    });
+    state.nameLabel = label;
+  });
+
+  it('document-set-price (DPNS domain)', { timeout: 120_000 }, async (ctx) => {
+    if (!state.nameLabel) {
+      ctx.skip('No NAME_LABEL (name-register must pass first)');
+      return;
+    }
+
+    const result = await runTutorial(
+      '2-Contracts-and-Documents/document-set-price.mjs',
+      {
+        // Pin the price so a DOCUMENT_PRICE of 0 in the developer's .env
+        // cannot delist the name the purchase and transfer tests depend on.
+        env: { NAME_LABEL: state.nameLabel, DOCUMENT_PRICE: '100000000' },
+        timeoutMs: 120_000,
+      },
+    );
+    assertTutorialSuccess(result, {
+      name: 'document-set-price',
+      expectedPatterns: ['listed for [1-9][0-9]* credits'],
+      errorPatterns: ['Something went wrong'],
+    });
+
+    const listedPrice = extractFromOutput(
+      result.stdout,
+      /listed for ([1-9][0-9]*) credits/,
+    );
+    assert.ok(
+      listedPrice,
+      `Failed to extract listed document price from stdout:\n${result.stdout}`,
+    );
+    state.documentSalePrice = listedPrice;
+  });
+
+  it('document-purchase (DPNS domain)', { timeout: 120_000 }, async (ctx) => {
+    if (!secondaryMnemonic) {
+      ctx.skip('SECONDARY_PLATFORM_MNEMONIC is not configured');
+      return;
+    }
+    if (!state.nameLabel || !state.documentSalePrice) {
+      ctx.skip('Name registration or set-price did not complete');
+      return;
+    }
+
+    const result = await runTutorial(
+      '2-Contracts-and-Documents/document-purchase.mjs',
+      {
+        env: {
+          PLATFORM_MNEMONIC: secondaryMnemonic,
+          NAME_LABEL: state.nameLabel,
+        },
+        timeoutMs: 120_000,
+      },
+    );
+    assertTutorialSuccess(result, {
+      name: 'document-purchase',
+      expectedPatterns: [`purchased for ${state.documentSalePrice} credits`],
+      errorPatterns: ['Something went wrong'],
+    });
+    state.secondaryOwnsName = true;
+  });
+
+  it('document-transfer (DPNS domain)', { timeout: 120_000 }, async (ctx) => {
+    if (!secondaryMnemonic) {
+      ctx.skip('SECONDARY_PLATFORM_MNEMONIC is not configured');
+      return;
+    }
+    if (!state.secondaryOwnsName || !state.primaryIdentityId) {
+      ctx.skip(
+        'Purchase did not complete or primary identity ID is unavailable',
+      );
+      return;
+    }
+
+    const result = await runTutorial(
+      '2-Contracts-and-Documents/document-transfer.mjs',
+      {
+        env: {
+          PLATFORM_MNEMONIC: secondaryMnemonic,
+          NAME_LABEL: state.nameLabel,
+          DOCUMENT_RECIPIENT_ID: state.primaryIdentityId,
+        },
+        timeoutMs: 120_000,
+      },
+    );
+    assertTutorialSuccess(result, {
+      name: 'document-transfer',
+      expectedPatterns: ['transferred to'],
+      errorPatterns: ['Something went wrong'],
     });
   });
 
