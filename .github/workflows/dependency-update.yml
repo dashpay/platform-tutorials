@@ -29,61 +29,132 @@ jobs:
           node -v
           npm -v
 
-      # Step 3: Install dependencies
-      - name: Install Dependencies
-        run: npm install
-
-      # Step 4: Check and Update @dashevo/evo-sdk Dependency and Version
-      - name: Check and Update @dashevo/evo-sdk Dependency
+      # Step 3: Check and update every package that uses @dashevo/evo-sdk
+      - name: Check and Update @dashevo/evo-sdk Dependencies
         id: update_evo_sdk
         run: |
-          set -e  # Stop execution on any error
+          set -euo pipefail
 
-          # Get the installed version from the lockfile (not the declared specifier)
-          INSTALLED_VERSION=$(npm ls @dashevo/evo-sdk --json | jq -r '.dependencies["@dashevo/evo-sdk"].version')
-          CURRENT_DASH_VERSION=$(jq -r '.dependencies["@dashevo/evo-sdk"] // .devDependencies["@dashevo/evo-sdk"]' package.json)
-          DASH_PREFIX=$(echo "$CURRENT_DASH_VERSION" | grep -o '^[^0-9]*')
+          latest_version="$(npm show @dashevo/evo-sdk version)"
+          if ! npx -y semver "$latest_version" >/dev/null; then
+            echo "Invalid latest @dashevo/evo-sdk version returned by npm: $latest_version" >&2
+            exit 1
+          fi
+          echo "Latest @dashevo/evo-sdk version: $latest_version"
 
-          # Get the latest version of Dash
-          LATEST_DASH_VERSION=$(npm show @dashevo/evo-sdk version)
-          LATEST_MINOR_PATCH=$(echo "$LATEST_DASH_VERSION" | cut -d. -f2,3)
+          locked_version() {
+            local package_dir="$1"
+            local lockfile="$package_dir/package-lock.json"
 
-          echo "Installed @dashevo/evo-sdk version: $INSTALLED_VERSION"
-          echo "Latest @dashevo/evo-sdk version: $LATEST_DASH_VERSION"
+            if [ ! -f "$lockfile" ]; then
+              echo "Missing lockfile for SDK-consuming package: $lockfile" >&2
+              return 1
+            fi
 
-          # Only update if the latest stable version is strictly higher than installed
-          # npx semver returns the version if it satisfies the range, empty otherwise
-          IS_HIGHER=$(npx -y semver "$LATEST_DASH_VERSION" -r ">$INSTALLED_VERSION" || true)
+            local version
+            version="$(jq -r \
+              '.packages["node_modules/@dashevo/evo-sdk"].version // .dependencies["@dashevo/evo-sdk"].version // empty' \
+              "$lockfile")"
+            if [ -z "$version" ] || ! npx -y semver "$version" >/dev/null; then
+              echo "Missing or invalid @dashevo/evo-sdk version in $lockfile: ${version:-<missing>}" >&2
+              return 1
+            fi
+            echo "$version"
+          }
 
-          if [ -n "$IS_HIGHER" ]; then
-            jq '.dependencies["@dashevo/evo-sdk"] = "'"$DASH_PREFIX$LATEST_DASH_VERSION"'"' package.json > package.json.tmp && mv package.json.tmp package.json
+          is_behind() {
+            local version="$1"
+            [ -n "$(npx -y semver "$latest_version" -r ">$version" || true)" ]
+          }
 
-            # Update package version in package.json (keep major version, sync minor and patch)
-            CURRENT_PACKAGE_VERSION=$(jq -r '.version' package.json)
-            CURRENT_MAJOR_VERSION=$(echo "$CURRENT_PACKAGE_VERSION" | cut -d. -f1)
-            NEW_PACKAGE_VERSION="$CURRENT_MAJOR_VERSION.$LATEST_MINOR_PATCH"
+          update_dependency_specifier() {
+            local package_file="$1"
+            local specifier="$2"
+            jq --arg version "$specifier" '
+              if .dependencies["@dashevo/evo-sdk"] then
+                .dependencies["@dashevo/evo-sdk"] = $version
+              elif .devDependencies["@dashevo/evo-sdk"] then
+                .devDependencies["@dashevo/evo-sdk"] = $version
+              else
+                error("package does not declare @dashevo/evo-sdk")
+              end
+            ' "$package_file" > "$package_file.tmp"
+            mv "$package_file.tmp" "$package_file"
+          }
 
-            jq '.version = "'"$NEW_PACKAGE_VERSION"'"' package.json > package.json.tmp && mv package.json.tmp package.json
-            echo "Updated package.json version to $NEW_PACKAGE_VERSION"
+          updated_packages=()
+          root_locked_version="$(locked_version .)"
+          echo "Root locked version: $root_locked_version"
+          if is_behind "$root_locked_version"; then
+            current_specifier="$(jq -r '.dependencies["@dashevo/evo-sdk"] // .devDependencies["@dashevo/evo-sdk"]' package.json)"
+            version_prefix="$(echo "$current_specifier" | grep -o '^[^0-9]*' || true)"
 
-            npm install @dashevo/evo-sdk
+            current_package_version="$(jq -r '.version' package.json)"
+            current_major_version="${current_package_version%%.*}"
+            latest_minor_patch="${latest_version#*.}"
+            new_package_version="$current_major_version.$latest_minor_patch"
+            if [ -z "$(npx -y semver "$new_package_version" -r ">$current_package_version" || true)" ]; then
+              echo "Refusing non-forward package version update: $current_package_version -> $new_package_version" >&2
+              exit 1
+            fi
 
-            echo "needs_update=true" >> $GITHUB_ENV
-          else
-            echo "@dashevo/evo-sdk dependency is up-to-date"
-            echo "needs_update=false" >> $GITHUB_ENV
+            update_dependency_specifier package.json "$version_prefix$latest_version"
+            jq --arg version "$new_package_version" '.version = $version' package.json > package.json.tmp
+            mv package.json.tmp package.json
+
+            npm install --package-lock-only --ignore-scripts
+            updated_packages+=("root")
+            echo "Updated root SDK to $latest_version and package version to $new_package_version"
           fi
 
-      # Step 5: Create Pull Request
+          for package_file in example-apps/*/package.json; do
+            [ -f "$package_file" ] || continue
+            if ! jq -e '.dependencies["@dashevo/evo-sdk"]' "$package_file" >/dev/null; then
+              continue
+            fi
+
+            package_dir="$(dirname "$package_file")"
+            app_name="$(basename "$package_dir")"
+            app_locked_version="$(locked_version "$package_dir")"
+            echo "$app_name locked version: $app_locked_version"
+            if is_behind "$app_locked_version"; then
+              # Apps use exact pins because their lite pages embed this specifier in an import URL.
+              update_dependency_specifier "$package_file" "$latest_version"
+              for page in "$package_dir"/public/*-lite.html; do
+                [ -f "$page" ] || continue
+                sed -i -E "s|(https://esm\.sh/@dashevo/evo-sdk@)[^'\"]+|\1$latest_version|" "$page"
+              done
+              (cd "$package_dir" && npm install --package-lock-only --ignore-scripts)
+              updated_packages+=("$app_name")
+              echo "Updated $app_name SDK to $latest_version"
+            fi
+          done
+
+          if [ "${#updated_packages[@]}" -gt 0 ]; then
+            updated_list="$(printf ', %s' "${updated_packages[@]}")"
+            updated_list="${updated_list:2}"
+            echo "needs_update=true" >> "$GITHUB_ENV"
+            echo "updated_packages=$updated_list" >> "$GITHUB_ENV"
+            echo "target_sdk_version=$latest_version" >> "$GITHUB_ENV"
+          else
+            echo "All @dashevo/evo-sdk dependencies are up-to-date"
+            echo "needs_update=false" >> "$GITHUB_ENV"
+          fi
+
+      # Step 4: Create Pull Request
       - name: Create Pull Request
         if: env.needs_update == 'true'
         uses: peter-evans/create-pull-request@c0f553fe549906ede9cf27b5156039d195d2ece0 # v8.1.0
         with:
           token: ${{ secrets.GITHUB_TOKEN }}
-          branch: update-evo-sdk-and-version
+          branch: update-evo-sdk-to-${{ env.target_sdk_version }}
           base: main
-          title: "chore: update @dashevo/evo-sdk dependency and sync version"
+          title: "chore: update @dashevo/evo-sdk across tutorials and examples"
           body: |
-            This pull request updates the `@dashevo/evo-sdk` dependency to the latest version and syncs the package version, aligning the minor and patch versions with `@dashevo/evo-sdk`.
-          commit-message: "chore: update @dashevo/evo-sdk dependency and sync version"
+            This pull request updates `@dashevo/evo-sdk` to the latest stable version across the tutorials and example apps.
+
+            Updated packages: ${{ env.updated_packages }}
+
+            When the root dependency changes, the root package version is also synchronized with the SDK minor and patch version.
+          commit-message: "chore: update @dashevo/evo-sdk across tutorials and examples"
           reviewers: "thephez"
