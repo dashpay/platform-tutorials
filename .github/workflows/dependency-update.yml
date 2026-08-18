@@ -88,12 +88,17 @@ jobs:
           if is_behind "$root_locked_version"; then
             current_specifier="$(jq -r '.dependencies["@dashevo/evo-sdk"] // .devDependencies["@dashevo/evo-sdk"]' package.json)"
             version_prefix="$(echo "$current_specifier" | grep -o '^[^0-9]*' || true)"
-            update_dependency_specifier package.json "$version_prefix$latest_version"
 
             current_package_version="$(jq -r '.version' package.json)"
             current_major_version="${current_package_version%%.*}"
             latest_minor_patch="${latest_version#*.}"
             new_package_version="$current_major_version.$latest_minor_patch"
+            if [ -z "$(npx -y semver "$new_package_version" -r ">$current_package_version" || true)" ]; then
+              echo "Refusing non-forward package version update: $current_package_version -> $new_package_version" >&2
+              exit 1
+            fi
+
+            update_dependency_specifier package.json "$version_prefix$latest_version"
             jq --arg version "$new_package_version" '.version = $version' package.json > package.json.tmp
             mv package.json.tmp package.json
 
@@ -104,7 +109,7 @@ jobs:
 
           for package_file in example-apps/*/package.json; do
             [ -f "$package_file" ] || continue
-            if ! jq -e '.dependencies["@dashevo/evo-sdk"] // .devDependencies["@dashevo/evo-sdk"]' "$package_file" >/dev/null; then
+            if ! jq -e '.dependencies["@dashevo/evo-sdk"]' "$package_file" >/dev/null; then
               continue
             fi
 
