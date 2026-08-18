@@ -135,6 +135,7 @@ jobs:
             updated_list="${updated_list:2}"
             echo "needs_update=true" >> "$GITHUB_ENV"
             echo "updated_packages=$updated_list" >> "$GITHUB_ENV"
+            echo "target_sdk_version=$latest_version" >> "$GITHUB_ENV"
           else
             echo "All @dashevo/evo-sdk dependencies are up-to-date"
             echo "needs_update=false" >> "$GITHUB_ENV"
@@ -146,7 +147,7 @@ jobs:
         uses: peter-evans/create-pull-request@c0f553fe549906ede9cf27b5156039d195d2ece0 # v8.1.0
         with:
           token: ${{ secrets.GITHUB_TOKEN }}
-          branch: update-evo-sdk-and-version
+          branch: update-evo-sdk-to-${{ env.target_sdk_version }}
           base: main
           title: "chore: update @dashevo/evo-sdk across tutorials and examples"
           body: |
