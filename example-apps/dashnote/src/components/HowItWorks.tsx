@@ -87,7 +87,11 @@ const OPS = [
     sdk: "documents.get → replace",
   },
   { op: "Delete a note", file: "deleteNote.ts", sdk: "documents.delete" },
-  { op: "List my notes", file: "queries.ts", sdk: "documents.query" },
+  {
+    op: "List my notes",
+    file: "queries.ts",
+    sdk: "documents.query + startAfter",
+  },
   { op: "Register a contract", file: "contract.ts", sdk: "contracts.publish" },
 ];
 
@@ -97,6 +101,10 @@ const READING_ORDER = [
   {
     file: "src/dash/updateNote.ts",
     caption: "Fetch → bump revision → replace.",
+  },
+  {
+    file: "src/dash/queries.ts",
+    caption: "Cursor pagination with startAfter.",
   },
   {
     file: "src/components/NotesWorkspace.tsx",
@@ -247,8 +255,8 @@ export function HowItWorks() {
         <div className={SECTION_LABEL}>Recommended source files</div>
         <p className={SECTION_INTRO}>
           Read these in order to build up the mental model: schema first, then
-          the simplest write, then the read-bump-replace pattern, and finally
-          the UI layer that owns caching and revalidation.
+          the simplest write, the read-bump-replace pattern, cursor pagination,
+          and finally the UI layer that owns caching and revalidation.
         </p>
         <ol className="mt-4 space-y-1">
           {READING_ORDER.map((item, i) => (
