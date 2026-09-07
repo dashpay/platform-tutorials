@@ -1,0 +1,182 @@
+// @vitest-environment jsdom
+import {
+  act,
+  cleanup,
+  fireEvent,
+  render,
+  screen,
+  waitFor,
+} from "@testing-library/react";
+import { afterEach, expect, it, vi } from "vitest";
+import App from "../src/App";
+import { loadSdkCore } from "../src/dash/sdkCore";
+import { contract, deferred, id, sdk } from "./helpers";
+import type { ContractHandle } from "../src/dash/types";
+vi.mock("../src/dash/sdkCore", () => ({ loadSdkCore: vi.fn() }));
+afterEach(() => {
+  cleanup();
+  localStorage.clear();
+  vi.resetAllMocks();
+});
+function connect(client = sdk()) {
+  vi.mocked(loadSdkCore).mockResolvedValue({
+    createClient: vi.fn(async () => client),
+  } as unknown as Awaited<ReturnType<typeof loadSdkCore>>);
+  return client;
+}
+async function ready() {
+  await screen.findByText("Connected · Read-only");
+}
+it("invalid IDs never reach the SDK and failures are not rendered as missing", async () => {
+  const client = connect();
+  render(<App />);
+  await ready();
+  fireEvent.change(screen.getByLabelText("Open a contract"), {
+    target: { value: "invalid" },
+  });
+  fireEvent.click(screen.getByRole("button", { name: "Open" }));
+  await screen.findByRole("alert");
+  expect(client.contracts.getMany).not.toHaveBeenCalled();
+  vi.mocked(client.contracts.getMany).mockRejectedValue(
+    new Error("proof verification failed"),
+  );
+  fireEvent.change(screen.getByLabelText("Open a contract"), {
+    target: { value: id(2) },
+  });
+  fireEvent.click(screen.getByRole("button", { name: "Open" }));
+  await screen.findByText(/proof verification failed/);
+  expect(screen.queryByText(/deleted or never existed/)).toBeNull();
+});
+it("network changes discard late contract results", async () => {
+  const client = connect();
+  const pending = deferred<Map<string, ContractHandle | undefined>>();
+  vi.mocked(client.contracts.getMany).mockReturnValue(pending.promise);
+  render(<App />);
+  await ready();
+  fireEvent.change(screen.getByLabelText("Open a contract"), {
+    target: { value: id(2) },
+  });
+  fireEvent.click(screen.getByRole("button", { name: "Open" }));
+  fireEvent.change(screen.getByLabelText("Network"), {
+    target: { value: "mainnet" },
+  });
+  await ready();
+  await act(async () => {
+    pending.resolve(new Map([[id(2), contract()]]));
+  });
+  expect(screen.queryByText("Example contract")).toBeNull();
+  expect(
+    screen.queryByRole("heading", { name: "Declared by contract" }),
+  ).toBeNull();
+});
+it("changing an input supersedes an in-flight lookup", async () => {
+  const client = connect();
+  const pending = deferred<Map<string, ContractHandle | undefined>>();
+  vi.mocked(client.contracts.getMany).mockReturnValue(pending.promise);
+  render(<App />);
+  await ready();
+  const input = screen.getByLabelText("Open a contract");
+  fireEvent.change(input, { target: { value: id(2) } });
+  fireEvent.click(screen.getByRole("button", { name: "Open" }));
+  fireEvent.change(input, { target: { value: id(3) } });
+  await act(async () => {
+    pending.resolve(new Map([[id(2), contract()]]));
+  });
+  expect(screen.queryByText("Example contract")).toBeNull();
+});
+it("refresh forces fresh contract facts and short description", async () => {
+  const client = connect();
+  vi.mocked(client.contracts.getMany).mockResolvedValue(
+    new Map([[id(2), contract()]]),
+  );
+  vi.mocked(client.documents.query).mockResolvedValue([
+    { properties: { description: "Declared summary" } },
+  ]);
+  render(<App />);
+  await ready();
+  fireEvent.change(screen.getByLabelText("Open a contract"), {
+    target: { value: id(2) },
+  });
+  fireEvent.click(screen.getByRole("button", { name: "Open" }));
+  await screen.findByText("Declared summary");
+  await waitFor(() =>
+    expect(
+      (screen.getByRole("button", { name: "Refresh" }) as HTMLButtonElement)
+        .disabled,
+    ).toBe(false),
+  );
+  fireEvent.click(screen.getByRole("button", { name: "Refresh" }));
+  await waitFor(() =>
+    expect(
+      vi.mocked(client.documents.query).mock.calls.filter(
+        ([args]) => args.documentTypeName === "shortDescription",
+      ),
+    ).toHaveLength(2),
+  );
+  expect(client.contracts.getMany).toHaveBeenCalledTimes(2);
+});
+
+it("keeps contract facts and displays a readable, retryable short-description error", async () => {
+  const client = connect();
+  vi.mocked(client.contracts.getMany).mockResolvedValue(
+    new Map([[id(2), contract()]]),
+  );
+  vi.mocked(client.documents.query).mockImplementation(async (args) => {
+    if (args.documentTypeName === "shortDescription")
+      return Promise.reject({ message: () => "Description proof failed" });
+    return [];
+  });
+  render(<App />);
+  await ready();
+  fireEvent.change(screen.getByLabelText("Open a contract"), {
+    target: { value: id(2) },
+  });
+  fireEvent.click(screen.getByRole("button", { name: "Open" }));
+  await screen.findByText(
+    /Could not load the short description: Description proof failed/,
+  );
+  expect(screen.getByText("Example contract")).toBeTruthy();
+  expect(screen.queryByText(/\[object Object\]/)).toBeNull();
+  expect(screen.queryByText("No short description declared.")).toBeNull();
+  vi.mocked(client.documents.query).mockResolvedValue([]);
+  fireEvent.click(screen.getByRole("button", { name: "Refresh" }));
+  await screen.findByText("No short description declared.");
+  expect(screen.queryByRole("alert")).toBeNull();
+});
+
+it("validates and saves Settings per network without carrying pending discovery results", async () => {
+  const client = connect();
+  const pending = deferred<Map<string, ContractHandle | undefined>>();
+  vi.mocked(client.contracts.getMany).mockReturnValue(pending.promise);
+  render(<App />);
+  await ready();
+  fireEvent.change(screen.getByLabelText("Open a contract"), {
+    target: { value: id(2) },
+  });
+  fireEvent.click(screen.getByRole("button", { name: "Open" }));
+  fireEvent.click(screen.getByRole("button", { name: "Settings" }));
+  fireEvent.change(screen.getByLabelText("Registry contract ID"), {
+    target: { value: "invalid" },
+  });
+  fireEvent.click(screen.getByRole("button", { name: "Save registry" }));
+  await screen.findByRole("alert");
+  fireEvent.change(screen.getByLabelText("Registry contract ID"), {
+    target: { value: id(7) },
+  });
+  fireEvent.click(screen.getByRole("button", { name: "Save registry" }));
+  await screen.findByText("Registry selection saved.");
+  expect(localStorage.getItem("dashapps.contractId.testnet")).toBe(id(7));
+  fireEvent.change(screen.getByLabelText("Network"), {
+    target: { value: "mainnet" },
+  });
+  await ready();
+  expect(
+    (screen.getByLabelText("Registry contract ID") as HTMLInputElement).value,
+  ).toBe("");
+  expect(screen.queryByRole("button", { name: "Sign in" })).toBeNull();
+  fireEvent.click(screen.getByRole("button", { name: "Discover" }));
+  await act(async () => {
+    pending.resolve(new Map([[id(2), contract()]]));
+  });
+  expect(screen.queryByText("Example contract")).toBeNull();
+});
