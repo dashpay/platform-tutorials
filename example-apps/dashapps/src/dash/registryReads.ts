@@ -3,11 +3,35 @@ import type { ReadSdk } from "./types";
 import { toDocumentArray, type DocumentHandle } from "../lib/safeDoc";
 
 export const REGISTRY_DOCUMENT_TYPE = "appMetadata";
+export const APP_CATEGORIES = [
+  "finance",
+  "wallets-payments",
+  "social",
+  "messaging",
+  "games",
+  "marketplaces",
+  "productivity",
+  "developer-tools",
+  "data-analytics",
+  "identity",
+  "governance-community",
+  "media",
+  "education",
+  "utilities",
+  "infrastructure",
+  "other",
+] as const;
+export type AppCategory = (typeof APP_CATEGORIES)[number];
 export interface RegistryEntry {
   id: string;
   ownerId: string;
   contractId: string;
   name: string;
+  tagline: string;
+  category: AppCategory;
+  tags: string[];
+  appUrl?: string;
+  iconUrl?: string;
   description?: string;
   website?: string;
   repository?: string;
@@ -16,9 +40,16 @@ export interface RegistryEntry {
   revision: bigint;
 }
 
+function requiredString(value: unknown, field: string): string {
+  if (typeof value !== "string" || !value)
+    throw new Error(`Malformed registry ${field}.`);
+  return value;
+}
+
 function optionalString(value: unknown, field: string): string | undefined {
   if (value == null) return undefined;
-  if (typeof value !== "string") throw new Error(`Malformed registry ${field}.`);
+  if (typeof value !== "string")
+    throw new Error(`Malformed registry ${field}.`);
   return value;
 }
 
@@ -39,13 +70,24 @@ export function registryEntry(document: DocumentHandle): RegistryEntry {
   };
   const object = source.toObject?.() ?? {};
   const properties = source.properties ?? object;
-  const name = properties.name;
-  if (typeof name !== "string" || !name) throw new Error("Malformed registry name.");
+  const name = requiredString(properties.name, "name");
+  const category = requiredString(properties.category, "category");
+  if (!APP_CATEGORIES.includes(category as AppCategory))
+    throw new Error("Malformed registry category.");
+  const tagsValue = properties.tags ?? "";
+  if (typeof tagsValue !== "string")
+    throw new Error("Malformed registry tags.");
+  const tags = tagsValue ? tagsValue.split(",") : [];
   return {
     id: requireId(source.id ?? object.$id),
     ownerId: requireId(source.ownerId ?? object.$ownerId),
     contractId: requireId(properties.contractId),
     name,
+    tagline: requiredString(properties.tagline, "tagline"),
+    category: category as AppCategory,
+    tags,
+    appUrl: optionalString(properties.appUrl, "appUrl"),
+    iconUrl: optionalString(properties.iconUrl, "iconUrl"),
     description: optionalString(properties.description, "description"),
     website: optionalString(properties.website, "website"),
     repository: optionalString(properties.repository, "repository"),
@@ -55,7 +97,33 @@ export function registryEntry(document: DocumentHandle): RegistryEntry {
   };
 }
 
-async function query(sdk: ReadSdk, args: Parameters<ReadSdk["documents"]["query"]>[0]) {
+export async function entriesByCategory(
+  sdk: ReadSdk,
+  registryId: string,
+  category: AppCategory,
+  cursor?: string,
+) {
+  const entries = await query(sdk, {
+    dataContractId: requireId(registryId),
+    documentTypeName: REGISTRY_DOCUMENT_TYPE,
+    where: [["category", "==", category]],
+    orderBy: [
+      ["category", "asc"],
+      ["$createdAt", "asc"],
+    ],
+    limit: 25,
+    ...(cursor ? { startAfter: requireId(cursor) } : {}),
+  });
+  const next = entries.length === 25 ? entries.at(-1)!.id : undefined;
+  if (next && next === cursor)
+    throw new Error("Category pagination cursor did not advance.");
+  return { entries: entries.reverse(), cursor: next };
+}
+
+async function query(
+  sdk: ReadSdk,
+  args: Parameters<ReadSdk["documents"]["query"]>[0],
+) {
   return toDocumentArray(await sdk.documents.query(args)).map(registryEntry);
 }
 
@@ -68,14 +136,24 @@ export async function exactRegistryEntry(
   const rows = await query(sdk, {
     dataContractId: requireId(registryId),
     documentTypeName: REGISTRY_DOCUMENT_TYPE,
-    where: [["$ownerId", "==", requireId(ownerId)], ["contractId", "==", requireId(contractId)]],
-    orderBy: [["$ownerId", "asc"], ["contractId", "asc"]],
+    where: [
+      ["$ownerId", "==", requireId(ownerId)],
+      ["contractId", "==", requireId(contractId)],
+    ],
+    orderBy: [
+      ["$ownerId", "asc"],
+      ["contractId", "asc"],
+    ],
     limit: 1,
   });
   return rows[0] ?? null;
 }
 
-export async function allProposals(sdk: ReadSdk, registryId: string, contractId: string) {
+export async function allProposals(
+  sdk: ReadSdk,
+  registryId: string,
+  contractId: string,
+) {
   const entries: RegistryEntry[] = [];
   const ids = new Set<string>();
   let startAfter: string | undefined;
@@ -84,24 +162,36 @@ export async function allProposals(sdk: ReadSdk, registryId: string, contractId:
       dataContractId: requireId(registryId),
       documentTypeName: REGISTRY_DOCUMENT_TYPE,
       where: [["contractId", "==", requireId(contractId)]],
-      orderBy: [["contractId", "asc"], ["$createdAt", "asc"]],
+      orderBy: [
+        ["contractId", "asc"],
+        ["$createdAt", "asc"],
+      ],
       limit: 100,
       ...(startAfter ? { startAfter } : {}),
     });
     for (const entry of page) {
-      if (ids.has(entry.id)) throw new Error("Proposal pagination returned a duplicate document.");
+      if (ids.has(entry.id))
+        throw new Error("Proposal pagination returned a duplicate document.");
       ids.add(entry.id);
       entries.push(entry);
-      if (entries.length > 2_000) throw new Error("Proposal scan exceeded the 2,000-document safety limit.");
+      if (entries.length > 2_000)
+        throw new Error(
+          "Proposal scan exceeded the 2,000-document safety limit.",
+        );
     }
     if (page.length < 100) return entries.reverse();
     const next = page.at(-1)!.id;
-    if (next === startAfter) throw new Error("Proposal pagination cursor did not advance.");
+    if (next === startAfter)
+      throw new Error("Proposal pagination cursor did not advance.");
     startAfter = next;
   }
 }
 
-export async function recentEntries(sdk: ReadSdk, registryId: string, cursor?: string) {
+export async function recentEntries(
+  sdk: ReadSdk,
+  registryId: string,
+  cursor?: string,
+) {
   const entries = await query(sdk, {
     dataContractId: requireId(registryId),
     documentTypeName: REGISTRY_DOCUMENT_TYPE,
@@ -111,13 +201,20 @@ export async function recentEntries(sdk: ReadSdk, registryId: string, cursor?: s
     ...(cursor ? { startAfter: requireId(cursor) } : {}),
   });
   const next = entries.length === 50 ? entries.at(-1)!.id : undefined;
-  if (next && next === cursor) throw new Error("Recent pagination cursor did not advance.");
+  if (next && next === cursor)
+    throw new Error("Recent pagination cursor did not advance.");
   return { entries, cursor: next };
 }
 
-export async function searchEntriesByName(sdk: ReadSdk, registryId: string, value: string, cursor?: string) {
+export async function searchEntriesByName(
+  sdk: ReadSdk,
+  registryId: string,
+  value: string,
+  cursor?: string,
+) {
   const prefix = value.trim();
-  if (!prefix || prefix.length > 63) throw new Error("Use a name prefix of 1–63 characters.");
+  if (!prefix || prefix.length > 63)
+    throw new Error("Use a name prefix of 1–63 characters.");
   const entries = await query(sdk, {
     dataContractId: requireId(registryId),
     documentTypeName: REGISTRY_DOCUMENT_TYPE,
@@ -127,11 +224,16 @@ export async function searchEntriesByName(sdk: ReadSdk, registryId: string, valu
     ...(cursor ? { startAfter: requireId(cursor) } : {}),
   });
   const next = entries.length === 25 ? entries.at(-1)!.id : undefined;
-  if (next && next === cursor) throw new Error("Name pagination cursor did not advance.");
+  if (next && next === cursor)
+    throw new Error("Name pagination cursor did not advance.");
   return { entries, cursor: next };
 }
 
-export async function myEntries(sdk: ReadSdk, registryId: string, ownerId: string) {
+export async function myEntries(
+  sdk: ReadSdk,
+  registryId: string,
+  ownerId: string,
+) {
   const entries: RegistryEntry[] = [];
   let startAfter: string | undefined;
   const seen = new Set<string>();
@@ -140,18 +242,25 @@ export async function myEntries(sdk: ReadSdk, registryId: string, ownerId: strin
       dataContractId: requireId(registryId),
       documentTypeName: REGISTRY_DOCUMENT_TYPE,
       where: [["$ownerId", "==", requireId(ownerId)]],
-      orderBy: [["$ownerId", "asc"], ["contractId", "asc"]],
+      orderBy: [
+        ["$ownerId", "asc"],
+        ["contractId", "asc"],
+      ],
       limit: 100,
       ...(startAfter ? { startAfter } : {}),
     });
     for (const entry of page) {
-      if (seen.has(entry.id)) throw new Error("My submissions pagination returned a duplicate document.");
+      if (seen.has(entry.id))
+        throw new Error(
+          "My submissions pagination returned a duplicate document.",
+        );
       seen.add(entry.id);
       entries.push(entry);
     }
     if (page.length < 100) return entries;
     const next = page.at(-1)!.id;
-    if (next === startAfter) throw new Error("My submissions cursor did not advance.");
+    if (next === startAfter)
+      throw new Error("My submissions cursor did not advance.");
     startAfter = next;
   }
 }

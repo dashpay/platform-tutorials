@@ -1,17 +1,50 @@
 import type { IdentityKeyManager } from "../../../../setupDashClient-core.mjs";
-import type { Document, IdentityPublicKey, IdentitySigner } from "@dashevo/evo-sdk";
+import type {
+  DataContract,
+  Document,
+  IdentityPublicKey,
+  IdentitySigner,
+} from "@dashevo/evo-sdk";
 import type { ReadSdk, Network } from "../dash/types";
 import type { OwnerResolver } from "../dash/ownerResolver";
 import type { NameResolver } from "../dash/resolveDpnsName";
 export interface SessionSdk extends ReadSdk {
-  identities: { balance(id: string): Promise<bigint> };
-  documents: ReadSdk["documents"] & {
-    get(contractId: string, type: string, documentId: string): Promise<Document | undefined>;
-    create(options: { document: Document; identityKey: IdentityPublicKey; signer: IdentitySigner }): Promise<unknown>;
-    replace(options: { document: Document; identityKey: IdentityPublicKey; signer: IdentitySigner }): Promise<unknown>;
-    delete(options: { document: Document; identityKey: IdentityPublicKey; signer: IdentitySigner }): Promise<unknown>;
+  identities: {
+    balance(id: string): Promise<bigint>;
+    nonce(id: string): Promise<bigint | number | undefined>;
   };
-  getWasmSdkConnected?(): Promise<{ removeCachedContract?(id: unknown): unknown }>;
+  contracts: ReadSdk["contracts"] & {
+    publish(options: {
+      dataContract: DataContract;
+      identityKey: IdentityPublicKey;
+      signer: IdentitySigner;
+    }): Promise<DataContract>;
+  };
+  documents: ReadSdk["documents"] & {
+    get(
+      contractId: string,
+      type: string,
+      documentId: string,
+    ): Promise<Document | undefined>;
+    create(options: {
+      document: Document;
+      identityKey: IdentityPublicKey;
+      signer: IdentitySigner;
+    }): Promise<unknown>;
+    replace(options: {
+      document: Document;
+      identityKey: IdentityPublicKey;
+      signer: IdentitySigner;
+    }): Promise<unknown>;
+    delete(options: {
+      document: Document;
+      identityKey: IdentityPublicKey;
+      signer: IdentitySigner;
+    }): Promise<unknown>;
+  };
+  getWasmSdkConnected?(): Promise<{
+    removeCachedContract?(id: unknown): unknown;
+  }>;
 }
 export interface Connection {
   sdk: SessionSdk;

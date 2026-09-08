@@ -7,14 +7,13 @@ A `Uint8Array` in `where` fails with:
 
 > Invalid documents query: fromObject: serde deserialization error: invalid type: byte array, expected any valid JSON value
 
-Use validated base58 strings for identifier equality filters. Live write probes
+Use validated base58 strings for identifier equality filters. Live write verification
 later established that identifier-media `Document` properties also require
 base58; byte values do not survive the evo-sdk bridge as `Value::Identifier`.
 
 Verified the Keyword Search `shortDescription` query for both results of the
 `dash` keyword on testnet: base58 filters returned the Sansnote description.
-`scripts/check-discovery.mjs` now exercises these follow-up reads as well as
-keyword discovery. The app's mocked tests assert the JSON-safe filter shape.
+The app's mocked tests assert the JSON-safe filter shape.
 
 SDK errors can be WASM objects with a `message()` method. Use
 `src/lib/logger.ts` rather than `String(error)`, including before wrapping errors.
@@ -22,30 +21,22 @@ Short-description errors are independent of successfully loaded contract facts;
 show the actual error next to that field and let Refresh retry it. A successful
 empty response is distinct from a failed read.
 
-No registry schema probes or registrations have been performed yet.
-
-The opt-in implementations are prepared in `scripts/probes/`: the candidate
-schema/config, shared reporting helpers, the index/mutation/pagination gate and
-the declared-metadata reconstruction gate. They have not been executed. A live
-run must pass and its JSON report must be retained here before a schema is frozen
-or configured as the testnet default.
-
 First live attempt at protocol 13, heights 568315–568316, published temporary
 contracts `7ZiLHmRbe1KCDAjcKmGJ7MFYpDuA1WeFP3HMN61w7Mc3` and
 `EtxiWUmuva8vsg2yezX2n7peompzN32VJABQuK7FLCXJ`. Metadata reconstruction,
 publication and fetched declared metadata passed. The first document write on
-each failed with Drive's `structure error: not an array of bytes`: the probe
+each failed with Drive's `structure error: not an array of bytes`: the write attempt
 gave `Document` a `Uint8Array` identifier property. A second attempt at height
 568318 used a plain number array and received the same error. The evo-sdk 4.1
 contract-aware serializer requires identifier-media properties in canonical
 base58 form, then a fetched-contract `toBytes`/`fromBytes` round trip to produce
 the typed identifier before facade validation. Its own document round-trip tests
-use that path. The probes now prepare creates and replacements this way. These
+use that path. Creates and replacements now use this preparation. These
 attempts do not satisfy the deployment gate.
 
 The first contract-aware attempt at height 568319 then stopped locally with
 `missing required key: created at field is not present`. Because this preparation
-serializes before the facade can populate timestamps, the probe now seeds create
+serializes before the facade can populate timestamps, the write path seeds create
 timestamps and preserves `$createdAt` while advancing `$updatedAt` on replacement.
 At height 568320, typed property preparation passed but `fromBytes` dropped the
 wrapper-only creation entropy; the facade stopped before broadcast with
@@ -88,7 +79,7 @@ build, lint, 46 Vitest tests in 11 files, and the Chromium Playwright smoke test
 
 PLAN.md now removes the leaderboard and all proposal/target-document counts.
 Keep one metadata entry per identity per target, allowing multiple community
-proposals. Use the four non-aggregate candidate indices and revised probes.
+proposals. Use the four non-aggregate candidate indices.
 
 SessionContext.tsx adapts the dashnames generation-guard pattern for mnemonic
 sign-in. Network changes invalidate connection/auth/balance requests and caches.

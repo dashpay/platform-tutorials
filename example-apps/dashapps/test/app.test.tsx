@@ -27,10 +27,14 @@ function connect(client = sdk()) {
 async function ready() {
   await screen.findByText("Connected · Read-only");
 }
+function openSearch() {
+  fireEvent.click(screen.getByRole("button", { name: "Search" }));
+}
 it("invalid IDs never reach the SDK and failures are not rendered as missing", async () => {
   const client = connect();
   render(<App />);
   await ready();
+  openSearch();
   fireEvent.change(screen.getByLabelText("Open a contract"), {
     target: { value: "invalid" },
   });
@@ -53,6 +57,7 @@ it("network changes discard late contract results", async () => {
   vi.mocked(client.contracts.getMany).mockReturnValue(pending.promise);
   render(<App />);
   await ready();
+  openSearch();
   fireEvent.change(screen.getByLabelText("Open a contract"), {
     target: { value: id(2) },
   });
@@ -75,6 +80,7 @@ it("changing an input supersedes an in-flight lookup", async () => {
   vi.mocked(client.contracts.getMany).mockReturnValue(pending.promise);
   render(<App />);
   await ready();
+  openSearch();
   const input = screen.getByLabelText("Open a contract");
   fireEvent.change(input, { target: { value: id(2) } });
   fireEvent.click(screen.getByRole("button", { name: "Open" }));
@@ -94,11 +100,12 @@ it("refresh forces fresh contract facts and short description", async () => {
   ]);
   render(<App />);
   await ready();
+  openSearch();
   fireEvent.change(screen.getByLabelText("Open a contract"), {
     target: { value: id(2) },
   });
   fireEvent.click(screen.getByRole("button", { name: "Open" }));
-  await screen.findByText("Declared summary");
+  await screen.findAllByText("Declared summary");
   await waitFor(() =>
     expect(
       (screen.getByRole("button", { name: "Refresh" }) as HTMLButtonElement)
@@ -108,13 +115,44 @@ it("refresh forces fresh contract facts and short description", async () => {
   fireEvent.click(screen.getByRole("button", { name: "Refresh" }));
   await waitFor(() =>
     expect(
-      vi.mocked(client.documents.query).mock.calls.filter(
-        ([args]) => args.documentTypeName === "shortDescription",
-      ),
+      vi
+        .mocked(client.documents.query)
+        .mock.calls.filter(
+          ([args]) => args.documentTypeName === "shortDescription",
+        ),
     ).toHaveLength(2),
   );
   expect(client.contracts.getMany).toHaveBeenCalledTimes(2);
 });
+
+it.each(["Discover", "Search", "Mine"])(
+  "%s navigation exits the contract detail screen",
+  async (destination) => {
+    const client = connect();
+    vi.mocked(client.contracts.getMany).mockResolvedValue(
+      new Map([[id(2), contract()]]),
+    );
+    vi.mocked(client.documents.query).mockResolvedValue([]);
+    render(<App />);
+    await ready();
+    openSearch();
+    fireEvent.change(screen.getByLabelText("Open a contract"), {
+      target: { value: id(2) },
+    });
+    fireEvent.click(screen.getByRole("button", { name: "Open" }));
+    await screen.findByRole("button", { name: "Refresh" });
+
+    fireEvent.click(screen.getByRole("button", { name: destination }));
+
+    expect(screen.queryByRole("button", { name: "Refresh" })).toBeNull();
+    if (destination === "Discover")
+      expect(screen.getByText("Built on Dash Platform")).toBeTruthy();
+    else
+      expect(
+        screen.getByRole("heading", { name: destination, level: 1 }),
+      ).toBeTruthy();
+  },
+);
 
 it("keeps contract facts and displays a readable, retryable short-description error", async () => {
   const client = connect();
@@ -128,6 +166,7 @@ it("keeps contract facts and displays a readable, retryable short-description er
   });
   render(<App />);
   await ready();
+  openSearch();
   fireEvent.change(screen.getByLabelText("Open a contract"), {
     target: { value: id(2) },
   });
@@ -150,11 +189,13 @@ it("validates and saves Settings per network without carrying pending discovery 
   vi.mocked(client.contracts.getMany).mockReturnValue(pending.promise);
   render(<App />);
   await ready();
+  openSearch();
   fireEvent.change(screen.getByLabelText("Open a contract"), {
     target: { value: id(2) },
   });
   fireEvent.click(screen.getByRole("button", { name: "Open" }));
   fireEvent.click(screen.getByRole("button", { name: "Settings" }));
+  fireEvent.click(screen.getByRole("button", { name: "Change" }));
   fireEvent.change(screen.getByLabelText("Registry contract ID"), {
     target: { value: "invalid" },
   });
@@ -170,6 +211,7 @@ it("validates and saves Settings per network without carrying pending discovery 
     target: { value: "mainnet" },
   });
   await ready();
+  fireEvent.click(screen.getByRole("button", { name: "Set" }));
   expect(
     (screen.getByLabelText("Registry contract ID") as HTMLInputElement).value,
   ).toBe("");

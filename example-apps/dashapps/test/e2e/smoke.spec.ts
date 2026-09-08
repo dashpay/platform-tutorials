@@ -6,9 +6,10 @@ test("read-only discovery boots and remains usable on mobile", async ({
   page.on("pageerror", (error) => errors.push(error.message));
   await page.goto("/");
   await expect(
-    page.getByRole("heading", { name: /Discover what/ }),
+    page.getByRole("heading", { name: "Built on Dash Platform" }),
   ).toBeVisible();
   await expect(page.getByLabel("Network")).toHaveValue("testnet");
+  await page.getByRole("button", { name: "Search" }).click();
   await expect(page.getByLabel("Discover by keyword")).toBeVisible();
   await expect(page.getByLabel("Open a contract")).toBeVisible();
   await page.setViewportSize({ width: 390, height: 844 });
