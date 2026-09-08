@@ -23,7 +23,7 @@ npm run dev
 Run from this directory with the repository's Node 22.22.x toolchain. The app uses
 port 5187 and shares the repository-root browser-safe SDK core. Settings accepts
 an optional registry ID separately for each network. Testnet defaults to
-`E3WpnWvFAjWm7bC6MaRAc1LcsXRXFd6w2dAQhXiQHtJT`; mainnet remains unset. Sign-in
+`EoMc3L6KsLBr9aTSbBwuZKcVFRnarMfxFMQFXCGY5ZGo`; mainnet remains unset. Sign-in
 uses an existing testnet identity's recovery phrase and optional
 identity index. The phrase is never saved to browser storage. Mainnet has no sign-in.
 
