@@ -5,6 +5,7 @@ import {
   listRatings,
   ownRating,
   ratingSummary,
+  RATING_PAGE_SIZE,
   STAR_VALUES,
   type RatingRecord,
   type RatingSort,
@@ -255,7 +256,6 @@ export function AppRatings({
   const [signingIn, setSigningIn] = useState(false);
   const [notice, setNotice] = useState("");
   const [refresh, setRefresh] = useState(0);
-  const [loadingMore, setLoadingMore] = useState(false);
 
   // Results carry the scope they were loaded for; a scope mismatch means the
   // data is stale (or still loading) and is not shown. No synchronous resets.
@@ -276,9 +276,9 @@ export function AppRatings({
   const [listState, setListState] = useState<{
     scope: string;
     ratings: RatingRecord[];
-    cursor?: string;
     error: string;
   }>({ scope: "", ratings: [], error: "" });
+  const [revealed, setRevealed] = useState(RATING_PAGE_SIZE);
   const listCurrent = listState.scope === listScope ? listState : undefined;
   const ratings = listCurrent?.ratings ?? [];
   const listError = listCurrent?.error ?? "";
@@ -319,16 +319,10 @@ export function AppRatings({
     void listRatings(connection.sdk, registryId, contractId, {
       sort,
       stars: starsFilter,
-      cursor: undefined,
     })
-      .then((page) => {
+      .then((loaded) => {
         if (active)
-          setListState({
-            scope: listScope,
-            ratings: page.ratings,
-            cursor: page.cursor,
-            error: "",
-          });
+          setListState({ scope: listScope, ratings: loaded, error: "" });
       })
       .catch((caught) => {
         if (active)
@@ -343,43 +337,6 @@ export function AppRatings({
     };
   }, [connection, registryId, contractId, sort, starsFilter, listScope]);
 
-  async function loadMore() {
-    const cursor = listCurrent?.cursor;
-    if (!connection || !registryId || !cursor || loadingMore) return;
-    setLoadingMore(true);
-    try {
-      const page = await listRatings(connection.sdk, registryId, contractId, {
-        sort,
-        stars: starsFilter,
-        cursor,
-      });
-      setListState((previous) =>
-        previous.scope === listScope
-          ? {
-              ...previous,
-              ratings: [
-                ...new Map(
-                  [...previous.ratings, ...page.ratings].map((rating) => [
-                    rating.id,
-                    rating,
-                  ]),
-                ).values(),
-              ],
-              cursor: page.cursor,
-            }
-          : previous,
-      );
-    } catch (caught) {
-      setListState((previous) =>
-        previous.scope === listScope
-          ? { ...previous, error: errorMessage(caught) }
-          : previous,
-      );
-    } finally {
-      setLoadingMore(false);
-    }
-  }
-
   if (!registryId) return null;
   const count = summary?.count ?? 0n;
   const max = summary
@@ -389,9 +346,10 @@ export function AppRatings({
         0n,
       )
     : 0n;
-  const visible = writtenOnly
+  const matching = writtenOnly
     ? ratings.filter((rating) => Boolean(rating.body))
     : ratings;
+  const visible = matching.slice(0, revealed);
   const canWrite =
     Boolean(identityId && session.keyManager) && own !== undefined;
   const changed = (message: string) => {
@@ -580,14 +538,13 @@ export function AppRatings({
           />
         ))}
       </ul>
-      {listCurrent?.cursor && (
+      {matching.length > revealed && (
         <button
           type="button"
           className="open-pill"
-          disabled={loadingMore}
-          onClick={() => void loadMore()}
+          onClick={() => setRevealed((value) => value + RATING_PAGE_SIZE)}
         >
-          {loadingMore ? "Loading…" : "Load more"}
+          Show more ({matching.length - revealed} more)
         </button>
       )}
       {editorOpen &&

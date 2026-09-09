@@ -107,6 +107,12 @@ encodes that rule. The average is derived client-side from the grouped count
 (`GROUP BY stars`, `between [1, 5]`); grouped-count map keys are the sign-flipped
 single byte hex (`stars 5 → "85"`), as in dashrate.
 
+Platform silently ignores `desc` in `orderBy` (seen live: "Highest rated" and
+"Most recent" came back ascending). `listRatings` therefore scans an app's
+ratings to completion through the serving index (100 per page, document-ID
+`startAfter`, 2,000-document ceiling) and sorts client-side; the UI reveals 25
+at a time. Do not reintroduce server-side `desc` paging for ratings.
+
 The updated contract was published by the maintainer as
 `BXcWyLZDtcPrEmd8tmPt6A7h4YuqgPGVJU1PBvs1dYiS` and is the testnet default; the
 previous registry `EoMc3L6KsLBr9aTSbBwuZKcVFRnarMfxFMQFXCGY5ZGo` is not read or

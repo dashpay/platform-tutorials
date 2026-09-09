@@ -118,20 +118,34 @@ it("rejects malformed count responses instead of showing zero", async () => {
   );
 });
 
-it("orders by the serving index's trailing property for each sort and filter", async () => {
+it("scans through the serving index ascending and sorts client-side", async () => {
+  // Platform ignores `desc`, so every sort scans asc and orders in JS.
   const client = sdk();
-  vi.mocked(client.documents.query).mockResolvedValue([document(3)]);
-  await listRatings(client, id(9), id(2));
-  await listRatings(client, id(9), id(2), { sort: "highest" });
-  await listRatings(client, id(9), id(2), { sort: "lowest" });
-  await listRatings(client, id(9), id(2), { sort: "highest", stars: 3 });
+  const rows = [
+    document(10, 3),
+    document(11, 5),
+    document(12, 4),
+    document(13, 5),
+  ];
+  vi.mocked(client.documents.query).mockResolvedValue(rows);
+  const recent = await listRatings(client, id(9), id(2));
+  const highest = await listRatings(client, id(9), id(2), { sort: "highest" });
+  const lowest = await listRatings(client, id(9), id(2), { sort: "lowest" });
+  const filtered = await listRatings(client, id(9), id(2), {
+    sort: "highest",
+    stars: 3,
+  });
+  expect(recent.map((r) => r.id)).toEqual([id(13), id(12), id(11), id(10)]);
+  expect(highest.map((r) => r.id)).toEqual([id(13), id(11), id(12), id(10)]);
+  expect(lowest.map((r) => r.id)).toEqual([id(10), id(12), id(13), id(11)]);
+  expect(filtered.map((r) => r.id)).toEqual([id(13), id(12), id(11), id(10)]);
   const calls = vi.mocked(client.documents.query).mock.calls.map(([args]) => ({
     where: args.where,
     orderBy: args.orderBy,
   }));
   expect(calls).toEqual([
-    { where: [["contractId", "==", id(2)]], orderBy: [["$createdAt", "desc"]] },
-    { where: [["contractId", "==", id(2)]], orderBy: [["stars", "desc"]] },
+    { where: [["contractId", "==", id(2)]], orderBy: [["$createdAt", "asc"]] },
+    { where: [["contractId", "==", id(2)]], orderBy: [["stars", "asc"]] },
     { where: [["contractId", "==", id(2)]], orderBy: [["stars", "asc"]] },
     {
       where: [
@@ -144,37 +158,31 @@ it("orders by the serving index's trailing property for each sort and filter", a
   expect(vi.mocked(client.documents.query).mock.calls[0][0]).toMatchObject({
     dataContractId: id(9),
     documentTypeName: "appRating",
-    limit: 25,
+    limit: 100,
   });
 });
 
-it("pages by document ID, skips malformed rows and detects stuck cursors", async () => {
+it("pages the scan by document ID, skips malformed rows and detects stuck cursors", async () => {
   const client = sdk();
-  const page = Array.from({ length: 25 }, (_, index) => document(index + 10));
+  const page = Array.from({ length: 100 }, (_, index) => document(index + 10));
   page[3] = {
     ...document(13),
     properties: { ...document(13).properties, stars: 9 },
   };
-  const second = Array.from({ length: 25 }, (_, index) => document(index + 40));
   vi.mocked(client.documents.query)
     .mockResolvedValueOnce(page)
-    .mockResolvedValueOnce(second)
-    .mockResolvedValueOnce(page)
-    .mockResolvedValueOnce([document(3)]);
-  const first = await listRatings(client, id(9), id(2));
-  expect(first.ratings).toHaveLength(24);
-  expect(first.cursor).toBe(id(34));
-  const next = await listRatings(client, id(9), id(2), {
-    cursor: first.cursor,
-  });
-  expect(next.cursor).toBe(id(64));
-  expect(client.documents.query).toHaveBeenLastCalledWith(
-    expect.objectContaining({ startAfter: id(34) }),
+    .mockResolvedValueOnce([document(200)]);
+  const all = await listRatings(client, id(9), id(2));
+  expect(all).toHaveLength(100);
+  expect(all.map((r) => r.id)).not.toContain(id(13));
+  expect(client.documents.query).toHaveBeenNthCalledWith(
+    2,
+    expect.objectContaining({ startAfter: id(109) }),
   );
-  await expect(
-    listRatings(client, id(9), id(2), { cursor: id(34) }),
-  ).rejects.toThrow("cursor did not advance");
-  expect((await listRatings(client, id(9), id(2))).cursor).toBeUndefined();
+  vi.mocked(client.documents.query).mockResolvedValue(page);
+  await expect(listRatings(client, id(9), id(2))).rejects.toThrow(
+    /duplicate document|did not advance/,
+  );
 });
 
 it("looks up the caller's own rating through the unique owner index", async () => {

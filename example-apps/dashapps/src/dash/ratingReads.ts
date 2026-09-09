@@ -5,6 +5,7 @@ import { toDocumentArray, type DocumentHandle } from "../lib/safeDoc";
 export const RATING_DOCUMENT_TYPE = "appRating";
 export const STAR_VALUES = [1, 2, 3, 4, 5] as const;
 export type Stars = (typeof STAR_VALUES)[number];
+/** Ratings revealed per "Show more" step in the UI. */
 export const RATING_PAGE_SIZE = 25;
 export type RatingSort = "recent" | "highest" | "lowest";
 
@@ -171,39 +172,70 @@ export async function ratingSummary(
   return summarize(distribution);
 }
 
+export const RATING_SCAN_LIMIT = 2_000;
+
+function byNewest(left: RatingRecord, right: RatingRecord) {
+  return Number((right.createdAt ?? 0n) - (left.createdAt ?? 0n));
+}
+
 /**
- * One page of ratings for a contract. The `orderBy` field must be the serving
- * index's trailing property: `$createdAt` on `byContractCreated` for recency,
- * `stars` on `byContractStars` for highest/lowest and for the `stars == N`
- * filter (a point lookup, which then orders within the star value).
+ * Every rating for a contract, sorted client-side. Platform silently ignores
+ * `desc` in `orderBy` (verified on testnet), so there is no server-side
+ * "newest N" or "highest N": the list is scanned to completion through the
+ * serving index (`byContractCreated` for recency, `byContractStars` for star
+ * ordering and the `stars == N` point filter), paged by document-ID
+ * `startAfter`, then sorted here. Ratings per app are small; a 2,000-document
+ * safety ceiling guards the scan.
  */
 export async function listRatings(
   sdk: ReadSdk,
   registryId: string,
   contractId: string,
-  options: { sort?: RatingSort; stars?: Stars; cursor?: string } = {},
-) {
+  options: { sort?: RatingSort; stars?: Stars } = {},
+): Promise<RatingRecord[]> {
   const sort = options.sort ?? "recent";
   const where: WhereClause[] = [["contractId", "==", requireId(contractId)]];
-  let orderBy: [string, "asc" | "desc"][];
+  let orderBy: [string, "asc" | "desc"][] = [["$createdAt", "asc"]];
   if (options.stars !== undefined) {
     if (!isStars(options.stars)) throw new Error("Choose 1 to 5 stars.");
     where.push(["stars", "==", options.stars]);
     orderBy = [["stars", "asc"]];
-  } else if (sort === "recent") orderBy = [["$createdAt", "desc"]];
-  else orderBy = [["stars", sort === "highest" ? "desc" : "asc"]];
-  const page = await query(sdk, {
-    dataContractId: requireId(registryId),
-    documentTypeName: RATING_DOCUMENT_TYPE,
-    where,
-    orderBy,
-    limit: RATING_PAGE_SIZE,
-    ...(options.cursor ? { startAfter: requireId(options.cursor) } : {}),
+  } else if (sort !== "recent") orderBy = [["stars", "asc"]];
+  const ratings: RatingRecord[] = [];
+  const seen = new Set<string>();
+  let startAfter: string | undefined;
+  for (;;) {
+    const page = await query(sdk, {
+      dataContractId: requireId(registryId),
+      documentTypeName: RATING_DOCUMENT_TYPE,
+      where,
+      orderBy,
+      limit: 100,
+      ...(startAfter ? { startAfter } : {}),
+    });
+    for (const rating of page.ratings) {
+      if (seen.has(rating.id))
+        throw new Error("Rating pagination returned a duplicate document.");
+      seen.add(rating.id);
+      ratings.push(rating);
+      if (ratings.length > RATING_SCAN_LIMIT)
+        throw new Error(
+          "Rating scan exceeded the 2,000-document safety limit.",
+        );
+    }
+    if (page.rowCount < 100) break;
+    const next = page.lastId!;
+    if (next === startAfter)
+      throw new Error("Rating pagination cursor did not advance.");
+    startAfter = next;
+  }
+  return ratings.sort((left, right) => {
+    if (options.stars === undefined && sort !== "recent") {
+      const delta = right.stars - left.stars;
+      if (delta !== 0) return sort === "highest" ? delta : -delta;
+    }
+    return byNewest(left, right);
   });
-  const next = page.rowCount === RATING_PAGE_SIZE ? page.lastId : undefined;
-  if (next && next === options.cursor)
-    throw new Error("Rating pagination cursor did not advance.");
-  return { ratings: page.ratings, cursor: next };
 }
 
 export async function ownRating(

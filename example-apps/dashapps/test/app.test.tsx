@@ -8,14 +8,19 @@ import {
   waitFor,
   within,
 } from "@testing-library/react";
-import { afterEach, expect, it, vi } from "vitest";
+import { afterEach, beforeEach, expect, it, vi } from "vitest";
 import App from "../src/App";
 import { loadSdkCore } from "../src/dash/sdkCore";
 import { contract, deferred, id, sdk } from "./helpers";
 import type { ContractHandle } from "../src/dash/types";
 import { ContractSummaryStore } from "../src/dash/contractSummaryStore";
 vi.mock("../src/dash/sdkCore", () => ({ loadSdkCore: vi.fn() }));
+beforeEach(() => {
+  // jsdom does not implement scrolling; the detail page scrolls to top on open.
+  vi.stubGlobal("scrollTo", vi.fn());
+});
 afterEach(() => {
+  vi.unstubAllGlobals();
   cleanup();
   localStorage.clear();
   vi.resetAllMocks();

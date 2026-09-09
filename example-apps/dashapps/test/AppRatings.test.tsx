@@ -72,10 +72,7 @@ function signedIn(own: RatingRecord | null = null) {
 it("renders the average, histogram and list, and reports the summary upward", async () => {
   session();
   vi.mocked(ratingSummary).mockResolvedValue(summary);
-  vi.mocked(listRatings).mockResolvedValue({
-    ratings: [rating(1), rating(2, 3)],
-    cursor: undefined,
-  });
+  vi.mocked(listRatings).mockResolvedValue([rating(1), rating(2, 3)]);
   const onSummary = vi.fn();
   render(<AppRatings contractId={id(2)} onSummary={onSummary} />);
   await screen.findByText("4.4");
@@ -100,14 +97,13 @@ it("renders the average, histogram and list, and reports the summary upward", as
   expect(listRatings).toHaveBeenCalledWith({}, id(3), id(2), {
     sort: "recent",
     stars: undefined,
-    cursor: undefined,
   });
 });
 
 it("shows the empty state and keeps the list when the summary fails", async () => {
   session();
   vi.mocked(ratingSummary).mockRejectedValue(new Error("count unavailable"));
-  vi.mocked(listRatings).mockResolvedValue({ ratings: [], cursor: undefined });
+  vi.mocked(listRatings).mockResolvedValue([]);
   const onSummary = vi.fn();
   render(<AppRatings contractId={id(2)} onSummary={onSummary} />);
   await screen.findByText(/count unavailable/);
@@ -124,7 +120,7 @@ it("shows the empty state and keeps the list when the summary fails", async () =
 it("filters by star from the histogram and sorts with the chips", async () => {
   session();
   vi.mocked(ratingSummary).mockResolvedValue(summary);
-  vi.mocked(listRatings).mockResolvedValue({ ratings: [], cursor: undefined });
+  vi.mocked(listRatings).mockResolvedValue([]);
   render(<AppRatings contractId={id(2)} />);
   await screen.findByText("4.4");
   fireEvent.click(screen.getByRole("button", { name: "5 stars: 16" }));
@@ -153,33 +149,29 @@ it("filters by star from the histogram and sorts with the chips", async () => {
   );
 });
 
-it("hides ratings without text when Written only is on", async () => {
+it("hides ratings without text when Written only is on and reveals 25 at a time", async () => {
   session();
   vi.mocked(ratingSummary).mockResolvedValue(summary);
-  vi.mocked(listRatings).mockResolvedValue({
-    ratings: [rating(1), rating(2)],
-    cursor: id(50),
-  });
+  vi.mocked(listRatings).mockResolvedValue(
+    Array.from({ length: 30 }, (_, index) => rating(index + 1)),
+  );
   render(<AppRatings contractId={id(2)} />);
   await screen.findByText("Title 2");
+  expect(screen.getByText("Title 25")).toBeTruthy();
+  expect(screen.queryByText("Title 26")).toBeNull();
+  fireEvent.click(screen.getByRole("button", { name: /Show more/ }));
+  expect(screen.getByText("Title 30")).toBeTruthy();
+  expect(screen.queryByRole("button", { name: /Show more/ })).toBeNull();
   fireEvent.click(screen.getByRole("button", { name: "Written only" }));
   expect(screen.queryByText("Title 2")).toBeNull();
   expect(screen.getByText("Title 1")).toBeTruthy();
-  fireEvent.click(screen.getByRole("button", { name: "Load more" }));
-  await waitFor(() =>
-    expect(listRatings).toHaveBeenLastCalledWith(
-      {},
-      id(3),
-      id(2),
-      expect.objectContaining({ cursor: id(50) }),
-    ),
-  );
+  expect(listRatings).toHaveBeenCalledTimes(1);
 });
 
 it("lets a signed-in user pick stars, write a review and save it", async () => {
   signedIn(null);
   vi.mocked(ratingSummary).mockResolvedValue(summary);
-  vi.mocked(listRatings).mockResolvedValue({ ratings: [], cursor: undefined });
+  vi.mocked(listRatings).mockResolvedValue([]);
   vi.mocked(saveRating).mockResolvedValue("created");
   render(<AppRatings contractId={id(2)} />);
   await screen.findByText("Used this app?");
@@ -224,10 +216,7 @@ it("shows the user's existing rating and lets them remove it", async () => {
   const own = rating(9, 3, 1);
   signedIn(own);
   vi.mocked(ratingSummary).mockResolvedValue(summary);
-  vi.mocked(listRatings).mockResolvedValue({
-    ratings: [rating(1), own],
-    cursor: undefined,
-  });
+  vi.mocked(listRatings).mockResolvedValue([rating(1), own]);
   vi.mocked(removeRating).mockResolvedValue(undefined);
   render(<AppRatings contractId={id(2)} />);
   await waitFor(() =>
@@ -253,7 +242,7 @@ it("shows the user's existing rating and lets them remove it", async () => {
 it("surfaces write failures inside the editor", async () => {
   signedIn(null);
   vi.mocked(ratingSummary).mockResolvedValue(summary);
-  vi.mocked(listRatings).mockResolvedValue({ ratings: [], cursor: undefined });
+  vi.mocked(listRatings).mockResolvedValue([]);
   vi.mocked(saveRating).mockRejectedValue(new Error("insufficient balance"));
   render(<AppRatings contractId={id(2)} />);
   fireEvent.click(
@@ -278,19 +267,16 @@ it("surfaces write failures inside the editor", async () => {
 it("ignores a late list response after the sort changed", async () => {
   session();
   vi.mocked(ratingSummary).mockResolvedValue(summary);
-  const slow = deferred<{
-    ratings: RatingRecord[];
-    cursor: string | undefined;
-  }>();
+  const slow = deferred<RatingRecord[]>();
   vi.mocked(listRatings)
     .mockReturnValueOnce(slow.promise)
-    .mockResolvedValue({ ratings: [rating(2, 1)], cursor: undefined });
+    .mockResolvedValue([rating(2, 1)]);
   render(<AppRatings contractId={id(2)} />);
   await screen.findByText("4.4");
   fireEvent.click(screen.getByRole("button", { name: "Lowest rated" }));
   await screen.findByText("Title 2");
   await act(async () => {
-    slow.resolve({ ratings: [rating(1)], cursor: undefined });
+    slow.resolve([rating(1)]);
   });
   expect(screen.queryByText("Title 1")).toBeNull();
 });
@@ -302,7 +288,7 @@ it("renders nothing without a registry and a mainnet-only prompt when signed out
   cleanup();
   session({ network: "mainnet" });
   vi.mocked(ratingSummary).mockResolvedValue(summary);
-  vi.mocked(listRatings).mockResolvedValue({ ratings: [], cursor: undefined });
+  vi.mocked(listRatings).mockResolvedValue([]);
   render(<AppRatings contractId={id(2)} />);
   expect(
     (
