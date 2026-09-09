@@ -1,4 +1,4 @@
-import { useEffect, useRef, useState } from "react";
+import { useCallback, useEffect, useRef, useState } from "react";
 import { SessionProvider } from "./session/SessionContext";
 import { useSession } from "./session/useSession";
 import { SettingsView } from "./components/SettingsView";
@@ -29,12 +29,16 @@ function Browser({
   category,
   chooseCategory,
   initialKeyword = "",
+  cachedRegistryEntries,
+  cacheRegistryEntries,
 }: {
   view: Exclude<View, "settings">;
   navigate(view: View, keyword?: string): void;
   category?: AppCategory;
   chooseCategory(category: AppCategory): void;
   initialKeyword?: string;
+  cachedRegistryEntries: RegistryEntry[];
+  cacheRegistryEntries(entries: RegistryEntry[]): void;
 }) {
   const { connection } = useSession();
   const [error, setError] = useState("");
@@ -54,7 +58,7 @@ function Browser({
   const [missing, setMissing] = useState(false);
   const [busy, setBusy] = useState(false);
   const [registryRefresh, setRegistryRefresh] = useState(0);
-  const [discoverEntries, setDiscoverEntries] = useState<RegistryEntry[]>([]);
+  const discoverEntries = cachedRegistryEntries;
   const [discoverContractOwners, setDiscoverContractOwners] = useState(
     new Map<string, string>(),
   );
@@ -70,16 +74,17 @@ function Browser({
     if (!connection) return;
     connection.resolver.clear();
     const token = ++request.current;
+    const query = more ? term : keyword;
     setBusy(true);
     setError("");
     if (!more) {
       setIds([]);
       setCursor(undefined);
-      setSearched(false);
+      setTerm(query);
+      setSearched(true);
       setResolved(new Map());
     }
     try {
-      const query = more ? term : keyword;
       const page = await searchKeywords(
         connection.sdk,
         query,
@@ -97,8 +102,6 @@ function Browser({
         (previous) => new Map([...(more ? previous : []), ...contracts]),
       );
       setCursor(page.cursor);
-      setTerm(query);
-      setSearched(true);
     } catch (caught) {
       if (request.current === token) setError(message(caught));
     } finally {
@@ -337,6 +340,19 @@ function Browser({
   const popularTags = [
     ...new Set(discoverEntries.flatMap((entry) => entry.tags)),
   ].slice(0, 6);
+  const registryMatches = (() => {
+    if (!searched) return [];
+    const query = term.trim().toLowerCase();
+    return discoverEntries.filter((entry) =>
+      [entry.name, entry.tagline, entry.description ?? "", ...entry.tags].some(
+        (value) => value.toLowerCase().includes(query),
+      ),
+    );
+  })();
+  const matchedContractIds = new Set(
+    registryMatches.map((entry) => entry.contractId),
+  );
+  const keywordIds = ids.filter((id) => !matchedContractIds.has(id));
   return (
     <>
       {view === "discover" && (
@@ -575,9 +591,36 @@ function Browser({
       {view === "search" && searched && (
         <section className="search-results">
           <p>
-            {ids.length} {ids.length === 1 ? "app" : "apps"} · keyword “{term}”
+            {registryMatches.length + keywordIds.length}{" "}
+            {registryMatches.length + keywordIds.length === 1
+              ? "app"
+              : "apps"}
+            {" · keyword “"}
+            {term}”
           </p>
-          {ids.map((id) => {
+          {registryMatches.map((entry) => (
+            <article className="registry-entry" key={`registry:${entry.id}`}>
+              <span className="app-mark" data-category={entry.category}>
+                {entry.name.slice(0, 1).toUpperCase()}
+              </span>
+              <div className="entry-copy">
+                <button
+                  className="entry-title"
+                  onClick={() => void inspect(entry.contractId, entry.name)}
+                >
+                  {entry.name}
+                </button>
+                <small>{entry.tagline}</small>
+              </div>
+              <button
+                className="open-pill"
+                onClick={() => void inspect(entry.contractId, entry.name)}
+              >
+                Open
+              </button>
+            </article>
+          ))}
+          {keywordIds.map((id) => {
             const result = resolved.get(id);
             const facts =
               result?.status === "found"
@@ -609,7 +652,9 @@ function Browser({
               </article>
             );
           })}
-          {!ids.length && <p>No contracts found for this keyword.</p>}
+          {!registryMatches.length && !keywordIds.length && (
+            <p>No apps found for this keyword.</p>
+          )}
           {cursor && (
             <button
               className="open-pill"
@@ -673,7 +718,7 @@ function Browser({
           showNavigation={false}
           heading={view === "discover" ? "Recently added" : undefined}
           subheading={view === "discover" ? "Newest first" : undefined}
-          onEntries={view === "discover" ? setDiscoverEntries : undefined}
+          onEntries={view === "discover" ? cacheRegistryEntries : undefined}
           onContractOwners={
             view === "discover" ? setDiscoverContractOwners : undefined
           }
@@ -768,6 +813,17 @@ function SessionViews() {
   const [browserGeneration, setBrowserGeneration] = useState(0);
   const [category, setCategory] = useState<AppCategory>();
   const [browserKeyword, setBrowserKeyword] = useState("");
+  const [registryEntries, setRegistryEntries] = useState<
+    Record<Network, RegistryEntry[]>
+  >({ testnet: [], mainnet: [] });
+  const cacheRegistryEntries = useCallback(
+    (entries: RegistryEntry[]) =>
+      setRegistryEntries((cached) => ({
+        ...cached,
+        [session.network]: entries,
+      })),
+    [session.network],
+  );
   function navigate(next: View, keyword = "") {
     setBrowserKeyword(keyword);
     setView(next);
@@ -819,6 +875,8 @@ function SessionViews() {
           category={category}
           chooseCategory={chooseCategory}
           initialKeyword={browserKeyword}
+          cachedRegistryEntries={registryEntries[session.network]}
+          cacheRegistryEntries={cacheRegistryEntries}
           key={`browser:${session.network}:${session.connectionGeneration}:${session.registryGeneration}:${browserGeneration}:${category ?? ""}`}
         />
       )}
