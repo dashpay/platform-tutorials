@@ -7,7 +7,6 @@ import {
   DEFAULT_CONTRACT_IDS,
   loadContractId,
   saveContractId,
-  loadNetwork,
   saveNetwork,
 } from "../dash/contractStore";
 import { requireId } from "../dash/ids";
@@ -25,7 +24,7 @@ const signedOut = {
 };
 export function SessionProvider({ children }: { children: ReactNode }) {
   const [state, setState] = useState<SessionState>(() => ({
-    network: loadNetwork(),
+    network: "testnet",
     status: "connecting",
     connection: null,
     error: null,

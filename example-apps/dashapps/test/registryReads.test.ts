@@ -100,6 +100,26 @@ it("uses exact, recent and name index shapes with document-ID cursors", async ()
   );
 });
 
+it("skips malformed registry documents without losing valid entries or pagination", async () => {
+  const client = sdk();
+  const page = Array.from({ length: 50 }, (_, index) => document(index + 10));
+  page[24] = {
+    ...document(34),
+    properties: { ...document(34).properties, category: "untrusted" },
+  };
+  page[49] = {
+    ...document(59),
+    properties: { ...document(59).properties, tags: ["not-a-string"] },
+  } as unknown as ReturnType<typeof document>;
+  vi.mocked(client.documents.query).mockResolvedValue(page);
+
+  const recent = await recentEntries(client, id(9));
+
+  expect(recent.entries).toHaveLength(48);
+  expect(recent.entries.map((entry) => entry.id)).not.toContain(id(34));
+  expect(recent.cursor).toBe(id(59));
+});
+
 it("scans proposals and personal submissions to completion", async () => {
   const client = sdk();
   const first = Array.from({ length: 100 }, (_, index) => document(index + 10));

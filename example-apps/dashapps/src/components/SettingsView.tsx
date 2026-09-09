@@ -58,28 +58,6 @@ export function SettingsView() {
 
   return (
     <section className="settings-page">
-      <p className="settings-label">Network</p>
-      <div className="settings-row">
-        <div>
-          <strong>Connected network</strong>
-          <small>Mainnet is browse-only for now.</small>
-        </div>
-        <div className="segment" aria-label="Connected network">
-          <button
-            aria-pressed={session.network === "testnet"}
-            onClick={() => session.setNetwork("testnet")}
-          >
-            testnet
-          </button>
-          <button
-            aria-pressed={session.network === "mainnet"}
-            onClick={() => session.setNetwork("mainnet")}
-          >
-            mainnet
-          </button>
-        </div>
-      </div>
-
       <p className="settings-label">Registry</p>
       <form
         className="settings-group"

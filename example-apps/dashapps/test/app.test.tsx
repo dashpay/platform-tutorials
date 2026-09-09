@@ -51,7 +51,7 @@ it("invalid IDs never reach the SDK and failures are not rendered as missing", a
   await screen.findByText(/proof verification failed/);
   expect(screen.queryByText(/deleted or never existed/)).toBeNull();
 });
-it("network changes discard late contract results", async () => {
+it("navigation discards late contract results", async () => {
   const client = connect();
   const pending = deferred<Map<string, ContractHandle | undefined>>();
   vi.mocked(client.contracts.getMany).mockReturnValue(pending.promise);
@@ -62,10 +62,7 @@ it("network changes discard late contract results", async () => {
     target: { value: id(2) },
   });
   fireEvent.click(screen.getByRole("button", { name: "Open" }));
-  fireEvent.change(screen.getByLabelText("Network"), {
-    target: { value: "mainnet" },
-  });
-  await ready();
+  fireEvent.click(screen.getByRole("button", { name: "Discover" }));
   await act(async () => {
     pending.resolve(new Map([[id(2), contract()]]));
   });
@@ -201,7 +198,7 @@ it("keeps contract facts and displays a readable, retryable short-description er
   expect(screen.queryByRole("alert")).toBeNull();
 });
 
-it("validates and saves Settings per network without carrying pending discovery results", async () => {
+it("validates and saves Settings without carrying pending discovery results", async () => {
   const client = connect();
   const pending = deferred<Map<string, ContractHandle | undefined>>();
   vi.mocked(client.contracts.getMany).mockReturnValue(pending.promise);
@@ -225,15 +222,6 @@ it("validates and saves Settings per network without carrying pending discovery 
   fireEvent.click(screen.getByRole("button", { name: "Save registry" }));
   await screen.findByText("Registry selection saved.");
   expect(localStorage.getItem("dashapps.contractId.testnet")).toBe(id(7));
-  fireEvent.change(screen.getByLabelText("Network"), {
-    target: { value: "mainnet" },
-  });
-  await ready();
-  fireEvent.click(screen.getByRole("button", { name: "Set" }));
-  expect(
-    (screen.getByLabelText("Registry contract ID") as HTMLInputElement).value,
-  ).toBe("");
-  expect(screen.queryByRole("button", { name: "Sign in" })).toBeNull();
   fireEvent.click(screen.getByRole("button", { name: "Discover" }));
   await act(async () => {
     pending.resolve(new Map([[id(2), contract()]]));

@@ -103,7 +103,7 @@ export async function entriesByCategory(
   category: AppCategory,
   cursor?: string,
 ) {
-  const entries = await query(sdk, {
+  const page = await query(sdk, {
     dataContractId: requireId(registryId),
     documentTypeName: REGISTRY_DOCUMENT_TYPE,
     where: [["category", "==", category]],
@@ -114,17 +114,31 @@ export async function entriesByCategory(
     limit: 25,
     ...(cursor ? { startAfter: requireId(cursor) } : {}),
   });
-  const next = entries.length === 25 ? entries.at(-1)!.id : undefined;
+  const next = page.rowCount === 25 ? page.lastId : undefined;
   if (next && next === cursor)
     throw new Error("Category pagination cursor did not advance.");
-  return { entries: entries.reverse(), cursor: next };
+  return { entries: page.entries.reverse(), cursor: next };
 }
 
 async function query(
   sdk: ReadSdk,
   args: Parameters<ReadSdk["documents"]["query"]>[0],
 ) {
-  return toDocumentArray(await sdk.documents.query(args)).map(registryEntry);
+  const documents = toDocumentArray(await sdk.documents.query(args));
+  const entries = documents.flatMap((document) => {
+    try {
+      return [registryEntry(document)];
+    } catch {
+      return [];
+    }
+  });
+  const last = documents.at(-1);
+  const lastObject = last?.toObject?.() ?? {};
+  return {
+    entries,
+    rowCount: documents.length,
+    lastId: last ? requireId(last.id ?? lastObject.$id) : undefined,
+  };
 }
 
 export async function exactRegistryEntry(
@@ -133,7 +147,7 @@ export async function exactRegistryEntry(
   ownerId: string,
   contractId: string,
 ) {
-  const rows = await query(sdk, {
+  const { entries } = await query(sdk, {
     dataContractId: requireId(registryId),
     documentTypeName: REGISTRY_DOCUMENT_TYPE,
     where: [
@@ -146,7 +160,7 @@ export async function exactRegistryEntry(
     ],
     limit: 1,
   });
-  return rows[0] ?? null;
+  return entries[0] ?? null;
 }
 
 export async function allProposals(
@@ -169,7 +183,7 @@ export async function allProposals(
       limit: 100,
       ...(startAfter ? { startAfter } : {}),
     });
-    for (const entry of page) {
+    for (const entry of page.entries) {
       if (ids.has(entry.id))
         throw new Error("Proposal pagination returned a duplicate document.");
       ids.add(entry.id);
@@ -179,8 +193,8 @@ export async function allProposals(
           "Proposal scan exceeded the 2,000-document safety limit.",
         );
     }
-    if (page.length < 100) return entries.reverse();
-    const next = page.at(-1)!.id;
+    if (page.rowCount < 100) return entries.reverse();
+    const next = page.lastId!;
     if (next === startAfter)
       throw new Error("Proposal pagination cursor did not advance.");
     startAfter = next;
@@ -192,7 +206,7 @@ export async function recentEntries(
   registryId: string,
   cursor?: string,
 ) {
-  const entries = await query(sdk, {
+  const page = await query(sdk, {
     dataContractId: requireId(registryId),
     documentTypeName: REGISTRY_DOCUMENT_TYPE,
     where: [],
@@ -200,10 +214,10 @@ export async function recentEntries(
     limit: 50,
     ...(cursor ? { startAfter: requireId(cursor) } : {}),
   });
-  const next = entries.length === 50 ? entries.at(-1)!.id : undefined;
+  const next = page.rowCount === 50 ? page.lastId : undefined;
   if (next && next === cursor)
     throw new Error("Recent pagination cursor did not advance.");
-  return { entries, cursor: next };
+  return { entries: page.entries, cursor: next };
 }
 
 export async function searchEntriesByName(
@@ -215,7 +229,7 @@ export async function searchEntriesByName(
   const prefix = value.trim();
   if (!prefix || prefix.length > 63)
     throw new Error("Use a name prefix of 1–63 characters.");
-  const entries = await query(sdk, {
+  const page = await query(sdk, {
     dataContractId: requireId(registryId),
     documentTypeName: REGISTRY_DOCUMENT_TYPE,
     where: [["name", "startsWith", prefix]],
@@ -223,10 +237,10 @@ export async function searchEntriesByName(
     limit: 25,
     ...(cursor ? { startAfter: requireId(cursor) } : {}),
   });
-  const next = entries.length === 25 ? entries.at(-1)!.id : undefined;
+  const next = page.rowCount === 25 ? page.lastId : undefined;
   if (next && next === cursor)
     throw new Error("Name pagination cursor did not advance.");
-  return { entries, cursor: next };
+  return { entries: page.entries, cursor: next };
 }
 
 export async function myEntries(
@@ -249,7 +263,7 @@ export async function myEntries(
       limit: 100,
       ...(startAfter ? { startAfter } : {}),
     });
-    for (const entry of page) {
+    for (const entry of page.entries) {
       if (seen.has(entry.id))
         throw new Error(
           "My submissions pagination returned a duplicate document.",
@@ -257,8 +271,8 @@ export async function myEntries(
       seen.add(entry.id);
       entries.push(entry);
     }
-    if (page.length < 100) return entries;
-    const next = page.at(-1)!.id;
+    if (page.rowCount < 100) return entries;
+    const next = page.lastId!;
     if (next === startAfter)
       throw new Error("My submissions cursor did not advance.");
     startAfter = next;

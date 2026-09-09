@@ -8,7 +8,7 @@ test("read-only discovery boots and remains usable on mobile", async ({
   await expect(
     page.getByRole("heading", { name: "Built on Dash Platform" }),
   ).toBeVisible();
-  await expect(page.getByLabel("Network")).toHaveValue("testnet");
+  await expect(page.getByLabel("Network")).toHaveCount(0);
   await page.getByRole("button", { name: "Search" }).click();
   await expect(page.getByLabel("Discover by keyword")).toBeVisible();
   await expect(page.getByLabel("Open a contract")).toBeVisible();
@@ -18,7 +18,5 @@ test("read-only discovery boots and remains usable on mobile", async ({
       () => document.documentElement.scrollWidth <= innerWidth,
     ),
   ).toBe(true);
-  await page.getByLabel("Network").selectOption("mainnet");
-  await expect(page.getByLabel("Network")).toHaveValue("mainnet");
   expect(errors).toEqual([]);
 });

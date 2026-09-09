@@ -592,9 +592,7 @@ function Browser({
         <section className="search-results">
           <p>
             {registryMatches.length + keywordIds.length}{" "}
-            {registryMatches.length + keywordIds.length === 1
-              ? "app"
-              : "apps"}
+            {registryMatches.length + keywordIds.length === 1 ? "app" : "apps"}
             {" · keyword “"}
             {term}”
           </p>
@@ -771,21 +769,8 @@ function Shell() {
           <span className="brand-mark" aria-hidden="true" />
           dashapps
         </a>
-        <label className="network-picker">
-          <span className="status-dot" aria-hidden="true" />
-          <select
-            aria-label="Network"
-            value={session.network}
-            onChange={(event) =>
-              session.setNetwork(event.target.value as Network)
-            }
-          >
-            <option value="testnet">testnet</option>
-            <option value="mainnet">mainnet</option>
-          </select>
-        </label>
       </header>
-      <p className="connection" role="status">
+      <p className="sr-only" role="status">
         {session.status === "connecting"
           ? "Connecting to Platform…"
           : session.status === "error"

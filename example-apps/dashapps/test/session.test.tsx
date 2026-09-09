@@ -49,14 +49,12 @@ it("signs in on testnet without persisting credentials and signs out", async () 
   expect(result.current.keyManager).toBeNull();
   expect(result.current.identityId).toBeNull();
 });
-it("rejects mainnet sign-in at the session boundary", async () => {
+it("ignores a stored mainnet preference", async () => {
   localStorage.setItem("dashapps.network", "mainnet");
-  const { result, create } = setup();
+  const { result, connect } = setup();
   await waitFor(() => expect(result.current.status).toBe("readonly"));
-  await expect(result.current.login("test-only phrase")).rejects.toThrow(
-    "disabled on mainnet",
-  );
-  expect(create).not.toHaveBeenCalled();
+  expect(result.current.network).toBe("testnet");
+  expect(connect).toHaveBeenCalledWith("testnet");
 });
 it.each(["network", "logout", "registry"] as const)(
   "cancels late authentication after %s changes",
