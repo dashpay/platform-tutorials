@@ -37,6 +37,7 @@ export interface RegistryEntry {
   repository?: string;
   docs?: string;
   createdAt?: bigint;
+  updatedAt?: bigint;
   revision: bigint;
 }
 
@@ -93,6 +94,9 @@ export function registryEntry(document: DocumentHandle): RegistryEntry {
     repository: optionalString(properties.repository, "repository"),
     docs: optionalString(properties.docs, "docs"),
     createdAt: bigintField(source.createdAt ?? object.$createdAt),
+    updatedAt: bigintField(
+      (source as { updatedAt?: unknown }).updatedAt ?? object.$updatedAt,
+    ),
     revision: bigintField(source.revision ?? object.$revision) ?? 1n,
   };
 }
@@ -133,7 +137,12 @@ async function query(
     }
   });
   const last = documents.at(-1);
-  const lastObject = last?.toObject?.() ?? {};
+  const lastObject =
+    (
+      last as DocumentHandle & {
+        toObject?: () => Record<string, unknown>;
+      }
+    )?.toObject?.() ?? {};
   return {
     entries,
     rowCount: documents.length,

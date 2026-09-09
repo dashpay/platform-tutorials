@@ -58,7 +58,7 @@ export function SettingsView() {
 
   return (
     <section className="settings-page">
-      <p className="settings-label">Registry</p>
+      <p className="settings-label">Registry contract</p>
       <form
         className="settings-group"
         onSubmit={(event) => {

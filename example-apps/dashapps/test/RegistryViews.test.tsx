@@ -1,11 +1,5 @@
 // @vitest-environment jsdom
-import {
-  cleanup,
-  fireEvent,
-  render,
-  screen,
-  within,
-} from "@testing-library/react";
+import { cleanup, fireEvent, render, screen } from "@testing-library/react";
 import { afterEach, expect, it, vi } from "vitest";
 import { ContractRegistry } from "../src/components/RegistryViews";
 import { useSession } from "../src/session/useSession";
@@ -41,7 +35,10 @@ it("shows metadata before opening the owner's editor", async () => {
   vi.mocked(allProposals).mockResolvedValue([entry]);
   vi.mocked(exactRegistryEntry).mockResolvedValue(entry);
   vi.mocked(useSession).mockReturnValue({
-    connection: { sdk: {} },
+    connection: {
+      sdk: {},
+      names: { resolve: vi.fn(async () => null) },
+    },
     registryId: id(3),
     identityId: id(1),
     keyManager: {},
@@ -55,7 +52,7 @@ it("shows metadata before opening the owner's editor", async () => {
     />,
   );
 
-  await screen.findByText("Useful metadata");
+  await screen.findByRole("button", { name: "Edit your submission" });
   expect(
     screen.queryByRole("heading", { name: "Edit your submission" }),
   ).toBeNull();
@@ -71,7 +68,45 @@ it("shows metadata before opening the owner's editor", async () => {
   ).toBeNull();
 });
 
-it("identifies canonical launches as owner-provided and proposals as community links", async () => {
+it("does not render an empty switcher for one signed-out listing", async () => {
+  const entry = {
+    id: id(4),
+    ownerId: id(1),
+    contractId: id(2),
+    name: "Only app",
+    tagline: "The only listing",
+    category: "other" as const,
+    tags: [],
+    revision: 1n,
+  };
+  vi.mocked(allProposals).mockResolvedValue([entry]);
+  vi.mocked(exactRegistryEntry).mockResolvedValue(entry);
+  vi.mocked(useSession).mockReturnValue({
+    connection: {
+      sdk: {},
+      names: { resolve: vi.fn(async () => null) },
+    },
+    registryId: id(3),
+    identityId: null,
+    keyManager: null,
+  } as never);
+  const onPreferredEntry = vi.fn();
+
+  render(
+    <ContractRegistry
+      contractId={id(2)}
+      contractOwnerId={id(1)}
+      onMutation={vi.fn()}
+      onPreferredEntry={onPreferredEntry}
+    />,
+  );
+
+  await vi.waitFor(() => expect(onPreferredEntry).toHaveBeenCalledWith(entry));
+  expect(screen.queryByLabelText("App listings")).toBeNull();
+  expect(screen.queryByRole("button", { name: /Switch listing/ })).toBeNull();
+});
+
+it("defaults to the owner listing and lets the user select a community listing", async () => {
   const canonical = {
     id: id(4),
     ownerId: id(1),
@@ -94,31 +129,33 @@ it("identifies canonical launches as owner-provided and proposals as community l
   vi.mocked(allProposals).mockResolvedValue([canonical, community]);
   vi.mocked(exactRegistryEntry).mockResolvedValue(canonical);
   vi.mocked(useSession).mockReturnValue({
-    connection: { sdk: {} },
+    connection: {
+      sdk: {},
+      names: { resolve: vi.fn(async () => null) },
+    },
     registryId: id(3),
     identityId: null,
     keyManager: null,
   } as never);
 
+  const onPreferredEntry = vi.fn();
   render(
     <ContractRegistry
       contractId={id(2)}
       contractOwnerId={id(1)}
       onMutation={vi.fn()}
+      onPreferredEntry={onPreferredEntry}
     />,
   );
 
-  const ownerEntry = (await screen.findByText("Owner app")).closest("article")!;
-  fireEvent.click(within(ownerEntry).getByRole("button", { name: "Launch ↗" }));
-  expect(screen.getByText("Contract-owner link")).toBeTruthy();
-  fireEvent.click(screen.getByRole("button", { name: "Cancel" }));
-
-  const communityEntry = screen
-    .getByText("Community proposal")
-    .closest("article")!;
   fireEvent.click(
-    within(communityEntry).getByRole("button", { name: "Launch ↗" }),
+    await screen.findByRole("button", { name: /Switch listing/ }),
   );
-  expect(screen.getByText("Community link")).toBeTruthy();
-  expect(screen.queryByText("Contract-owner link")).toBeNull();
+  expect(screen.getByText(/Showing the/).textContent).toContain(
+    "contract owner's",
+  );
+  expect(onPreferredEntry).toHaveBeenCalledWith(canonical);
+  fireEvent.click(screen.getByRole("radio", { name: /Community member/ }));
+  expect(onPreferredEntry).toHaveBeenLastCalledWith(community);
+  expect(screen.getByText(/Showing the/).textContent).toContain("community");
 });

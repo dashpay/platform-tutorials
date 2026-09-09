@@ -6,6 +6,7 @@ import {
   render,
   screen,
   waitFor,
+  within,
 } from "@testing-library/react";
 import { afterEach, expect, it, vi } from "vitest";
 import App from "../src/App";
@@ -257,6 +258,23 @@ it.each(["Discover", "Search", "Mine"])(
       ).toBeTruthy();
   },
 );
+
+it("offers a sign-in action from the Mine screen", async () => {
+  connect();
+  render(<App />);
+  await ready();
+
+  fireEvent.click(screen.getByRole("button", { name: "Mine" }));
+
+  expect(screen.getByText("Sign in to view your entries")).toBeTruthy();
+  const mineCard = screen
+    .getByText("Sign in to view your entries")
+    .closest("section")!;
+  fireEvent.click(within(mineCard).getByRole("button", { name: "Sign in" }));
+  expect(
+    screen.getByRole("heading", { name: "Sign in to dashapps" }),
+  ).toBeTruthy();
+});
 
 it("keeps contract facts and displays a readable, retryable short-description error", async () => {
   const client = connect();

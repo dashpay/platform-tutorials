@@ -7,6 +7,8 @@ import { IdentityChip } from "./components/IdentityChip";
 import { DpnsName } from "./components/DpnsName";
 import { ProvenanceIcon } from "./components/ProvenanceIcon";
 import { ExternalLaunch } from "./components/ExternalLaunch";
+import { ContractCopyButton } from "./components/ContractCopyButton";
+import { HeaderAccount } from "./components/HeaderAccount";
 import {
   CategoryBrowser,
   ContractRegistry,
@@ -23,8 +25,51 @@ import { requireId } from "./dash/ids";
 import type { Network } from "./dash/types";
 
 import { errorMessage as message } from "./lib/logger";
+import {
+  resourceLabel,
+  summarizeSchemas,
+  type DocumentSchemaSummary,
+} from "./lib/appDetails";
 type Detail = ReturnType<typeof contractFacts>;
 type View = "discover" | "search" | "mine" | "settings" | "add" | "category";
+function safeHref(value?: string) {
+  if (!value) return undefined;
+  try {
+    const url = new URL(value);
+    return url.protocol === "http:" || url.protocol === "https:"
+      ? url.href
+      : undefined;
+  } catch {
+    return undefined;
+  }
+}
+
+function displayDate(value?: bigint) {
+  return value
+    ? new Date(Number(value)).toLocaleDateString(undefined, {
+        year: "numeric",
+        month: "short",
+        day: "numeric",
+      })
+    : "Not provided";
+}
+
+function ResourceRow({ label, value }: { label: string; value?: string }) {
+  const href = safeHref(value);
+  return (
+    <div className="resource-row">
+      <strong>{label}</strong>
+      {href ? (
+        <a href={href} target="_blank" rel="noreferrer">
+          {resourceLabel(href)} ↗
+        </a>
+      ) : (
+        <span>Not provided</span>
+      )}
+    </div>
+  );
+}
+
 function Browser({
   view,
   navigate,
@@ -42,7 +87,8 @@ function Browser({
   cachedRegistryEntries: RegistryEntry[];
   cacheRegistryEntries(entries: RegistryEntry[]): void;
 }) {
-  const { connection } = useSession();
+  const session = useSession();
+  const { connection } = session;
   const [error, setError] = useState("");
   const [keyword, setKeyword] = useState(initialKeyword);
   const [term, setTerm] = useState("");
@@ -57,12 +103,16 @@ function Browser({
   const [selected, setSelected] = useState("");
   const [selectedName, setSelectedName] = useState("");
   const [detail, setDetail] = useState<Detail>();
+  const [documentSchemas, setDocumentSchemas] = useState<
+    DocumentSchemaSummary[]
+  >([]);
   const [preferredEntry, setPreferredEntry] = useState<RegistryEntry | null>();
   const [description, setDescription] = useState<string>();
   const [descriptionError, setDescriptionError] = useState("");
   const [missing, setMissing] = useState(false);
   const [busy, setBusy] = useState(false);
   const [registryRefresh, setRegistryRefresh] = useState(0);
+  const [mineSigningIn, setMineSigningIn] = useState(false);
   const discoverEntries = cachedRegistryEntries;
   const [discoverContractOwners, setDiscoverContractOwners] = useState(
     new Map<string, string>(),
@@ -152,6 +202,13 @@ function Browser({
     }
     const cached = connection.resolver.summary(id);
     setDetail(cached);
+    setDocumentSchemas(
+      cached?.documentTypes.map((name) => ({
+        name,
+        properties: [],
+        indexCount: 0,
+      })) ?? [],
+    );
     if (entry) setPreferredEntry(entry);
     else if (id !== selected) setPreferredEntry(undefined);
     setDescription(undefined);
@@ -167,6 +224,7 @@ function Browser({
       setSelected(id);
       if (resolution.status === "missing") {
         setDetail(undefined);
+        setDocumentSchemas([]);
         setMissing(true);
         return;
       }
@@ -175,6 +233,7 @@ function Browser({
         connection.sdk.version(),
       );
       setDetail(facts);
+      setDocumentSchemas(summarizeSchemas(resolution.contract.schemas));
       try {
         const declared = await shortDescription(connection.sdk, id);
         if (request.current === token) setDescription(declared);
@@ -194,6 +253,8 @@ function Browser({
       detail?.description ||
       "Platform app";
     const official = preferredEntry?.ownerId === detail?.ownerId;
+    const appUrl = safeHref(preferredEntry?.appUrl);
+    const website = safeHref(preferredEntry?.website);
     return (
       <section className="detail-page">
         <button
@@ -203,6 +264,7 @@ function Browser({
             setSelected("");
             setSelectedName("");
             setDetail(undefined);
+            setDocumentSchemas([]);
             setMissing(false);
             setError("");
           }}
@@ -210,7 +272,11 @@ function Browser({
           ← {view === "search" ? "Search" : "Discover"}
         </button>
         <div className="detail-hero">
-          <span className="app-mark detail-mark" aria-hidden="true">
+          <span
+            className="app-mark detail-mark"
+            data-category={preferredEntry?.category}
+            aria-hidden="true"
+          >
             {heading.slice(0, 1).toUpperCase()}
           </span>
           <div className="detail-copy">
@@ -218,122 +284,183 @@ function Browser({
               <h1>{heading}</h1>
               {official && <ProvenanceIcon />}
             </div>
-            {preferredEntry && (
-              <p className="detail-publisher">
-                by{" "}
-                <DpnsName
-                  identityId={preferredEntry.ownerId}
-                  resolver={connection!.names}
-                />
-              </p>
-            )}
             <p className="detail-summary">
               {missing
                 ? "Contract not found on this network."
-                : preferredEntry?.description || preferredEntry?.tagline
-                  ? preferredEntry.description || preferredEntry.tagline
+                : preferredEntry?.tagline
+                  ? preferredEntry.tagline
                   : description
                     ? description
                     : detail
                       ? `${detail.documentTypes.length} document ${detail.documentTypes.length === 1 ? "type" : "types"} declared on Dash Platform`
                       : "Loading contract details…"}
             </p>
-            <div className="detail-links">
-              {preferredEntry?.repository && (
-                <a
-                  href={preferredEntry.repository}
-                  target="_blank"
-                  rel="noreferrer"
+            {detail && (
+              <div className="detail-attribution">
+                <span
+                  className="chip category-chip"
+                  data-category={preferredEntry?.category}
                 >
-                  Repository ↗
-                </a>
-              )}
-              {preferredEntry?.docs && (
-                <a href={preferredEntry.docs} target="_blank" rel="noreferrer">
-                  Docs ↗
-                </a>
-              )}
-              <button
-                type="button"
-                title={selected}
-                onClick={() => void navigator.clipboard?.writeText(selected)}
-              >
-                {selected.slice(0, 6)}…{selected.slice(-4)} · Copy
-              </button>
-            </div>
+                  {preferredEntry
+                    ? categoryLabel(preferredEntry.category)
+                    : "Uncategorized"}
+                </span>
+                <span>by</span>
+                <DpnsName
+                  identityId={detail.ownerId}
+                  resolver={connection!.names}
+                  nameOnly
+                />
+              </div>
+            )}
+            {!official && preferredEntry && (
+              <span className="community-label">
+                Community-provided listing
+              </span>
+            )}
           </div>
           <div className="detail-hero-actions">
-            {preferredEntry?.appUrl && (
+            {appUrl ? (
               <ExternalLaunch
                 className="primary-pill"
-                url={preferredEntry.appUrl}
+                url={appUrl}
                 verified={official}
               >
-                Launch app
+                Launch app ↗
               </ExternalLaunch>
+            ) : (
+              <span className="primary-pill unavailable">No app link</span>
             )}
-            {preferredEntry?.website && (
+            {website ? (
               <a
-                className="primary-pill"
-                href={preferredEntry.website}
+                className="secondary-pill action-link"
+                href={website}
                 target="_blank"
                 rel="noreferrer"
               >
-                Visit website
+                Visit website ↗
               </a>
+            ) : (
+              <span className="secondary-pill action-link unavailable">
+                Website not provided
+              </span>
             )}
-            <button
-              className="refresh-pill secondary-pill"
-              disabled={busy}
-              onClick={() => void inspect(selected, heading)}
-            >
-              {busy ? "Refreshing…" : "Refresh"}
-            </button>
+            <ContractCopyButton
+              className="contract-copy"
+              contractId={selected}
+            />
           </div>
         </div>
-        <h2 className="sr-only">Declared by contract</h2>
         {detail && (
-          <div className="detail-grid">
+          <>
             <ContractRegistry
               contractId={selected}
               contractOwnerId={detail.ownerId}
               onMutation={() => setRegistryRefresh((value) => value + 1)}
               onPreferredEntry={setPreferredEntry}
             />
-            <aside className="information">
-              <h2>Information</h2>
-              <dl>
-                <dt>Summary</dt>
-                <dd>
-                  {descriptionError ? (
-                    <span role="alert">
-                      Could not load the short description: {descriptionError}{" "}
-                      Use Refresh to retry.
-                    </span>
-                  ) : (
-                    (description ?? "No short description declared.")
-                  )}
-                </dd>
-                <dt>Publisher</dt>
-                <dd>
-                  <DpnsName
-                    identityId={detail.ownerId}
-                    resolver={connection!.names}
-                  />
-                </dd>
-                <dt>Version</dt>
-                <dd>{detail.version}</dd>
-                <dt>Documents</dt>
-                <dd>{detail.documentTypes.join(", ") || "None"}</dd>
-                <dt>Keywords</dt>
-                <dd>{detail.keywords.join(", ") || "None declared"}</dd>
-                <dt>Owner</dt>
-                <dd>
-                  <code>{detail.ownerId}</code>
-                </dd>
-              </dl>
-            </aside>
-          </div>
+            <div className="detail-metadata">
+              <div>
+                <small>Listed</small>
+                <strong>{displayDate(preferredEntry?.createdAt)}</strong>
+              </div>
+              <div>
+                <small>Listing updated</small>
+                <strong>
+                  {displayDate(preferredEntry?.updatedAt)} · Rev{" "}
+                  {String(preferredEntry?.revision ?? "—")}
+                </strong>
+              </div>
+            </div>
+            <section className="about-app">
+              <div className="about-copy">
+                <h2>About this app</h2>
+                {descriptionError && !preferredEntry?.description ? (
+                  <p role="alert">
+                    Could not load the short description: {descriptionError}
+                  </p>
+                ) : (
+                  <p>
+                    {preferredEntry?.description ||
+                      description ||
+                      "No short description declared."}
+                  </p>
+                )}
+                {preferredEntry && preferredEntry.tags.length > 0 && (
+                  <div className="entry-tags">
+                    {preferredEntry.tags.map((tag) => (
+                      <span className="chip" key={tag}>
+                        {tag}
+                      </span>
+                    ))}
+                  </div>
+                )}
+              </div>
+              <div className="resource-list">
+                <ResourceRow label="Website" value={preferredEntry?.website} />
+                <ResourceRow
+                  label="Repository"
+                  value={preferredEntry?.repository}
+                />
+                <ResourceRow label="Docs" value={preferredEntry?.docs} />
+                <div className="resource-row">
+                  <strong>Contract ID</strong>
+                  <ContractCopyButton contractId={selected} />
+                </div>
+              </div>
+            </section>
+            <details className="technical-details">
+              <summary>
+                <span>
+                  <strong>Technical details</strong>
+                  <small>
+                    Contract version {detail.version} ·{" "}
+                    {detail.documentTypes.length} document{" "}
+                    {detail.documentTypes.length === 1 ? "type" : "types"}
+                  </small>
+                </span>
+                <span>Expand</span>
+              </summary>
+              <div className="document-types">
+                {documentSchemas.map((schema) => (
+                  <article key={schema.name}>
+                    <span>{schema.name.slice(0, 1).toLowerCase()}</span>
+                    <strong>{schema.name}</strong>
+                    <small className="schema-properties">
+                      {schema.properties.length
+                        ? schema.properties.join(" · ")
+                        : "Property details unavailable"}
+                    </small>
+                    <small>
+                      {schema.properties.length} properties ·{" "}
+                      {schema.indexCount}{" "}
+                      {schema.indexCount === 1 ? "index" : "indexes"}
+                    </small>
+                  </article>
+                ))}
+                {!detail.documentTypes.length && (
+                  <p>No document types declared.</p>
+                )}
+              </div>
+              <p className="contract-owner-fact">
+                Contract owner ID · <code>{detail.ownerId}</code>
+              </p>
+              <button
+                className="refresh-pill secondary-pill"
+                disabled={busy}
+                onClick={() =>
+                  void inspect(selected, heading, preferredEntry ?? undefined)
+                }
+              >
+                {busy ? "Refreshing…" : "Refresh"}
+              </button>
+            </details>
+          </>
+        )}
+        {busy && (
+          <span className="sr-only" role="status">
+            Refreshing…
+          </span>
         )}
       </section>
     );
@@ -522,7 +649,7 @@ function Browser({
               }}
               placeholder={
                 view === "discover"
-                  ? "Search app names, or paste a 32-byte contract ID"
+                  ? "Search app names, or paste a contract ID"
                   : "Search by keyword"
               }
             />
@@ -712,8 +839,8 @@ function Browser({
             </h2>
             <p>
               {view === "add"
-                ? "Paste its 32-byte identifier. After it is verified, you can add your registry entry."
-                : "Paste the 32-byte identifier of any data contract."}
+                ? "Enter the contract ID. After it is verified, you can add your app listing."
+                : "Enter the ID of any data contract."}
             </p>
             <label className="sr-only" htmlFor="contract">
               Open a contract
@@ -728,7 +855,7 @@ function Browser({
                   setBusy(false);
                   setTarget(event.target.value);
                 }}
-                placeholder="32-byte base58 contract ID"
+                placeholder="Contract ID"
               />
               <button disabled={!connection || busy}>
                 {view === "add" ? "Continue" : "Open"}
@@ -742,54 +869,82 @@ function Browser({
           {error} Retry the lookup when ready.
         </p>
       )}
-      {(view === "discover" || view === "mine") && (
-        <RegistryExplorer
-          key={registryRefresh}
-          initialMode={view === "mine" ? "mine" : "recent"}
-          showNavigation={false}
-          heading={view === "discover" ? "Recently added" : undefined}
-          subheading={view === "discover" ? "Newest first" : undefined}
-          onEntries={view === "discover" ? cacheRegistryEntries : undefined}
-          onContractOwners={
-            view === "discover" ? setDiscoverContractOwners : undefined
-          }
-          onCategory={chooseCategory}
-          showPublishers={view !== "discover"}
-          initialEntries={view === "discover" ? discoverEntries : undefined}
-          aside={
-            view === "discover" ? (
-              <>
-                <section className="panel describe-panel">
-                  <h2>Describe a contract</h2>
-                  <p>
-                    Paste a contract ID to add your entry. One entry per
-                    identity per contract.
-                  </p>
-                  <button
-                    className="primary-pill"
-                    onClick={() => navigate("add")}
-                  >
-                    Add an app
-                  </button>
-                </section>
-                <section className="tag-panel">
-                  <h2>Popular tags</h2>
-                  <div>
-                    {popularTags.map((tag) => (
-                      <span className="chip" key={tag}>
-                        {tag}
-                      </span>
-                    ))}
-                  </div>
-                </section>
-              </>
-            ) : undefined
-          }
-          open={(id, name, entry) => {
-            setTarget(id);
-            void inspect(id, name, entry);
-          }}
-        />
+      {view === "mine" && !session.identityId ? (
+        mineSigningIn ? (
+          <div className="mine-signin">
+            <SignInForm onClose={() => setMineSigningIn(false)} />
+          </div>
+        ) : (
+          <section className="signed-out-card mine-signin">
+            <span className="account-avatar">S</span>
+            <div>
+              <strong>Sign in to view your entries</strong>
+              <small>Your submitted app listings will appear here.</small>
+            </div>
+            {session.network === "testnet" ? (
+              <button
+                className="sign-in-pill"
+                disabled={!connection}
+                onClick={() => setMineSigningIn(true)}
+              >
+                Sign in
+              </button>
+            ) : (
+              <small>Switch to testnet to sign in.</small>
+            )}
+          </section>
+        )
+      ) : (
+        (view === "discover" || view === "mine") && (
+          <RegistryExplorer
+            key={registryRefresh}
+            initialMode={view === "mine" ? "mine" : "recent"}
+            showNavigation={false}
+            showNetwork={view !== "mine"}
+            heading={view === "discover" ? "Recently added" : undefined}
+            subheading={view === "discover" ? "Newest first" : undefined}
+            onEntries={view === "discover" ? cacheRegistryEntries : undefined}
+            onContractOwners={
+              view === "discover" ? setDiscoverContractOwners : undefined
+            }
+            onCategory={chooseCategory}
+            showPublishers={view !== "discover"}
+            initialEntries={view === "discover" ? discoverEntries : undefined}
+            aside={
+              view === "discover" ? (
+                <>
+                  <section className="panel describe-panel">
+                    <h2>Describe a contract</h2>
+                    <p>
+                      Paste a contract ID to add your entry. One entry per
+                      identity per contract.
+                    </p>
+                    <button
+                      className="primary-pill"
+                      onClick={() => navigate("add")}
+                    >
+                      Add an app
+                    </button>
+                  </section>
+                  <section className="tag-panel">
+                    <h2>Popular tags</h2>
+                    <div>
+                      {popularTags.map((tag) => (
+                        <span className="chip" key={tag}>
+                          {tag}
+                        </span>
+                      ))}
+                    </div>
+                  </section>
+                </>
+              ) : undefined
+            }
+            open={(id, name, entry) => {
+              setTarget(id);
+              void inspect(id, name, entry);
+            }}
+          />
+        )
       )}
     </>
   );
@@ -803,6 +958,7 @@ function Shell() {
           <span className="brand-mark" aria-hidden="true" />
           dashapps
         </a>
+        <HeaderAccount />
       </header>
       <p className="sr-only" role="status">
         {session.status === "connecting"
@@ -922,7 +1078,7 @@ function Account() {
     <section className="signed-out-card">
       <span className="account-avatar">S</span>
       <div>
-        <strong>Browse as guest</strong>
+        <strong>Browsing as guest</strong>
         <small>Sign in to manage your app entries.</small>
       </div>
       <button

@@ -207,6 +207,8 @@ export function ContractRegistry({
   const [busy, setBusy] = useState(true);
   const [refresh, setRefresh] = useState(0);
   const [editorOpen, setEditorOpen] = useState(false);
+  const [expanded, setExpanded] = useState(false);
+  const [selectedId, setSelectedId] = useState<string>();
   useEffect(() => {
     let current = true;
     if (!session.connection || !session.registryId) {
@@ -238,13 +240,14 @@ export function ContractRegistry({
         if (proposals.status === "fulfilled") setEntries(proposals.value);
         if (ownerEntry.status === "fulfilled") setCanonical(ownerEntry.value);
         if (ownEntry.status === "fulfilled") setOwn(ownEntry.value);
-        onPreferredEntry?.(
+        const preferred =
           ownerEntry.status === "fulfilled" && ownerEntry.value
             ? ownerEntry.value
             : proposals.status === "fulfilled"
               ? (proposals.value[0] ?? null)
-              : null,
-        );
+              : null;
+        setSelectedId(preferred?.id);
+        onPreferredEntry?.(preferred);
         const failures = [proposals, ownerEntry, ownEntry]
           .filter(
             (result): result is PromiseRejectedResult =>
@@ -296,20 +299,110 @@ export function ContractRegistry({
       </section>
     );
   const community = entries.filter((entry) => entry.id !== canonical?.id);
+  const ordered = canonical ? [canonical, ...community] : entries;
+  const selected =
+    ordered.find((entry) => entry.id === selectedId) ?? ordered[0] ?? null;
+  const choose = (entry: RegistryEntry) => {
+    setSelectedId(entry.id);
+    onPreferredEntry?.(entry);
+  };
+  if (ordered.length <= 1 && !error && !session.identityId) return null;
   return (
-    <section className="registry-detail" aria-label="Community metadata">
+    <section
+      className="registry-detail listing-switcher"
+      aria-label="App listings"
+    >
       {error && (
         <p className="error" role="alert">
           Some registry entries could not be loaded: {error}
         </p>
       )}
-      <h3>Canonical metadata</h3>
-      {canonical ? (
-        <Entry entry={canonical} contractOwnerId={contractOwnerId} />
-      ) : canonical === null ? (
-        <p>The contract owner has not submitted metadata.</p>
-      ) : (
-        <p>Canonical metadata could not be determined.</p>
+      {ordered.length > 1 && (
+        <>
+          <div className="listing-switcher-bar">
+            <p>
+              <ProvenanceIcon /> Showing the{" "}
+              <strong>
+                {selected?.ownerId === contractOwnerId
+                  ? "contract owner's"
+                  : "community"}
+              </strong>{" "}
+              listing · {community.length} community{" "}
+              {community.length === 1 ? "proposal" : "proposals"} also{" "}
+              {community.length === 1 ? "exists" : "exist"}
+            </p>
+            <button
+              type="button"
+              onClick={() => setExpanded((value) => !value)}
+            >
+              {expanded ? "Hide listings" : "Switch listing"}{" "}
+              {expanded ? "▴" : "▾"}
+            </button>
+          </div>
+          {expanded && (
+            <div className="listing-options">
+              {ordered.map((entry) => {
+                const ownerProvided = entry.ownerId === contractOwnerId;
+                return (
+                  <label
+                    key={entry.id}
+                    className={entry.id === selected?.id ? "selected" : ""}
+                  >
+                    <input
+                      type="radio"
+                      name="app-listing"
+                      checked={entry.id === selected?.id}
+                      onChange={() => choose(entry)}
+                    />
+                    <span
+                      className="app-mark"
+                      data-category={entry.category}
+                      aria-hidden="true"
+                    >
+                      {entry.name.slice(0, 1).toUpperCase()}
+                    </span>
+                    <span>
+                      <strong>
+                        {ownerProvided
+                          ? "Contract owner"
+                          : entry.ownerId === session.identityId
+                            ? "You"
+                            : "Community member"}
+                      </strong>
+                      <small>
+                        <DpnsName
+                          identityId={entry.ownerId}
+                          resolver={session.connection!.names}
+                        />
+                      </small>
+                    </span>
+                    <span>
+                      <strong>
+                        {entry.name} · {categoryLabel(entry.category)}
+                      </strong>
+                      <small>{entry.tagline}</small>
+                    </span>
+                    <span>
+                      <small>
+                        {entry.createdAt
+                          ? new Date(
+                              Number(entry.createdAt),
+                            ).toLocaleDateString()
+                          : "Date not provided"}
+                        <br />
+                        Rev {String(entry.revision)}
+                      </small>
+                    </span>
+                  </label>
+                );
+              })}
+              <p className="listing-note">
+                The owner's listing is shown by default. Switching is local to
+                this session.
+              </p>
+            </div>
+          )}
+        </>
       )}
       {session.identityId && (
         <div className="actions">
@@ -344,24 +437,6 @@ export function ContractRegistry({
             }}
           />
         )}
-      <h3>Community proposals</h3>
-      {!community.length ? (
-        <p>No community proposals.</p>
-      ) : (
-        <div>
-          {community.map((entry) => (
-            <Entry
-              key={entry.id}
-              entry={entry}
-              contractOwnerId={contractOwnerId}
-            />
-          ))}
-        </div>
-      )}
-      <small>
-        {entries.length} complete registry{" "}
-        {entries.length === 1 ? "entry" : "entries"} loaded.
-      </small>
     </section>
   );
 }
@@ -597,6 +672,7 @@ export function RegistryExplorer({
   onContractOwners,
   onCategory,
   showPublishers = true,
+  showNetwork = true,
   initialEntries = [],
 }: {
   open(id: string, name: string, entry: RegistryEntry): void;
@@ -609,6 +685,7 @@ export function RegistryExplorer({
   onContractOwners?: (owners: Map<string, string>) => void;
   onCategory?: (category: AppCategory) => void;
   showPublishers?: boolean;
+  showNetwork?: boolean;
   initialEntries?: RegistryEntry[];
 }) {
   const session = useSession();
@@ -761,7 +838,9 @@ export function RegistryExplorer({
                 ? "Search apps"
                 : "Recently added")}
         </h2>
-        <span>{subheading ?? session.network}</span>
+        {(subheading || showNetwork) && (
+          <span>{subheading ?? session.network}</span>
+        )}
       </div>
       {!session.registryId ? (
         <p>No registry is configured for this network.</p>

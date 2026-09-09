@@ -1,6 +1,6 @@
 // @vitest-environment jsdom
 import { cleanup, fireEvent, render, screen } from "@testing-library/react";
-import { afterEach, expect, it } from "vitest";
+import { afterEach, expect, it, vi } from "vitest";
 import { ExternalLaunch } from "../src/components/ExternalLaunch";
 
 afterEach(cleanup);
@@ -82,4 +82,29 @@ it("closes the confirmation with Escape", () => {
   fireEvent.keyDown(document, { key: "Escape" });
 
   expect(screen.queryByRole("dialog")).toBeNull();
+});
+
+it("portals the dialog outside its card and contains modal click events", () => {
+  const openDetail = vi.fn();
+  render(
+    <article onClick={openDetail}>
+      <ExternalLaunch
+        url="https://official.example"
+        verified
+        className="launch-pill"
+      >
+        Launch
+      </ExternalLaunch>
+    </article>,
+  );
+
+  fireEvent.click(screen.getByRole("button", { name: "Launch" }));
+  const dialog = screen.getByRole("dialog");
+  expect(dialog.closest("article")).toBeNull();
+  expect(dialog.parentElement?.parentElement).toBe(document.body);
+  expect(openDetail).not.toHaveBeenCalled();
+
+  fireEvent.click(dialog);
+  fireEvent.click(screen.getByRole("button", { name: "Cancel" }));
+  expect(openDetail).not.toHaveBeenCalled();
 });

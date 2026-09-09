@@ -47,6 +47,12 @@ it("does not cache name lookup failures and expires successful names", async () 
   await names.resolve(id(1));
   expect(lookup).toHaveBeenCalledTimes(3);
 });
+it("normalizes trailing dots before displaying the DPNS suffix", async () => {
+  const client = sdk();
+  vi.mocked(client.dpns.username).mockResolvedValue("alice..dash");
+  const names = new NameResolver(client, "testnet");
+  expect(await names.resolve(id(1))).toBe("alice");
+});
 it("discarded name lookups cannot repopulate the cache", async () => {
   const client = sdk();
   const pending = deferred<string | undefined>();

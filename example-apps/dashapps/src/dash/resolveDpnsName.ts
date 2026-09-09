@@ -24,7 +24,9 @@ export class NameResolver {
       const value = await this.sdk.dpns.username(id);
       if (generation !== this.generation) throw new StaleRequestError();
       if (value != null && typeof value !== "string") return null;
-      const name = value ? value.replace(/\.dash$/, "") : null;
+      const name = value
+        ? value.replace(/\.dash$/i, "").replace(/\.+$/, "")
+        : null;
       this.cache.set(key, {
         name,
         expires: this.now() + (name ? 60_000 : 5_000),
