@@ -489,10 +489,6 @@ export function AppRatings({
             {own ? "Edit review" : "Write a review"}
           </button>
         </div>
-      ) : signingIn ? (
-        <div className="category-signin-form">
-          <SignInForm onClose={() => setSigningIn(false)} />
-        </div>
       ) : (
         <div className="rating-cta">
           <div>
@@ -509,6 +505,21 @@ export function AppRatings({
           </button>
         </div>
       )}
+      {signingIn &&
+        !identityId &&
+        createPortal(
+          <div
+            className="external-launch-backdrop header-signin-backdrop"
+            onMouseDown={(event) => {
+              if (event.currentTarget === event.target) setSigningIn(false);
+            }}
+          >
+            <div className="header-signin-dialog">
+              <SignInForm onClose={() => setSigningIn(false)} />
+            </div>
+          </div>,
+          document.body,
+        )}
       {notice && <p role="status">{notice}</p>}
       <div className="rating-toolbar">
         <div className="segment" aria-label="Sort ratings">

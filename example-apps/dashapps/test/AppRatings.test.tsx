@@ -91,7 +91,12 @@ it("renders the average, histogram and list, and reports the summary upward", as
   expect(screen.getByText("Title 1")).toBeTruthy();
   expect(screen.getByText("Rated without a written review.")).toBeTruthy();
   expect(screen.getByText("1 day ago")).toBeTruthy();
-  expect(screen.getByRole("button", { name: "Sign in to rate" })).toBeTruthy();
+  fireEvent.click(screen.getByRole("button", { name: "Sign in to rate" }));
+  const dialog = document.querySelector(".header-signin-dialog");
+  expect(dialog).toBeTruthy();
+  expect(
+    within(dialog as HTMLElement).getByRole("button", { name: /close/i }),
+  ).toBeTruthy();
   expect(listRatings).toHaveBeenCalledWith({}, id(3), id(2), {
     sort: "recent",
     stars: undefined,
