@@ -23,6 +23,7 @@ import { DpnsName } from "./DpnsName";
 import { contractFacts } from "../dash/contractFacts";
 import { SignInForm } from "./SignInForm";
 import { ProvenanceIcon } from "./ProvenanceIcon";
+import { ExternalLaunch } from "./ExternalLaunch";
 
 function Entry({
   entry,
@@ -126,16 +127,13 @@ function Entry({
       </div>
       <div className="entry-links">
         {entry.appUrl && (
-          <a
+          <ExternalLaunch
             className="launch-pill"
-            href={entry.appUrl}
-            target="_blank"
-            rel="noreferrer"
-            onClick={(event) => event.stopPropagation()}
-            onKeyDown={(event) => event.stopPropagation()}
+            url={entry.appUrl}
+            verified={ownerProvided}
           >
             Launch ↗
-          </a>
+          </ExternalLaunch>
         )}
         {entry.ownerId === session.identityId && open && (
           <button
@@ -286,7 +284,7 @@ export function ContractRegistry({
       )}
       <h3>Canonical metadata</h3>
       {canonical ? (
-        <Entry entry={canonical} />
+        <Entry entry={canonical} contractOwnerId={contractOwnerId} />
       ) : canonical === null ? (
         <p>The contract owner has not submitted metadata.</p>
       ) : (
@@ -331,7 +329,11 @@ export function ContractRegistry({
       ) : (
         <div>
           {community.map((entry) => (
-            <Entry key={entry.id} entry={entry} />
+            <Entry
+              key={entry.id}
+              entry={entry}
+              contractOwnerId={contractOwnerId}
+            />
           ))}
         </div>
       )}

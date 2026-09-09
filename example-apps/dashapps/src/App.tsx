@@ -6,6 +6,7 @@ import { SignInForm } from "./components/SignInForm";
 import { IdentityChip } from "./components/IdentityChip";
 import { DpnsName } from "./components/DpnsName";
 import { ProvenanceIcon } from "./components/ProvenanceIcon";
+import { ExternalLaunch } from "./components/ExternalLaunch";
 import {
   CategoryBrowser,
   ContractRegistry,
@@ -237,14 +238,13 @@ function Browser({
           </div>
           <div className="detail-hero-actions">
             {preferredEntry?.appUrl && (
-              <a
+              <ExternalLaunch
                 className="primary-pill"
-                href={preferredEntry.appUrl}
-                target="_blank"
-                rel="noreferrer"
+                url={preferredEntry.appUrl}
+                verified={official}
               >
                 Launch app
-              </a>
+              </ExternalLaunch>
             )}
             {preferredEntry?.website && (
               <a
@@ -390,14 +390,16 @@ function Browser({
                 {featured?.name.slice(0, 1).toUpperCase() ?? "D"}
               </span>
               {featured?.appUrl && (
-                <a
+                <ExternalLaunch
                   className="feature-launch"
-                  href={featured.appUrl}
-                  target="_blank"
-                  rel="noreferrer"
+                  url={featured.appUrl}
+                  verified={
+                    featured.ownerId ===
+                    discoverContractOwners.get(featured.contractId)
+                  }
                 >
                   Launch app ↗
-                </a>
+                </ExternalLaunch>
               )}
               {featured && (
                 <button
@@ -572,16 +574,16 @@ function Browser({
                       {categoryLabel(entry.category)}
                     </button>
                   </div>
-                  <a
+                  <ExternalLaunch
                     className="launch-pill"
-                    href={entry.appUrl}
-                    target="_blank"
-                    rel="noreferrer"
-                    onClick={(event) => event.stopPropagation()}
-                    onKeyDown={(event) => event.stopPropagation()}
+                    url={entry.appUrl!}
+                    verified={
+                      entry.ownerId ===
+                      discoverContractOwners.get(entry.contractId)
+                    }
                   >
                     Launch app ↗
-                  </a>
+                  </ExternalLaunch>
                 </article>
               ))}
             </div>
