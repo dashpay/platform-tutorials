@@ -4,8 +4,12 @@ import { afterEach, expect, it, vi } from "vitest";
 import { SessionProvider } from "../src/session/SessionContext";
 import { useSession } from "../src/session/useSession";
 import { loadSdkCore } from "../src/dash/sdkCore";
+import { loginWithPrivateKey } from "../src/dash/loginWithPrivateKey";
 import { deferred, id, sdk } from "./helpers";
 vi.mock("../src/dash/sdkCore", () => ({ loadSdkCore: vi.fn() }));
+vi.mock("../src/dash/loginWithPrivateKey", () => ({
+  loginWithPrivateKey: vi.fn(),
+}));
 afterEach(() => {
   cleanup();
   localStorage.clear();
@@ -29,7 +33,7 @@ it("signs in on testnet without persisting credentials and signs out", async () 
   vi.mocked(client.dpns.username).mockResolvedValue("alice.dash");
   await waitFor(() => expect(result.current.status).toBe("readonly"));
   await act(async () => {
-    await result.current.login("test-only phrase", 2);
+    await result.current.login("test-only phrase", { identityIndex: 2 });
   });
   expect(result.current).toMatchObject({
     status: "authenticated",
@@ -48,6 +52,28 @@ it("signs in on testnet without persisting credentials and signs out", async () 
   act(() => result.current.logout());
   expect(result.current.keyManager).toBeNull();
   expect(result.current.identityId).toBeNull();
+});
+it("signs in with a WIF without invoking mnemonic derivation", async () => {
+  const { result, create, client } = setup();
+  const auth = {
+    identity: {},
+    identityKey: {},
+    signer: {},
+    identityId: id(3),
+  };
+  vi.mocked(loginWithPrivateKey).mockResolvedValue(auth as never);
+  await waitFor(() => expect(result.current.status).toBe("readonly"));
+  await act(async () => {
+    await result.current.login("test-wif", { expectedIdentityId: id(3) });
+  });
+  expect(loginWithPrivateKey).toHaveBeenCalledWith(client, "test-wif", id(3));
+  expect(create).not.toHaveBeenCalled();
+  expect(result.current).toMatchObject({
+    status: "authenticated",
+    identityId: id(3),
+  });
+  expect(await result.current.keyManager?.getAuth()).toBe(auth);
+  expect(localStorage.length).toBe(0);
 });
 it("ignores a stored mainnet preference", async () => {
   localStorage.setItem("dashapps.network", "mainnet");
@@ -119,7 +145,7 @@ it("rejects invalid identity indices before key derivation", async () => {
   await waitFor(() => expect(result.current.status).toBe("readonly"));
   for (const index of [-1, 0.5, NaN, 2147483648])
     await expect(
-      result.current.login("test-only phrase", index),
+      result.current.login("test-only phrase", { identityIndex: index }),
     ).rejects.toThrow("Identity index");
   expect(create).not.toHaveBeenCalled();
 });

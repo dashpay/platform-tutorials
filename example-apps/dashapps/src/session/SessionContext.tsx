@@ -13,6 +13,8 @@ import { requireId } from "../dash/ids";
 import { OwnerResolver } from "../dash/ownerResolver";
 import { NameResolver } from "../dash/resolveDpnsName";
 import { errorMessage } from "../lib/logger";
+import { detectSecretShape } from "../lib/detectSecretShape";
+import { keyManagerFromKey } from "./keyManagerFromKey";
 import type { Network } from "../dash/types";
 import type { SessionState, SessionValue } from "./types";
 import { SessionContext } from "./context";
@@ -110,18 +112,26 @@ export function SessionProvider({ children }: { children: ReactNode }) {
     }));
     setAttempt((value) => value + 1);
   }
-  async function login(mnemonic: string, identityIndex = 0) {
+  async function login(
+    secret: string,
+    options: { identityIndex?: number; expectedIdentityId?: string } = {},
+  ) {
     const connection = state.connection;
     if (state.network !== "testnet")
       throw new Error(
         "Sign-in is disabled on mainnet. Switch to testnet to use an identity.",
       );
     if (!connection) throw new Error("Not connected yet.");
-    if (!mnemonic.trim()) throw new Error("Recovery phrase is required.");
+    const trimmed = secret.trim();
+    if (!trimmed)
+      throw new Error("Recovery phrase or private key is required.");
+    const shape = detectSecretShape(trimmed);
+    const identityIndex = options.identityIndex ?? 0;
     if (
-      !Number.isInteger(identityIndex) ||
-      identityIndex < 0 ||
-      identityIndex > 2147483647
+      shape === "mnemonic" &&
+      (!Number.isInteger(identityIndex) ||
+        identityIndex < 0 ||
+        identityIndex > 2147483647)
     )
       throw new Error(
         "Identity index must be an integer from 0 to 2147483647.",
@@ -135,14 +145,27 @@ export function SessionProvider({ children }: { children: ReactNode }) {
       )
         throw new Error("Sign-in was cancelled because the session changed.");
     };
-    const core = await loadSdkCore();
-    assertCurrent();
-    const keyManager = await core.IdentityKeyManager.create({
-      sdk: connection.sdk,
-      mnemonic: mnemonic.trim(),
-      network: "testnet",
-      identityIndex,
-    });
+    let keyManager;
+    if (shape === "mnemonic") {
+      const core = await loadSdkCore();
+      assertCurrent();
+      keyManager = await core.IdentityKeyManager.create({
+        sdk: connection.sdk,
+        mnemonic: trimmed,
+        network: "testnet",
+        identityIndex,
+      });
+    } else {
+      const { loginWithPrivateKey } =
+        await import("../dash/loginWithPrivateKey");
+      assertCurrent();
+      const auth = await loginWithPrivateKey(
+        connection.sdk,
+        trimmed,
+        options.expectedIdentityId,
+      );
+      keyManager = keyManagerFromKey(auth.identityId, auth);
+    }
     assertCurrent();
     const identityId = requireId(keyManager.identityId);
     const [balance, identityName] = await Promise.all([

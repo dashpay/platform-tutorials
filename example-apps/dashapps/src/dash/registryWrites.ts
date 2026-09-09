@@ -1,4 +1,4 @@
-import type { IdentityKeyManager } from "../../../../setupDashClient-core.mjs";
+import type { DashKeyManager } from "./types";
 import type { DataContract, Document } from "@dashevo/evo-sdk";
 import type { SessionSdk } from "../session/types";
 import { requireId } from "./ids";
@@ -130,7 +130,7 @@ function duplicate(error: unknown) {
 
 export async function createMetadata(args: {
   sdk: SessionSdk;
-  keyManager: IdentityKeyManager;
+  keyManager: DashKeyManager;
   registryId: string;
   targetId: string;
   input: MetadataInput;
@@ -169,7 +169,7 @@ export async function createMetadata(args: {
 
 export async function seedSystemContractMetadata(args: {
   sdk: SessionSdk;
-  keyManager: IdentityKeyManager;
+  keyManager: DashKeyManager;
   registryId: string;
 }) {
   const failures: Array<{ name: string; error: unknown }> = [];
@@ -191,7 +191,7 @@ export async function seedSystemContractMetadata(args: {
 
 export async function editMetadata(args: {
   sdk: SessionSdk;
-  keyManager: IdentityKeyManager;
+  keyManager: DashKeyManager;
   registryId: string;
   targetId: string;
   entry: RegistryEntry;
@@ -231,7 +231,7 @@ export async function editMetadata(args: {
 
 export async function withdrawMetadata(args: {
   sdk: SessionSdk;
-  keyManager: IdentityKeyManager;
+  keyManager: DashKeyManager;
   registryId: string;
   targetId: string;
   entry: RegistryEntry;

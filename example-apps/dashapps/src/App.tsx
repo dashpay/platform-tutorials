@@ -107,6 +107,8 @@ function Browser({
     DocumentSchemaSummary[]
   >([]);
   const [preferredEntry, setPreferredEntry] = useState<RegistryEntry | null>();
+  const [listingManagementHost, setListingManagementHost] =
+    useState<HTMLDivElement | null>(null);
   const [description, setDescription] = useState<string>();
   const [descriptionError, setDescriptionError] = useState("");
   const [missing, setMissing] = useState(false);
@@ -358,6 +360,7 @@ function Browser({
               contractOwnerId={detail.ownerId}
               onMutation={() => setRegistryRefresh((value) => value + 1)}
               onPreferredEntry={setPreferredEntry}
+              managementHost={listingManagementHost}
             />
             <div className="detail-metadata">
               <div>
@@ -407,6 +410,10 @@ function Browser({
                   <strong>Contract ID</strong>
                   <ContractCopyButton contractId={selected} />
                 </div>
+                <div
+                  className="listing-management"
+                  ref={setListingManagementHost}
+                />
               </div>
             </section>
             <details className="technical-details">

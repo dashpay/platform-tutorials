@@ -458,9 +458,23 @@ small {
   background: #f5f6f8;
 }
 .metadata-form label input,
-.metadata-form label textarea {
+.metadata-form label textarea,
+.metadata-form label select {
   display: block;
+  width: 100%;
   margin-top: 7px;
+}
+.metadata-form label select {
+  min-width: 0;
+  padding: 12px 15px;
+  border: 1px solid #d9dee5;
+  border-radius: 12px;
+  background: #f5f6f8;
+  color: #111827;
+}
+.metadata-form label select:focus {
+  outline: 2px solid #84b9f0;
+  border-color: #0767cf;
 }
 .metadata-form textarea {
   min-height: 105px;
@@ -1207,6 +1221,54 @@ select:focus-visible {
   display: grid;
   align-content: start;
   gap: 8px;
+}
+.listing-management > .actions {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 12px;
+  margin-top: 10px;
+  padding: 10px 12px;
+  border-radius: 12px;
+  background: #eef6ff;
+}
+.listing-management > .actions p {
+  margin: 0;
+  color: #245b9c;
+  font-size: 11px;
+}
+.listing-management > .actions button {
+  flex: none;
+  border: 0;
+  border-radius: 999px;
+  padding: 8px 14px;
+  background: #0767cf;
+  color: #fff;
+  font-weight: 700;
+}
+.registry-detail:empty {
+  display: none;
+}
+.metadata-modal-backdrop {
+  position: fixed;
+  z-index: 1000;
+  inset: 0;
+  display: grid;
+  place-items: center;
+  padding: 24px;
+  background: rgb(15 23 42 / 55%);
+}
+.metadata-modal {
+  width: min(820px, 100%);
+  max-height: calc(100vh - 48px);
+  overflow-y: auto;
+  border-radius: 16px;
+  background: #fff;
+  box-shadow: 0 24px 80px rgb(15 23 42 / 28%);
+}
+.metadata-modal .metadata-form {
+  margin: 0;
+  border-radius: 16px;
 }
 .resource-row {
   display: flex;

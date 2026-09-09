@@ -1,5 +1,5 @@
 /** Dashapps registry data contract schema and production registration. */
-import type { IdentityKeyManager } from "../../../../setupDashClient-core.mjs";
+import type { DashKeyManager } from "./types";
 import type { Logger } from "../lib/logger";
 import type { SessionSdk } from "../session/types";
 import { loadSdkModule } from "./sdkModule";
@@ -130,7 +130,7 @@ export async function registerContract({
   log,
 }: {
   sdk: SessionSdk;
-  keyManager: IdentityKeyManager;
+  keyManager: DashKeyManager;
   log?: Logger;
 }): Promise<{
   id: string;

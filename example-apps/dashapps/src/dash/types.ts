@@ -1,4 +1,33 @@
 export type Network = "testnet" | "mainnet";
+import type {
+  Identity,
+  IdentityPublicKey,
+  IdentitySigner,
+} from "@dashevo/evo-sdk";
+
+export interface DashAuth {
+  identity: Identity;
+  identityKey: IdentityPublicKey | undefined;
+  signer: IdentitySigner;
+}
+
+export interface DashKeyManager {
+  readonly identityId: string | null | undefined;
+  getAuth(): Promise<DashAuth>;
+}
+
+export interface DashSdk {
+  identities: {
+    fetch(identityId: string): Promise<Identity | null | undefined>;
+    byPublicKeyHash(
+      publicKeyHash: Uint8Array,
+    ): Promise<Identity | null | undefined>;
+    byNonUniquePublicKeyHash?(
+      publicKeyHash: Uint8Array,
+      startAfter?: string,
+    ): Promise<Identity[]>;
+  };
+}
 export interface ContractHandle {
   ownerId: unknown;
   version: number;

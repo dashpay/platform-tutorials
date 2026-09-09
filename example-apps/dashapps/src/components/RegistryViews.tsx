@@ -1,4 +1,5 @@
 import { useEffect, useMemo, useRef, useState } from "react";
+import { createPortal } from "react-dom";
 import { useSession } from "../session/useSession";
 import {
   allProposals,
@@ -31,6 +32,8 @@ function Entry({
   showTags = false,
   showPublisher = true,
   onCategory,
+  onEdit,
+  editEntry,
 }: {
   entry: RegistryEntry;
   open?: (id: string, name: string, entry: RegistryEntry) => void;
@@ -38,6 +41,8 @@ function Entry({
   showTags?: boolean;
   showPublisher?: boolean;
   onCategory?: (category: AppCategory) => void;
+  onEdit?: (entry: RegistryEntry) => void;
+  editEntry?: RegistryEntry;
 }) {
   const session = useSession();
   const ownerProvided = entry.ownerId === contractOwnerId;
@@ -134,12 +139,12 @@ function Entry({
             Launch ↗
           </ExternalLaunch>
         )}
-        {entry.ownerId === session.identityId && open && (
+        {editEntry && onEdit && (
           <button
             className="muted-pill"
             onClick={(event) => {
               event.stopPropagation();
-              open(entry.contractId, entry.name, entry);
+              onEdit(editEntry);
             }}
             onKeyDown={(event) => event.stopPropagation()}
           >
@@ -193,11 +198,13 @@ export function ContractRegistry({
   contractOwnerId,
   onMutation,
   onPreferredEntry,
+  managementHost,
 }: {
   contractId: string;
   contractOwnerId: string;
   onMutation(): void;
   onPreferredEntry?(entry: RegistryEntry | null): void;
+  managementHost?: HTMLElement | null;
 }) {
   const session = useSession();
   const [entries, setEntries] = useState<RegistryEntry[]>([]);
@@ -307,6 +314,53 @@ export function ContractRegistry({
     onPreferredEntry?.(entry);
   };
   if (ordered.length <= 1 && !error && !session.identityId) return null;
+  const managementAction = (
+    <>
+      {session.identityId && (
+        <div className="actions">
+          <p>
+            {own
+              ? "You have submitted metadata for this contract."
+              : own === null
+                ? "You have no submission for this contract."
+                : "Your submission could not be determined."}
+          </p>
+          {session.keyManager && own !== undefined && !editorOpen && (
+            <button type="button" onClick={() => setEditorOpen(true)}>
+              {own ? "Edit your submission" : "Add your entry"}
+            </button>
+          )}
+        </div>
+      )}
+    </>
+  );
+  const editor =
+    session.identityId &&
+    session.keyManager &&
+    own !== undefined &&
+    editorOpen ? (
+      <div className="metadata-modal-backdrop" role="presentation">
+        <div
+          className="metadata-modal"
+          role="dialog"
+          aria-modal="true"
+          aria-label={own ? "Edit your submission" : "Submit metadata"}
+        >
+          <MetadataEditor
+            key={`${own?.id ?? "new"}:${own?.revision ?? 0}`}
+            entry={own}
+            contractId={contractId}
+            onCancel={() => setEditorOpen(false)}
+            onChanged={() => {
+              setEditorOpen(false);
+              setBusy(true);
+              setRefresh((value) => value + 1);
+              onMutation();
+            }}
+          />
+        </div>
+      </div>
+    ) : null;
   return (
     <section
       className="registry-detail listing-switcher"
@@ -404,39 +458,10 @@ export function ContractRegistry({
           )}
         </>
       )}
-      {session.identityId && (
-        <div className="actions">
-          <p>
-            {own
-              ? "You have submitted metadata for this contract."
-              : own === null
-                ? "You have no submission for this contract."
-                : "Your submission could not be determined."}
-          </p>
-          {session.keyManager && own !== undefined && !editorOpen && (
-            <button type="button" onClick={() => setEditorOpen(true)}>
-              {own ? "Edit your submission" : "Add your entry"}
-            </button>
-          )}
-        </div>
-      )}
-      {session.identityId &&
-        session.keyManager &&
-        own !== undefined &&
-        editorOpen && (
-          <MetadataEditor
-            key={`${own?.id ?? "new"}:${own?.revision ?? 0}`}
-            entry={own}
-            contractId={contractId}
-            onCancel={() => setEditorOpen(false)}
-            onChanged={() => {
-              setEditorOpen(false);
-              setBusy(true);
-              setRefresh((value) => value + 1);
-              onMutation();
-            }}
-          />
-        )}
+      {managementHost
+        ? createPortal(managementAction, managementHost)
+        : managementAction}
+      {managementHost && editor ? createPortal(editor, document.body) : editor}
     </section>
   );
 }
@@ -695,6 +720,10 @@ export function RegistryExplorer({
   const [cursor, setCursor] = useState<string>();
   const [error, setError] = useState("");
   const [busy, setBusy] = useState(false);
+  const [editingEntry, setEditingEntry] = useState<RegistryEntry | null>(null);
+  const [ownEntries, setOwnEntries] = useState(
+    new Map<string, RegistryEntry>(),
+  );
   const [contractOwners, setContractOwners] = useState(() => {
     if (!session.connection) return new Map<string, string>();
     const ids = [...new Set(initialEntries.map((entry) => entry.contractId))];
@@ -711,6 +740,32 @@ export function RegistryExplorer({
     () => canonicalEntries(entries, contractOwners),
     [entries, contractOwners],
   );
+  useEffect(() => {
+    let current = true;
+    if (!session.connection || !session.registryId || !session.identityId) {
+      setOwnEntries(new Map());
+      return () => {
+        current = false;
+      };
+    }
+    void myEntries(
+      session.connection.sdk,
+      session.registryId,
+      session.identityId,
+    )
+      .then((result) => {
+        if (!current) return;
+        setOwnEntries(
+          new Map(result.map((entry) => [entry.contractId, entry])),
+        );
+      })
+      .catch(() => {
+        if (current) setOwnEntries(new Map());
+      });
+    return () => {
+      current = false;
+    };
+  }, [session.connection, session.identityId, session.registryId]);
   useEffect(() => {
     onEntries?.(displayedEntries);
   }, [displayedEntries, onEntries]);
@@ -910,6 +965,8 @@ export function RegistryExplorer({
                   contractOwnerId={contractOwners.get(entry.contractId)}
                   onCategory={onCategory}
                   showPublisher={showPublishers}
+                  onEdit={session.keyManager ? setEditingEntry : undefined}
+                  editEntry={ownEntries.get(entry.contractId)}
                 />
               ))}
             </div>
@@ -920,6 +977,29 @@ export function RegistryExplorer({
               Load more
             </button>
           )}
+          {editingEntry &&
+            createPortal(
+              <div className="metadata-modal-backdrop" role="presentation">
+                <div
+                  className="metadata-modal"
+                  role="dialog"
+                  aria-modal="true"
+                  aria-label="Edit your submission"
+                >
+                  <MetadataEditor
+                    key={`${editingEntry.id}:${editingEntry.revision}`}
+                    entry={editingEntry}
+                    contractId={editingEntry.contractId}
+                    onCancel={() => setEditingEntry(null)}
+                    onChanged={() => {
+                      setEditingEntry(null);
+                      void load(mode);
+                    }}
+                  />
+                </div>
+              </div>,
+              document.body,
+            )}
         </>
       )}
     </section>

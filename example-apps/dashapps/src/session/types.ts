@@ -1,15 +1,24 @@
-import type { IdentityKeyManager } from "../../../../setupDashClient-core.mjs";
 import type {
   DataContract,
   Document,
   IdentityPublicKey,
   IdentitySigner,
 } from "@dashevo/evo-sdk";
-import type { ReadSdk, Network } from "../dash/types";
+import type { DashKeyManager, ReadSdk, Network } from "../dash/types";
 import type { OwnerResolver } from "../dash/ownerResolver";
 import type { NameResolver } from "../dash/resolveDpnsName";
 export interface SessionSdk extends ReadSdk {
   identities: {
+    fetch(
+      identityId: string,
+    ): Promise<import("@dashevo/evo-sdk").Identity | null | undefined>;
+    byPublicKeyHash(
+      publicKeyHash: Uint8Array,
+    ): Promise<import("@dashevo/evo-sdk").Identity | null | undefined>;
+    byNonUniquePublicKeyHash?(
+      publicKeyHash: Uint8Array,
+      startAfter?: string,
+    ): Promise<import("@dashevo/evo-sdk").Identity[]>;
     balance(id: string): Promise<bigint>;
     nonce(id: string): Promise<bigint | number | undefined>;
   };
@@ -55,7 +64,7 @@ export interface SessionState {
   network: Network;
   status: "connecting" | "readonly" | "authenticated" | "error";
   connection: Connection | null;
-  keyManager: IdentityKeyManager | null;
+  keyManager: DashKeyManager | null;
   identityId: string | null;
   identityName: string | null;
   balance: bigint | null;
@@ -68,7 +77,10 @@ export interface SessionValue extends SessionState {
   setRegistryId(id: string): boolean;
   setNetwork(network: Network): void;
   reconnect(): void;
-  login(mnemonic: string, identityIndex?: number): Promise<void>;
+  login(
+    secret: string,
+    options?: { identityIndex?: number; expectedIdentityId?: string },
+  ): Promise<void>;
   logout(): void;
   refreshBalance(): Promise<void>;
 }

@@ -1,9 +1,17 @@
 // @vitest-environment jsdom
 import { cleanup, fireEvent, render, screen } from "@testing-library/react";
 import { afterEach, expect, it, vi } from "vitest";
-import { ContractRegistry } from "../src/components/RegistryViews";
+import {
+  ContractRegistry,
+  RegistryExplorer,
+} from "../src/components/RegistryViews";
 import { useSession } from "../src/session/useSession";
-import { allProposals, exactRegistryEntry } from "../src/dash/registryReads";
+import {
+  allProposals,
+  exactRegistryEntry,
+  myEntries,
+  recentEntries,
+} from "../src/dash/registryReads";
 import { id } from "./helpers";
 
 vi.mock("../src/session/useSession", () => ({ useSession: vi.fn() }));
@@ -158,4 +166,54 @@ it("defaults to the owner listing and lets the user select a community listing",
   fireEvent.click(screen.getByRole("radio", { name: /Community member/ }));
   expect(onPreferredEntry).toHaveBeenLastCalledWith(community);
   expect(screen.getByText(/Showing the/).textContent).toContain("community");
+});
+
+it("edits the signed-in user's proposal from a canonical Discover card", async () => {
+  const canonical = {
+    id: id(4),
+    ownerId: id(1),
+    contractId: id(2),
+    name: "Owner app",
+    tagline: "Canonical metadata",
+    category: "other" as const,
+    tags: [],
+    revision: 1n,
+  };
+  const ownProposal = {
+    ...canonical,
+    id: id(5),
+    ownerId: id(6),
+    name: "My proposed name",
+    tagline: "My proposed metadata",
+  };
+  vi.mocked(recentEntries).mockResolvedValue({
+    entries: [canonical, ownProposal],
+    cursor: undefined,
+  });
+  vi.mocked(myEntries).mockResolvedValue([ownProposal]);
+  vi.mocked(useSession).mockReturnValue({
+    connection: {
+      sdk: {},
+      names: { resolve: vi.fn(async () => null) },
+      resolver: {
+        summaryMany: vi.fn(() => new Map()),
+        resolve: vi.fn(
+          async () => new Map([[id(2), { status: "found", ownerId: id(1) }]]),
+        ),
+      },
+    },
+    registryId: id(3),
+    identityId: id(6),
+    keyManager: {},
+  } as never);
+  const open = vi.fn();
+
+  render(<RegistryExplorer open={open} showNavigation={false} />);
+
+  fireEvent.click(await screen.findByRole("button", { name: "Edit" }));
+  expect(open).not.toHaveBeenCalled();
+  expect(
+    screen.getByRole("dialog", { name: "Edit your submission" }),
+  ).toBeTruthy();
+  expect(screen.getByDisplayValue("My proposed name")).toBeTruthy();
 });
