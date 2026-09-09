@@ -9,7 +9,7 @@ import type { DashAuth, DashSdk } from "./types";
 
 export class UnknownIdentityError extends Error {
   constructor() {
-    super("No identity is registered with this key on testnet.");
+    super("No identity is registered with this key on the selected network.");
     this.name = "UnknownIdentityError";
   }
 }
