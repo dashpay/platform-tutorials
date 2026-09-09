@@ -721,9 +721,17 @@ export function RegistryExplorer({
   const [error, setError] = useState("");
   const [busy, setBusy] = useState(false);
   const [editingEntry, setEditingEntry] = useState<RegistryEntry | null>(null);
-  const [ownEntries, setOwnEntries] = useState(
-    new Map<string, RegistryEntry>(),
-  );
+  const ownEntriesScope = session.connection
+    ? `${session.network}:${session.registryId}:${session.identityId ?? ""}`
+    : "";
+  const [ownEntriesResult, setOwnEntriesResult] = useState<{
+    scope: string;
+    entries: Map<string, RegistryEntry>;
+  }>({ scope: "", entries: new Map() });
+  const ownEntries =
+    ownEntriesResult.scope === ownEntriesScope
+      ? ownEntriesResult.entries
+      : new Map<string, RegistryEntry>();
   const [contractOwners, setContractOwners] = useState(() => {
     if (!session.connection) return new Map<string, string>();
     const ids = [...new Set(initialEntries.map((entry) => entry.contractId))];
@@ -743,7 +751,6 @@ export function RegistryExplorer({
   useEffect(() => {
     let current = true;
     if (!session.connection || !session.registryId || !session.identityId) {
-      setOwnEntries(new Map());
       return () => {
         current = false;
       };
@@ -755,17 +762,24 @@ export function RegistryExplorer({
     )
       .then((result) => {
         if (!current) return;
-        setOwnEntries(
-          new Map(result.map((entry) => [entry.contractId, entry])),
-        );
+        setOwnEntriesResult({
+          scope: ownEntriesScope,
+          entries: new Map(result.map((entry) => [entry.contractId, entry])),
+        });
       })
       .catch(() => {
-        if (current) setOwnEntries(new Map());
+        if (current)
+          setOwnEntriesResult({ scope: ownEntriesScope, entries: new Map() });
       });
     return () => {
       current = false;
     };
-  }, [session.connection, session.identityId, session.registryId]);
+  }, [
+    ownEntriesScope,
+    session.connection,
+    session.identityId,
+    session.registryId,
+  ]);
   useEffect(() => {
     onEntries?.(displayedEntries);
   }, [displayedEntries, onEntries]);
