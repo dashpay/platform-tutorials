@@ -1,7 +1,9 @@
-import { expect, it, vi } from "vitest";
+// @vitest-environment jsdom
+import { beforeEach, expect, it, vi } from "vitest";
 import { OwnerResolver, StaleRequestError } from "../src/dash/ownerResolver";
 import type { ContractHandle } from "../src/dash/types";
 import { contract, deferred, id, sdk } from "./helpers";
+beforeEach(() => localStorage.clear());
 it("deduplicates and runs batches of at most 100 sequentially", async () => {
   const client = sdk();
   const first = deferred<Map<string, ContractHandle | undefined>>();
@@ -67,4 +69,53 @@ it("invalidates in-flight results and keeps network caches isolated", async () =
   expect((await resolver.resolve([id(2)])).get(id(2))?.status).toBe("missing");
   await new OwnerResolver(client, "mainnet").resolve([id(2)]);
   expect(client.contracts.getMany).toHaveBeenCalledTimes(3);
+});
+
+it("persists normalized summaries without persisting SDK handles", async () => {
+  const client = sdk();
+  vi.mocked(client.contracts.getMany).mockResolvedValue(
+    new Map([[id(2), contract(id(7))]]),
+  );
+  const resolver = new OwnerResolver(client, "testnet", () => 456);
+  await resolver.resolve([id(2)]);
+  expect(resolver.summary(id(2))).toEqual({
+    contractId: id(2),
+    ownerId: id(7),
+    version: 1,
+    description: "Example contract",
+    keywords: ["notes"],
+    documentTypes: ["note"],
+    fetchedAt: 456,
+  });
+  expect(
+    JSON.parse(localStorage.getItem("dashapps.contractSummaries.v1.testnet")!),
+  ).toEqual({ entries: [resolver.summary(id(2))] });
+});
+
+it("hydrates summaries across resolvers and retains them when memory is cleared", async () => {
+  const client = sdk();
+  vi.mocked(client.contracts.getMany).mockResolvedValue(
+    new Map([[id(2), contract(id(7))]]),
+  );
+  const first = new OwnerResolver(client, "testnet");
+  await first.resolve([id(2)]);
+  first.clear();
+  expect(first.summary(id(2))?.ownerId).toBe(id(7));
+  expect(new OwnerResolver(sdk(), "testnet").summary(id(2))?.ownerId).toBe(
+    id(7),
+  );
+});
+
+it("does not persist missing or failed resolutions", async () => {
+  const client = sdk();
+  vi.mocked(client.contracts.getMany)
+    .mockResolvedValueOnce(new Map())
+    .mockRejectedValueOnce(new Error("offline"));
+  const resolver = new OwnerResolver(client, "testnet");
+  await resolver.resolve([id(2)]);
+  await resolver.resolve([id(3)], true);
+  expect(resolver.summaryMany([id(2), id(3)]).size).toBe(0);
+  expect(
+    localStorage.getItem("dashapps.contractSummaries.v1.testnet"),
+  ).toBeNull();
 });

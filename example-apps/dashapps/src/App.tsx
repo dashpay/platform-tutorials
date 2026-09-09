@@ -16,6 +16,7 @@ import type { RegistryEntry } from "./dash/registryReads";
 import { categoryLabel } from "./dash/categoryLabel";
 import { APP_CATEGORIES, type AppCategory } from "./dash/registryReads";
 import type { Resolution } from "./dash/types";
+import type { ContractSummary } from "./dash/contractSummaryStore";
 import { contractFacts } from "./dash/contractFacts";
 import { searchKeywords, shortDescription } from "./dash/keywordSearch";
 import { requireId } from "./dash/ids";
@@ -48,6 +49,9 @@ function Browser({
   const [ids, setIds] = useState<string[]>([]);
   const [cursor, setCursor] = useState<string>();
   const [resolved, setResolved] = useState(new Map<string, Resolution>());
+  const [summaries, setSummaries] = useState(
+    new Map<string, ContractSummary>(),
+  );
   const [searched, setSearched] = useState(false);
   const [target, setTarget] = useState("");
   const [selected, setSelected] = useState("");
@@ -92,13 +96,25 @@ function Browser({
         more ? cursor : undefined,
       );
       if (request.current !== token) return;
+      const cached = connection.resolver.summaryMany(page.ids);
+      setIds((previous) => [
+        ...new Set([...(more ? previous : []), ...page.ids]),
+      ]);
+      setSummaries(
+        (previous) => new Map([...(more ? previous : []), ...cached]),
+      );
       const contracts = await connection.resolver.resolve(page.ids);
       if (request.current !== token) return;
       if (more && page.cursor && page.cursor === cursor)
         throw new Error("Keyword cursor did not advance. Refresh the search.");
-      setIds((previous) => [
-        ...new Set([...(more ? previous : []), ...page.ids]),
-      ]);
+      setSummaries((previous) => {
+        const next = new Map(more ? previous : []);
+        for (const id of page.ids) {
+          const summary = connection.resolver.summary(id);
+          if (summary) next.set(id, summary);
+        }
+        return next;
+      });
       setResolved(
         (previous) => new Map([...(more ? previous : []), ...contracts]),
       );
@@ -120,27 +136,37 @@ function Browser({
     };
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, []);
-  async function inspect(input: string, name = "") {
+  async function inspect(input: string, name = "", entry?: RegistryEntry) {
     if (!connection) return;
     connection.resolver.clear();
     const token = ++request.current;
     setBusy(true);
     setError("");
-    setDetail(undefined);
-    setPreferredEntry(undefined);
+    let id: string;
+    try {
+      id = requireId(input.trim());
+    } catch (error) {
+      setBusy(false);
+      setError(message(error));
+      return;
+    }
+    const cached = connection.resolver.summary(id);
+    setDetail(cached);
+    if (entry) setPreferredEntry(entry);
+    else if (id !== selected) setPreferredEntry(undefined);
     setDescription(undefined);
     setDescriptionError("");
     setMissing(false);
-    setSelected("");
+    setSelected(cached ? id : "");
+    setSelectedName(name);
     try {
-      const id = requireId(input.trim());
       const resolutions = await connection.resolver.resolve([id], true);
       if (request.current !== token) return;
       const resolution = resolutions.get(id)!;
       if (resolution.status === "error") throw resolution.error;
       setSelected(id);
-      setSelectedName(name);
       if (resolution.status === "missing") {
+        setDetail(undefined);
         setMissing(true);
         return;
       }
@@ -261,7 +287,7 @@ function Browser({
               disabled={busy}
               onClick={() => void inspect(selected, heading)}
             >
-              Refresh
+              {busy ? "Refreshing…" : "Refresh"}
             </button>
           </div>
         </div>
@@ -317,9 +343,9 @@ function Browser({
       <CategoryBrowser
         category={category}
         onBack={() => navigate("discover")}
-        open={(id, name) => {
+        open={(id, name, entry) => {
           setTarget(id);
-          void inspect(id, name);
+          void inspect(id, name, entry);
         }}
       />
     );
@@ -405,7 +431,7 @@ function Browser({
                 <button
                   className="feature-details"
                   onClick={() =>
-                    void inspect(featured.contractId, featured.name)
+                    void inspect(featured.contractId, featured.name, featured)
                   }
                 >
                   Details
@@ -433,7 +459,9 @@ function Browser({
                   </div>
                   <button
                     className="open-pill"
-                    onClick={() => void inspect(entry.contractId, entry.name)}
+                    onClick={() =>
+                      void inspect(entry.contractId, entry.name, entry)
+                    }
                   >
                     Details
                   </button>
@@ -540,11 +568,13 @@ function Browser({
                   role="link"
                   tabIndex={0}
                   aria-label={`View details for ${entry.name}`}
-                  onClick={() => void inspect(entry.contractId, entry.name)}
+                  onClick={() =>
+                    void inspect(entry.contractId, entry.name, entry)
+                  }
                   onKeyDown={(event) => {
                     if (event.key === "Enter" || event.key === " ") {
                       event.preventDefault();
-                      void inspect(entry.contractId, entry.name);
+                      void inspect(entry.contractId, entry.name, entry);
                     }
                   }}
                 >
@@ -606,7 +636,9 @@ function Browser({
               <div className="entry-copy">
                 <button
                   className="entry-title"
-                  onClick={() => void inspect(entry.contractId, entry.name)}
+                  onClick={() =>
+                    void inspect(entry.contractId, entry.name, entry)
+                  }
                 >
                   {entry.name}
                 </button>
@@ -614,7 +646,9 @@ function Browser({
               </div>
               <button
                 className="open-pill"
-                onClick={() => void inspect(entry.contractId, entry.name)}
+                onClick={() =>
+                  void inspect(entry.contractId, entry.name, entry)
+                }
               >
                 Open
               </button>
@@ -622,10 +656,7 @@ function Browser({
           ))}
           {keywordIds.map((id) => {
             const result = resolved.get(id);
-            const facts =
-              result?.status === "found"
-                ? contractFacts(result.contract, connection!.sdk.version())
-                : undefined;
+            const facts = summaries.get(id);
             return (
               <article className="registry-entry" key={id}>
                 <span className="app-mark">
@@ -639,7 +670,7 @@ function Browser({
                     {facts?.description || id}
                   </button>
                   <small>
-                    {result?.status === "found"
+                    {facts
                       ? `${facts?.documentTypes.length ?? 0} document types`
                       : result?.status === "missing"
                         ? "Contract not found"
@@ -724,6 +755,7 @@ function Browser({
           }
           onCategory={chooseCategory}
           showPublishers={view !== "discover"}
+          initialEntries={view === "discover" ? discoverEntries : undefined}
           aside={
             view === "discover" ? (
               <>
@@ -753,9 +785,9 @@ function Browser({
               </>
             ) : undefined
           }
-          open={(id, name) => {
+          open={(id, name, entry) => {
             setTarget(id);
-            void inspect(id, name);
+            void inspect(id, name, entry);
           }}
         />
       )}

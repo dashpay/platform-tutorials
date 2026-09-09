@@ -12,6 +12,7 @@ import App from "../src/App";
 import { loadSdkCore } from "../src/dash/sdkCore";
 import { contract, deferred, id, sdk } from "./helpers";
 import type { ContractHandle } from "../src/dash/types";
+import { ContractSummaryStore } from "../src/dash/contractSummaryStore";
 vi.mock("../src/dash/sdkCore", () => ({ loadSdkCore: vi.fn() }));
 afterEach(() => {
   cleanup();
@@ -138,6 +139,94 @@ it("refresh forces fresh contract facts and short description", async () => {
     ).toHaveLength(2),
   );
   expect(client.contracts.getMany).toHaveBeenCalledTimes(2);
+});
+
+it("renders a persisted contract summary immediately while revalidating", async () => {
+  new ContractSummaryStore("testnet").set({
+    contractId: id(2),
+    ownerId: id(1),
+    version: 1,
+    description: "Saved contract",
+    keywords: ["saved"],
+    documentTypes: ["savedNote"],
+    fetchedAt: 1,
+  });
+  const client = connect();
+  const pending = deferred<Map<string, ContractHandle | undefined>>();
+  vi.mocked(client.contracts.getMany).mockReturnValue(pending.promise);
+  render(<App />);
+  await ready();
+  openSearch();
+  fireEvent.change(screen.getByLabelText("Open a contract"), {
+    target: { value: id(2) },
+  });
+  fireEvent.click(screen.getByRole("button", { name: "Open" }));
+
+  expect(screen.getByText("Saved contract")).toBeTruthy();
+  expect(screen.getByText("savedNote")).toBeTruthy();
+  expect(
+    (
+      screen.getByRole("button", {
+        name: "Refreshing…",
+      }) as HTMLButtonElement
+    ).disabled,
+  ).toBe(true);
+  expect(client.contracts.getMany).toHaveBeenCalledOnce();
+
+  await act(async () => pending.resolve(new Map([[id(2), contract()]])));
+  await screen.findByText("Example contract");
+  expect(screen.queryByText("Saved contract")).toBeNull();
+});
+
+it("keeps a persisted summary visible when background revalidation fails", async () => {
+  new ContractSummaryStore("testnet").set({
+    contractId: id(2),
+    ownerId: id(1),
+    version: 1,
+    description: "Saved offline contract",
+    keywords: [],
+    documentTypes: ["note"],
+    fetchedAt: 1,
+  });
+  const client = connect();
+  vi.mocked(client.contracts.getMany).mockRejectedValue(new Error("offline"));
+  render(<App />);
+  await ready();
+  openSearch();
+  fireEvent.change(screen.getByLabelText("Open a contract"), {
+    target: { value: id(2) },
+  });
+  fireEvent.click(screen.getByRole("button", { name: "Open" }));
+
+  await screen.findByText(/offline/);
+  expect(screen.getByText("Saved offline contract")).toBeTruthy();
+  expect(screen.getByText("note")).toBeTruthy();
+});
+
+it("removes a persisted summary when revalidation confirms the contract is missing", async () => {
+  new ContractSummaryStore("testnet").set({
+    contractId: id(2),
+    ownerId: id(1),
+    version: 1,
+    description: "Previously found contract",
+    keywords: [],
+    documentTypes: ["note"],
+    fetchedAt: 1,
+  });
+  const client = connect();
+  vi.mocked(client.contracts.getMany).mockResolvedValue(new Map());
+  render(<App />);
+  await ready();
+  openSearch();
+  fireEvent.change(screen.getByLabelText("Open a contract"), {
+    target: { value: id(2) },
+  });
+  fireEvent.click(screen.getByRole("button", { name: "Open" }));
+
+  expect(screen.getByText("Previously found contract")).toBeTruthy();
+  await screen.findByText("Contract not found on this network.");
+  expect(screen.queryByText("Previously found contract")).toBeNull();
+  expect(screen.queryByRole("heading", { name: "Information" })).toBeNull();
 });
 
 it.each(["Discover", "Search", "Mine"])(

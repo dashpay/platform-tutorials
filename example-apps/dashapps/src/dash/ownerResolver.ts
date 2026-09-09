@@ -1,15 +1,29 @@
 import { errorMessage } from "../lib/logger";
+import { contractFacts } from "./contractFacts";
+import {
+  ContractSummaryStore,
+  type ContractSummary,
+} from "./contractSummaryStore";
 import { requireId } from "./ids";
 import type { Network, ReadSdk, Resolution } from "./types";
 export class StaleRequestError extends Error {}
 export class OwnerResolver {
   private generation = 0;
   private cache = new Map<string, { result: Resolution; expires: number }>();
+  private summaries: ContractSummaryStore;
   constructor(
     private sdk: ReadSdk,
     private network: Network,
     private now = Date.now,
-  ) {}
+  ) {
+    this.summaries = new ContractSummaryStore(network);
+  }
+  summary(id: string) {
+    return this.summaries.get(requireId(id));
+  }
+  summaryMany(ids: string[]) {
+    return this.summaries.getMany([...new Set(ids.map(requireId))]);
+  }
   clear() {
     this.generation++;
     this.cache.clear();
@@ -34,6 +48,7 @@ export class OwnerResolver {
         if (generation !== this.generation) throw new StaleRequestError();
         if (!(fetched instanceof Map))
           throw new Error("Malformed contract batch response.");
+        const summaries: ContractSummary[] = [];
         for (const id of chunk) {
           const contract = fetched.get(id);
           let resolution: Resolution;
@@ -54,6 +69,17 @@ export class OwnerResolver {
             };
           }
           result.set(id, resolution);
+          if (resolution.status === "found") {
+            const facts = contractFacts(
+              resolution.contract,
+              this.sdk.version(),
+            );
+            summaries.push({
+              contractId: id,
+              ...facts,
+              fetchedAt: this.now(),
+            });
+          }
           if (resolution.status !== "error")
             this.cache.set(`${this.network}:${id}`, {
               result: resolution,
@@ -61,6 +87,7 @@ export class OwnerResolver {
                 this.now() + (resolution.status === "found" ? 60_000 : 5_000),
             });
         }
+        if (summaries.length) this.summaries.setMany(summaries);
       } catch (error) {
         if (generation !== this.generation) throw new StaleRequestError();
         for (const id of chunk)

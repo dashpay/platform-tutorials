@@ -20,7 +20,6 @@ import { APP_CATEGORIES } from "../dash/registryReads";
 import type { AppCategory } from "../dash/registryReads";
 import { categoryLabel } from "../dash/categoryLabel";
 import { DpnsName } from "./DpnsName";
-import { contractFacts } from "../dash/contractFacts";
 import { SignInForm } from "./SignInForm";
 import { ProvenanceIcon } from "./ProvenanceIcon";
 import { ExternalLaunch } from "./ExternalLaunch";
@@ -34,7 +33,7 @@ function Entry({
   onCategory,
 }: {
   entry: RegistryEntry;
-  open?: (id: string, name: string) => void;
+  open?: (id: string, name: string, entry: RegistryEntry) => void;
   contractOwnerId?: string;
   showTags?: boolean;
   showPublisher?: boolean;
@@ -51,11 +50,11 @@ function Entry({
             role: "link",
             tabIndex: 0,
             "aria-label": `View details for ${entry.name}`,
-            onClick: () => open(entry.contractId, entry.name),
+            onClick: () => open(entry.contractId, entry.name, entry),
             onKeyDown: (event: React.KeyboardEvent<HTMLElement>) => {
               if (event.key === "Enter" || event.key === " ") {
                 event.preventDefault();
-                open(entry.contractId, entry.name);
+                open(entry.contractId, entry.name, entry);
               }
             },
           }
@@ -75,7 +74,7 @@ function Entry({
               className="entry-title"
               onClick={(event) => {
                 event.stopPropagation();
-                open(entry.contractId, entry.name);
+                open(entry.contractId, entry.name, entry);
               }}
               onKeyDown={(event) => event.stopPropagation()}
             >
@@ -140,7 +139,7 @@ function Entry({
             className="muted-pill"
             onClick={(event) => {
               event.stopPropagation();
-              open(entry.contractId, entry.name);
+              open(entry.contractId, entry.name, entry);
             }}
             onKeyDown={(event) => event.stopPropagation()}
           >
@@ -152,7 +151,7 @@ function Entry({
             className="open-pill"
             onClick={(event) => {
               event.stopPropagation();
-              open(entry.contractId, entry.name);
+              open(entry.contractId, entry.name, entry);
             }}
             onKeyDown={(event) => event.stopPropagation()}
           >
@@ -273,7 +272,29 @@ export function ContractRegistry({
   ]);
   if (!session.registryId)
     return <p>No registry is configured for this network.</p>;
-  if (busy) return <p role="status">Loading registry entries…</p>;
+  if (busy)
+    return (
+      <section
+        className="registry-detail registry-detail-skeleton"
+        aria-label="Community metadata"
+        aria-busy="true"
+      >
+        <h3>Canonical metadata</h3>
+        <div className="registry-entry skeleton-entry" aria-hidden="true">
+          <span className="skeleton-block skeleton-mark" />
+          <div className="skeleton-copy">
+            <span className="skeleton-block skeleton-title" />
+            <span className="skeleton-block skeleton-line" />
+          </div>
+          <span className="skeleton-block skeleton-action" />
+        </div>
+        <h3>Community proposals</h3>
+        <span className="skeleton-block skeleton-message" aria-hidden="true" />
+        <span className="sr-only" role="status">
+          Loading registry entries…
+        </span>
+      </section>
+    );
   const community = entries.filter((entry) => entry.id !== canonical?.id);
   return (
     <section className="registry-detail" aria-label="Community metadata">
@@ -576,8 +597,9 @@ export function RegistryExplorer({
   onContractOwners,
   onCategory,
   showPublishers = true,
+  initialEntries = [],
 }: {
-  open(id: string, name: string): void;
+  open(id: string, name: string, entry: RegistryEntry): void;
   initialMode?: "recent" | "name" | "mine";
   showNavigation?: boolean;
   heading?: string;
@@ -587,17 +609,25 @@ export function RegistryExplorer({
   onContractOwners?: (owners: Map<string, string>) => void;
   onCategory?: (category: AppCategory) => void;
   showPublishers?: boolean;
+  initialEntries?: RegistryEntry[];
 }) {
   const session = useSession();
   const [mode, setMode] = useState<"recent" | "name" | "mine">(initialMode);
   const [term, setTerm] = useState("");
-  const [entries, setEntries] = useState<RegistryEntry[]>([]);
+  const [entries, setEntries] = useState<RegistryEntry[]>(initialEntries);
   const [cursor, setCursor] = useState<string>();
   const [error, setError] = useState("");
   const [busy, setBusy] = useState(false);
-  const [contractOwners, setContractOwners] = useState(
-    new Map<string, string>(),
-  );
+  const [contractOwners, setContractOwners] = useState(() => {
+    if (!session.connection) return new Map<string, string>();
+    const ids = [...new Set(initialEntries.map((entry) => entry.contractId))];
+    return new Map(
+      [...session.connection.resolver.summaryMany(ids)].map(([id, summary]) => [
+        id,
+        summary.ownerId,
+      ]),
+    );
+  });
   const request = useRef(0);
 
   const displayedEntries = useMemo(
@@ -614,18 +644,26 @@ export function RegistryExplorer({
         current = false;
       };
     const ids = [...new Set(entries.map((entry) => entry.contractId))];
+    const cachedOwners = new Map(
+      [...session.connection.resolver.summaryMany(ids)].map(([id, summary]) => [
+        id,
+        summary.ownerId,
+      ]),
+    );
+    if (cachedOwners.size) {
+      void Promise.resolve().then(() => {
+        if (!current) return;
+        setContractOwners(cachedOwners);
+        onContractOwners?.(cachedOwners);
+      });
+    }
     void session.connection.resolver
       .resolve(ids)
       .then((results) => {
         if (!current) return;
         const owners = new Map<string, string>();
         for (const [id, result] of results)
-          if (result.status === "found")
-            owners.set(
-              id,
-              contractFacts(result.contract, session.connection!.sdk.version())
-                .ownerId,
-            );
+          if (result.status === "found") owners.set(id, result.ownerId);
         setContractOwners(owners);
         onContractOwners?.(owners);
       })
@@ -770,7 +808,11 @@ export function RegistryExplorer({
               </div>
             </form>
           )}
-          {busy && <p role="status">Loading registry…</p>}
+          {busy && (
+            <p role="status">
+              {entries.length ? "Refreshing registry…" : "Loading registry…"}
+            </p>
+          )}
           {error && (
             <p className="error" role="alert">
               {error}
@@ -811,7 +853,7 @@ export function CategoryBrowser({
   onBack,
 }: {
   category: AppCategory;
-  open(id: string, name: string): void;
+  open(id: string, name: string, entry: RegistryEntry): void;
   onBack(): void;
 }) {
   const session = useSession();
@@ -854,18 +896,23 @@ export function CategoryBrowser({
         current = false;
       };
     const ids = [...new Set(entries.map((entry) => entry.contractId))];
+    const cachedOwners = new Map(
+      [...session.connection.resolver.summaryMany(ids)].map(([id, summary]) => [
+        id,
+        summary.ownerId,
+      ]),
+    );
+    if (cachedOwners.size)
+      void Promise.resolve().then(() => {
+        if (current) setContractOwners(cachedOwners);
+      });
     void session.connection.resolver
       .resolve(ids)
       .then((results) => {
         if (!current) return;
         const owners = new Map<string, string>();
         for (const [id, result] of results)
-          if (result.status === "found")
-            owners.set(
-              id,
-              contractFacts(result.contract, session.connection!.sdk.version())
-                .ownerId,
-            );
+          if (result.status === "found") owners.set(id, result.ownerId);
         setContractOwners(owners);
       })
       .catch(() => undefined);

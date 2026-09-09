@@ -851,6 +851,7 @@ select:focus-visible {
   grid-template-columns: 125px minmax(0, 1fr) auto;
   gap: 22px;
   align-items: start;
+  min-height: 152px;
   padding-bottom: 32px;
   border-bottom: 1px solid #e5e7eb;
 }
@@ -942,7 +943,18 @@ select:focus-visible {
   color: #334155;
 }
 .detail-hero-actions {
+  flex-direction: column;
+  align-items: stretch;
   justify-content: flex-end;
+  width: 128px;
+}
+.detail-hero-actions .primary-pill,
+.detail-hero-actions .refresh-pill {
+  box-sizing: border-box;
+  width: 128px;
+  font-size: 13px;
+  line-height: 18px;
+  text-align: center;
 }
 .primary-pill {
   border: 0;
@@ -1056,6 +1068,8 @@ select:focus-visible {
 .refresh-pill.secondary-pill {
   background: #f0f2f5;
   color: #334155;
+  min-width: 128px;
+  text-align: center;
 }
 .detail-grid {
   display: grid;
@@ -1067,6 +1081,57 @@ select:focus-visible {
   margin: 0;
   padding: 0;
   border: 0;
+}
+.registry-detail-skeleton {
+  min-height: 340px;
+}
+.skeleton-entry {
+  pointer-events: none;
+}
+.skeleton-block {
+  display: block;
+  border-radius: 7px;
+  background: linear-gradient(90deg, #eef1f5 25%, #f8fafc 50%, #eef1f5 75%);
+  background-size: 200% 100%;
+  animation: skeleton-shimmer 1.4s ease-in-out infinite;
+}
+.skeleton-mark {
+  width: 48px;
+  height: 48px;
+  border-radius: 14px;
+}
+.skeleton-copy {
+  display: grid;
+  gap: 10px;
+  align-content: center;
+}
+.skeleton-title {
+  width: min(190px, 70%);
+  height: 18px;
+}
+.skeleton-line {
+  width: min(440px, 92%);
+  height: 12px;
+}
+.skeleton-action {
+  width: 86px;
+  height: 38px;
+  border-radius: 999px;
+}
+.skeleton-message {
+  width: 170px;
+  height: 16px;
+  margin-top: 24px;
+}
+@keyframes skeleton-shimmer {
+  to {
+    background-position: -200% 0;
+  }
+}
+@media (prefers-reduced-motion: reduce) {
+  .skeleton-block {
+    animation: none;
+  }
 }
 .information h2 {
   font-size: 18px;
@@ -1121,6 +1186,7 @@ select:focus-visible {
   }
   .detail-hero {
     grid-template-columns: 72px 1fr;
+    min-height: 0;
   }
   .detail-mark {
     width: 68px;
