@@ -15,6 +15,10 @@ import { ProvenanceIcon } from "./components/ProvenanceIcon";
 import { ExternalLaunch } from "./components/ExternalLaunch";
 import { ContractCopyButton } from "./components/ContractCopyButton";
 import { HeaderAccount } from "./components/HeaderAccount";
+import { AppRatings } from "./components/AppRatings";
+import { StarMeter } from "./components/StarMeter";
+import type { RatingSummary } from "./dash/ratingReads";
+import { formatAverage, pluralize } from "./lib/format";
 import {
   CategoryBrowser,
   ContractRegistry,
@@ -113,6 +117,9 @@ function Browser({
     DocumentSchemaSummary[]
   >([]);
   const [preferredEntry, setPreferredEntry] = useState<RegistryEntry | null>();
+  const [ratingSummary, setRatingSummary] = useState<RatingSummary | null>(
+    null,
+  );
   const [listingManagementHost, setListingManagementHost] =
     useState<HTMLDivElement | null>(null);
   const [description, setDescription] = useState<string>();
@@ -223,6 +230,7 @@ function Browser({
     );
     if (entry) setPreferredEntry(entry);
     else if (id !== selected) setPreferredEntry(undefined);
+    if (id !== selected) setRatingSummary(null);
     setDescription(undefined);
     setDescriptionError("");
     setMissing(false);
@@ -309,6 +317,24 @@ function Browser({
             </p>
             {detail && (
               <div className="detail-attribution">
+                {session.registryId && (
+                  <a className="hero-rating" href="#app-ratings">
+                    <StarMeter
+                      value={ratingSummary?.average ?? null}
+                      className="small"
+                    />
+                    {ratingSummary && ratingSummary.count > 0n ? (
+                      <>
+                        <strong>{formatAverage(ratingSummary.average)}</strong>
+                        <span>{pluralize(ratingSummary.count, "rating")}</span>
+                      </>
+                    ) : (
+                      <span>
+                        {ratingSummary ? "No ratings yet" : "Loading ratings"}
+                      </span>
+                    )}
+                  </a>
+                )}
                 <span
                   className="chip category-chip"
                   data-category={preferredEntry?.category}
@@ -384,6 +410,13 @@ function Browser({
                   {String(preferredEntry?.revision ?? "—")}
                 </strong>
               </div>
+            </div>
+            <div id="app-ratings">
+              <AppRatings
+                key={`ratings:${selected}`}
+                contractId={selected}
+                onSummary={setRatingSummary}
+              />
             </div>
             <section className="about-app">
               <div className="about-copy">

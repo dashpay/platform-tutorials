@@ -1,4 +1,4 @@
-import { useEffect, useMemo, useRef, useState, type ReactNode } from "react";
+import { useEffect, useMemo, useRef, useState } from "react";
 import { createPortal } from "react-dom";
 import { useSession } from "../session/useSession";
 import {
@@ -24,46 +24,7 @@ import { DpnsName } from "./DpnsName";
 import { SignInForm } from "./SignInForm";
 import { ProvenanceIcon } from "./ProvenanceIcon";
 import { ExternalLaunch } from "./ExternalLaunch";
-
-function MetadataEditorModal({
-  label,
-  onClose,
-  children,
-}: {
-  label: string;
-  onClose(): void;
-  children: ReactNode;
-}) {
-  useEffect(() => {
-    const closeOnEscape = (event: KeyboardEvent) => {
-      if (event.key === "Escape") {
-        event.preventDefault();
-        onClose();
-      }
-    };
-    document.addEventListener("keydown", closeOnEscape, true);
-    return () => document.removeEventListener("keydown", closeOnEscape, true);
-  }, [onClose]);
-
-  return (
-    <div
-      className="metadata-modal-backdrop"
-      role="presentation"
-      onMouseDown={(event) => {
-        if (event.target === event.currentTarget) onClose();
-      }}
-    >
-      <div
-        className="metadata-modal"
-        role="dialog"
-        aria-modal="true"
-        aria-label={label}
-      >
-        {children}
-      </div>
-    </div>
-  );
-}
+import { ModalDialog } from "./ModalDialog";
 
 function Entry({
   entry,
@@ -379,7 +340,7 @@ export function ContractRegistry({
     session.keyManager &&
     own !== undefined &&
     editorOpen ? (
-      <MetadataEditorModal
+      <ModalDialog
         label={own ? "Edit your submission" : "Submit metadata"}
         onClose={() => setEditorOpen(false)}
       >
@@ -395,7 +356,7 @@ export function ContractRegistry({
             onMutation();
           }}
         />
-      </MetadataEditorModal>
+      </ModalDialog>
     ) : null;
   return (
     <section
@@ -1029,7 +990,7 @@ export function RegistryExplorer({
           )}
           {editingEntry &&
             createPortal(
-              <MetadataEditorModal
+              <ModalDialog
                 label="Edit your submission"
                 onClose={() => setEditingEntry(null)}
               >
@@ -1043,7 +1004,7 @@ export function RegistryExplorer({
                     void load(mode);
                   }}
                 />
-              </MetadataEditorModal>,
+              </ModalDialog>,
               document.body,
             )}
         </>

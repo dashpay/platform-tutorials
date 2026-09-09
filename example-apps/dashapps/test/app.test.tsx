@@ -335,3 +335,34 @@ it("validates and saves Settings without carrying pending discovery results", as
   });
   expect(screen.queryByText("Example contract")).toBeNull();
 });
+
+it("shows the rating summary in the hero and the ratings section on an app page", async () => {
+  const client = connect();
+  vi.mocked(client.contracts.getMany).mockResolvedValue(
+    new Map([[id(2), contract()]]),
+  );
+  vi.mocked(client.documents.count).mockResolvedValue(
+    new Map([
+      ["84", 1n],
+      ["85", 3n],
+    ]),
+  );
+  render(<App />);
+  await ready();
+  openSearch();
+  fireEvent.change(screen.getByLabelText("Open a contract"), {
+    target: { value: id(2) },
+  });
+  fireEvent.click(screen.getByRole("button", { name: "Open" }));
+  await screen.findByRole("heading", { name: "Ratings & reviews" });
+  await waitFor(() =>
+    expect(screen.getAllByText("4.8").length).toBeGreaterThan(0),
+  );
+  expect(screen.getAllByText("4 ratings").length).toBeGreaterThan(0);
+  expect(
+    vi
+      .mocked(client.documents.count)
+      .mock.calls.every(([args]) => args.documentTypeName === "appRating"),
+  ).toBe(true);
+  expect(screen.getByRole("button", { name: "Sign in to rate" })).toBeTruthy();
+});

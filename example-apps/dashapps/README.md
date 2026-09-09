@@ -9,7 +9,12 @@ identity/DPNS/balance display, mainnet read-only browsing, and per-network regis
 selection. The validated testnet registry supports recent entries, name-prefix
 search, complete contract proposals, canonical owner entries, and signed-in users'
 submissions. Signed-in testnet users can submit, edit, and withdraw metadata.
-There is no leaderboard or document counting in this version.
+
+Apps also carry community ratings: one 1–5 star rating per identity per contract,
+with an optional title and review. The app page shows the average, a per-star
+histogram (a grouped provable `count`), sortable and filterable reviews, and lets
+signed-in testnet users add, edit, or remove their own rating. There is no
+leaderboard.
 
 The deployed registry schema includes category, tags, tagline, app launch URL and
 icon URL. External icon URLs remain display-disabled
@@ -23,25 +28,29 @@ npm run dev
 Run from this directory with the repository's Node 22.22.x toolchain. The app uses
 port 5187 and shares the repository-root browser-safe SDK core. Settings accepts
 an optional registry ID separately for each network. Testnet defaults to
-`EoMc3L6KsLBr9aTSbBwuZKcVFRnarMfxFMQFXCGY5ZGo`; mainnet remains unset. Sign-in
+`BXcWyLZDtcPrEmd8tmPt6A7h4YuqgPGVJU1PBvs1dYiS`; mainnet remains unset. Sign-in
 accepts an existing testnet identity's recovery phrase (with an optional identity
 index) or a HIGH/CRITICAL authentication WIF private key. Secrets are never saved
 to browser storage. Mainnet has no sign-in.
 
-| Operation                    | File                                                                | SDK method                                         |
-| ---------------------------- | ------------------------------------------------------------------- | -------------------------------------------------- |
-| Connect                      | `src/session/SessionContext.tsx`, `src/dash/sdkCore.ts`             | shared `createClient`                              |
-| Sign in                      | `src/session/SessionContext.tsx`, `src/dash/loginWithPrivateKey.ts` | `IdentityKeyManager.create` or WIF identity lookup |
-| Balance                      | `src/session/SessionContext.tsx`                                    | `identities.balance`                               |
-| Resolve contract owner       | `src/dash/ownerResolver.ts`                                         | `contracts.getMany`                                |
-| Contract facts               | `src/dash/contractFacts.ts`                                         | getters, `toObject`                                |
-| Keywords / short description | `src/dash/keywordSearch.ts`                                         | `documents.query`                                  |
-| DPNS attribution             | `src/dash/resolveDpnsName.ts`                                       | `dpns.username`                                    |
-| Registry selection           | `src/dash/contractStore.ts`                                         | browser storage only                               |
-| Registry reads               | `src/dash/registryReads.ts`                                         | `documents.query`                                  |
-| Submit metadata              | `src/dash/registryWrites.ts`                                        | `documents.create`                                 |
-| Edit metadata                | `src/dash/registryWrites.ts`                                        | `documents.get`, `documents.replace`               |
-| Withdraw metadata            | `src/dash/registryWrites.ts`                                        | `documents.get`, `documents.delete`                |
+| Operation                    | File                                                                | SDK method                                               |
+| ---------------------------- | ------------------------------------------------------------------- | -------------------------------------------------------- |
+| Connect                      | `src/session/SessionContext.tsx`, `src/dash/sdkCore.ts`             | shared `createClient`                                    |
+| Sign in                      | `src/session/SessionContext.tsx`, `src/dash/loginWithPrivateKey.ts` | `IdentityKeyManager.create` or WIF identity lookup       |
+| Balance                      | `src/session/SessionContext.tsx`                                    | `identities.balance`                                     |
+| Resolve contract owner       | `src/dash/ownerResolver.ts`                                         | `contracts.getMany`                                      |
+| Contract facts               | `src/dash/contractFacts.ts`                                         | getters, `toObject`                                      |
+| Keywords / short description | `src/dash/keywordSearch.ts`                                         | `documents.query`                                        |
+| DPNS attribution             | `src/dash/resolveDpnsName.ts`                                       | `dpns.username`                                          |
+| Registry selection           | `src/dash/contractStore.ts`                                         | browser storage only                                     |
+| Registry reads               | `src/dash/registryReads.ts`                                         | `documents.query`                                        |
+| Submit metadata              | `src/dash/registryWrites.ts`                                        | `documents.create`                                       |
+| Edit metadata                | `src/dash/registryWrites.ts`                                        | `documents.get`, `documents.replace`                     |
+| Withdraw metadata            | `src/dash/registryWrites.ts`                                        | `documents.get`, `documents.delete`                      |
+| Rating summary / histogram   | `src/dash/ratingReads.ts`                                           | `documents.count` (grouped by `stars`)                   |
+| List / filter ratings        | `src/dash/ratingReads.ts`                                           | `documents.query`                                        |
+| Rate or edit a rating        | `src/dash/ratingWrites.ts`                                          | `documents.create`, `documents.get`, `documents.replace` |
+| Remove a rating              | `src/dash/ratingWrites.ts`                                          | `documents.get`, `documents.delete`                      |
 
 ```sh
 npm run build

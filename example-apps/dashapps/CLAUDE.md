@@ -95,3 +95,29 @@ Shared auth parity: `src/dash/loginWithPrivateKey.ts`,
 `test/loginWithPrivateKey.test.ts` remain byte-identical to Dashnote, TokenOps,
 and DashNames. Keep app-specific session and form behavior outside those files;
 `scripts/check-shared-auth-parity.sh` enforces this.
+
+## App ratings
+
+The registry contract gained an `appRating` document type (contractId identifier,
+`stars` 1–5, optional `title`/`body`) with indices `ownerContract` (unique),
+`byContractStars` (`countable` + `rangeCountable`, `stars` last) and
+`byContractCreated`. No index is `summable`, so the dashpay/platform#3960
+shared-prefix aggregation conflict cannot occur; `test/contractSchema.test.ts`
+encodes that rule. The average is derived client-side from the grouped count
+(`GROUP BY stars`, `between [1, 5]`); grouped-count map keys are the sign-flipped
+single byte hex (`stars 5 → "85"`), as in dashrate.
+
+The updated contract was published by the maintainer as
+`BXcWyLZDtcPrEmd8tmPt6A7h4YuqgPGVJU1PBvs1dYiS` and is the testnet default; the
+previous registry `EoMc3L6KsLBr9aTSbBwuZKcVFRnarMfxFMQFXCGY5ZGo` is not read or
+migrated. A read-only check against it confirmed both document types, the three
+rating indices, a working grouped count (all zeros on the empty type), the three
+list query shapes, and the five seeded metadata entries. The credit-spending write
+path (`scripts/probes/ratings.mjs`: create, 40105 duplicate, replace, filter, delete)
+has NOT been run against this contract; run it only with explicit opt-in.
+
+Probes import the app's TypeScript modules via
+`node --import ./scripts/probes/ts-resolve-hook.mjs`, which appends `.ts` to
+extensionless relative imports (Node's built-in type stripping handles the syntax).
+Never run a credit-spending probe or publish a contract without the maintainer's
+explicit go-ahead in the current conversation.

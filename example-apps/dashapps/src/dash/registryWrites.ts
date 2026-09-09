@@ -1,5 +1,4 @@
 import type { DashKeyManager } from "./types";
-import type { DataContract, Document } from "@dashevo/evo-sdk";
 import type { SessionSdk } from "../session/types";
 import { requireId } from "./ids";
 import {
@@ -10,6 +9,7 @@ import {
   type RegistryEntry,
 } from "./registryReads";
 import { loadSdkModule } from "./sdkModule";
+import { freshTarget, isDuplicate, prepare } from "./documentWrites";
 import { normalizeUrl } from "../lib/urls";
 import { SYSTEM_CONTRACT_METADATA } from "./systemContractMetadata";
 
@@ -26,7 +26,7 @@ export interface MetadataInput {
   docs: string;
 }
 
-function properties(targetId: string, input: MetadataInput) {
+export function metadataProperties(targetId: string, input: MetadataInput) {
   const name = input.name.trim();
   const description = input.description.trim();
   const tagline = input.tagline.trim();
@@ -76,58 +76,6 @@ function properties(targetId: string, input: MetadataInput) {
   };
 }
 
-async function freshTarget(sdk: SessionSdk, targetId: string) {
-  const id = requireId(targetId);
-  const { Identifier } = await loadSdkModule();
-  if (sdk.getWasmSdkConnected) {
-    const wasm = await sdk.getWasmSdkConnected();
-    if (wasm.removeCachedContract) {
-      const identifier = new Identifier(id);
-      try {
-        wasm.removeCachedContract(identifier);
-      } finally {
-        identifier.free?.();
-      }
-    }
-  }
-  const target = (await sdk.contracts.getMany([id])).get(id);
-  if (!target)
-    throw new Error("The target contract no longer exists on this network.");
-}
-
-async function prepare(
-  sdk: SessionSdk,
-  registryId: string,
-  document: Document,
-) {
-  const contract = (await sdk.contracts.getMany([requireId(registryId)])).get(
-    registryId,
-  );
-  if (!contract)
-    throw new Error("The metadata registry contract could not be loaded.");
-  const { Document, PlatformVersion } = await loadSdkModule();
-  const now = BigInt(Date.now());
-  if (document.createdAt == null) document.createdAt = now;
-  if (document.updatedAt == null) document.updatedAt = now;
-  const version = new PlatformVersion(sdk.version());
-  const prepared = Document.fromBytes(
-    document.toBytes(contract as DataContract, version),
-    contract as DataContract,
-    REGISTRY_DOCUMENT_TYPE,
-    version,
-  );
-  if (document.entropy) prepared.entropy = document.entropy;
-  return prepared;
-}
-
-function duplicate(error: unknown) {
-  const value = error as { code?: unknown; message?: unknown };
-  return (
-    value?.code === 40105 ||
-    String(value?.message ?? error).includes("duplicate unique properties")
-  );
-}
-
 export async function createMetadata(args: {
   sdk: SessionSdk;
   keyManager: DashKeyManager;
@@ -150,16 +98,21 @@ export async function createMetadata(args: {
     );
   const { Document } = await loadSdkModule();
   const draft = new Document({
-    properties: properties(args.targetId, args.input),
+    properties: metadataProperties(args.targetId, args.input),
     documentTypeName: REGISTRY_DOCUMENT_TYPE,
     dataContractId: requireId(args.registryId),
     ownerId: identity.id,
   });
-  const document = await prepare(args.sdk, args.registryId, draft);
+  const document = await prepare(
+    args.sdk,
+    args.registryId,
+    REGISTRY_DOCUMENT_TYPE,
+    draft,
+  );
   try {
     await args.sdk.documents.create({ document, identityKey, signer });
   } catch (error) {
-    if (duplicate(error))
+    if (isDuplicate(error))
       throw new Error(
         "You already submitted metadata for this contract. Edit your existing entry.",
       );
@@ -216,7 +169,7 @@ export async function editMetadata(args: {
     );
   const { Document } = await loadSdkModule();
   const draft = new Document({
-    properties: properties(args.targetId, args.input),
+    properties: metadataProperties(args.targetId, args.input),
     documentTypeName: REGISTRY_DOCUMENT_TYPE,
     dataContractId: args.registryId,
     ownerId: identity.id,
@@ -225,7 +178,12 @@ export async function editMetadata(args: {
   });
   draft.createdAt = current.createdAt;
   draft.updatedAt = BigInt(Date.now());
-  const document = await prepare(args.sdk, args.registryId, draft);
+  const document = await prepare(
+    args.sdk,
+    args.registryId,
+    REGISTRY_DOCUMENT_TYPE,
+    draft,
+  );
   await args.sdk.documents.replace({ document, identityKey, signer });
 }
 

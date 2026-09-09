@@ -4,8 +4,10 @@ import type { Logger } from "../lib/logger";
 import type { SessionSdk } from "../session/types";
 import { loadSdkModule } from "./sdkModule";
 import { seedSystemContractMetadata } from "./registryWrites";
+import { RATING_DOCUMENT_TYPE } from "./ratingReads";
 
 export const DOCUMENT_TYPE = "appMetadata";
+export { RATING_DOCUMENT_TYPE };
 export const APP_METADATA_SCHEMAS = {
   [DOCUMENT_TYPE]: {
     type: "object",
@@ -107,6 +109,46 @@ export const APP_METADATA_SCHEMAS = {
       {
         name: "byCategoryCreated",
         properties: [{ category: "asc" }, { $createdAt: "asc" }],
+      },
+    ],
+  },
+  [RATING_DOCUMENT_TYPE]: {
+    type: "object",
+    documentsMutable: true,
+    canBeDeleted: true,
+    properties: {
+      contractId: {
+        type: "array",
+        byteArray: true,
+        minItems: 32,
+        maxItems: 32,
+        contentMediaType: "application/x.dash.dpp.identifier",
+        position: 0,
+      },
+      stars: { type: "integer", minimum: 1, maximum: 5, position: 1 },
+      title: { type: "string", maxLength: 120, position: 2 },
+      body: { type: "string", maxLength: 1000, position: 3 },
+    },
+    required: ["$createdAt", "$updatedAt", "contractId", "stars"],
+    additionalProperties: false,
+    indices: [
+      {
+        name: "ownerContract",
+        unique: true,
+        properties: [{ $ownerId: "asc" }, { contractId: "asc" }],
+      },
+      {
+        // Grouped count (GROUP BY stars) for the histogram, total and derived
+        // average; `stars == N` filter; highest/lowest ordering. Count-only:
+        // no `summable`, so no shared-prefix aggregation conflict (#3960).
+        name: "byContractStars",
+        properties: [{ contractId: "asc" }, { stars: "asc" }],
+        countable: "countable",
+        rangeCountable: true,
+      },
+      {
+        name: "byContractCreated",
+        properties: [{ contractId: "asc" }, { $createdAt: "asc" }],
       },
     ],
   },

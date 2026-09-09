@@ -22,7 +22,10 @@ export function sdk(): ReadSdk {
   return {
     version: () => 13,
     contracts: { getMany: vi.fn(async () => new Map()) },
-    documents: { query: vi.fn(async () => []) },
+    documents: {
+      query: vi.fn(async () => []),
+      count: vi.fn(async () => new Map<string, bigint>()),
+    },
     dpns: { username: vi.fn(async () => undefined) },
   };
 }
