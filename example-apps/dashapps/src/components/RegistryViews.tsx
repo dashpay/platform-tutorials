@@ -1,4 +1,4 @@
-import { useEffect, useMemo, useRef, useState } from "react";
+import { useEffect, useMemo, useRef, useState, type ReactNode } from "react";
 import { createPortal } from "react-dom";
 import { useSession } from "../session/useSession";
 import {
@@ -24,6 +24,46 @@ import { DpnsName } from "./DpnsName";
 import { SignInForm } from "./SignInForm";
 import { ProvenanceIcon } from "./ProvenanceIcon";
 import { ExternalLaunch } from "./ExternalLaunch";
+
+function MetadataEditorModal({
+  label,
+  onClose,
+  children,
+}: {
+  label: string;
+  onClose(): void;
+  children: ReactNode;
+}) {
+  useEffect(() => {
+    const closeOnEscape = (event: KeyboardEvent) => {
+      if (event.key === "Escape") {
+        event.preventDefault();
+        onClose();
+      }
+    };
+    document.addEventListener("keydown", closeOnEscape, true);
+    return () => document.removeEventListener("keydown", closeOnEscape, true);
+  }, [onClose]);
+
+  return (
+    <div
+      className="metadata-modal-backdrop"
+      role="presentation"
+      onMouseDown={(event) => {
+        if (event.target === event.currentTarget) onClose();
+      }}
+    >
+      <div
+        className="metadata-modal"
+        role="dialog"
+        aria-modal="true"
+        aria-label={label}
+      >
+        {children}
+      </div>
+    </div>
+  );
+}
 
 function Entry({
   entry,
@@ -339,27 +379,23 @@ export function ContractRegistry({
     session.keyManager &&
     own !== undefined &&
     editorOpen ? (
-      <div className="metadata-modal-backdrop" role="presentation">
-        <div
-          className="metadata-modal"
-          role="dialog"
-          aria-modal="true"
-          aria-label={own ? "Edit your submission" : "Submit metadata"}
-        >
-          <MetadataEditor
-            key={`${own?.id ?? "new"}:${own?.revision ?? 0}`}
-            entry={own}
-            contractId={contractId}
-            onCancel={() => setEditorOpen(false)}
-            onChanged={() => {
-              setEditorOpen(false);
-              setBusy(true);
-              setRefresh((value) => value + 1);
-              onMutation();
-            }}
-          />
-        </div>
-      </div>
+      <MetadataEditorModal
+        label={own ? "Edit your submission" : "Submit metadata"}
+        onClose={() => setEditorOpen(false)}
+      >
+        <MetadataEditor
+          key={`${own?.id ?? "new"}:${own?.revision ?? 0}`}
+          entry={own}
+          contractId={contractId}
+          onCancel={() => setEditorOpen(false)}
+          onChanged={() => {
+            setEditorOpen(false);
+            setBusy(true);
+            setRefresh((value) => value + 1);
+            onMutation();
+          }}
+        />
+      </MetadataEditorModal>
     ) : null;
   return (
     <section
@@ -993,25 +1029,21 @@ export function RegistryExplorer({
           )}
           {editingEntry &&
             createPortal(
-              <div className="metadata-modal-backdrop" role="presentation">
-                <div
-                  className="metadata-modal"
-                  role="dialog"
-                  aria-modal="true"
-                  aria-label="Edit your submission"
-                >
-                  <MetadataEditor
-                    key={`${editingEntry.id}:${editingEntry.revision}`}
-                    entry={editingEntry}
-                    contractId={editingEntry.contractId}
-                    onCancel={() => setEditingEntry(null)}
-                    onChanged={() => {
-                      setEditingEntry(null);
-                      void load(mode);
-                    }}
-                  />
-                </div>
-              </div>,
+              <MetadataEditorModal
+                label="Edit your submission"
+                onClose={() => setEditingEntry(null)}
+              >
+                <MetadataEditor
+                  key={`${editingEntry.id}:${editingEntry.revision}`}
+                  entry={editingEntry}
+                  contractId={editingEntry.contractId}
+                  onCancel={() => setEditingEntry(null)}
+                  onChanged={() => {
+                    setEditingEntry(null);
+                    void load(mode);
+                  }}
+                />
+              </MetadataEditorModal>,
               document.body,
             )}
         </>

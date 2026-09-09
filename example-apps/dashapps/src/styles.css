@@ -260,6 +260,17 @@ button {
   padding: 27px 26px;
   overflow: hidden;
 }
+.clickable-card {
+  cursor: pointer;
+  transition: box-shadow 0.15s;
+}
+.clickable-card:hover {
+  box-shadow: 0 10px 24px rgba(15, 23, 42, 0.14);
+}
+.clickable-card:focus-visible {
+  outline: 3px solid #f0b429;
+  outline-offset: 2px;
+}
 .feature-card h2 {
   font-size: 23px;
   margin: 8px 0;
@@ -322,6 +333,9 @@ button {
   grid-template-columns: 48px minmax(0, 1fr) auto;
   align-items: center;
   gap: 14px;
+  border-radius: 11px;
+  padding: 6px;
+  margin: -6px;
 }
 .featured-row div {
   display: grid;
@@ -709,6 +723,9 @@ select:focus-visible {
     grid-column: 2;
     justify-content: flex-start;
   }
+  .entry-links .open-pill {
+    display: none;
+  }
   .identity {
     display: block;
   }
@@ -874,6 +891,7 @@ select:focus-visible {
 }
 .muted-pill {
   color: #475569;
+  font-size: 12px;
 }
 .settings-page + .panel {
   margin-top: 0;
@@ -1775,6 +1793,16 @@ select:focus-visible {
   gap: 10px;
   grid-template-columns: repeat(4, minmax(0, 1fr));
 }
+.category-grid.compact {
+  grid-template-columns: repeat(7, minmax(0, 1fr));
+}
+.category-more {
+  border: 0;
+  background: transparent;
+  color: #0767cf;
+  font-size: 12px;
+  font-weight: 700;
+}
 .shelf {
   gap: 16px;
 }
@@ -1883,8 +1911,10 @@ select:focus-visible {
   color: #fff;
 }
 .shelf-card {
-  display: flex;
-  flex-direction: column;
+  display: grid;
+  grid-template-columns: auto minmax(0, 1fr) auto;
+  grid-template-rows: auto auto minmax(0, 1fr) auto;
+  align-items: start;
   gap: 13px;
   padding: 22px;
   border: 1px solid #dfe3e8;
@@ -1905,18 +1935,29 @@ select:focus-visible {
   outline-offset: 2px;
 }
 .shelf-copy {
-  display: grid;
-  gap: 7px;
+  display: contents;
+}
+.shelf-copy .featured-title {
+  grid-column: 1 / -1;
+  grid-row: 2;
 }
 .shelf-copy p {
+  grid-column: 1 / -1;
+  grid-row: 3;
   margin: 0;
   color: #64748b;
   font-size: 13px;
   line-height: 1.35;
 }
+.shelf-copy .category-chip {
+  grid-column: 1 / -1;
+  grid-row: 4;
+  width: 100%;
+}
 .shelf-card .launch-pill {
-  align-self: flex-start;
-  margin-top: auto;
+  grid-column: 3;
+  grid-row: 1;
+  align-self: center;
 }
 .launch-pill:hover {
   background: #084f9d;
@@ -2040,6 +2081,16 @@ select:focus-visible {
   .category-grid {
     grid-template-columns: repeat(2, minmax(0, 1fr));
   }
+  .category-grid.compact {
+    display: flex;
+    margin-right: -18px;
+    padding-right: 18px;
+    overflow-x: auto;
+    scrollbar-width: thin;
+  }
+  .category-grid.compact .category-tile {
+    min-width: max-content;
+  }
   .shelf,
   .registry-layout {
     grid-template-columns: 1fr;
@@ -2052,7 +2103,6 @@ select:focus-visible {
     grid-template-columns: 42px minmax(0, 1fr);
   }
   .featured-row .open-pill {
-    grid-column: 2;
-    justify-self: start;
+    display: none;
   }
 }

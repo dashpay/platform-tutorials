@@ -1,4 +1,10 @@
-import { useCallback, useEffect, useRef, useState } from "react";
+import {
+  useCallback,
+  useEffect,
+  useRef,
+  useState,
+  type KeyboardEvent,
+} from "react";
 import { SessionProvider } from "./session/SessionContext";
 import { useSession } from "./session/useSession";
 import { SettingsView } from "./components/SettingsView";
@@ -115,6 +121,7 @@ function Browser({
   const [busy, setBusy] = useState(false);
   const [registryRefresh, setRegistryRefresh] = useState(0);
   const [mineSigningIn, setMineSigningIn] = useState(false);
+  const [showAllCategories, setShowAllCategories] = useState(false);
   const discoverEntries = cachedRegistryEntries;
   const [discoverContractOwners, setDiscoverContractOwners] = useState(
     new Map<string, string>(),
@@ -127,6 +134,9 @@ function Browser({
       connection?.resolver.clear();
     };
   }, [connection]);
+  useEffect(() => {
+    if (selected) window.scrollTo({ top: 0, left: 0, behavior: "auto" });
+  }, [selected]);
   async function search(more = false) {
     if (!connection) return;
     connection.resolver.clear();
@@ -328,7 +338,7 @@ function Browser({
                 url={appUrl}
                 verified={official}
               >
-                Launch app ↗
+                Launch ↗
               </ExternalLaunch>
             ) : (
               <span className="primary-pill unavailable">No app link</span>
@@ -500,6 +510,24 @@ function Browser({
   const popularTags = [
     ...new Set(discoverEntries.flatMap((entry) => entry.tags)),
   ].slice(0, 6);
+  const categoryCounts = new Map<AppCategory, number>();
+  for (const entry of discoverEntries)
+    categoryCounts.set(
+      entry.category,
+      (categoryCounts.get(entry.category) ?? 0) + 1,
+    );
+  const rankedCategories = [...APP_CATEGORIES].sort(
+    (left, right) =>
+      (categoryCounts.get(right) ?? 0) - (categoryCounts.get(left) ?? 0),
+  );
+  const compactCategories = rankedCategories
+    .filter((item) => (categoryCounts.get(item) ?? 0) > 0)
+    .slice(0, 7);
+  const visibleCategories = showAllCategories
+    ? APP_CATEGORIES
+    : compactCategories.length
+      ? compactCategories
+      : APP_CATEGORIES.slice(0, 7);
   const registryMatches = (() => {
     if (!searched) return [];
     const query = term.trim().toLowerCase();
@@ -524,7 +552,28 @@ function Browser({
           <button className="link-button" onClick={() => navigate("add")}>
             Add an app
           </button>
-          <article className="feature-card feature-primary">
+          <article
+            className={`feature-card feature-primary${featured ? " clickable-card" : ""}`}
+            {...(featured
+              ? {
+                  role: "link",
+                  tabIndex: 0,
+                  "aria-label": `View details for ${featured.name}`,
+                  onClick: () =>
+                    void inspect(featured.contractId, featured.name, featured),
+                  onKeyDown: (event: KeyboardEvent<HTMLElement>) => {
+                    if (event.key === "Enter" || event.key === " ") {
+                      event.preventDefault();
+                      void inspect(
+                        featured.contractId,
+                        featured.name,
+                        featured,
+                      );
+                    }
+                  },
+                }
+              : {})}
+          >
             <p className="eyebrow">
               {featured
                 ? `${categoryLabel(featured.category).toUpperCase()} · FEATURED ENTRY`
@@ -558,15 +607,17 @@ function Browser({
                     discoverContractOwners.get(featured.contractId)
                   }
                 >
-                  Launch app ↗
+                  Launch ↗
                 </ExternalLaunch>
               )}
               {featured && (
                 <button
                   className="feature-details"
-                  onClick={() =>
-                    void inspect(featured.contractId, featured.name, featured)
-                  }
+                  onClick={(event) => {
+                    event.stopPropagation();
+                    void inspect(featured.contractId, featured.name, featured);
+                  }}
+                  onKeyDown={(event) => event.stopPropagation()}
                 >
                   Details
                 </button>
@@ -577,7 +628,22 @@ function Browser({
             <p className="eyebrow">ALSO FEATURED</p>
             <div className="featured-list">
               {alsoFeatured.map((entry) => (
-                <div className="featured-row" key={entry.id}>
+                <div
+                  className="featured-row clickable-card"
+                  key={entry.id}
+                  role="link"
+                  tabIndex={0}
+                  aria-label={`View details for ${entry.name}`}
+                  onClick={() =>
+                    void inspect(entry.contractId, entry.name, entry)
+                  }
+                  onKeyDown={(event) => {
+                    if (event.key === "Enter" || event.key === " ") {
+                      event.preventDefault();
+                      void inspect(entry.contractId, entry.name, entry);
+                    }
+                  }}
+                >
                   <span className="app-mark" data-category={entry.category}>
                     {entry.name.slice(0, 1).toUpperCase()}
                   </span>
@@ -593,9 +659,11 @@ function Browser({
                   </div>
                   <button
                     className="open-pill"
-                    onClick={() =>
-                      void inspect(entry.contractId, entry.name, entry)
-                    }
+                    onClick={(event) => {
+                      event.stopPropagation();
+                      void inspect(entry.contractId, entry.name, entry);
+                    }}
+                    onKeyDown={(event) => event.stopPropagation()}
                   >
                     Details
                   </button>
@@ -674,10 +742,19 @@ function Browser({
           <section className="discover-section">
             <div className="panel-heading">
               <h2>Browse by category</h2>
-              <span>16 categories</span>
+              <button
+                type="button"
+                className="category-more"
+                aria-expanded={showAllCategories}
+                onClick={() => setShowAllCategories((value) => !value)}
+              >
+                {showAllCategories ? "Show less" : "More categories"}
+              </button>
             </div>
-            <div className="category-grid">
-              {APP_CATEGORIES.map((item) => (
+            <div
+              className={`category-grid${showAllCategories ? " expanded" : " compact"}`}
+            >
+              {visibleCategories.map((item) => (
                 <button
                   className="category-tile"
                   key={item}
@@ -746,7 +823,7 @@ function Browser({
                       discoverContractOwners.get(entry.contractId)
                     }
                   >
-                    Launch app ↗
+                    Launch ↗
                   </ExternalLaunch>
                 </article>
               ))}
