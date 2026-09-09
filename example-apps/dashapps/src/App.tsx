@@ -666,7 +666,6 @@ function Browser({
           {error} Retry the lookup when ready.
         </p>
       )}
-      {busy && <p role="status">Loading…</p>}
       {(view === "discover" || view === "mine") && (
         <RegistryExplorer
           key={registryRefresh}

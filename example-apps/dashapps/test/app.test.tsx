@@ -90,6 +90,24 @@ it("changing an input supersedes an in-flight lookup", async () => {
   });
   expect(screen.queryByText("Example contract")).toBeNull();
 });
+it("does not insert a loading message while opening an app", async () => {
+  const client = connect();
+  const pending = deferred<Map<string, ContractHandle | undefined>>();
+  vi.mocked(client.contracts.getMany).mockReturnValue(pending.promise);
+  render(<App />);
+  await ready();
+  openSearch();
+  fireEvent.change(screen.getByLabelText("Open a contract"), {
+    target: { value: id(2) },
+  });
+  fireEvent.click(screen.getByRole("button", { name: "Open" }));
+
+  expect(screen.queryByText("Loading…")).toBeNull();
+
+  await act(async () => {
+    pending.resolve(new Map([[id(2), contract()]]));
+  });
+});
 it("refresh forces fresh contract facts and short description", async () => {
   const client = connect();
   vi.mocked(client.contracts.getMany).mockResolvedValue(

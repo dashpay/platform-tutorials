@@ -835,6 +835,9 @@ select:focus-visible {
   max-width: 860px;
   margin: 0 36px;
 }
+.store-search + .discover-section {
+  margin-top: 24px;
+}
 .search-field {
   display: flex;
   align-items: center;
@@ -842,10 +845,19 @@ select:focus-visible {
   background: #f3f4f6;
   overflow: hidden;
 }
+.search-field:focus-within {
+  outline: 3px solid #f0b429;
+  outline-offset: 2px;
+}
 .search-field input {
   border: 0;
   background: transparent;
   padding: 16px 20px;
+}
+.search-field input:focus,
+.search-field input:focus-visible {
+  border-color: transparent;
+  outline: none;
 }
 .search-field button {
   margin-right: 8px;
