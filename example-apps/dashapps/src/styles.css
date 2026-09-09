@@ -89,11 +89,109 @@ button {
   background: #eef6ff;
 }
 .header-signin-dialog {
-  width: min(520px, 100%);
+  width: min(500px, 100%);
 }
-.header-signin-dialog > .panel {
+.login-panel {
+  overflow: hidden;
+  padding: 0;
+}
+.header-signin-dialog > .login-panel {
   margin: 0;
   box-shadow: 0 24px 70px rgba(15, 23, 42, 0.3);
+}
+.login-panel__header {
+  display: grid;
+  grid-template-columns: 36px minmax(0, 1fr) 28px;
+  align-items: start;
+  gap: 11px;
+  padding: 10px 12px 14px;
+  border-bottom: 1px solid #dce3f2;
+}
+.login-key-icon {
+  display: grid;
+  width: 35px;
+  height: 35px;
+  place-items: center;
+  border-radius: 9px;
+  background: #e5efff;
+  color: #2364db;
+}
+.login-key-icon svg {
+  width: 20px;
+  fill: none;
+  stroke: currentColor;
+  stroke-linecap: round;
+  stroke-linejoin: round;
+  stroke-width: 1.8;
+}
+.login-panel__header h2 {
+  margin: -2px 0 4px;
+  font-size: 16px;
+}
+.login-panel__header p {
+  margin: 0;
+  color: #65708f;
+  font-size: 13px;
+}
+.login-panel__close {
+  border: 0;
+  background: transparent;
+  color: #64708d;
+  font-size: 21px;
+  font-weight: 700;
+  line-height: 1;
+}
+.login-panel form {
+  display: grid;
+  gap: 10px;
+  padding: 17px 12px 12px;
+}
+.login-panel .input-help {
+  margin: -3px 0 5px;
+  color: #64748b;
+  font-size: 12px;
+}
+.login-panel .login-advanced-toggle {
+  justify-self: start;
+  border: 1px solid #bccbf1;
+  border-radius: 9px;
+  background: #fff;
+  padding: 12px 16px;
+  color: #315bd5;
+  font-weight: 700;
+}
+.login-panel .login-advanced-field {
+  display: grid;
+  gap: 7px;
+}
+.login-panel .login-bridge-callout {
+  margin: 4px 0 3px;
+  border: 1px dashed #cbd7f3;
+  border-radius: 9px;
+  background: #f7f9ff;
+  padding: 11px 12px;
+  color: #64708d;
+  font-size: 13px;
+  line-height: 1.5;
+}
+.login-panel .login-bridge-callout a {
+  color: #315bd5;
+  font-weight: 700;
+}
+.login-panel .actions {
+  justify-content: flex-end;
+  margin: 3px 0 0;
+  border-top: 1px solid #dce3f2;
+  padding-top: 13px;
+}
+.login-panel .actions button {
+  border-radius: 9px;
+  padding: 11px 16px;
+}
+.login-panel .actions .secondary {
+  border: 1px solid #dbe2ea;
+  background: #fff;
+  color: #315bd5;
 }
 .app-nav {
   position: absolute;

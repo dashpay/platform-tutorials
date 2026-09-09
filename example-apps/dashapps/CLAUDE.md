@@ -82,10 +82,16 @@ Keep one metadata entry per identity per target, allowing multiple community
 proposals. Use the four non-aggregate candidate indices.
 
 SessionContext.tsx adapts the dashnames generation-guard pattern for mnemonic
-sign-in. Network changes invalidate connection/auth/balance requests and caches.
+and WIF private-key sign-in. Network changes invalidate connection/auth/balance requests and caches.
 Registry changes have a separate generation that resets dependent views/forms and
 cancels pending sign-in; an already authenticated identity remains signed in.
 Registry selection survives network switches in memory even if browser storage
 fails. Mainnet sign-in is rejected in the session API as well as hidden in the UI.
-Recovery phrases are form values passed to login and immediately cleared from the
-form; do not add them to React state, refs, storage, or logs.
+Recovery phrases and WIFs are form values passed to login and immediately cleared
+from the form; do not add them to React state, refs, storage, or logs.
+
+Shared auth parity: `src/dash/loginWithPrivateKey.ts`,
+`src/lib/detectSecretShape.ts`, `src/session/keyManagerFromKey.ts`, and
+`test/loginWithPrivateKey.test.ts` remain byte-identical to Dashnote, TokenOps,
+and DashNames. Keep app-specific session and form behavior outside those files;
+`scripts/check-shared-auth-parity.sh` enforces this.

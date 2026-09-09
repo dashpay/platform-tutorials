@@ -1,10 +1,14 @@
 import { useEffect, useRef, useState } from "react";
 import { useSession } from "../session/useSession";
 import { errorMessage } from "../lib/logger";
+import { detectSecretShape } from "../lib/detectSecretShape";
 export function SignInForm({ onClose }: { onClose(): void }) {
   const session = useSession();
   const [busy, setBusy] = useState(false);
   const [error, setError] = useState("");
+  const [isWif, setIsWif] = useState(false);
+  const [showAdvanced, setShowAdvanced] = useState(false);
+  const [needsIdentityId, setNeedsIdentityId] = useState(false);
   const active = useRef(false);
   useEffect(() => {
     active.current = true;
@@ -12,13 +16,41 @@ export function SignInForm({ onClose }: { onClose(): void }) {
       active.current = false;
     };
   }, []);
+  function close() {
+    if (busy) return;
+    setIsWif(false);
+    setShowAdvanced(false);
+    setNeedsIdentityId(false);
+    onClose();
+  }
   return (
-    <section className="panel" aria-labelledby="sign-in-title">
-      <h2 id="sign-in-title">Sign in to dashapps</h2>
-      <p>
-        Use an existing testnet identity. Your recovery phrase or authentication
-        private key stays in memory and is never saved in browser storage.
-      </p>
+    <section
+      className="panel login-panel"
+      role="dialog"
+      aria-modal="true"
+      aria-labelledby="sign-in-title"
+    >
+      <header className="login-panel__header">
+        <span className="login-key-icon" aria-hidden="true">
+          <svg viewBox="0 0 24 24">
+            <circle cx="7.5" cy="15.5" r="3.5" />
+            <path d="M21 2 9.6 13.4M14.5 8.5l4 4M19 5l3 3" />
+          </svg>
+        </span>
+        <div>
+          <h2 id="sign-in-title">Sign in to dashapps</h2>
+          <p>Use a testnet mnemonic or HIGH/CRITICAL authentication WIF.</p>
+        </div>
+        <button
+          type="button"
+          className="login-panel__close"
+          aria-label="Close sign in"
+          disabled={busy}
+          onClick={close}
+        >
+          ×
+        </button>
+      </header>
       <form
         onSubmit={async (event) => {
           event.preventDefault();
@@ -29,7 +61,6 @@ export function SignInForm({ onClose }: { onClose(): void }) {
           const expectedIdentityId = String(
             values.get("expectedIdentityId") ?? "",
           ).trim();
-          form.reset();
           setBusy(true);
           setError("");
           try {
@@ -37,17 +68,28 @@ export function SignInForm({ onClose }: { onClose(): void }) {
               identityIndex,
               ...(expectedIdentityId ? { expectedIdentityId } : {}),
             });
-            if (active.current) onClose();
+            form.reset();
+            if (active.current) {
+              setIsWif(false);
+              setShowAdvanced(false);
+              setNeedsIdentityId(false);
+              onClose();
+            }
           } catch (error) {
-            if (active.current) setError(errorMessage(error));
+            if (active.current) {
+              setError(errorMessage(error));
+              if (
+                error instanceof Error &&
+                error.name === "AmbiguousIdentityError"
+              )
+                setNeedsIdentityId(true);
+            }
           } finally {
             if (active.current) setBusy(false);
           }
         }}
       >
-        <label htmlFor="login-secret">
-          Testnet recovery phrase or private key
-        </label>
+        <label htmlFor="login-secret">Mnemonic or private key</label>
         <input
           id="login-secret"
           name="secret"
@@ -56,38 +98,84 @@ export function SignInForm({ onClose }: { onClose(): void }) {
           spellCheck={false}
           required
           disabled={busy}
+          autoFocus
+          placeholder="Mnemonic phrase or WIF private key"
+          onChange={(event) => {
+            const shape = event.currentTarget.value.trim()
+              ? detectSecretShape(event.currentTarget.value)
+              : null;
+            setIsWif(shape === "wif");
+            setNeedsIdentityId(false);
+            setError("");
+          }}
         />
         <p className="input-help">
-          A single-token WIF is detected automatically. If a key belongs to more
-          than one identity, enter the intended identity ID below.
+          Stored in memory only. The secret is used locally to sign state
+          transitions.
         </p>
-        <label htmlFor="expected-identity-id">
-          Identity ID (only for an ambiguous key)
-        </label>
-        <input
-          id="expected-identity-id"
-          name="expectedIdentityId"
-          autoComplete="off"
-          spellCheck={false}
-          disabled={busy}
-        />
-        <label htmlFor="identity-index">Identity index</label>
-        <input
-          id="identity-index"
-          name="identityIndex"
-          type="number"
-          min="0"
-          max="2147483647"
-          step="1"
-          defaultValue="0"
-          required
-          disabled={busy}
-        />
+        {isWif && needsIdentityId && (
+          <div className="field login-advanced-field">
+            <label htmlFor="expected-identity-id">Identity ID</label>
+            <input
+              id="expected-identity-id"
+              name="expectedIdentityId"
+              autoComplete="off"
+              spellCheck={false}
+              placeholder="Full Dash Platform identity ID"
+              required
+              disabled={busy}
+              onChange={() => setError("")}
+            />
+            <p className="input-help">
+              This key belongs to multiple identities. Enter the exact identity
+              you want to use.
+            </p>
+          </div>
+        )}
+        {!isWif && (
+          <>
+            <button
+              type="button"
+              className="secondary login-advanced-toggle"
+              aria-expanded={showAdvanced}
+              onClick={() => setShowAdvanced((value) => !value)}
+            >
+              {showAdvanced ? "Hide" : "Show"} advanced settings
+            </button>
+            {showAdvanced && (
+              <div className="field login-advanced-field">
+                <label htmlFor="identity-index">Identity index</label>
+                <input
+                  id="identity-index"
+                  name="identityIndex"
+                  type="number"
+                  min="0"
+                  max="2147483647"
+                  step="1"
+                  defaultValue="0"
+                  required
+                  disabled={busy}
+                />
+              </div>
+            )}
+          </>
+        )}
         {error && (
           <p role="alert" className="error">
             {error}
           </p>
         )}
+        <p className="login-bridge-callout">
+          Don&apos;t have a testnet identity?{" "}
+          <a
+            href="https://bridge.thepasta.org/"
+            target="_blank"
+            rel="noreferrer"
+          >
+            Create one on Dash Bridge
+          </a>{" "}
+          — funded automatically in about 30 seconds.
+        </p>
         <div className="actions">
           <button
             disabled={
@@ -98,10 +186,9 @@ export function SignInForm({ onClose }: { onClose(): void }) {
           </button>
           <button
             type="button"
-            onClick={() => {
-              session.logout();
-              onClose();
-            }}
+            className="secondary"
+            disabled={busy}
+            onClick={close}
           >
             Cancel
           </button>
