@@ -35,6 +35,8 @@ for arg in "$@"; do
   esac
 done
 
+command -v jq >/dev/null || { echo "jq is required" >&2; exit 2; }
+
 failed=()
 
 for script in "${root_scripts[@]}"; do
@@ -45,7 +47,13 @@ done
 for app in example-apps/*/; do
   [ -f "$app/package.json" ] || continue
   for script in "${app_scripts[@]}"; do
-    jq -e --arg s "$script" '.scripts[$s]' "$app/package.json" >/dev/null || continue
+    # jq -e exits 1 when the script is absent; anything else is a real error.
+    jq -e --arg s "$script" '.scripts[$s]' "$app/package.json" >/dev/null
+    case $? in
+      0) ;;
+      1) continue ;;
+      *) failed+=("$app:package.json"); break ;;
+    esac
     echo "=== $app $script"
     (cd "$app" && npm run "$script") || failed+=("$app:$script")
   done
