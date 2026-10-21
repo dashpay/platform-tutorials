@@ -47,11 +47,17 @@ done
 for app in example-apps/*/; do
   [ -f "$app/package.json" ] || continue
   for script in "${app_scripts[@]}"; do
-    # jq -e exits 1 when the script is absent; anything else is a real error.
-    jq -e --arg s "$script" '.scripts[$s]' "$app/package.json" >/dev/null
-    case $? in
-      0) ;;
-      1) continue ;;
+    # An absent script is skipped; a present but non-string/blank one is a
+    # failure; a jq error means package.json itself is broken.
+    status=$(jq -r --arg s "$script" '
+      (.scripts // {}) as $all
+      | if ($all | has($s) | not) then "absent"
+        elif ($all[$s] | type) == "string" and ($all[$s] | test("\\S")) then "valid"
+        else "invalid" end' "$app/package.json") || status=error
+    case $status in
+      valid) ;;
+      absent) continue ;;
+      invalid) failed+=("$app:$script (invalid script)"); continue ;;
       *) failed+=("$app:package.json"); break ;;
     esac
     echo "=== $app $script"
