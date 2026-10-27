@@ -23,9 +23,17 @@ const network = process.env.NETWORK || 'testnet';
 // Testnet identity used by the tutorials (known to exist on-chain)
 const IDENTITY_ID = 'GgZekwh38XcWQTyWWWvmw6CEYFnLU7yiZFPWZEjqKHit';
 
+// Fixed BIP39 test vector. Used only where deterministic key derivation
+// matters — never to assert that no identity exists, since this mnemonic is
+// public and anyone can register an identity on it (as happened at index 0).
 const TEST_MNEMONIC =
   'abandon abandon abandon abandon abandon abandon ' +
   'abandon abandon abandon abandon abandon about';
+
+// Freshly generated per run, so it is guaranteed to have no on-chain identity
+// at any index. Used by tests that assert absence. Never funded: these paths
+// only derive keys and perform read-only lookups.
+const UNREGISTERED_MNEMONIC = await wallet.generateMnemonic();
 
 /**
  * Derive identity authentication keys from a BIP39 mnemonic using DIP-9 paths.
@@ -532,7 +540,7 @@ describe('IdentityKeyManager', function suite() {
       try {
         await IdentityKeyManager.create({
           sdk,
-          mnemonic: TEST_MNEMONIC,
+          mnemonic: UNREGISTERED_MNEMONIC,
           // no identityId — forces auto-resolve, which will fail
         });
         expect.fail('should have thrown');
@@ -592,7 +600,10 @@ describe('IdentityKeyManager', function suite() {
 
   describe('findNextIndex()', function () {
     it('should return 0 for mnemonic with no on-chain identity', async function () {
-      const idx = await IdentityKeyManager.findNextIndex(sdk, TEST_MNEMONIC);
+      const idx = await IdentityKeyManager.findNextIndex(
+        sdk,
+        UNREGISTERED_MNEMONIC,
+      );
       expect(idx).to.equal(0);
     });
 
@@ -884,7 +895,7 @@ describe('setupDashClient()', function () {
     // requireIdentity: true path tries to auto-resolve and fails.
     const saved = clientConfig.mnemonic;
     try {
-      clientConfig.mnemonic = TEST_MNEMONIC;
+      clientConfig.mnemonic = UNREGISTERED_MNEMONIC;
       try {
         await setupDashClient(); // requireIdentity defaults to true
         expect.fail('should have thrown');
@@ -903,11 +914,8 @@ describe('setupDashClient()', function () {
     const saved = clientConfig.mnemonic;
     try {
       clientConfig.mnemonic = TEST_MNEMONIC;
-      // Both will fail with "No identity found" since TEST_MNEMONIC has no
-      // on-chain identity, but they fail at different derivation paths,
-      // proving identityIndex is forwarded. We just need it not to crash
-      // before reaching the identity lookup.
-      // Use requireIdentity: false to avoid the lookup and verify the index is stored.
+      // Use requireIdentity: false to skip the identity lookup entirely and
+      // verify the index is stored and reaches key derivation.
       const r0 = await setupDashClient({
         requireIdentity: false,
         identityIndex: 0,
@@ -986,7 +994,7 @@ describe('IdentityKeyManager.createForNewIdentity() auto-index', function () {
     const sdk = await createClient(network);
     const km = await IdentityKeyManager.createForNewIdentity({
       sdk,
-      mnemonic: TEST_MNEMONIC,
+      mnemonic: UNREGISTERED_MNEMONIC,
       // no identityIndex — triggers findNextIndex
     });
     expect(km.identityIndex).to.equal(0);
