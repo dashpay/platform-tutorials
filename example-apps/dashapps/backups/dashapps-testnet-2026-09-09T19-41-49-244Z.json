@@ -1,0 +1,193 @@
+{
+  "network": "testnet",
+  "contractId": "EoMc3L6KsLBr9aTSbBwuZKcVFRnarMfxFMQFXCGY5ZGo",
+  "documentTypeName": "appMetadata",
+  "protocolVersion": 13,
+  "backedUpAt": "2026-09-09T19:41:50.530Z",
+  "count": 11,
+  "entries": [
+    {
+      "$id": "GP7FKMHwn71q9t3SGSsqPjM4zL63APZ89Y4kwK5mrT8C",
+      "$ownerId": "C3csSgWJMMd72n7khyLPsqh3AskC5qTwJSA7WNkFjW5M",
+      "$createdAt": "1788895808781",
+      "$updatedAt": "1788895808781",
+      "$revision": "1",
+      "metadata": {
+        "category": "wallets-payments",
+        "contractId": "7CSFGeF4WNzgDmx94zwvHkYaG3Dx4XEe5LFsFgJswLbm",
+        "description": "Built-in Dash Platform contract providing shared document types used by wallet applications.",
+        "docs": "https://docs.dash.org/projects/platform/en/stable/",
+        "iconUrl": "https://www.dash.org/favicon.ico",
+        "name": "WalletUtils",
+        "repository": "https://github.com/dashpay/platform",
+        "tagline": "Shared wallet encryption and account utilities",
+        "tags": "wallet,utilities,system-contract",
+        "website": "https://www.dash.org/platform/"
+      }
+    },
+    {
+      "$id": "D8cQTLd9YHBLTg5fHAbzzRc3LVfyH9QdN5aD16F9LBJo",
+      "$ownerId": "C3csSgWJMMd72n7khyLPsqh3AskC5qTwJSA7WNkFjW5M",
+      "$createdAt": "1788895811217",
+      "$updatedAt": "1788897020839",
+      "$revision": "2",
+      "metadata": {
+        "category": "wallets-payments",
+        "contractId": "Bwr4WHCPz5rFVAD87RqTs3izo4zpzwsEdKPWUT1NS1C7",
+        "description": "Built-in Dash Platform contract for user profiles, contact requests, and social payment features.",
+        "docs": "https://docs.dash.org/projects/platform/en/stable/",
+        "iconUrl": "https://www.dash.org/favicon.ico",
+        "name": "DashPay",
+        "repository": "https://github.com/dashpay/platform",
+        "tagline": "Dash Platform profiles and social payment contacts",
+        "tags": "payments,profiles,contacts,system-contract",
+        "website": "https://www.dash.org/dashpay/"
+      }
+    },
+    {
+      "$id": "DBGrhDhAr7GzFTwaQhdDtFLD9rEuPuPg1CTPQyYpFrPi",
+      "$ownerId": "C3csSgWJMMd72n7khyLPsqh3AskC5qTwJSA7WNkFjW5M",
+      "$createdAt": "1788895813516",
+      "$updatedAt": "1788895813516",
+      "$revision": "1",
+      "metadata": {
+        "category": "identity",
+        "contractId": "GWRSAVFMjXx8HpQFaNJMqBV7MBgMK4br5UESsB4S31Ec",
+        "description": "Dash Platform Name Service maps human-readable .dash names to Platform identities.",
+        "docs": "https://docs.dash.org/projects/platform/en/stable/docs/tutorials/register-a-name.html",
+        "iconUrl": "https://www.dash.org/favicon.ico",
+        "name": "DPNS",
+        "repository": "https://github.com/dashpay/platform",
+        "tagline": "Human-readable names for Dash Platform identities",
+        "tags": "names,identity,domains,system-contract",
+        "website": "https://www.dash.org/platform/"
+      }
+    },
+    {
+      "$id": "Ex88vddgeyD1rVWxVo9G4xrEs3vn2G6so5kuGPvBVw2B",
+      "$ownerId": "C3csSgWJMMd72n7khyLPsqh3AskC5qTwJSA7WNkFjW5M",
+      "$createdAt": "1788895815872",
+      "$updatedAt": "1788895815872",
+      "$revision": "1",
+      "metadata": {
+        "category": "finance",
+        "contractId": "rUnsWrFu3PKyRMGk2mxmZVBPbQuZx2qtHeFjURoQevX",
+        "description": "Built-in Dash Platform contract that records how masternode Platform rewards are shared.",
+        "docs": "https://docs.dash.org/projects/platform/en/stable/",
+        "iconUrl": "https://www.dash.org/favicon.ico",
+        "name": "Masternode Rewards",
+        "repository": "https://github.com/dashpay/platform",
+        "tagline": "Platform reward shares for masternodes",
+        "tags": "rewards,masternodes,system-contract",
+        "website": "https://www.dash.org/platform/"
+      }
+    },
+    {
+      "$id": "78ZiXE98rhtgFjd5EycNWcuY44qAn62oRjZ5FCNMqPKh",
+      "$ownerId": "C3csSgWJMMd72n7khyLPsqh3AskC5qTwJSA7WNkFjW5M",
+      "$createdAt": "1788895818702",
+      "$updatedAt": "1788895874882",
+      "$revision": "3",
+      "metadata": {
+        "category": "wallets-payments",
+        "contractId": "4fJLR2GYTPFdomuTVvNy3VRrvWgvkKPzqehEBpNf2nk6",
+        "description": "Built-in Dash Platform contract supporting withdrawals of Platform credits to Dash addresses.",
+        "iconUrl": "https://www.dash.org/favicon.ico",
+        "name": "Withdrawals",
+        "tagline": "Withdraw Platform credits to Dash addresses",
+        "tags": "withdrawals,credits,payments,system-contract"
+      }
+    },
+    {
+      "$id": "7sffDsNyzYjY9qzvVncd2n782ReuD4M1HNY3yZzqBuGs",
+      "$ownerId": "HHjmkbcwqFzToaoyvQcP45JZro7PoczAv7Nii57uYPX1",
+      "$createdAt": "1788897134199",
+      "$updatedAt": "1788897134199",
+      "$revision": "1",
+      "metadata": {
+        "category": "games",
+        "contractId": "5hK6SMfN4m2vU1t9qhvngUUQjsXeMNwr8MZdFeGBH8Aa",
+        "name": "DashMint Lab",
+        "tagline": "Browse, trade, and manage collectible cards on Dash Platform",
+        "tags": "nft"
+      }
+    },
+    {
+      "$id": "4mUqPJm5PeBhW9PFUA3qhC8LDtcACYiwbRS5k8n66Fk4",
+      "$ownerId": "63LaKWuVQgiKuCST45Emm8qGjpfd6tcvxtUQbFwcDgLY",
+      "$createdAt": "1788897229067",
+      "$updatedAt": "1788978653885",
+      "$revision": "5",
+      "metadata": {
+        "appUrl": "https://dashpay.github.io/platform-tutorials/dashmint-lab/",
+        "category": "games",
+        "contractId": "5hK6SMfN4m2vU1t9qhvngUUQjsXeMNwr8MZdFeGBH8Aa",
+        "description": "DashMint Lab lets you create and trade NFT-style collectibles on Dash Platform. Each card is a document owned by an identity — transferable, tradeable, and stored on-chain. \n\nMint capacity is constrained by a fixed-supply DashMint token.",
+        "docs": "https://docs.dash.org/projects/platform/en/stable/docs/tutorials/example-apps/dashmint-lab.html",
+        "name": "DashMint Lab",
+        "repository": "https://github.com/dashpay/platform-tutorials",
+        "tagline": "Browse, trade, and manage collectible cards on Dash Platform.",
+        "tags": "nft,token"
+      }
+    },
+    {
+      "$id": "J5du68iLTZj9JtcG2WfrCujLQT4gsnVEVPB5ozPGfp1C",
+      "$ownerId": "63LaKWuVQgiKuCST45Emm8qGjpfd6tcvxtUQbFwcDgLY",
+      "$createdAt": "1788898558066",
+      "$updatedAt": "1788898558066",
+      "$revision": "1",
+      "metadata": {
+        "appUrl": "https://dashpay.github.io/platform-tutorials/dashnote/",
+        "category": "productivity",
+        "contractId": "8d6heK6CoskLBi6Rs7cChRG9RuckcZqZst28BdviBe8y",
+        "name": "DashNote",
+        "tagline": "Create, edit, and delete notes on Dash Platform"
+      }
+    },
+    {
+      "$id": "3oUXQA3PTABSXSmv7qm4aaoqyP9HpkjRzkfXpTEWg9Ca",
+      "$ownerId": "C3csSgWJMMd72n7khyLPsqh3AskC5qTwJSA7WNkFjW5M",
+      "$createdAt": "1788898653725",
+      "$updatedAt": "1788898653725",
+      "$revision": "1",
+      "metadata": {
+        "appUrl": "https://dashpay.github.io/platform-tutorials/dashnote/",
+        "category": "productivity",
+        "contractId": "8d6heK6CoskLBi6Rs7cChRG9RuckcZqZst28BdviBe8y",
+        "name": "DashNote",
+        "tagline": "Create, edit, and delete notes on Dash Platfomr"
+      }
+    },
+    {
+      "$id": "AoooUquUbHYTnVCSrN2Zp4pTwUfkfncWmNb3uakKFVSY",
+      "$ownerId": "C3csSgWJMMd72n7khyLPsqh3AskC5qTwJSA7WNkFjW5M",
+      "$createdAt": "1788898761106",
+      "$updatedAt": "1788898761106",
+      "$revision": "1",
+      "metadata": {
+        "appUrl": "https://dashpay.github.io/platform-tutorials/dashrate/",
+        "category": "social",
+        "contractId": "BdgTqaTAPYMyhp1WdeWdcvYSgoD7AuJ7tVCaCSXyQgyP",
+        "name": "DashRate",
+        "tagline": "Rate resources on Dash Platform testnet"
+      }
+    },
+    {
+      "$id": "CzijYeRPFBE6yFZrdtwXAyopvpfxM3V5k4WnyURhD5fS",
+      "$ownerId": "63LaKWuVQgiKuCST45Emm8qGjpfd6tcvxtUQbFwcDgLY",
+      "$createdAt": "1788976593536",
+      "$updatedAt": "1788976593536",
+      "$revision": "1",
+      "metadata": {
+        "appUrl": "https://yap.pr/",
+        "category": "social",
+        "contractId": "EWR695MsqPUuW8EnTbYzD4KybNQD5n7CUDWydJYNg63F",
+        "description": "A decentralized social media platform and marketplace built on Dash Platform. All data—posts, profiles, likes, follows, bookmarks, mentions, tips, direct messages, stores, and orders—is stored on-chain with full user ownership.",
+        "docs": "https://yap.pr/about/",
+        "name": "Yappr",
+        "repository": "https://github.com/pastapastapasta/yappr",
+        "tagline": "The decentralized social platform where you own your data, your identity, and your voice."
+      }
+    }
+  ]
+}

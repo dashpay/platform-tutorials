@@ -1,0 +1,26 @@
+// See https://docs.dash.org/projects/platform/en/stable/docs/tutorials/contracts-and-documents/delete-documents.html
+const setupDashClient = require('../../setupDashClient');
+
+const client = setupDashClient();
+
+const deleteNoteDocument = async () => {
+  const { platform } = client;
+  const identity = await platform.identities.get(process.env.IDENTITY_ID); // Your identity ID
+  const documentId = process.env.NFT_DOCUMENT_ID; // An existing document
+
+  // Retrieve the existing document
+  const [document] = await client.platform.documents.get('nftContract.card', {
+    where: [['$id', '==', documentId]],
+  });
+
+  console.log('Trying to delete: ', documentId);
+
+  // Sign and submit the document delete transition
+  await platform.documents.broadcast({ delete: [document] }, identity);
+  return document;
+};
+
+deleteNoteDocument()
+  .then((d) => console.log('Document deleted:\n', d.toJSON()))
+  .catch((e) => console.error('Something went wrong:\n', e))
+  .finally(() => client.disconnect());

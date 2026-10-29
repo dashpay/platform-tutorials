@@ -1,0 +1,665 @@
+<!doctype html>
+<html lang="en">
+  <head>
+    <meta charset="utf-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1" />
+    <title>Dash Platform Example Apps</title>
+    <style>
+      :root {
+        color-scheme: light;
+        --ink: #111827;
+        --muted: #5b6472;
+        --line: #d8dee7;
+        --panel: #ffffff;
+        --wash: #f4f7fb;
+        --dash-blue: #0b63ce;
+        --dash-cyan: #13b5d8;
+        --dash-green: #188a63;
+        --dash-gold: #c77700;
+        --dash-violet: #6656d9;
+        --shadow: 0 24px 70px rgba(31, 41, 55, 0.18);
+      }
+
+      * {
+        box-sizing: border-box;
+      }
+
+      html,
+      body {
+        margin: 0;
+        min-height: 100%;
+      }
+
+      body {
+        background:
+          radial-gradient(circle at top left, rgba(19, 181, 216, 0.16), transparent 34rem),
+          linear-gradient(135deg, #eef3f8 0%, #f9fafb 46%, #edf7f3 100%);
+        color: var(--ink);
+        font-family:
+          Inter, ui-sans-serif, system-ui, -apple-system, BlinkMacSystemFont, "Segoe UI",
+          sans-serif;
+        letter-spacing: 0;
+      }
+
+      button {
+        font: inherit;
+      }
+
+      .deck {
+        min-height: 100svh;
+        padding: 18px;
+        display: grid;
+        place-items: center;
+      }
+
+      .slide {
+        width: calc(100vw - 36px);
+        height: calc(100svh - 36px);
+        min-height: 720px;
+        display: none;
+        grid-template-columns: minmax(300px, 0.72fr) minmax(0, 1.8fr);
+        gap: 28px;
+        align-items: stretch;
+        padding: clamp(24px, 2.2vw, 44px);
+        border: 1px solid rgba(216, 222, 231, 0.9);
+        border-radius: 8px;
+        background: rgba(255, 255, 255, 0.92);
+        box-shadow: var(--shadow);
+      }
+
+      .slide.is-active {
+        display: grid;
+      }
+
+      .slide.is-image-focus {
+        grid-template-columns: 1fr;
+        gap: 0;
+        padding: 18px;
+      }
+
+      .slide.is-image-focus .slide-copy {
+        display: none;
+      }
+
+      .title-slide,
+      .summary-slide {
+        grid-template-columns: 1fr;
+      }
+
+      .title-slide {
+        align-content: center;
+        background:
+          linear-gradient(135deg, rgba(11, 99, 206, 0.1), transparent 55%),
+          linear-gradient(160deg, rgba(24, 138, 99, 0.11), rgba(255, 255, 255, 0.96));
+      }
+
+      .slide-copy {
+        display: flex;
+        flex-direction: column;
+        justify-content: center;
+        gap: clamp(14px, 1.35vw, 22px);
+        min-width: 0;
+      }
+
+      .eyebrow {
+        margin: 0;
+        color: var(--dash-blue);
+        font-size: 0.78rem;
+        font-weight: 800;
+        letter-spacing: 0.14em;
+        text-transform: uppercase;
+      }
+
+      h1,
+      h2 {
+        margin: 0;
+        max-width: 980px;
+        color: #0b1220;
+        line-height: 0.98;
+        letter-spacing: 0;
+      }
+
+      h1 {
+        font-size: clamp(3.3rem, 8vw, 6.6rem);
+      }
+
+      h2 {
+        font-size: clamp(2.35rem, 3.8vw, 5.2rem);
+      }
+
+      .dek {
+        margin: 0;
+        max-width: 760px;
+        color: #273244;
+        font-size: clamp(1.08rem, 1.25vw, 1.42rem);
+        line-height: 1.5;
+      }
+
+      .body-list {
+        display: grid;
+        gap: 12px;
+        margin: 0;
+        padding: 0;
+        list-style: none;
+      }
+
+      .body-list li {
+        display: grid;
+        grid-template-columns: 12px 1fr;
+        gap: 12px;
+        color: #1f2937;
+        font-size: clamp(0.98rem, 1vw, 1.12rem);
+        line-height: 1.48;
+      }
+
+      .body-list li::before {
+        content: "";
+        width: 8px;
+        height: 8px;
+        margin-top: 0.55em;
+        border-radius: 999px;
+        background: var(--accent, var(--dash-blue));
+      }
+
+      .tags {
+        display: flex;
+        flex-wrap: wrap;
+        gap: 8px;
+      }
+
+      .tag {
+        padding: 7px 10px;
+        border: 1px solid rgba(91, 100, 114, 0.22);
+        border-radius: 999px;
+        background: rgba(244, 247, 251, 0.82);
+        color: #2f3a4a;
+        font-size: 0.86rem;
+        font-weight: 700;
+        white-space: nowrap;
+      }
+
+      .screenshot-wrap {
+        position: relative;
+        align-self: stretch;
+        min-width: 0;
+        display: flex;
+        align-items: center;
+      }
+
+      .slide.is-image-focus .screenshot-wrap {
+        grid-column: 1 / -1;
+        justify-content: center;
+      }
+
+      .screenshot {
+        display: block;
+        width: 100%;
+        height: auto;
+        max-height: 100%;
+        min-height: 0;
+        object-fit: contain;
+        object-position: top left;
+        border: 1px solid rgba(17, 24, 39, 0.12);
+        border-radius: 8px;
+        background: #f8fafc;
+        box-shadow: 0 18px 46px rgba(31, 41, 55, 0.16);
+        cursor: zoom-in;
+      }
+
+      .screenshot:focus-visible {
+        outline: 3px solid color-mix(in srgb, var(--accent, var(--dash-blue)) 72%, #ffffff);
+        outline-offset: 4px;
+      }
+
+      .slide.is-image-focus .screenshot {
+        width: auto;
+        max-width: 100%;
+        max-height: 100%;
+        cursor: zoom-out;
+      }
+
+      body.has-image-focus .progress {
+        opacity: 0;
+        pointer-events: none;
+      }
+
+      .callout {
+        margin: 0;
+        padding: 14px 16px;
+        border-left: 4px solid var(--accent, var(--dash-blue));
+        border-radius: 8px;
+        background: color-mix(in srgb, var(--accent, var(--dash-blue)) 9%, #ffffff);
+        color: #243044;
+        font-size: clamp(0.98rem, 1vw, 1.08rem);
+        line-height: 1.45;
+      }
+
+      .hero-grid {
+        display: grid;
+        grid-template-columns: repeat(4, 1fr);
+        gap: 12px;
+        margin-top: 14px;
+      }
+
+      .hero-tile {
+        min-height: 124px;
+        display: flex;
+        flex-direction: column;
+        justify-content: space-between;
+        gap: 18px;
+        padding: 16px;
+        border: 1px solid rgba(216, 222, 231, 0.95);
+        border-radius: 8px;
+        background: rgba(255, 255, 255, 0.72);
+      }
+
+      .hero-tile strong {
+        color: #0b1220;
+        font-size: 1rem;
+      }
+
+      .hero-tile span {
+        color: var(--muted);
+        font-size: 0.86rem;
+        line-height: 1.35;
+      }
+
+      .comparison-grid {
+        display: grid;
+        grid-template-columns: repeat(4, 1fr);
+        gap: 14px;
+      }
+
+      .comparison-card {
+        display: grid;
+        gap: 13px;
+        align-content: start;
+        min-height: 320px;
+        padding: 18px;
+        border: 1px solid rgba(216, 222, 231, 0.95);
+        border-radius: 8px;
+        background: #fff;
+      }
+
+      .comparison-card h3 {
+        margin: 0;
+        color: #0b1220;
+        font-size: 1.18rem;
+      }
+
+      .comparison-card p {
+        margin: 0;
+        color: var(--muted);
+        font-size: 0.96rem;
+        line-height: 1.45;
+      }
+
+      .progress {
+        position: fixed;
+        right: 28px;
+        bottom: 28px;
+        display: flex;
+        align-items: center;
+        gap: 10px;
+        padding: 10px;
+        border: 1px solid rgba(216, 222, 231, 0.95);
+        border-radius: 8px;
+        background: rgba(255, 255, 255, 0.88);
+        box-shadow: 0 12px 30px rgba(31, 41, 55, 0.12);
+      }
+
+      .progress button {
+        min-width: 40px;
+        height: 36px;
+        border: 1px solid rgba(91, 100, 114, 0.24);
+        border-radius: 8px;
+        background: #fff;
+        color: #172033;
+        cursor: pointer;
+      }
+
+      .progress button:hover,
+      .progress button:focus-visible {
+        border-color: var(--dash-blue);
+        outline: none;
+      }
+
+      .progress span {
+        min-width: 54px;
+        color: var(--muted);
+        font-size: 0.9rem;
+        font-weight: 700;
+        text-align: center;
+      }
+
+      @media (max-width: 940px) {
+        .deck {
+          padding: 16px;
+        }
+
+        .slide {
+          width: calc(100vw - 32px);
+          height: auto;
+          min-height: auto;
+          grid-template-columns: 1fr;
+          padding: 28px;
+        }
+
+        .slide-copy {
+          justify-content: start;
+        }
+
+        .hero-grid,
+        .comparison-grid {
+          grid-template-columns: 1fr;
+        }
+
+        .screenshot {
+          height: auto;
+        }
+
+        .progress {
+          left: 16px;
+          right: 16px;
+          bottom: 16px;
+          justify-content: center;
+        }
+      }
+
+      @media print {
+        body {
+          background: #fff;
+        }
+
+        .deck {
+          display: block;
+          padding: 0;
+        }
+
+        .slide,
+        .slide.is-active {
+          width: 100%;
+          min-height: 100vh;
+          display: grid;
+          box-shadow: none;
+          border: 0;
+          border-radius: 0;
+          break-after: page;
+        }
+
+        .progress {
+          display: none;
+        }
+
+        .slide.is-image-focus .slide-copy {
+          display: flex;
+        }
+      }
+    </style>
+  </head>
+  <body>
+    <main class="deck" aria-live="polite">
+      <section class="slide title-slide is-active" data-slide>
+        <div class="slide-copy">
+          <p class="eyebrow">Dash Platform tutorials</p>
+          <h1>Example apps, from SDK calls to product flows.</h1>
+          <p class="dek">
+            Four browser examples show how the same Platform SDK patterns become
+            NFT-style collectibles, notes, ratings, and proof-of-existence records
+            on testnet. Dashnote Starter appears as the minimal path into Dashnote.
+          </p>
+          <div class="hero-grid" aria-label="Apps covered">
+            <div class="hero-tile">
+              <strong>DashMint Lab</strong>
+              <span>NFT-style cards and token payments.</span>
+            </div>
+            <div class="hero-tile">
+              <strong>Dashnote</strong>
+              <span>Compatible starter-to-polished notes path.</span>
+            </div>
+            <div class="hero-tile">
+              <strong>DashRate</strong>
+              <span>Reviews, counts, and history queries.</span>
+            </div>
+            <div class="hero-tile">
+              <strong>DashProof Lab</strong>
+              <span>Local hashes anchored as proofs.</span>
+            </div>
+          </div>
+        </div>
+      </section>
+
+      <section class="slide" data-slide style="--accent: var(--dash-violet)">
+        <div class="slide-copy">
+          <p class="eyebrow">Tokens and NFT-style documents</p>
+          <h2>DashMint Lab</h2>
+          <p class="dek">
+            A collectible-card marketplace app where NFT-style documents can be
+            minted, transferred, listed, purchased, and burned.
+          </p>
+          <ul class="body-list">
+            <li>Marketplace flows are document ownership changes.</li>
+            <li>Prices turn owned documents into listings that other identities can purchase.</li>
+            <li>A fixed-supply token controls minting capacity and can be transferred between identities.</li>
+          </ul>
+          <p class="callout">
+            The core pattern is NFT-style document ownership plus token scarcity:
+            cards move through marketplace actions, while tokens control who can
+            create new supply.
+          </p>
+          <div class="tags">
+            <span class="tag">documents.create</span>
+            <span class="tag">documents.transfer</span>
+            <span class="tag">documents.setPrice</span>
+            <span class="tag">documents.purchase</span>
+            <span class="tag">tokens.transfer</span>
+            <span class="tag">tokenPaymentInfo</span>
+          </div>
+        </div>
+        <div class="screenshot-wrap">
+          <img
+            class="screenshot"
+            src="assets/dashmint-lab.png"
+            alt="DashMint Lab card marketplace screen"
+          />
+        </div>
+      </section>
+
+      <section class="slide" data-slide style="--accent: var(--dash-gold)">
+        <div class="slide-copy">
+          <p class="eyebrow">Identity-owned documents</p>
+          <h2>Dashnote</h2>
+          <p class="dek">
+            A notes app where entries belong to a Dash Platform identity, not a
+            device, account database, or browser session.
+          </p>
+          <ul class="body-list">
+            <li>Notes are mutable Platform documents with owner-scoped indexes for fast retrieval.</li>
+            <li>Any compatible client can read the same contract and render the same user-owned data.</li>
+            <li>Revision numbers and Platform timestamps make edits explicit instead of hidden in app state.</li>
+          </ul>
+          <p class="callout">
+            The special part is portability: identity-owned notes can move across
+            apps while Platform handles document ownership, ordering, revision checks,
+            and timestamp metadata.
+          </p>
+          <div class="tags">
+            <span class="tag">documents.create</span>
+            <span class="tag">documents.query</span>
+            <span class="tag">documents.replace</span>
+            <span class="tag">documents.delete</span>
+          </div>
+        </div>
+        <div class="screenshot-wrap">
+          <img class="screenshot" src="assets/dashnote.png" alt="Dashnote signed-in notes workspace" />
+        </div>
+      </section>
+
+      <section class="slide" data-slide style="--accent: var(--dash-green)">
+        <div class="slide-copy">
+          <p class="eyebrow">Ratings and aggregate queries</p>
+          <h2>DashRate</h2>
+          <p class="dek">
+            A tutorial-resource ratings app centered on Platform v4 relational
+            document queries and grouped counts.
+          </p>
+          <ul class="body-list">
+            <li>Read-only users can browse resources, aggregates, and recent reviews.</li>
+            <li>Signed-in users can create one review per resource and edit it later.</li>
+            <li>Count, grouped count, rating filters, and document history are visible in one UI.</li>
+          </ul>
+          <div class="tags">
+            <span class="tag">documents.query</span>
+            <span class="tag">documents.count</span>
+            <span class="tag">documents.history</span>
+          </div>
+        </div>
+        <div class="screenshot-wrap">
+          <img class="screenshot" src="assets/dashrate.png" alt="DashRate resources and reviews screen" />
+        </div>
+      </section>
+
+      <section class="slide" data-slide style="--accent: var(--dash-blue)">
+        <div class="slide-copy">
+          <p class="eyebrow">Proof of existence</p>
+          <h2>DashProof Lab</h2>
+          <p class="dek">
+            A file proof tutorial that keeps file contents local, hashes them in
+            the browser, and anchors only the digest plus metadata on Platform.
+          </p>
+          <ul class="body-list">
+            <li>SHA-256 is computed locally before any Platform call.</li>
+            <li>Users can verify a file by hash and review proof history by owner or chain ID.</li>
+            <li>Starter files make the demo reproducible without uploading private files.</li>
+          </ul>
+          <div class="tags">
+            <span class="tag">local hashing</span>
+            <span class="tag">unique hash index</span>
+            <span class="tag">chain history</span>
+          </div>
+        </div>
+        <div class="screenshot-wrap">
+          <img class="screenshot" src="assets/dashproof-lab.png" alt="DashProof Lab create proof screen" />
+        </div>
+      </section>
+
+      <section class="slide summary-slide" data-slide>
+        <div class="slide-copy">
+          <p class="eyebrow">How to read the examples</p>
+          <h2>Same SDK, different learning goals.</h2>
+          <p class="dek">
+            Start with the narrow examples when learning an operation. Move to the
+            polished apps when you need production-shaped state, auth, and UX patterns.
+          </p>
+          <div class="comparison-grid">
+            <article class="comparison-card">
+              <h3>DashMint Lab</h3>
+              <p>Best for NFT-style ownership flows and token-gated creation.</p>
+            </article>
+            <article class="comparison-card">
+              <h3>Dashnote</h3>
+              <p>Starter-to-polished notes path: same contract, compatible data, richer UI.</p>
+            </article>
+            <article class="comparison-card">
+              <h3>DashRate</h3>
+              <p>Best for indexes, aggregate counts, filtered reads, and history.</p>
+            </article>
+            <article class="comparison-card">
+              <h3>DashProof Lab</h3>
+              <p>Best for local processing plus immutable proof records on Platform.</p>
+            </article>
+          </div>
+        </div>
+      </section>
+    </main>
+
+    <nav class="progress" aria-label="Slide controls">
+      <button type="button" data-prev aria-label="Previous slide">&lt;</button>
+      <span data-count>1 / 6</span>
+      <button type="button" data-next aria-label="Next slide">&gt;</button>
+    </nav>
+
+    <script>
+      const slides = Array.from(document.querySelectorAll("[data-slide]"));
+      const count = document.querySelector("[data-count]");
+      const prev = document.querySelector("[data-prev]");
+      const next = document.querySelector("[data-next]");
+      let current = 0;
+      let focusedSlide = null;
+
+      function setImageFocus(slide, focused) {
+        slides.forEach((candidate) => {
+          if (candidate !== slide || !focused) {
+            candidate.classList.remove("is-image-focus");
+          }
+        });
+        if (focused) {
+          slide.classList.add("is-image-focus");
+          focusedSlide = slide;
+        } else {
+          slide.classList.remove("is-image-focus");
+          focusedSlide = null;
+        }
+        document.body.classList.toggle("has-image-focus", Boolean(focusedSlide));
+      }
+
+      function showSlide(index) {
+        if (focusedSlide) {
+          setImageFocus(focusedSlide, false);
+        }
+        current = Math.max(0, Math.min(slides.length - 1, index));
+        slides.forEach((slide, slideIndex) => {
+          slide.classList.toggle("is-active", slideIndex === current);
+        });
+        count.textContent = `${current + 1} / ${slides.length}`;
+        prev.disabled = current === 0;
+        next.disabled = current === slides.length - 1;
+      }
+
+      document.querySelectorAll(".screenshot").forEach((image) => {
+        image.setAttribute("role", "button");
+        image.setAttribute("tabindex", "0");
+        image.setAttribute("aria-label", `${image.alt}. Toggle enlarged view.`);
+        image.addEventListener("click", () => {
+          const slide = image.closest("[data-slide]");
+          setImageFocus(slide, !slide.classList.contains("is-image-focus"));
+        });
+        image.addEventListener("keydown", (event) => {
+          if (event.key !== "Enter" && event.key !== " ") return;
+          event.preventDefault();
+          event.stopPropagation();
+          const slide = image.closest("[data-slide]");
+          setImageFocus(slide, !slide.classList.contains("is-image-focus"));
+        });
+      });
+
+      prev.addEventListener("click", () => showSlide(current - 1));
+      next.addEventListener("click", () => showSlide(current + 1));
+      document.addEventListener("keydown", (event) => {
+        if (focusedSlide && event.key === "Escape") {
+          event.preventDefault();
+          setImageFocus(focusedSlide, false);
+          return;
+        }
+        if (event.key === "ArrowRight" || event.key === "PageDown" || event.key === " ") {
+          event.preventDefault();
+          showSlide(current + 1);
+        }
+        if (event.key === "ArrowLeft" || event.key === "PageUp") {
+          event.preventDefault();
+          showSlide(current - 1);
+        }
+        if (event.key === "Home") {
+          event.preventDefault();
+          showSlide(0);
+        }
+        if (event.key === "End") {
+          event.preventDefault();
+          showSlide(slides.length - 1);
+        }
+      });
+
+      showSlide(0);
+    </script>
+  </body>
+</html>

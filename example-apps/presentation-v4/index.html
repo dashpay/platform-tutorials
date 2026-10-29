@@ -1,0 +1,1188 @@
+<!doctype html>
+<html lang="en">
+  <head>
+    <meta charset="utf-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1" />
+    <title>Dash Platform v4 - DashRate and DashMint Lab</title>
+    <style>
+      :root {
+        color-scheme: light;
+        --ink: #12151c;
+        --muted: #596171;
+        --soft: #f3f6f8;
+        --paper: #fbfcfd;
+        --panel: #ffffff;
+        --line: #dce3ea;
+        --blue: #0b65c2;
+        --teal: #008c7a;
+        --amber: #b76d00;
+        --violet: #6754c8;
+        --green: #147b56;
+        --shadow: 0 26px 80px rgba(18, 21, 28, 0.16);
+        --deck-pad: clamp(12px, 2svh, 20px);
+        --nav-space: 72px;
+        --slide-max-width: 1240px;
+        --slide-max-height: 760px;
+        --slide-pad: clamp(26px, 3.6vw, 60px);
+        --sans:
+          Inter, ui-sans-serif, system-ui, -apple-system, BlinkMacSystemFont,
+          "Segoe UI", sans-serif;
+        --mono:
+          "SFMono-Regular", ui-monospace, SFMono-Regular, Menlo, Consolas,
+          monospace;
+      }
+
+      * {
+        box-sizing: border-box;
+      }
+
+      html,
+      body {
+        margin: 0;
+        min-height: 100%;
+      }
+
+      body {
+        background:
+          linear-gradient(90deg, rgba(18, 21, 28, 0.04) 1px, transparent 1px),
+          linear-gradient(0deg, rgba(18, 21, 28, 0.04) 1px, transparent 1px),
+          var(--paper);
+        background-size: 42px 42px;
+        color: var(--ink);
+        font-family: var(--sans);
+        letter-spacing: 0;
+        -webkit-font-smoothing: antialiased;
+      }
+
+      button {
+        font: inherit;
+      }
+
+      code {
+        font-family: var(--mono);
+      }
+
+      .deck {
+        min-height: 100svh;
+        padding: var(--deck-pad) var(--deck-pad)
+          calc(var(--deck-pad) + var(--nav-space));
+        display: grid;
+        place-items: center;
+      }
+
+      .slide {
+        width: min(var(--slide-max-width), calc(100vw - (var(--deck-pad) * 2)));
+        height: min(
+          var(--slide-max-height),
+          calc(100svh - (var(--deck-pad) * 2) - var(--nav-space))
+        );
+        max-height: calc(100svh - (var(--deck-pad) * 2) - var(--nav-space));
+        display: none;
+        grid-template-columns: minmax(0, 1fr);
+        gap: clamp(18px, 2vw, 30px);
+        align-content: center;
+        padding: var(--slide-pad);
+        overflow: hidden;
+        border: 1px solid rgba(220, 227, 234, 0.96);
+        border-radius: 8px;
+        background: rgba(251, 252, 253, 0.98);
+        box-shadow: var(--shadow);
+      }
+
+      .slide.is-active {
+        display: grid;
+      }
+
+      .split {
+        grid-template-columns: minmax(340px, 0.86fr) minmax(0, 1.14fr);
+        align-items: center;
+      }
+
+      .split.reverse {
+        grid-template-columns: minmax(0, 1.14fr) minmax(340px, 0.86fr);
+      }
+
+      .center {
+        justify-items: start;
+      }
+
+      .title-slide {
+        position: relative;
+        align-content: center;
+      }
+
+      .title-slide .copy {
+        gap: clamp(12px, 1.6svh, 18px);
+      }
+
+      .title-slide h1 {
+        max-width: 9.5ch;
+        font-size: clamp(2.8rem, 5.4vw, 4.8rem);
+      }
+
+      .title-slide .lede {
+        max-width: 42ch;
+        font-size: clamp(1.1rem, 1.35vw, 1.42rem);
+        line-height: 1.32;
+      }
+
+      .title-slide .metric {
+        min-height: 148px;
+      }
+
+      .title-visual {
+        position: absolute;
+        top: clamp(64px, 8svh, 92px);
+        right: clamp(48px, 5vw, 82px);
+        width: min(37vw, 470px);
+        height: min(32svh, 290px);
+        pointer-events: none;
+      }
+
+      .title-visual img {
+        position: absolute;
+        display: block;
+        width: 80%;
+        height: auto;
+        border: 1px solid rgba(18, 21, 28, 0.14);
+        border-radius: 8px;
+        background: #fff;
+        box-shadow: 0 18px 44px rgba(18, 21, 28, 0.16);
+      }
+
+      .title-visual .dashrate-shot {
+        top: 70px;
+        left: 0;
+        transform: rotate(-3deg);
+        z-index: 2;
+      }
+
+      .title-visual .dashmint-shot {
+        top: 0;
+        right: 0;
+        transform: rotate(2deg);
+        z-index: 1;
+      }
+
+      .copy {
+        display: grid;
+        gap: clamp(14px, 1.5vw, 22px);
+        max-width: 790px;
+        min-width: 0;
+      }
+
+      .copy.wide {
+        max-width: 1040px;
+      }
+
+      .kicker {
+        margin: 0;
+        color: var(--accent, var(--blue));
+        font-family: var(--mono);
+        font-size: clamp(0.76rem, 0.8vw, 0.86rem);
+        font-weight: 800;
+        letter-spacing: 0.1em;
+        text-transform: uppercase;
+      }
+
+      h1,
+      h2 {
+        margin: 0;
+        color: #0d1118;
+        font-weight: 820;
+        line-height: 0.98;
+        letter-spacing: 0;
+      }
+
+      h1 {
+        max-width: 13ch;
+        font-size: clamp(3rem, 6.2vw, 5.4rem);
+      }
+
+      h2 {
+        max-width: 16ch;
+        font-size: clamp(2.1rem, 4vw, 4rem);
+      }
+
+      .dek {
+        margin: 0;
+        max-width: 66ch;
+        color: #2f3847;
+        font-size: clamp(1rem, 1.12vw, 1.18rem);
+        line-height: 1.42;
+      }
+
+      .lede {
+        margin: 0;
+        color: #222b39;
+        font-size: clamp(1.28rem, 1.85vw, 1.8rem);
+        line-height: 1.28;
+        max-width: 44ch;
+      }
+
+      .mini {
+        margin: 0;
+        color: var(--muted);
+        font-size: clamp(0.9rem, 1vw, 1rem);
+        line-height: 1.5;
+      }
+
+      .badge-row,
+      .tag-row {
+        display: flex;
+        flex-wrap: wrap;
+        gap: 8px;
+      }
+
+      .badge,
+      .tag {
+        display: inline-flex;
+        align-items: center;
+        min-height: 32px;
+        border-radius: 999px;
+        white-space: nowrap;
+      }
+
+      .badge {
+        padding: 6px 12px;
+        border: 1px solid color-mix(in srgb, var(--accent, var(--blue)) 35%, var(--line));
+        background: color-mix(in srgb, var(--accent, var(--blue)) 9%, #fff);
+        color: #182232;
+        font-weight: 750;
+        font-size: 0.88rem;
+      }
+
+      .tag {
+        padding: 5px 10px;
+        border: 1px solid var(--line);
+        background: #fff;
+        color: #3d4655;
+        font-family: var(--mono);
+        font-size: 0.78rem;
+      }
+
+      .grid-two {
+        display: grid;
+        grid-template-columns: repeat(2, minmax(0, 1fr));
+        gap: 16px;
+      }
+
+      .grid-three {
+        display: grid;
+        grid-template-columns: repeat(3, minmax(0, 1fr));
+        gap: 14px;
+      }
+
+      .panel {
+        min-width: 0;
+        padding: clamp(18px, 2vw, 26px);
+        border: 1px solid var(--line);
+        border-radius: 8px;
+        background: var(--panel);
+      }
+
+      .panel h3 {
+        margin: 0 0 10px;
+        color: #111722;
+        font-size: clamp(1.15rem, 1.35vw, 1.45rem);
+        line-height: 1.15;
+      }
+
+      .panel p {
+        margin: 0;
+        color: var(--muted);
+        font-size: clamp(0.92rem, 1vw, 1.05rem);
+        line-height: 1.48;
+      }
+
+      .panel strong {
+        color: var(--ink);
+      }
+
+      .metric {
+        display: grid;
+        gap: 10px;
+        min-height: 184px;
+      }
+
+      .metric .number {
+        color: var(--accent, var(--blue));
+        font-family: var(--mono);
+        font-size: clamp(1.8rem, 3vw, 3.2rem);
+        font-weight: 900;
+        line-height: 1;
+      }
+
+      .list {
+        display: grid;
+        gap: 10px;
+        margin: 0;
+        padding: 0;
+        list-style: none;
+      }
+
+      .list li {
+        position: relative;
+        padding-left: 22px;
+        color: #2c3544;
+        font-size: clamp(0.94rem, 1.02vw, 1.06rem);
+        line-height: 1.38;
+      }
+
+      .list li::before {
+        content: "";
+        position: absolute;
+        top: 0.68em;
+        left: 0;
+        width: 10px;
+        height: 10px;
+        border-radius: 50%;
+        background: var(--accent, var(--blue));
+      }
+
+      .quote {
+        margin: 0;
+        padding: 15px 18px;
+        border-left: 5px solid var(--accent, var(--blue));
+        border-radius: 8px;
+        background: color-mix(in srgb, var(--accent, var(--blue)) 8%, #fff);
+        color: #253044;
+        font-size: clamp(0.96rem, 1vw, 1.08rem);
+        line-height: 1.4;
+      }
+
+      .shot-wrap {
+        min-width: 0;
+        display: grid;
+        gap: 12px;
+      }
+
+      .shot {
+        display: block;
+        width: 100%;
+        height: auto;
+        object-fit: contain;
+        border: 1px solid rgba(18, 21, 28, 0.12);
+        border-radius: 8px;
+        background: #fff;
+        box-shadow: 0 18px 46px rgba(18, 21, 28, 0.14);
+      }
+
+      .video-slide {
+        grid-template-rows: auto minmax(0, 1fr);
+        align-content: stretch;
+        gap: clamp(14px, 2svh, 24px);
+      }
+
+      .video-slide .copy {
+        gap: 8px;
+        max-width: none;
+      }
+
+      .video-heading {
+        display: flex;
+        align-items: end;
+        justify-content: space-between;
+        gap: 20px;
+      }
+
+      .video-slide h2 {
+        max-width: none;
+        font-size: clamp(1.9rem, 2.8vw, 3rem);
+        line-height: 1;
+      }
+
+      .video-slide .dek {
+        max-width: 74ch;
+        font-size: clamp(0.94rem, 1vw, 1.06rem);
+        line-height: 1.35;
+      }
+
+      .video-frame {
+        display: grid;
+        grid-template-rows: minmax(0, 1fr) auto;
+        justify-items: center;
+        gap: 12px;
+        min-width: 0;
+        min-height: 0;
+      }
+
+      .walkthrough {
+        display: block;
+        width: auto;
+        height: 100%;
+        min-height: 0;
+        max-width: 100%;
+        max-height: 100%;
+        aspect-ratio: var(--walkthrough-aspect, 16 / 10);
+        object-fit: contain;
+        border: 1px solid rgba(18, 21, 28, 0.12);
+        border-radius: 8px;
+        background: #05070a;
+        box-shadow: 0 18px 46px rgba(18, 21, 28, 0.16);
+      }
+
+      .caption {
+        margin: 0;
+        color: var(--muted);
+        font-size: 0.88rem;
+        line-height: 1.4;
+        text-align: center;
+      }
+
+      .app-link {
+        display: inline-flex;
+        align-items: center;
+        justify-content: center;
+        min-height: 34px;
+        padding: 7px 12px;
+        border: 1px solid color-mix(in srgb, var(--accent, var(--blue)) 40%, var(--line));
+        border-radius: 8px;
+        background: color-mix(in srgb, var(--accent, var(--blue)) 8%, #fff);
+        color: var(--accent, var(--blue));
+        font-size: 0.84rem;
+        font-weight: 800;
+        text-decoration: none;
+        white-space: nowrap;
+      }
+
+      .app-link:hover,
+      .app-link:focus-visible {
+        border-color: var(--accent, var(--blue));
+        outline: none;
+      }
+
+      .diagram {
+        display: grid;
+        gap: 12px;
+      }
+
+      .flow {
+        display: grid;
+        gap: 10px;
+      }
+
+      .flow-step {
+        display: grid;
+        grid-template-columns: auto 1fr;
+        gap: 12px;
+        align-items: start;
+        padding: 14px;
+        border: 1px solid var(--line);
+        border-radius: 8px;
+        background: #fff;
+      }
+
+      .flow-step .n {
+        width: 30px;
+        height: 30px;
+        display: grid;
+        place-items: center;
+        border-radius: 50%;
+        background: var(--accent, var(--blue));
+        color: #fff;
+        font-family: var(--mono);
+        font-weight: 900;
+        font-size: 0.84rem;
+      }
+
+      .flow-step strong {
+        display: block;
+        margin-bottom: 3px;
+        color: var(--ink);
+      }
+
+      .flow-step span {
+        color: var(--muted);
+        font-size: 0.95rem;
+        line-height: 1.4;
+      }
+
+      .matrix {
+        display: grid;
+        grid-template-columns: 0.85fr repeat(2, 1fr);
+        border: 1px solid var(--line);
+        border-radius: 8px;
+        overflow: hidden;
+        background: #fff;
+      }
+
+      .matrix div {
+        min-width: 0;
+        padding: 15px 16px;
+        border-bottom: 1px solid var(--line);
+        border-right: 1px solid var(--line);
+        color: #2d3644;
+        line-height: 1.42;
+      }
+
+      .matrix div:nth-child(3n) {
+        border-right: 0;
+      }
+
+      .matrix div:nth-last-child(-n + 3) {
+        border-bottom: 0;
+      }
+
+      .matrix .head {
+        background: var(--soft);
+        color: #101620;
+        font-weight: 820;
+      }
+
+      .matrix .row-head {
+        color: var(--accent, var(--blue));
+        font-family: var(--mono);
+        font-size: 0.86rem;
+        font-weight: 900;
+        text-transform: uppercase;
+      }
+
+      .code-block {
+        overflow: auto;
+        margin: 0;
+        padding: 18px;
+        border: 1px solid var(--line);
+        border-radius: 8px;
+        background: #101620;
+        color: #dce8f7;
+        font-family: var(--mono);
+        font-size: clamp(0.78rem, 0.9vw, 0.94rem);
+        line-height: 1.55;
+      }
+
+      .code-block .comment {
+        color: #8da1b8;
+      }
+
+      .code-block .key {
+        color: #9fe1d7;
+      }
+
+      .code-block .val {
+        color: #ffc979;
+      }
+
+      .progress {
+        position: fixed;
+        right: 24px;
+        bottom: 22px;
+        display: flex;
+        align-items: center;
+        gap: 8px;
+        padding: 8px;
+        border: 1px solid rgba(220, 227, 234, 0.94);
+        border-radius: 8px;
+        background: rgba(255, 255, 255, 0.9);
+        box-shadow: 0 14px 32px rgba(18, 21, 28, 0.1);
+      }
+
+      .progress button {
+        width: 38px;
+        height: 34px;
+        border: 1px solid var(--line);
+        border-radius: 8px;
+        background: #fff;
+        color: var(--ink);
+        cursor: pointer;
+      }
+
+      .progress button:hover:not(:disabled),
+      .progress button:focus-visible {
+        border-color: var(--accent, var(--blue));
+        outline: none;
+      }
+
+      .progress button:disabled {
+        opacity: 0.35;
+        cursor: default;
+      }
+
+      .progress span {
+        min-width: 56px;
+        color: var(--muted);
+        font-family: var(--mono);
+        font-size: 0.82rem;
+        font-weight: 800;
+        text-align: center;
+      }
+
+      .slide-note {
+        position: fixed;
+        left: 24px;
+        bottom: 28px;
+        color: var(--muted);
+        font-family: var(--mono);
+        font-size: 0.78rem;
+      }
+
+      .slide-note a {
+        color: var(--accent, var(--blue));
+        font-weight: 800;
+        text-decoration: underline;
+        text-underline-offset: 3px;
+      }
+
+      .slide-note a:hover,
+      .slide-note a:focus-visible {
+        color: var(--accent, var(--blue));
+        outline: none;
+        text-decoration-thickness: 2px;
+      }
+
+      @media (max-width: 980px) {
+        :root {
+          --deck-pad: 14px;
+          --nav-space: 68px;
+          --slide-pad: 24px;
+        }
+
+        .slide,
+        .split,
+        .split.reverse {
+          grid-template-columns: 1fr;
+          align-content: start;
+          overflow: auto;
+        }
+
+        h1 {
+          font-size: clamp(2.6rem, 11vw, 4.4rem);
+        }
+
+        h2 {
+          font-size: clamp(2rem, 9vw, 3.5rem);
+        }
+
+        .video-slide h2 {
+          font-size: clamp(1.8rem, 8vw, 3rem);
+        }
+
+        .video-heading {
+          align-items: flex-start;
+          flex-direction: column;
+          gap: 12px;
+        }
+
+        .grid-two,
+        .grid-three {
+          grid-template-columns: 1fr;
+        }
+
+        .matrix {
+          grid-template-columns: 1fr;
+        }
+
+        .matrix div,
+        .matrix div:nth-child(3n),
+        .matrix div:nth-last-child(-n + 3) {
+          border-right: 0;
+          border-bottom: 1px solid var(--line);
+        }
+
+        .matrix div:last-child {
+          border-bottom: 0;
+        }
+
+        h1,
+        h2 {
+          max-width: none;
+        }
+
+        .title-visual {
+          display: none;
+        }
+
+        .slide-note {
+          display: none;
+        }
+
+        .progress {
+          right: 14px;
+          bottom: 14px;
+        }
+      }
+
+      @media (max-height: 820px) {
+        :root {
+          --deck-pad: 12px;
+          --nav-space: 64px;
+          --slide-pad: clamp(22px, 3.2vw, 46px);
+        }
+
+        .slide {
+          gap: clamp(14px, 2svh, 24px);
+        }
+
+        .video-slide h2 {
+          font-size: clamp(1.75rem, 2.7vw, 2.7rem);
+        }
+
+        .dek {
+          font-size: clamp(0.98rem, 1.08vw, 1.12rem);
+          line-height: 1.42;
+        }
+
+        .video-slide .dek {
+          font-size: clamp(0.9rem, 0.95vw, 1rem);
+          line-height: 1.32;
+        }
+      }
+
+      @media print {
+        body {
+          background: #fff;
+        }
+
+        .deck {
+          display: block;
+          padding: 0;
+        }
+
+        .slide,
+        .slide.is-active {
+          width: 100%;
+          min-height: 100vh;
+          display: grid;
+          box-shadow: none;
+          border: 0;
+          border-radius: 0;
+          break-after: page;
+        }
+
+        .progress,
+        .slide-note {
+          display: none;
+        }
+      }
+    </style>
+  </head>
+  <body>
+    <main class="deck" aria-live="polite">
+      <section class="slide center title-slide is-active" data-slide style="--accent: var(--blue)">
+        <div class="title-visual" aria-hidden="true">
+          <img
+            class="dashrate-shot"
+            src="assets/dashrate.png"
+            alt=""
+          />
+          <img
+            class="dashmint-shot"
+            src="assets/dashmint-lab.png"
+            alt=""
+          />
+        </div>
+        <div class="copy wide">
+          <p class="kicker">Dash Platform v4 / @dashevo/evo-sdk 4.0</p>
+          <h1>Two apps that make v4 feel real.</h1>
+          <p class="lede">
+            DashRate and DashMint Lab are not just demos. They show the SDK reaching
+            features that let product teams build ratings, scarcity, ownership, and
+            marketplace flows without hiding the important state in a private server.
+          </p>
+          <div class="grid-two">
+            <div class="panel metric" style="--accent: var(--green)">
+              <span class="number">read</span>
+              <h3>DashRate</h3>
+              <p>
+                Counts, grouped counts, range filters, and document history turn
+                Platform data into useful product views.
+              </p>
+            </div>
+            <div class="panel metric" style="--accent: var(--violet)">
+              <span class="number">own</span>
+              <h3>DashMint Lab</h3>
+              <p>
+                NFT-style documents, prices, purchases, transfers, and token-paid
+                creation make digital objects behave like scarce assets.
+              </p>
+            </div>
+          </div>
+        </div>
+      </section>
+
+      <section class="slide" data-slide style="--accent: var(--teal)">
+        <div class="copy wide">
+          <p class="kicker">Why this release matters</p>
+          <h2>Less middleware. More Platform answers.</h2>
+          <p class="dek">
+            Moderately technical takeaway: v4 makes the SDK a better product API,
+            not just a storage API. Apps can ask Platform for the shape they need
+            instead of fetching raw documents, rebuilding state locally, and trusting
+            an app-owned database to be the source of truth.
+          </p>
+          <div class="grid-three">
+            <div class="panel">
+              <h3>Aggregates are queryable</h3>
+              <p>
+                DashRate can ask "how many?" and "how many per rating?" directly.
+                That is the difference between browsing a pile of reviews and
+                showing a live ratings product.
+              </p>
+            </div>
+            <div class="panel">
+              <h3>History is inspectable</h3>
+              <p>
+                A review can be edited, but its prior revisions remain available.
+                Users see the current state while auditors can still inspect change.
+              </p>
+            </div>
+            <div class="panel">
+              <h3>Scarcity is enforced</h3>
+              <p>
+                DashMint cards are created only when a fixed-supply token is spent.
+                The cap lives in the contract instead of in app code.
+              </p>
+            </div>
+          </div>
+        </div>
+      </section>
+
+      <section class="slide split" data-slide style="--accent: var(--green)">
+        <div class="copy">
+          <p class="kicker">DashRate / Product view</p>
+          <h2>Ratings need more than documents.</h2>
+          <p class="dek">
+            A useful ratings app has to answer product questions quickly:
+            total reviews, average score, per-star distribution, filtered reviews,
+            and what changed when someone edited a review.
+          </p>
+          <ul class="list">
+            <li><strong>One review per identity per resource</strong> via a unique owner/resource index.</li>
+            <li><strong>Rating summaries</strong> from count and grouped count queries.</li>
+            <li><strong>Editable reviews with history</strong> through retained document revisions.</li>
+          </ul>
+          <p class="quote">
+            Why it is exciting: Platform can back user-facing analytics without a
+            separate indexing service becoming the authority.
+          </p>
+        </div>
+        <div class="shot-wrap">
+          <img
+            class="shot"
+            src="assets/dashrate.png"
+            alt="DashRate resources screen with aggregate ratings and reviews"
+          />
+          <p class="caption">
+            The average, count, distribution bars, recent reviews, and history are
+            all derived from Platform reads.
+          </p>
+        </div>
+      </section>
+
+      <section class="slide split reverse" data-slide style="--accent: var(--green)">
+        <div class="diagram">
+          <pre class="code-block"><code><span class="comment">// DashRate review schema</span>
+indices: [
+  {
+    <span class="key">name</span>: <span class="val">"resourceRatingAggregate"</span>,
+    <span class="key">properties</span>: [{ resourceId: <span class="val">"asc"</span> }],
+    <span class="key">countable</span>: <span class="val">"countable"</span>
+  },
+  {
+    <span class="key">name</span>: <span class="val">"resourceRatingDistribution"</span>,
+    <span class="key">properties</span>: [{ resourceId: <span class="val">"asc"</span> }, { rating: <span class="val">"asc"</span> }],
+    <span class="key">countable</span>: <span class="val">"countable"</span>,
+    <span class="key">rangeCountable</span>: <span class="val">true</span>
+  }
+]</code></pre>
+          <div class="flow">
+            <div class="flow-step">
+              <span class="n">1</span>
+              <span><strong>Count</strong><code>documents.count</code> gives total reviews for one resource.</span>
+            </div>
+            <div class="flow-step">
+              <span class="n">2</span>
+              <span><strong>Group</strong><code>groupBy: ["rating"]</code> returns the per-star histogram.</span>
+            </div>
+            <div class="flow-step">
+              <span class="n">3</span>
+              <span><strong>Inspect</strong><code>documents.history</code> shows previous versions of an edited review.</span>
+            </div>
+          </div>
+        </div>
+        <div class="copy">
+          <p class="kicker">DashRate / v4 mechanics</p>
+          <h2>Indexes become product primitives.</h2>
+          <p class="dek">
+            The new v4 aggregation index flags, <code>countable</code> and
+            <code>rangeCountable</code>, are the key schema unlock. Once the
+            contract declares those paths, the SDK can ask for counts and grouped
+            counts over the same data users are already writing.
+          </p>
+          <div class="tag-row">
+            <span class="tag">documents.count</span>
+            <span class="tag">count + groupBy</span>
+            <span class="tag">where rating between 1 and 5</span>
+            <span class="tag">documents.history</span>
+            <span class="tag">documentsKeepHistory</span>
+          </div>
+        </div>
+      </section>
+
+      <section class="slide split" data-slide style="--accent: var(--violet)">
+        <div class="copy">
+          <p class="kicker">DashMint Lab / Product view</p>
+          <h2>Digital objects can have rules.</h2>
+          <p class="dek">
+            DashMint Lab treats cards as owned Platform documents. They can be
+            minted, transferred, priced, purchased, and burned. More importantly,
+            minting is tied to a fixed supply of DashMint tokens.
+          </p>
+          <ul class="list">
+            <li><strong>Ownership</strong> is document ownership, not an app database row.</li>
+            <li><strong>Marketplace actions</strong> use Platform document operations.</li>
+            <li><strong>Mint capacity</strong> is paid for by burning one token per card.</li>
+          </ul>
+          <p class="quote">
+            Why it is exciting: scarcity, ownership, and transferability are
+            enforceable by the contract instead of remembered by the UI.
+          </p>
+        </div>
+        <div class="shot-wrap">
+          <img
+            class="shot"
+            src="assets/dashmint-lab.png"
+            alt="DashMint Lab marketplace showing collectible cards and actions"
+          />
+          <p class="caption">
+            A card is a document with an owner; a listing is a priced document; a
+            purchase changes ownership through Platform.
+          </p>
+        </div>
+      </section>
+
+      <section class="slide split reverse" data-slide style="--accent: var(--violet)">
+        <div class="diagram">
+          <pre class="code-block"><code><span class="comment">// DashMint card document type</span>
+card: {
+  <span class="key">transferable</span>: <span class="val">1</span>,
+  <span class="key">tradeMode</span>: <span class="val">1</span>,
+  <span class="key">creationRestrictionMode</span>: <span class="val">0</span>,
+  <span class="key">tokenCost</span>: {
+    create: {
+      <span class="key">tokenPosition</span>: <span class="val">0</span>,
+      <span class="key">amount</span>: <span class="val">1</span>,
+      <span class="key">effect</span>: <span class="val">1</span> <span class="comment">// burn on create</span>
+    }
+  }
+}</code></pre>
+          <div class="flow">
+            <div class="flow-step">
+              <span class="n">1</span>
+              <span><strong>Contract defines supply</strong> A fixed 100-token DashMint supply is created with the contract.</span>
+            </div>
+            <div class="flow-step">
+              <span class="n">2</span>
+              <span><strong>Create spends token</strong><code>documents.create</code> includes <code>tokenPaymentInfo</code>.</span>
+            </div>
+            <div class="flow-step">
+              <span class="n">3</span>
+              <span><strong>Card becomes asset</strong> The resulting document can be transferred, priced, or purchased.</span>
+            </div>
+          </div>
+        </div>
+        <div class="copy">
+          <p class="kicker">DashMint Lab / v4 SDK reach</p>
+          <h2>Burn-to-mint is now an app-level pattern.</h2>
+          <p class="dek">
+            The v4-specific SDK story is token-paid document creation:
+            <code>documents.create</code> can carry <code>tokenPaymentInfo</code>
+            that satisfies the contract's <code>tokenCost.create</code>. The app
+            does not merely check whether minting is allowed; Platform enforces the
+            payment as part of the write.
+          </p>
+          <div class="tag-row">
+            <span class="tag">tokenCost.create</span>
+            <span class="tag">tokenPaymentInfo</span>
+            <span class="tag">tokens.identityBalances</span>
+            <span class="tag">documents.setPrice</span>
+            <span class="tag">documents.purchase</span>
+            <span class="tag">documents.transfer</span>
+          </div>
+        </div>
+      </section>
+
+      <section class="slide" data-slide style="--accent: var(--amber)">
+        <div class="copy wide">
+          <p class="kicker">Feature map</p>
+          <h2>What each app proves.</h2>
+          <div class="matrix" role="table" aria-label="DashRate and DashMint Lab feature comparison">
+            <div class="head">Question</div>
+            <div class="head">DashRate</div>
+            <div class="head">DashMint Lab</div>
+
+            <div class="row-head">What users see</div>
+            <div>Ratings, averages, histograms, filters, recent reviews, edit history.</div>
+            <div>Cards, owners, token balance, prices, purchases, transfers, burns.</div>
+
+            <div class="row-head">Platform feature</div>
+            <div>Countable and range-countable indexes plus retained document history.</div>
+            <div>Token-cost document creation plus NFT-style document trade and transfer rules.</div>
+
+            <div class="row-head">Why it matters</div>
+            <div>Apps can show live aggregate truth without running their own authoritative indexer.</div>
+            <div>Scarce digital objects can be governed by contract rules, not just UI conventions.</div>
+          </div>
+          <p class="quote">
+            Together, these apps show v4 moving from "store documents on Platform"
+            toward "ship products whose core state and business rules live on Platform."
+          </p>
+        </div>
+      </section>
+
+      <section class="slide center" data-slide style="--accent: var(--blue)">
+        <div class="copy wide">
+          <p class="kicker">Close</p>
+          <h2>The exciting part is composability.</h2>
+          <p class="lede">
+            DashRate proves Platform can answer richer read questions. DashMint Lab
+            proves Platform can enforce richer write rules. The same SDK gives an
+            app both sides: queryable public state and contract-enforced asset logic.
+          </p>
+          <div class="grid-three">
+            <div class="panel">
+              <h3>For builders</h3>
+              <p>Less custom backend code is needed before an app feels useful.</p>
+            </div>
+            <div class="panel">
+              <h3>For users</h3>
+              <p>Ownership, prices, scarcity, and history are inspectable Platform state.</p>
+            </div>
+            <div class="panel">
+              <h3>For the ecosystem</h3>
+              <p>Different clients can build on the same contracts and arrive at the same answers.</p>
+            </div>
+          </div>
+          <div class="badge-row">
+            <span class="badge">DashRate: document aggregates and history</span>
+            <span class="badge">DashMint Lab: token-paid NFT-style documents</span>
+          </div>
+        </div>
+      </section>
+
+      <section
+        class="slide video-slide"
+        data-slide
+        style="--accent: var(--green); --walkthrough-aspect: 1440 / 1000"
+      >
+        <div class="copy wide">
+          <p class="kicker">DashRate walkthrough</p>
+          <div class="video-heading">
+            <h2>DashRate in motion.</h2>
+            <a
+              class="app-link"
+              href="https://dashpay.github.io/platform-tutorials/dashrate/"
+              target="_blank"
+              rel="noopener noreferrer"
+            >Try DashRate</a>
+          </div>
+        </div>
+        <div class="video-frame">
+          <video
+            class="walkthrough"
+            src="assets/dashrate-walkthrough.webm"
+            poster="assets/dashrate.png"
+            controls
+            playsinline
+            preload="metadata"
+          ></video>
+          <p class="caption">
+            Browse ratings, sign in, write a review, edit it, and inspect
+            history.
+          </p>
+        </div>
+      </section>
+
+      <section
+        class="slide video-slide"
+        data-slide
+        style="--accent: var(--violet); --walkthrough-aspect: 1280 / 800"
+      >
+        <div class="copy wide">
+          <p class="kicker">DashMint Lab walkthrough</p>
+          <div class="video-heading">
+            <h2>DashMint Lab in motion.</h2>
+            <a
+              class="app-link"
+              href="https://dashpay.github.io/platform-tutorials/dashmint-lab/"
+              target="_blank"
+              rel="noopener noreferrer"
+            >Try DashMint Lab</a>
+          </div>
+        </div>
+        <div class="video-frame">
+          <video
+            class="walkthrough"
+            src="assets/dashmint-lab-walkthrough.webm"
+            poster="assets/dashmint-lab.png"
+            controls
+            playsinline
+            preload="metadata"
+          ></video>
+          <p class="caption">
+            Browse the marketplace, sign in, mint a card with one DashMint
+            token, and view the token transfer screen.
+          </p>
+        </div>
+      </section>
+    </main>
+
+    <nav class="progress" aria-label="Slide controls">
+      <button type="button" data-prev aria-label="Previous slide">&larr;</button>
+      <span data-count>1 / 10</span>
+      <button type="button" data-next aria-label="Next slide">&rarr;</button>
+    </nav>
+
+    <p class="slide-note">
+      Dash Platform v4
+      <a
+        href="https://github.com/dashpay/platform-tutorials/tree/main/example-apps"
+        target="_blank"
+        rel="noopener noreferrer"
+      >example apps</a>
+    </p>
+
+    <script>
+      const slides = Array.from(document.querySelectorAll("[data-slide]"));
+      const count = document.querySelector("[data-count]");
+      const prev = document.querySelector("[data-prev]");
+      const next = document.querySelector("[data-next]");
+      let current = 0;
+
+      function showSlide(index) {
+        current = Math.max(0, Math.min(slides.length - 1, index));
+        slides.forEach((slide, i) => {
+          slide.classList.toggle("is-active", i === current);
+        });
+        count.textContent = `${current + 1} / ${slides.length}`;
+        prev.disabled = current === 0;
+        next.disabled = current === slides.length - 1;
+        const activeAccent =
+          getComputedStyle(slides[current]).getPropertyValue("--accent") ||
+          "var(--blue)";
+        document.documentElement.style.setProperty("--accent", activeAccent);
+      }
+
+      prev.addEventListener("click", () => showSlide(current - 1));
+      next.addEventListener("click", () => showSlide(current + 1));
+
+      document.addEventListener("keydown", (event) => {
+        if (event.key === "ArrowRight" || event.key === "PageDown" || event.key === " ") {
+          event.preventDefault();
+          showSlide(current + 1);
+        } else if (event.key === "ArrowLeft" || event.key === "PageUp") {
+          event.preventDefault();
+          showSlide(current - 1);
+        } else if (event.key === "Home") {
+          event.preventDefault();
+          showSlide(0);
+        } else if (event.key === "End") {
+          event.preventDefault();
+          showSlide(slides.length - 1);
+        }
+      });
+
+      showSlide(0);
+    </script>
+  </body>
+</html>
