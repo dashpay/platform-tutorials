@@ -7,7 +7,7 @@ import {
   listResourceReviews,
   normalizeReviews,
   normalizeSingleReview,
-  ratingKeyHex,
+  ratingFromKeyHex,
   summaryFromDistribution,
 } from "../src/dash/queries";
 import type { DashSdk } from "../src/dash/types";
@@ -140,20 +140,32 @@ describe("DashRate query normalization", () => {
 });
 
 describe("DashRate rating distribution", () => {
-  it("encodes a rating as its order-preserving sign-flipped hex key", () => {
-    // 0x80 | rating — verified against the live contract's grouped count.
-    expect(ratingKeyHex(1)).toBe("81");
-    expect(ratingKeyHex(5)).toBe("85");
+  it("decodes PV14 plain-byte rating keys", () => {
+    // Literal keys as returned by testnet on protocol version 14.
+    expect(ratingFromKeyHex("01")).toBe(1);
+    expect(ratingFromKeyHex("05")).toBe(5);
+  });
+
+  it("decodes pre-PV14 sign-flipped rating keys", () => {
+    expect(ratingFromKeyHex("81")).toBe(1);
+    expect(ratingFromKeyHex("85")).toBe(5);
+  });
+
+  it("rejects keys that aren't a 1–5 rating", () => {
+    for (const key of ["", "00", "06", "80", "86", "0005", "zz"]) {
+      expect(ratingFromKeyHex(key)).toBeNull();
+    }
   });
 
   it("maps grouped count keys back to ratings, defaulting absent to 0", async () => {
     // Grouped `count` returns one entry per PRESENT rating, keyed by the
-    // order-preserving hex key. Ratings with no reviews (1, 2) are absent.
+    // hex index key. Ratings with no reviews (1, 2) are absent. Literal
+    // PV14 keys, not built with app code, so an encoding change shows up.
     const countMock = vi.fn().mockResolvedValue(
       new Map([
-        [ratingKeyHex(3), 2n],
-        [ratingKeyHex(4), 5n],
-        [ratingKeyHex(5), 8n],
+        ["03", 2n],
+        ["04", 5n],
+        ["05", 8n],
       ]),
     );
     const sdk = { documents: { count: countMock } } as unknown as DashSdk;
@@ -179,6 +191,31 @@ describe("DashRate rating distribution", () => {
       orderBy: [["rating", "asc"]],
       groupBy: ["rating"],
     });
+  });
+
+  it("decodes legacy keys and logs (skips) unexpected ones", async () => {
+    const countMock = vi.fn().mockResolvedValue(
+      new Map([
+        ["81", 1n],
+        ["85", 3n],
+        ["ff", 9n],
+      ]),
+    );
+    const sdk = { documents: { count: countMock } } as unknown as DashSdk;
+    const log = vi.fn();
+
+    const distribution = await getRatingDistribution({
+      sdk,
+      contractId: "contract-1",
+      resourceId: "tokens",
+      log,
+    });
+
+    expect(distribution).toEqual({ 1: 1n, 2: 0n, 3: 0n, 4: 0n, 5: 3n });
+    expect(log).toHaveBeenCalledWith(
+      'Unexpected rating key "ff" for tokens',
+      "error",
+    );
   });
 });
 
