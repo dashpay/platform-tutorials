@@ -202,19 +202,19 @@
       return sdk;
     }
 
-    function ratingKeyHex(rating) {
-      return (0x80 | rating).toString(16);
+    // Grouped-count keys are the hex of the raw index-key byte: "05" for
+    // rating 5 on protocol v14+, "85" (sign bit flipped) before it.
+    // Masking off the top bit decodes both.
+    function ratingFromKeyHex(key) {
+      if (!/^[0-9a-f]{2}$/i.test(key)) return null;
+      const rating = parseInt(key, 16) & 0x7f;
+      return RATING_VALUES.includes(rating) ? rating : null;
     }
 
     function firstMapValue(counts) {
       if (!counts) return undefined;
       if (counts instanceof Map) return counts.values().next().value;
       return Object.values(counts)[0];
-    }
-
-    function countValue(counts, key) {
-      const value = counts instanceof Map ? counts.get(key) : counts?.[key];
-      return toBigInt(value, 0n);
     }
 
     function toBigInt(value, fallback = 0n) {
@@ -260,10 +260,13 @@
         orderBy: [['rating', 'asc']],
         groupBy: ['rating'],
       });
-      return Object.fromEntries(RATING_VALUES.map((rating) => [
-        rating,
-        countValue(counts, ratingKeyHex(rating)),
-      ]));
+      const distribution = Object.fromEntries(RATING_VALUES.map((rating) => [rating, 0n]));
+      const entries = counts instanceof Map ? counts.entries() : Object.entries(counts ?? {});
+      for (const [key, value] of entries) {
+        const rating = ratingFromKeyHex(key);
+        if (rating !== null) distribution[rating] += toBigInt(value, 0n);
+      }
+      return distribution;
     }
 
     async function listResourceReviews(sdk, resourceId, ratingFilter) {

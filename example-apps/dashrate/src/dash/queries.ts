@@ -49,18 +49,21 @@ export function firstMapValue<T>(map: Map<string, T>): T | undefined {
 }
 
 /**
- * Index-key for an integer rating in a grouped `count` result map.
+ * Decode a grouped `count` result-map key back to its rating, or null if
+ * the key isn't a valid rating.
  *
- * Platform encodes an integer index key in its order-preserving form: the
- * sign bit is flipped so negatives sort before positives. For a small
- * positive rating that's a single byte `0x80 | rating`, hex-encoded — e.g.
- * rating 5 → `0x85` → "85". (Verified against the live contract: a grouped
- * count over ratings returns keys "81".."85", NOT 8-byte big-endian.) The
- * client builds the expected keys by encoding each known rating rather than
- * decoding the returned keys.
+ * Keys are the hex of the raw index-key bytes, not the value. `rating`
+ * (integer 1–5) is stored as a single unsigned byte, and its encoding
+ * depends on the network's protocol version:
+ *   - PV14+:  plain value byte   — rating 5 → `0x05` → "05"
+ *   - ≤ PV13: sign bit flipped   — rating 5 → `0x85` → "85"
+ * (dashpay/platform#5350; the PV14 upgrade rekeys existing data.) Masking
+ * off the top bit decodes both forms — a 1–5 rating never sets it.
  */
-export function ratingKeyHex(rating: number): string {
-  return (0x80 | rating).toString(16);
+export function ratingFromKeyHex(key: string): number | null {
+  if (!/^[0-9a-f]{2}$/i.test(key)) return null;
+  const rating = parseInt(key, 16) & 0x7f;
+  return (RATING_VALUES as readonly number[]).includes(rating) ? rating : null;
 }
 
 function toTimestamp(
@@ -218,8 +221,14 @@ export async function getRatingDistribution({
       groupBy: ["rating"],
     });
     const distribution: RatingDistribution = {};
-    for (const rating of RATING_VALUES) {
-      distribution[rating] = counts.get(ratingKeyHex(rating)) ?? 0n;
+    for (const rating of RATING_VALUES) distribution[rating] = 0n;
+    for (const [key, count] of counts) {
+      const rating = ratingFromKeyHex(key);
+      if (rating === null) {
+        log(`Unexpected rating key "${key}" for ${resourceId}`, "error");
+        continue;
+      }
+      distribution[rating] += count;
     }
     return distribution;
   } catch (err) {
