@@ -12,7 +12,7 @@ import { test as liteTest } from "@playwright/test";
 // The default contract's reviews can't be deleted (`canBeDeleted: false`),
 // so at least one resource always has reviews to check.
 
-const LOAD_TIMEOUT = 90_000;
+const LOAD_TIMEOUT = 60_000;
 
 function parseCount(text: string): number {
   const match = /(\d+)\s+reviews?/.exec(text);
@@ -28,6 +28,7 @@ test.describe("rating consistency (app)", () => {
   test("resources with reviews show a rating, and the distribution sums to the total", async ({
     page,
   }) => {
+    test.setTimeout(120_000);
     const sidebar = page.locator('aside[aria-label="Tutorial resources"]');
     const rated = sidebar.locator("small.rating-present");
     await expect(rated.first()).toBeVisible({ timeout: LOAD_TIMEOUT });
@@ -64,7 +65,7 @@ liteTest.describe("rating consistency (dashrate-lite)", () => {
   liteTest(
     "the distribution sums to the total for a resource with reviews",
     async ({ page }) => {
-      liteTest.setTimeout(240_000);
+      liteTest.setTimeout(120_000);
       await page.goto("/dashrate-lite.html");
       await expect(page.locator("#status")).toHaveText(/Connected to testnet/, {
         timeout: LOAD_TIMEOUT,
