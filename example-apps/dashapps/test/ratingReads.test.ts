@@ -4,7 +4,7 @@ import {
   ownRating,
   ratingRecord,
   ratingSummary,
-  starsKeyHex,
+  starsFromKeyHex,
   summarize,
   emptyDistribution,
 } from "../src/dash/ratingReads";
@@ -64,9 +64,18 @@ it("parses strict rating documents and rejects malformed stars", () => {
   ).toThrow();
 });
 
-it("encodes grouped-count keys as the sign-flipped single byte", () => {
-  expect(starsKeyHex(1)).toBe("81");
-  expect(starsKeyHex(5)).toBe("85");
+it("decodes grouped-count keys in both PV14+ and pre-PV14 forms", () => {
+  // Literal network keys, not keys built with the app's own encoder.
+  expect(["01", "02", "03", "04", "05"].map(starsFromKeyHex)).toEqual([
+    1, 2, 3, 4, 5,
+  ]);
+  expect(["81", "82", "83", "84", "85"].map(starsFromKeyHex)).toEqual([
+    1, 2, 3, 4, 5,
+  ]);
+  expect(starsFromKeyHex("8A")).toBeNull();
+  for (const key of ["00", "06", "80", "86", "ff", "5", "0005", "zz", ""]) {
+    expect(starsFromKeyHex(key)).toBeNull();
+  }
 });
 
 it("derives total and average from the distribution", () => {
@@ -83,15 +92,17 @@ it("derives total and average from the distribution", () => {
 
 it("reads the grouped count with a between range and defaults absent stars to 0", async () => {
   const client = sdk();
+  // PV14+ network format: plain value bytes.
   vi.mocked(client.documents.count).mockResolvedValue(
     new Map([
-      ["83", 2n],
-      ["85", 8n],
+      ["03", 2n],
+      ["05", 8n],
     ]),
   );
   const summary = await ratingSummary(client, id(9), id(2));
   expect(summary.distribution).toEqual({ 1: 0n, 2: 0n, 3: 2n, 4: 0n, 5: 8n });
   expect(summary.count).toBe(10n);
+  expect(summary.average).toBeCloseTo(4.6);
   expect(client.documents.count).toHaveBeenCalledWith({
     dataContractId: id(9),
     documentTypeName: "appRating",
@@ -104,9 +115,26 @@ it("reads the grouped count with a between range and defaults absent stars to 0"
   });
 });
 
+it("still reads pre-PV14 sign-flipped keys", async () => {
+  const client = sdk();
+  vi.mocked(client.documents.count).mockResolvedValue(
+    new Map([
+      ["81", 1n],
+      ["84", 3n],
+    ]),
+  );
+  const summary = await ratingSummary(client, id(9), id(2));
+  expect(summary.distribution).toEqual({ 1: 1n, 2: 0n, 3: 0n, 4: 3n, 5: 0n });
+});
+
 it("rejects malformed count responses instead of showing zero", async () => {
   const client = sdk();
-  vi.mocked(client.documents.count).mockResolvedValue(new Map([["85", -1n]]));
+  vi.mocked(client.documents.count).mockResolvedValue(new Map([["05", -1n]]));
+  await expect(ratingSummary(client, id(9), id(2))).rejects.toThrow(
+    "Malformed count response.",
+  );
+  // An unrecognized key means the encoding changed; surface it, don't zero it.
+  vi.mocked(client.documents.count).mockResolvedValue(new Map([["06", 1n]]));
   await expect(ratingSummary(client, id(9), id(2))).rejects.toThrow(
     "Malformed count response.",
   );

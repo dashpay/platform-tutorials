@@ -348,8 +348,8 @@ it("shows the rating summary in the hero and the ratings section on an app page"
   );
   vi.mocked(client.documents.count).mockResolvedValue(
     new Map([
-      ["84", 1n],
-      ["85", 3n],
+      ["04", 1n],
+      ["05", 3n],
     ]),
   );
   render(<App />);

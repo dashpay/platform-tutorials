@@ -37,13 +37,21 @@ export function isStars(value: unknown): value is Stars {
 }
 
 /**
- * Index key of an integer in a grouped `count` result. Platform encodes an
- * integer index key in order-preserving form (sign bit flipped), so a small
- * positive value is the single byte `0x80 | value`, hex-encoded: 5 → "85".
- * The SDK exposes no decoder, so the client encodes the values it looks for.
+ * Decode a grouped `count` result-map key back to its star value, or null if
+ * the key isn't a valid star value.
+ *
+ * Keys are the hex of the raw index-key bytes, not the value. `stars`
+ * (integer 1–5) is stored as a single byte whose encoding depends on the
+ * network's protocol version (dashpay/platform#5350; the PV14 upgrade rekeys
+ * existing data):
+ *   - PV14+:  plain value byte — 5 stars → `0x05` → "05"
+ *   - ≤ PV13: sign bit flipped — 5 stars → `0x85` → "85"
+ * Masking off the top bit decodes both forms — a 1–5 value never sets it.
  */
-export function starsKeyHex(stars: Stars): string {
-  return (0x80 | stars).toString(16);
+export function starsFromKeyHex(key: string): Stars | null {
+  if (!/^[0-9a-f]{2}$/i.test(key)) return null;
+  const stars = parseInt(key, 16) & 0x7f;
+  return isStars(stars) ? stars : null;
 }
 
 export function emptyDistribution(): RatingDistribution {
@@ -162,12 +170,11 @@ export async function ratingSummary(
   });
   if (!(counts instanceof Map)) throw new Error("Malformed count response.");
   const distribution = emptyDistribution();
-  for (const stars of STAR_VALUES) {
-    const value = counts.get(starsKeyHex(stars));
-    if (value == null) continue;
-    if (typeof value !== "bigint" || value < 0n)
+  for (const [key, value] of counts) {
+    const stars = typeof key === "string" ? starsFromKeyHex(key) : null;
+    if (stars === null || typeof value !== "bigint" || value < 0n)
       throw new Error("Malformed count response.");
-    distribution[stars] = value;
+    distribution[stars] += value;
   }
   return summarize(distribution);
 }
