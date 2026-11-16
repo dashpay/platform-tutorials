@@ -1,0 +1,218 @@
+# Docker Sandboxes environment definition for working on the Dash Platform tutorials.
+# Configures workspace mounts, agent tools, networking, the pinned Node toolchain,
+# and npm dependencies for the root tutorials and every example app.
+# Usage: sbx env run ./sbxenv.yaml (creates the sandbox if needed, then attaches).
+schemaVersion: "1"
+name: platform-tutorials
+# Claude is the default agent; the T3 kit provides remote access below.
+# The agent image is not pinned: new sandboxes take the current
+# docker/sandbox-templates:claude-code-docker. Last verified 2026-11-16 on
+# release 0.10.0 (Ubuntu 26.04), digest
+# sha256:4a94d9144a70df744fd9247e0c365a14cfb97024afab8db7597c8ba3e0637642.
+# Setup installs the official Node.js build matching .nvmrc (22.22.x) with its
+# bundled npm, so lockfiles resolve the same way they do under `nvm use` on the
+# host. The agent image's npm (9.x) is older than that and is not used.
+agent: claude
+
+# Checkout paths resolve relative to this file. Override a checkout location
+# with --env-arg, e.g. --env-arg platformSource=/path/to/platform.
+args:
+  platformSource:
+    default: ../platform
+  platformDocs:
+    default: ../dashpay-docs-platform
+
+  mainnet:
+    description: Allow mainnet DAPI (the evonodes listed at setup, on 443). npm test's platform-version suite reads mainnet.
+    enum: ["true", "false"]
+    default: "true"
+  playwright:
+    description: Install Chromium and its system libraries for the example apps' Playwright e2e suites (set "false" for a leaner sandbox).
+    enum: ["true", "false"]
+    default: "true"
+
+  sandboxPath:
+    description: Sandbox PATH shared by env.PATH and the postCreate exec steps.
+    default: /home/agent/.local/node/bin:/home/agent/.local/bin:/usr/local/share/npm-global/bin:/usr/local/sbin:/usr/local/bin:/usr/sbin:/usr/bin:/sbin:/bin
+
+# Primary tutorials checkout: read-write. This file must stay in the repo root;
+# "." refers to this file directory, not the shell current directory.
+# Note: the repo's .env (PLATFORM_MNEMONIC etc.) is visible inside the sandbox.
+workspace: .
+
+additionalWorkspaces:
+  # Platform monorepo (SDK sources); the repo's js-evo-sdk-src and platform-src
+  # symlinks point into it. Read-only reference.
+  - path: ${{ env.args.platformSource }}
+    readOnly: true
+  # Platform docs checkout that embeds these tutorials. Read-only reference.
+  - path: ${{ env.args.platformDocs }}
+    readOnly: true
+
+kits:
+  - docker.io/sbx/t3code-kit:latest
+
+# Explicit sandbox PATH makes the pinned Node and user-installed CLIs available
+# to SSH/T3 sessions. sandboxPath is shared with explicit sbx exec environments
+# below. sbx passes env values literally, so do not use $HOME or $PATH here.
+env:
+  PATH: ${{ env.args.sandboxPath }}
+
+sandboxOptions:
+  cpus: 6
+  # Vite builds, vitest, tsc, and the WASM SDK together need more than 4g.
+  memory: 8g
+  # Protect host lifecycle commands from edits made inside the sandbox.
+  # Keep this file directly in the workspace root for sbx's read-only mount.
+  writableEnvFiles: false
+
+# Optional Vite dev server preview. Start it bound to all interfaces:
+#   cd example-apps/<app> && npm run dev -- --host 0.0.0.0 --port 5173
+# then publish on demand with:
+#   sbx ports platform-tutorials --publish 5173:5173
+#
+# ports:
+#   - sandbox: 5173
+#     host: 5173
+
+lifecycle:
+  initialize:
+    - name: Verify primary workspace is the platform-tutorials repo root
+      workdir: ${{ env.fileDir }}
+      command: |
+        if [ ! -f setupDashClient.mjs ] || [ ! -f setupDashClient-core.mjs ] ||
+           [ ! -f package.json ] || [ ! -f package-lock.json ] || [ ! -f .nvmrc ] ||
+           [ ! -d 1-Identities-and-Names ] || [ ! -d example-apps ]; then
+          echo "Expected sbxenv.yaml in the platform-tutorials repo root (setupDashClient.mjs, setupDashClient-core.mjs, package.json, package-lock.json, .nvmrc, 1-Identities-and-Names, example-apps)." >&2
+          exit 1
+        fi
+  postCreate:
+    - name: Configure sandbox network allowances
+      command: |
+        # These commands only add allowances; they do not restrict outbound traffic
+        # to this list or set/verify the baseline policy. Effective access also
+        # depends on the active preset, existing rules, kits, and org governance.
+        # Add future allowed destinations here (one host:port per line).
+        # Node.js downloads, npm, and the Dash quorum relays the SDK uses to fetch
+        # quorum keys and discover evonodes. Testnet evonodes serve DAPI over
+        # HTTPS on 1443 at addresses discovered at runtime, so allow any host
+        # there (sbx rules cannot combine a CIDR range with a port).
+        for destination in \
+          nodejs.org:443 \
+          registry.npmjs.org:443 \
+          quorums.testnet.networks.dash.org:443 \
+          quorums.mainnet.networks.dash.org:443 \
+          "**:1443"
+        do
+          sbx policy allow network --sandbox "$SBX_SANDBOX_NAME" "$destination" || exit 1
+        done
+        # Mainnet evonodes serve DAPI on 443. A rule for any host on 443 would
+        # allow most of the web, so add only the evonodes the mainnet relay lists
+        # now (IPv4 address + platform HTTP port, as the SDK derives them). If the
+        # preset denies unlisted destinations, nodes added later stay unreachable
+        # until the sandbox is recreated. Needs jq on the host.
+        if [ "${{ env.args.mainnet }}" = true ]; then
+          mainnet_nodes=$(curl -fsS https://quorums.mainnet.networks.dash.org/masternodes |
+            jq -r '.data[] | select(.address | test("^[0-9.]+:[0-9]+$"))
+              | "\(.address | sub(":[0-9]+$"; "")):\(.platformHTTPPort // 443)"' |
+            sort -u | paste -sd, -)
+          [ -n "$mainnet_nodes" ] || { echo "Could not list mainnet evonodes (needs curl and jq on the host)" >&2; exit 1; }
+          sbx policy allow network --sandbox "$SBX_SANDBOX_NAME" "$mainnet_nodes" > /dev/null || exit 1
+          echo "Allowed $(echo "$mainnet_nodes" | tr , '\n' | wc -l) mainnet evonodes on their platform HTTP port"
+        fi
+        # Playwright browser downloads, the CDNs the *-lite.html pages load, and
+        # Platform Explorer, which e2e specs open from "View on Explorer" links.
+        if [ "${{ env.args.playwright }}" = true ]; then
+          for destination in \
+            cdn.playwright.dev:443 \
+            playwright.download.prss.microsoft.com:443 \
+            platform-explorer.com:443 \
+            "**.platform-explorer.com:443" \
+            esm.sh:443 \
+            fonts.googleapis.com:443 \
+            fonts.gstatic.com:443
+          do
+            sbx policy allow network --sandbox "$SBX_SANDBOX_NAME" "$destination" || exit 1
+          done
+        fi
+    - name: Install Node from .nvmrc
+      timeout: 10m
+      command: |
+        # Official nodejs.org build (with its bundled npm), checksum-verified.
+        # Picks the newest release matching .nvmrc, as `nvm install` would.
+        sbx exec --env "PATH=${{ env.args.sandboxPath }}" --workdir "$SBX_WORKSPACE" "$SBX_SANDBOX_NAME" -- sh -eu -c '
+          want="v$(tr -d "[:space:]" < .nvmrc)"
+          case "$(uname -m)" in
+            x86_64) arch=x64 ;;
+            aarch64|arm64) arch=arm64 ;;
+            *) echo "Unsupported architecture: $(uname -m)" >&2; exit 1 ;;
+          esac
+          version=$(curl -fsSL https://nodejs.org/dist/index.json |
+            grep -oE "\"version\":\"v[0-9.]+\"" | cut -d\" -f4 |
+            awk -v p="$want" "\$0 == p || index(\$0, p \".\") == 1 { print; exit }")
+          [ -n "$version" ] || { echo "No Node release matches $want" >&2; exit 1; }
+          tarball="node-$version-linux-$arch.tar.gz"
+          tmp=$(mktemp -d)
+          cd "$tmp"
+          curl -fsSLO "https://nodejs.org/dist/$version/$tarball"
+          curl -fsSLO "https://nodejs.org/dist/$version/SHASUMS256.txt"
+          grep " $tarball\$" SHASUMS256.txt | sha256sum -c -
+          mkdir -p "$HOME/.local"
+          rm -rf "$HOME/.local/node-$version"
+          tar -xzf "$tarball" -C "$HOME/.local"
+          mv "$HOME/.local/node-$version-linux-$arch" "$HOME/.local/node-$version"
+          ln -sfn "node-$version" "$HOME/.local/node"
+          cd /
+          rm -rf "$tmp"
+          [ "$(command -v node)" = "$HOME/.local/node/bin/node" ] ||
+            { echo "Pinned Node is not first on PATH" >&2; exit 1; }
+          node --version
+          npm --version
+        '
+    # Keep Claude as the default and make Codex available as another agent.
+    - name: Install Codex CLI
+      timeout: 10m
+      command: |
+        # Install as the regular sandbox user; scope the prefix to this install.
+        sbx exec --env "PATH=${{ env.args.sandboxPath }}" "$SBX_SANDBOX_NAME" -- sh -eu -c '
+          npm install -g --prefix "$HOME/.local" @openai/codex
+        '
+        sbx exec --env "PATH=${{ env.args.sandboxPath }}" "$SBX_SANDBOX_NAME" -- /home/agent/.local/bin/codex --version
+    # This replaces node_modules in the mounted checkout (root and each example
+    # app), including native/WASM optional deps resolved for the sandbox platform.
+    - name: Install tutorial and example app dependencies
+      timeout: 20m
+      command: |
+        sbx exec --env "PATH=${{ env.args.sandboxPath }}" --workdir "$SBX_WORKSPACE" "$SBX_SANDBOX_NAME" -- sh -eu -c '
+          # Tutorials read .env; start from the template if there is none yet.
+          [ -f .env ] || cp .env.example .env
+          npm ci
+          for app in example-apps/*/; do
+            [ -f "$app/package-lock.json" ] || continue
+            echo "=== npm ci in $app"
+            (cd "$app" && npm ci)
+          done
+        '
+    - name: Install Playwright Chromium
+      timeout: 15m
+      command: |
+        [ "${{ env.args.playwright }}" = true ] || { echo "Skipped (playwright=false)"; exit 0; }
+        # Apps normally pin the same @playwright/test; installing from each app
+        # covers any that differ, since each version needs its own Chromium build.
+        # Versions already installed are skipped. A Playwright release older than
+        # the sandbox OS refuses to install; bump that app's @playwright/test.
+        # System libraries need root; the browsers go in the agent's cache.
+        sbx exec --env "PATH=${{ env.args.sandboxPath }}" --workdir "$SBX_WORKSPACE/example-apps" --user root "$SBX_SANDBOX_NAME" -- sh -eu -c '
+          export DEBIAN_FRONTEND=noninteractive
+          for app in */; do
+            [ -f "$app/package.json" ] && [ -d "$app/node_modules/@playwright/test" ] || continue
+            (cd "$app" && npx --no-install playwright install-deps chromium)
+          done
+        '
+        sbx exec --env "PATH=${{ env.args.sandboxPath }}" --workdir "$SBX_WORKSPACE/example-apps" "$SBX_SANDBOX_NAME" -- sh -eu -c '
+          for app in */; do
+            [ -f "$app/package.json" ] && [ -d "$app/node_modules/@playwright/test" ] || continue
+            echo "=== $app (Playwright $(cd "$app" && npx --no-install playwright --version))"
+            (cd "$app" && npx --no-install playwright install chromium)
+          done
+        '

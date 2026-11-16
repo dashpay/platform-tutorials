@@ -18,7 +18,6 @@ Run `node view-wallet.mjs` to confirm the identity is found before proceeding.
 ## Commands
 
 ```bash
-nvm use                 # Use the repo's tested Node 22.22.x toolchain
 npm test                # All PR-safe suites (~2min, safe to run anytime)
 npm run test:read-only  # Just the tutorial subprocess suite
 npm run test:read-write # Write tests (destructive, consumes testnet credits, ~5min)
@@ -35,16 +34,11 @@ bash scripts/run-tests.sh --all   # Everything, including root read-write (spend
 
 ## Node / npm Toolchain
 
-Use the repo-root `.nvmrc` before installing dependencies or updating lockfiles:
+Node must match the repo-root `.nvmrc`. Compare it with `node --version`; only if it doesn't match, run `nvm use` (where nvm is installed). Each shell starts fresh, so don't prefix every command with `nvm use`; the default Node is usually already correct.
 
-```bash
-nvm use
-npm ci
-```
+The root package and each standalone example app declare `engines.node` for the tested Node minor version. The example apps have their own `package-lock.json` files, and npm's optional native/WASM dependency resolution can differ across Node/npm versions. For contributor work, run `npm ci` with the `.nvmrc` Node; do not commit lockfile rewrites from another Node/npm version.
 
-The root package and each standalone example app declare `engines.node` for the tested Node minor version. The example apps have their own `package-lock.json` files, and npm's optional native/WASM dependency resolution can differ across Node/npm versions. For contributor work, prefer `npm ci` under `nvm use`; do not commit lockfile rewrites from another Node/npm version.
-
-**Bumping `@dashevo/evo-sdk`:** use `bash scripts/bump-sdk.sh <version>` (under `nvm use`) — it updates every `package.json`, lockfile, and `*-lite.html` import. Then validate with `run-tests.sh`. Read-write and e2e tests write to testnet — only run them with user approval.
+**Bumping `@dashevo/evo-sdk`:** use `bash scripts/bump-sdk.sh <version>` (with the `.nvmrc` Node) — it updates every `package.json`, lockfile, and `*-lite.html` import. Then validate with `run-tests.sh`. Read-write and e2e tests write to testnet — only run them with user approval.
 
 **Running a single tutorial directly:**
 
