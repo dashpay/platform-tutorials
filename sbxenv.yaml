@@ -106,10 +106,11 @@ lifecycle:
         do
           sbx policy allow network --sandbox "$SBX_SANDBOX_NAME" "$destination" || exit 1
         done
-        # Mainnet evonodes serve DAPI on 443. Allowing any host on 443 would open
-        # the whole web, so allow only the evonodes the mainnet relay lists now
-        # (IPv4 address + platform HTTP port, as the SDK derives them). Nodes added
-        # later stay blocked until the sandbox is recreated. Needs jq on the host.
+        # Mainnet evonodes serve DAPI on 443. A rule for any host on 443 would
+        # allow most of the web, so add only the evonodes the mainnet relay lists
+        # now (IPv4 address + platform HTTP port, as the SDK derives them). If the
+        # preset denies unlisted destinations, nodes added later stay unreachable
+        # until the sandbox is recreated. Needs jq on the host.
         if [ "${{ env.args.mainnet }}" = true ]; then
           mainnet_nodes=$(curl -fsS https://quorums.mainnet.networks.dash.org/masternodes |
             jq -r '.data[] | select(.address | test("^[0-9.]+:[0-9]+$"))
