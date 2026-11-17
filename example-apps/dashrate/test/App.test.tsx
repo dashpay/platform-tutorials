@@ -26,6 +26,7 @@ const {
   identityKeyManagerCreate,
   ratingsState,
   myReviewsState,
+  leaderboardsState,
   ratingsArgs,
 } = vi.hoisted(() => ({
   // Every args object App passes to useResourceRatings, in render order.
@@ -70,6 +71,11 @@ const {
     fetchMyReviews: vi.fn().mockResolvedValue([]),
     refreshMyReviews: vi.fn().mockResolvedValue([]),
   },
+  leaderboardsState: {
+    leaderboards: null,
+    leaderboardsLoading: false,
+    leaderboardsError: "",
+  },
 }));
 
 vi.mock("../src/dash/contract", () => ({
@@ -94,6 +100,10 @@ vi.mock("../src/hooks/useResourceRatings", () => ({
 
 vi.mock("../src/hooks/useMyReviews", () => ({
   useMyReviews: () => myReviewsState,
+}));
+
+vi.mock("../src/hooks/useLeaderboards", () => ({
+  useLeaderboards: () => leaderboardsState,
 }));
 
 vi.mock("../src/hooks/useDpnsNames", () => ({

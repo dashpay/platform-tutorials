@@ -18,6 +18,7 @@ import { saveReview } from "./dash/review";
 import { loadSdkCore } from "./dash/sdkCore";
 import type { DashKeyManager, DashSdk } from "./dash/types";
 import { useDpnsNames } from "./hooks/useDpnsNames";
+import { useLeaderboards } from "./hooks/useLeaderboards";
 import { useMyReviews } from "./hooks/useMyReviews";
 import { useResourceRatings } from "./hooks/useResourceRatings";
 import { consoleLogger, errorMessage, type LogLevel } from "./lib/logger";
@@ -73,6 +74,13 @@ export default function App() {
     connectReadOnly,
     log,
     setStatus,
+  });
+
+  const leaderboardsState = useLeaderboards({
+    contractId,
+    refreshToken,
+    connectReadOnly,
+    log,
   });
 
   const myReviewsState = useMyReviews({
@@ -263,6 +271,9 @@ export default function App() {
           loadingMoreReviews={ratings.loadingMoreReviews}
           reviewFilter={ratings.reviewFilter}
           loadingRatings={ratings.loadingRatings}
+          leaderboards={leaderboardsState.leaderboards}
+          leaderboardsLoading={leaderboardsState.leaderboardsLoading}
+          leaderboardsError={leaderboardsState.leaderboardsError}
           history={history}
           signedIn={Boolean(session)}
           // Also locked while ratings reload: the load overwrites the form

@@ -5,6 +5,7 @@ import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 
 import { RESOURCES } from "../src/catalog/resources";
 import type { RatingDistribution, RatingSummary } from "../src/dash/queries";
+import type { Leaderboards } from "../src/lib/ratings";
 
 // Stub the heavy leaf children so the test targets the ResourcesView shell:
 // the resource list, the detail head, and the histogram.
@@ -13,6 +14,32 @@ vi.mock("../src/components/ReviewForm", () => ({
 }));
 vi.mock("../src/components/RecentReviews", () => ({
   RecentReviews: () => <div data-testid="recent-reviews" />,
+}));
+vi.mock("../src/components/Leaderboard", () => ({
+  Leaderboard: ({
+    topRated,
+    mostReviewed,
+    loading,
+    onSelectResource,
+  }: {
+    topRated: { resourceId: string }[];
+    mostReviewed: { resourceId: string }[];
+    loading: boolean;
+    onSelectResource: (resourceId: string) => void;
+  }) => (
+    <>
+      <div data-testid="leaderboard">
+        {loading ? "loading" : topRated.map((e) => e.resourceId).join(",")}
+      </div>
+      {mostReviewed.map((e) => (
+        <button
+          key={e.resourceId}
+          data-testid={`leaderboard-pick-${e.resourceId}`}
+          onClick={() => onSelectResource(e.resourceId)}
+        />
+      ))}
+    </>
+  ),
 }));
 vi.mock("../src/components/StarMeter", () => ({
   StarMeter: ({ value }: { value: number | null }) => (
@@ -52,6 +79,9 @@ function renderView(overrides: Partial<Props> = {}) {
     loadingMoreReviews: false,
     reviewFilter: null,
     loadingRatings: false,
+    leaderboards: null,
+    leaderboardsLoading: false,
+    leaderboardsError: "",
     history: [],
     signedIn: false,
     busy: false,
@@ -107,6 +137,76 @@ describe("ResourcesView resource list", () => {
       container.querySelectorAll<HTMLButtonElement>(".resource-card");
     fireEvent.click(cards[0]);
     expect(onSelectResource).toHaveBeenCalledWith(RESOURCES[0].id);
+  });
+});
+
+describe("ResourcesView 4★+ filter", () => {
+  const boards: Leaderboards = {
+    topRated: [{ resourceId: "dashproof-lab", value: 5 }],
+    mostReviewed: [],
+    highlyRated: ["dashproof-lab", "dashmint-lab"],
+  };
+
+  it("is disabled until the having set has loaded", () => {
+    renderView();
+    const chip = screen.getByRole("button", { name: "4★+ average" });
+    expect((chip as HTMLButtonElement).disabled).toBe(true);
+    expect(screen.queryByText(/qualify$/)).toBeNull();
+  });
+
+  it("is labeled as a filter and shows the match count before it's used", () => {
+    renderView({ leaderboards: boards });
+    expect(screen.getByText("Filter")).toBeTruthy();
+    expect(screen.getByText(`2 of ${RESOURCES.length} qualify`)).toBeTruthy();
+    const chip = screen.getByRole("button", { name: "4★+ average" });
+    expect(chip.getAttribute("title")).toMatch(/documents\.having/);
+  });
+
+  it("narrows the list to the resources the having query returned", () => {
+    const { container } = renderView({ leaderboards: boards });
+    const chip = screen.getByRole("button", { name: "4★+ average" });
+    expect(chip.getAttribute("aria-pressed")).toBe("false");
+
+    fireEvent.click(chip);
+
+    expect(chip.getAttribute("aria-pressed")).toBe("true");
+    const titles = [...container.querySelectorAll(".resource-card strong")].map(
+      (el) => el.textContent,
+    );
+    expect(titles).toEqual(["DashMint Lab", "DashProof Lab"]);
+    expect(screen.getByText(`2 of ${RESOURCES.length} qualify`)).toBeTruthy();
+  });
+
+  it("turns off when a leaderboard pick is a resource it hides", () => {
+    const { container } = renderView({
+      leaderboards: {
+        ...boards,
+        mostReviewed: [{ resourceId: "tokens", value: 4 }],
+      },
+    });
+    const chip = screen.getByRole("button", { name: "4★+ average" });
+    fireEvent.click(chip);
+    expect(chip.getAttribute("aria-pressed")).toBe("true");
+
+    fireEvent.click(screen.getByTestId("leaderboard-pick-tokens"));
+
+    expect(chip.getAttribute("aria-pressed")).toBe("false");
+    expect(container.querySelectorAll(".resource-card")).toHaveLength(
+      RESOURCES.length,
+    );
+  });
+
+  it("explains an empty result", () => {
+    renderView({ leaderboards: { ...boards, highlyRated: [] } });
+    fireEvent.click(screen.getByRole("button", { name: "4★+ average" }));
+    expect(
+      screen.getByText("No resource averages 4★ or more yet."),
+    ).toBeTruthy();
+  });
+
+  it("passes the rankings to the leaderboard", () => {
+    renderView({ leaderboards: boards });
+    expect(screen.getByTestId("leaderboard").textContent).toBe("dashproof-lab");
   });
 });
 

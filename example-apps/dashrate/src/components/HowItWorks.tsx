@@ -3,7 +3,13 @@ const REPO =
 const DASH_DIR =
   "https://github.com/dashpay/platform-tutorials/tree/main/example-apps/dashrate/src/dash";
 
-type QueryGlyph = "average" | "distribution" | "paging" | "history";
+type QueryGlyph =
+  | "average"
+  | "distribution"
+  | "ranked"
+  | "having"
+  | "paging"
+  | "history";
 
 const QUERY_CARDS: Array<{
   label: string;
@@ -22,6 +28,18 @@ const QUERY_CARDS: Array<{
     sub: 'documents.count · groupBy: ["rating"]',
     glyph: "distribution",
     file: "queries.ts",
+  },
+  {
+    label: "Top-N ranking",
+    sub: "documents.ranked · avg / count",
+    glyph: "ranked",
+    file: "leaderboard.ts",
+  },
+  {
+    label: "HAVING filter",
+    sub: "documents.having · avg >= 4",
+    glyph: "having",
+    file: "leaderboard.ts",
   },
   {
     label: "Newest-first pages",
@@ -65,12 +83,26 @@ function QueryGlyphIcon({ kind }: { kind: QueryGlyph }) {
           <path d="M6 20V10M12 20V4M18 20v-7" />
         </svg>
       );
+    case "ranked":
+      // Podium — groups in rank order.
+      return (
+        <svg {...common}>
+          <path d="M3 20h18M9 20V8h6v12M3 20v-6h6M15 20v-9h6v9" />
+        </svg>
+      );
     case "paging":
       // A list with a "next" arrow — cursor paging.
       return (
         <svg {...common}>
           <path d="M4 6h12M4 11h12M4 16h6" />
           <path d="m15 15 3 3 3-3M18 11v7" />
+        </svg>
+      );
+    case "having":
+      // Funnel — keep only the groups whose aggregate passes the bound.
+      return (
+        <svg {...common}>
+          <path d="M3 4h18l-7 8v6l-4 2v-8z" />
         </svg>
       );
     case "history":
@@ -102,6 +134,16 @@ const OPS: Array<{ op: string; file: string; sdk: string }> = [
     sdk: "documents.query · startAfter",
   },
   {
+    op: "Top rated / Most reviewed",
+    file: "leaderboard.ts",
+    sdk: "documents.ranked",
+  },
+  {
+    op: "Resources averaging 4★+",
+    file: "leaderboard.ts",
+    sdk: "documents.having",
+  },
+  {
     op: "Save / edit a review",
     file: "review.ts",
     sdk: "documents.get → replace",
@@ -129,6 +171,10 @@ const READING_ORDER: Array<{ file: string; caption: string }> = [
     caption:
       "One resource's reads — average, grouped count, paged and filtered queries.",
   },
+  {
+    file: "leaderboard.ts",
+    caption: "Across resources — ranked top-N and HAVING.",
+  },
   { file: "review.ts", caption: "Save = query, then create or get → replace." },
   {
     file: "history.ts",
@@ -147,15 +193,17 @@ const avg = await sdk.documents.average(
 );
 const { count, sum } = avg.get("") ?? { count: 0n, sum: 0n };
 
-// Its reviews, newest first: ask for one extra to know if there's a page 2.
-const page = await sdk.documents.query({
+// Every resource ranked by its average, best first.
+const top = await sdk.documents.ranked({
   dataContractId: contractId,
   documentTypeName: "review",
-  where: [["resourceId", "==", resourceId]],
-  orderBy: [["$updatedAt", "desc"]],
-  limit: 10 + 1,
-  startAfter: lastShownId, // omit on the first page
-});`;
+  groupBy: "resourceId",
+  aggregate: { type: "avg", property: "rating" },
+  direction: "desc",
+  limit: 100,
+});
+top.entries[0].groupValue;   // "dashproof-lab"
+top.entries[0].valueAsNumber; // 5`;
 
 export function HowItWorks() {
   return (
@@ -169,7 +217,8 @@ export function HowItWorks() {
           prevents duplicate reviews by the same identity, so saving again edits
           the existing document instead of creating a second one. The rest of
           this page walks the query surface the app demonstrates — proven
-          averages, grouped counts, newest-first paging, and revision history.
+          averages, grouped counts, ranked leaderboards, <code>HAVING</code>{" "}
+          filters, newest-first paging, and revision history.
         </p>
       </header>
 
@@ -217,9 +266,9 @@ export function HowItWorks() {
 
         <section className="hiw-code">
           <div className="hiw-code-head">
-            <code>src/dash/queries.ts</code>
+            <code>src/dash/queries.ts · leaderboard.ts</code>
             <a
-              href={`${REPO}queries.ts`}
+              href={`${REPO}leaderboard.ts`}
               target="_blank"
               rel="noreferrer"
               className="hiw-code-link"
@@ -228,9 +277,11 @@ export function HowItWorks() {
             </a>
           </div>
           <p className="muted hiw-code-caption">
-            <code>average</code> returns the exact integers, not a quotient —
-            divide in JS. Pages come back already newest first; the extra row
-            only decides whether to offer &ldquo;Load more&rdquo;.
+            <code>average</code> returns the exact integers, not a quotient.{" "}
+            <code>ranked</code> and <code>having</code> return averages as
+            truncated fixed-point (<code>value / valueScale</code>); show{" "}
+            <code>valueAsNumber</code> rounded and never compare it for equality
+            with <code>sum / count</code>.
           </p>
           <pre className="hiw-code-pre">{SAMPLE_CODE}</pre>
         </section>

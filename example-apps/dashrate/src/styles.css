@@ -307,7 +307,157 @@ time {
   display: grid;
   gap: 24px;
   grid-template-columns: minmax(220px, 300px) 1fr;
+  /* Sidebar (row 1) and leaderboard (row 2) share the left column; the
+     detail spans both. The 1fr row soaks up the detail's extra height so
+     the leaderboard sits right under the resource list. */
+  grid-template-rows: auto 1fr;
   padding: 24px 28px 30px;
+}
+
+.resource-sidebar {
+  display: grid;
+  gap: 10px;
+  grid-column: 1;
+  grid-row: 1;
+  min-width: 0;
+}
+
+.workspace > .detail {
+  grid-column: 2;
+  grid-row: 1 / span 2;
+  min-width: 0;
+}
+
+.resource-filter {
+  align-items: center;
+  display: flex;
+  gap: 10px;
+}
+
+.resource-filter-label {
+  color: #8a958f;
+  font-size: 0.78rem;
+  font-weight: 700;
+  letter-spacing: 0.06em;
+  text-transform: uppercase;
+}
+
+.resource-filter-count {
+  font-size: 0.82rem;
+}
+
+/* A toggle chip (aria-pressed), styled like the quiet .filter-clear. */
+.filter-chip {
+  background: transparent;
+  box-shadow: inset 0 0 0 1px #dbe4dc;
+  color: #2f856b;
+  font-size: 0.82rem;
+  padding: 0.4rem 0.75rem;
+}
+
+.filter-chip:hover:not(:disabled) {
+  background: #f4f8f5;
+}
+
+.filter-chip.active,
+.filter-chip.active:hover:not(:disabled) {
+  background: #2f856b;
+  box-shadow: none;
+  color: white;
+}
+
+.resource-list-empty {
+  font-size: 0.9rem;
+  margin: 8px 16px;
+}
+
+/* Leaderboards: "Top rated" / "Most reviewed" behind a two-button switch. */
+.leaderboard {
+  align-self: start;
+  border-top: 1px solid #e7ece7;
+  display: grid;
+  gap: 8px;
+  grid-column: 1;
+  grid-row: 2;
+  min-width: 0;
+  padding-top: 16px;
+}
+
+.leaderboard-tabs {
+  display: flex;
+  gap: 4px;
+}
+
+.leaderboard-tab {
+  background: transparent;
+  color: #697771;
+  font-size: 0.85rem;
+  padding: 0.35rem 0.7rem;
+}
+
+.leaderboard-tab:hover:not(:disabled) {
+  background: #f4f8f5;
+  color: #17231f;
+}
+
+.leaderboard-tab.active,
+.leaderboard-tab.active:hover:not(:disabled) {
+  background: #f0f6f2;
+  color: #17231f;
+}
+
+.leaderboard-list {
+  display: grid;
+  gap: 2px;
+  list-style: none;
+  margin: 0;
+  padding: 0;
+}
+
+.leaderboard-row {
+  align-items: baseline;
+  background: transparent;
+  border-radius: 8px;
+  color: #17231f;
+  display: grid;
+  font-weight: 500;
+  gap: 10px;
+  grid-template-columns: 1.2rem minmax(0, 1fr) auto;
+  padding: 6px 10px;
+  text-align: left;
+  width: 100%;
+}
+
+.leaderboard-row:hover:not(:disabled) {
+  background: #f4f8f5;
+}
+
+.leaderboard-row.selected {
+  background: #f0f6f2;
+}
+
+.leaderboard-rank {
+  color: #8a958f;
+  font-size: 0.85rem;
+  font-weight: 700;
+}
+
+.leaderboard-title {
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.leaderboard-value {
+  color: #697771;
+  font-size: 0.85rem;
+  white-space: nowrap;
+}
+
+.leaderboard-empty {
+  color: #697771;
+  font-size: 0.9rem;
+  margin: 4px 10px;
 }
 
 .load-more {
@@ -903,11 +1053,11 @@ textarea {
   max-width: 64ch;
 }
 
-/* Query-patterns grid — four parallel patterns, each a link to its helper. */
+/* Query-patterns grid — six parallel patterns, each a link to its helper. */
 .hiw-grid {
   display: grid;
   gap: 12px;
-  grid-template-columns: repeat(4, 1fr);
+  grid-template-columns: repeat(3, 1fr);
 }
 
 .hiw-card {
@@ -1152,7 +1302,20 @@ textarea {
 
   .workspace {
     grid-template-columns: 1fr;
+    grid-template-rows: none;
     padding: 18px;
+  }
+
+  /* One column: resource list, then the detail, then the leaderboard. */
+  .resource-sidebar,
+  .workspace > .detail,
+  .leaderboard {
+    grid-column: auto;
+    grid-row: auto;
+  }
+
+  .leaderboard {
+    order: 1;
   }
 
   /* The scroll-to-detail jump (ResourcesView) aligns the detail's top with

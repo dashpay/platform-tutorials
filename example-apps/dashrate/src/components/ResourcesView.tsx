@@ -1,4 +1,4 @@
-import { useRef, type FormEvent } from "react";
+import { useRef, useState, type FormEvent } from "react";
 import { RESOURCES, type RatedResource } from "../catalog/resources";
 import type {
   RatingDistribution,
@@ -9,6 +9,8 @@ import type { ReviewHistoryEntry } from "../dash/history";
 import {
   emptyDistribution,
   emptySummary,
+  HIGHLY_RATED_MIN_AVERAGE,
+  type Leaderboards,
   RATING_ROWS,
   reviewCountLine,
 } from "../lib/ratings";
@@ -16,6 +18,7 @@ import { formatAverage } from "../lib/format";
 import { StarMeter } from "./StarMeter";
 import { ReviewForm } from "./ReviewForm";
 import { RecentReviews } from "./RecentReviews";
+import { Leaderboard } from "./Leaderboard";
 
 export function ResourcesView({
   selectedResource,
@@ -26,6 +29,9 @@ export function ResourcesView({
   loadingMoreReviews,
   reviewFilter,
   loadingRatings,
+  leaderboards,
+  leaderboardsLoading,
+  leaderboardsError,
   history,
   signedIn,
   busy,
@@ -53,6 +59,9 @@ export function ResourcesView({
   loadingMoreReviews: boolean;
   reviewFilter: number | null;
   loadingRatings: boolean;
+  leaderboards: Leaderboards | null;
+  leaderboardsLoading: boolean;
+  leaderboardsError: string;
   history: ReviewHistoryEntry[];
   signedIn: boolean;
   busy: boolean;
@@ -73,12 +82,25 @@ export function ResourcesView({
   onLoadHistory: () => void;
 }) {
   const detailRef = useRef<HTMLElement>(null);
+  // "4★+ average" narrows the list to the resources a `having` query
+  // returned. It can only filter once that set has loaded.
+  const [highlyRatedOnly, setHighlyRatedOnly] = useState(false);
+  const highlyRated = leaderboards ? new Set(leaderboards.highlyRated) : null;
+  const filterActive = highlyRatedOnly && highlyRated !== null;
+  const visibleResources = filterActive
+    ? RESOURCES.filter((resource) => highlyRated.has(resource.id))
+    : RESOURCES;
 
   // On the stacked mobile layout the resource list sits above the detail
   // panel, so a tap leaves the rating/reviews off-screen. Scroll the detail
   // into view there; on the two-column desktop layout both are already
   // visible, so leave the scroll position alone.
   function handleSelectResource(resourceId: string) {
+    // A leaderboard pick can be a resource the 4★+ filter hides; show the
+    // full list again so the selection is visible.
+    if (filterActive && !highlyRated.has(resourceId)) {
+      setHighlyRatedOnly(false);
+    }
     onSelectResource(resourceId);
     if (!window.matchMedia("(max-width: 820px)").matches) return;
     const detail = detailRef.current;
@@ -105,35 +127,69 @@ export function ResourcesView({
 
   return (
     <section className="workspace">
-      <aside className="resource-list" aria-label="Tutorial resources">
-        {RESOURCES.map((resource) => {
-          const summary = summaries[resource.id] ?? emptySummary(resource.id);
-          return (
-            <button
-              key={resource.id}
-              className={
-                resource.id === selectedResource.id
-                  ? "resource-card selected"
-                  : "resource-card"
-              }
-              onClick={() => handleSelectResource(resource.id)}
-            >
-              <span className="resource-category">{resource.category}</span>
-              <strong>{resource.title}</strong>
-              <small
+      <aside className="resource-sidebar" aria-label="Tutorial resources">
+        <div className="resource-filter">
+          <span className="resource-filter-label">Filter</span>
+          <button
+            type="button"
+            className={filterActive ? "filter-chip active" : "filter-chip"}
+            aria-pressed={filterActive}
+            disabled={highlyRated === null}
+            title={`Show only resources averaging ${HIGHLY_RATED_MIN_AVERAGE}★ or more — one proven documents.having query`}
+            onClick={() => setHighlyRatedOnly((on) => !on)}
+          >
+            {HIGHLY_RATED_MIN_AVERAGE}★+ average
+          </button>
+          {highlyRated !== null && (
+            <span className="resource-filter-count muted">
+              {highlyRated.size} of {RESOURCES.length} qualify
+            </span>
+          )}
+        </div>
+        <div className="resource-list">
+          {visibleResources.map((resource) => {
+            const summary = summaries[resource.id] ?? emptySummary(resource.id);
+            return (
+              <button
+                key={resource.id}
                 className={
-                  summary.count === 0n ? "rating-empty" : "rating-present"
+                  resource.id === selectedResource.id
+                    ? "resource-card selected"
+                    : "resource-card"
                 }
+                onClick={() => handleSelectResource(resource.id)}
               >
-                {summary.count > 0n && (
-                  <StarMeter className="mini-stars" value={summary.average} />
-                )}
-                {reviewCountLine(summary)}
-              </small>
-            </button>
-          );
-        })}
+                <span className="resource-category">{resource.category}</span>
+                <strong>{resource.title}</strong>
+                <small
+                  className={
+                    summary.count === 0n ? "rating-empty" : "rating-present"
+                  }
+                >
+                  {summary.count > 0n && (
+                    <StarMeter className="mini-stars" value={summary.average} />
+                  )}
+                  {reviewCountLine(summary)}
+                </small>
+              </button>
+            );
+          })}
+          {visibleResources.length === 0 && (
+            <p className="resource-list-empty muted">
+              No resource averages {HIGHLY_RATED_MIN_AVERAGE}★ or more yet.
+            </p>
+          )}
+        </div>
       </aside>
+
+      <Leaderboard
+        topRated={leaderboards?.topRated ?? []}
+        mostReviewed={leaderboards?.mostReviewed ?? []}
+        loading={leaderboardsLoading}
+        error={leaderboardsError}
+        selectedResourceId={selectedResource.id}
+        onSelectResource={handleSelectResource}
+      />
 
       <section className="detail" ref={detailRef}>
         <div className="detail-head">

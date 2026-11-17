@@ -8,6 +8,8 @@ It is intentionally small and centered on Platform's aggregate and relational do
 
 - `sdk.documents.average` for each resource's proven review count, rating sum and average
 - `sdk.documents.count` with `groupBy: ["rating"]` for the per-star rating distribution
+- `sdk.documents.ranked` for the "Top rated" (by average) and "Most reviewed" (by count) leaderboards
+- `sdk.documents.having` for the "4★+ average" filter
 - `sdk.documents.query` with `orderBy: [["$updatedAt", "desc"]]` + `startAfter` for newest-first,
   server-paged reviews, optionally filtered with `where rating == N`
 - `sdk.documents.history` for review edit history
@@ -44,8 +46,8 @@ replaces the same document on later edits, with document history retained by `do
 The read paths are intentionally index-shaped:
 
 - `resourceRating` on `resourceId` is `averageable: "rating"` (a provable count and sum per resource)
-  and carries two ranking axes (`rankedAverageable`, `rankedCountable`) that let `ranked` and
-  `having` queries rank resources against each other
+  and carries two ranking axes (`rankedAverageable`, `rankedCountable`) that back `ranked` and
+  `having` across resources
 - `resourceRatingDistribution` on `resourceId + rating` (`countable` plus `rangeCountable`) backs the
   grouped rating distribution
 - `resourceRecent` (`resourceId + $updatedAt`) and `resourceRatingRecent`
@@ -63,4 +65,4 @@ immediately. The active ID is stored under `localStorage['dashrate.contractId']`
 back to this default. Register your own contract from the Settings tab to override it.
 
 A single-file, read-only companion lives at [`public/dashrate-lite.html`](./public/dashrate-lite.html):
-the same average, distribution and newest-first reviews, with no build step.
+the same average, distribution, newest-first reviews and a "Top rated" ranking, with no build step.

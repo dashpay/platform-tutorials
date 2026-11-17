@@ -66,6 +66,23 @@ test.describe("browse a resource", () => {
     ).toBeVisible();
   });
 
+  test("the leaderboard and 4★+ filter render", async ({ page }) => {
+    const board = page.locator('section[aria-label="Leaderboards"]');
+    await expect(
+      board.getByRole("button", { name: "Top rated" }),
+    ).toBeVisible();
+    await expect(
+      board.getByRole("button", { name: "Most reviewed" }),
+    ).toBeVisible();
+    // Rows (or "No ratings yet.") once the ranked queries return.
+    await expect(
+      board.locator(".leaderboard-row, .leaderboard-empty").first(),
+    ).toBeVisible({ timeout: 60_000 });
+    await expect(page.getByRole("button", { name: "4★+ average" })).toBeEnabled(
+      { timeout: 60_000 },
+    );
+  });
+
   test("the review form prompts sign-in when signed out", async ({ page }) => {
     await selectResource(page, "Tokens");
     await expect(

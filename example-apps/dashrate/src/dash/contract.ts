@@ -58,9 +58,9 @@ export const REVIEW_SCHEMAS = {
         // The per-resource aggregate index. `averageable: "rating"` keeps a
         // provable (count, sum) of `rating` per resourceId → documents.average.
         // `rangeAverageable` (= rangeCountable + rangeSummable) is the
-        // prerequisite for the two ranked axes (avg and count), which let
-        // documents.ranked / documents.having rank resources against each
-        // other. They're part of the published contract either way.
+        // prerequisite for the two ranked axes, which back documents.ranked /
+        // documents.having across resources: "Top rated" (avg axis), "Most
+        // reviewed" (count axis) and the "4★+ average" filter.
         name: "resourceRating",
         properties: [{ resourceId: "asc" }],
         averageable: "rating",

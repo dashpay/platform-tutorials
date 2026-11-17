@@ -6,6 +6,7 @@
   - Resources: browse the tutorial/example resource catalog.
   - Aggregates: a proven average with average() and the per-star distribution
     with a grouped count().
+  - Top rated: every resource ranked by its average with ranked().
   - Reviews: the selected resource's reviews, newest first, optionally filtered
     by star rating.
 
@@ -26,6 +27,8 @@
   ---------------------
   - average() returns the exact (count, sum) integers; a resource with no
     reviews returns an EMPTY map, so fall back to zero.
+  - ranked() returns averages as truncated fixed-point: show valueAsNumber
+    (value / valueScale) rounded, never compare it for equality with sum/count.
   - Grouped-count keys are raw index-key bytes ("05" for rating 5), not values.
   - These queries need a protocol version 14 network.
 -->
@@ -72,6 +75,9 @@
     .review .rating { font-weight: 600; color: #1a1f2e; }
     .review .text { font-size: 0.88rem; white-space: pre-wrap; word-wrap: break-word; margin: 0.35rem 0; color: #1f2937; }
     .review .meta { color: #6b7280; font-size: 0.73rem; word-break: break-all; }
+    .rank-list { margin: 0.75rem 0 0; padding-left: 1.5rem; font-size: 0.88rem; }
+    .rank-list li { padding: 0.2rem 0; }
+    .rank-list .muted { margin-left: 0.4rem; font-size: 0.8rem; }
     .summary-line { font-size: 0.8rem; color: #6b7280; margin: 0.5rem 0 0.25rem; }
     .status-line { padding: 0.5rem 0.75rem; border: 1px solid #e5e7eb; border-radius: 4px; background: #f5f5f5; font-size: 0.85rem; margin-top: 0.5rem; }
     .status-line.miss { border-color: #f0c987; background: #fff8e1; }
@@ -124,6 +130,11 @@
         <div id="reviews-result"></div>
       </section>
 
+      <section>
+        <h2>Top rated</h2>
+        <div id="leaderboard-result"></div>
+      </section>
+
       <p class="muted" style="font-size: 0.8rem;">
         Contract: <span class="hash" id="contract-id"></span>
       </p>
@@ -135,8 +146,8 @@
     // DASH PLATFORM SDK
     // ----------------------------------------------------------------------------
     // Everything in this section is the SDK surface this demo touches: the import,
-    // the contract identifier, the connection, the average / grouped count
-    // aggregate queries, and the review query.
+    // the contract identifier, the connection, the average / grouped count /
+    // ranked aggregate queries, and the review query.
     // The rest of the file (DOM wiring, render helpers) is plumbing.
     // ============================================================================
 
@@ -253,6 +264,23 @@
       return { resourceId, count, sum, average: count > 0n ? Number(sum) / Number(count) : null };
     }
 
+    // Every resource ranked by average rating, best first (limit is 1..100).
+    // groupValue is the decoded resourceId; valueAsNumber the display average.
+    async function getTopRated(sdk) {
+      const result = await sdk.documents.ranked({
+        dataContractId: CONTRACT_ID,
+        documentTypeName: DOC_TYPE,
+        groupBy: 'resourceId',
+        aggregate: { type: 'avg', property: 'rating' },
+        direction: 'desc',
+        limit: 100,
+      });
+      // resourceId is a free string; keep only this catalog's resources.
+      return result.entries
+        .map((entry) => ({ resourceId: String(entry.groupValue), average: entry.valueAsNumber }))
+        .filter((entry) => RESOURCES.some((resource) => resource.id === entry.resourceId));
+    }
+
     async function getRatingDistribution(sdk, resourceId) {
       const counts = await sdk.documents.count({
         dataContractId: CONTRACT_ID,
@@ -329,6 +357,7 @@
     const aggregateEl = $('aggregate-result');
     const reviewsHeadingEl = $('reviews-heading');
     const reviewsEl = $('reviews-result');
+    const leaderboardEl = $('leaderboard-result');
 
     const makeDiv = (className, text) => {
       const div = document.createElement('div');
@@ -413,6 +442,34 @@
       aggregateEl.replaceChildren(summaryLine('Aggregate rating'), grid);
     }
 
+    function renderLeaderboard(entries) {
+      if (entries.length === 0) {
+        leaderboardEl.replaceChildren(statusLine('No ratings yet.', 'miss'));
+        return;
+      }
+      const list = document.createElement('ol');
+      list.className = 'rank-list';
+      for (const entry of entries) {
+        const item = document.createElement('li');
+        const title = RESOURCES.find((resource) => resource.id === entry.resourceId)?.title ?? entry.resourceId;
+        const avg = document.createElement('span');
+        avg.className = 'muted';
+        avg.textContent = `${formatAverage(entry.average)} avg`;
+        item.append(title, avg);
+        list.appendChild(item);
+      }
+      leaderboardEl.replaceChildren(summaryLine('Ranked by average rating with documents.ranked()'), list);
+    }
+
+    async function loadLeaderboard() {
+      leaderboardEl.replaceChildren(statusLine('Loading ranking...'));
+      try {
+        renderLeaderboard(await getTopRated(sdk));
+      } catch (err) {
+        leaderboardEl.replaceChildren(statusLine('Error: ' + (err?.message ?? err), 'err'));
+      }
+    }
+
     function renderReviews(reviews, ratingFilter) {
       const label = ratingFilter == null ? 'recent review(s)' : `${ratingFilter}-star review(s)`;
       reviewsHeadingEl.textContent = ratingFilter == null ? 'Recent reviews' : `${ratingFilter}-star reviews`;
@@ -486,6 +543,7 @@
 
     refreshBtn.addEventListener('click', () => {
       void loadResource();
+      void loadLeaderboard();
     });
 
     renderResourceNav();
@@ -496,11 +554,13 @@
       statusEl.textContent = 'Connected to testnet';
       filterEl.disabled = false;
       refreshBtn.disabled = false;
+      void loadLeaderboard();
       await loadResource();
     } catch (err) {
       statusEl.textContent = 'Connection failed';
       aggregateEl.replaceChildren(statusLine('Connection failed: ' + (err?.message ?? err), 'err'));
       reviewsEl.replaceChildren(statusLine('Connection failed: ' + (err?.message ?? err), 'err'));
+      leaderboardEl.replaceChildren(statusLine('Connection failed: ' + (err?.message ?? err), 'err'));
       throw err;
     }
   </script>

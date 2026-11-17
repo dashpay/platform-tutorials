@@ -33,6 +33,10 @@ test.describe("dashrate-lite (single-file companion)", () => {
       /review|No reviews/i,
       { timeout: 60_000 },
     );
+    await expect(page.locator("#leaderboard-result")).toContainText(
+      /avg|No ratings yet/,
+      { timeout: 60_000 },
+    );
   });
 
   test("selecting a resource updates the detail view", async ({ page }) => {
