@@ -938,6 +938,7 @@ textarea {
 .hiw-card-sub {
   color: #697771;
   font-weight: 400;
+  overflow-wrap: anywhere;
 }
 
 /* Operations table + code peek, side by side on desktop. */

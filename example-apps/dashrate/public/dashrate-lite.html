@@ -4,8 +4,9 @@
   What it does
   ------------
   - Resources: browse the tutorial/example resource catalog.
-  - Aggregates: load total review count and per-star distribution with count().
-  - Reviews: list recent reviews for the selected resource, optionally filtered
+  - Aggregates: a proven average with average() and the per-star distribution
+    with a grouped count().
+  - Reviews: the selected resource's reviews, newest first, optionally filtered
     by star rating.
 
   How it works
@@ -21,12 +22,12 @@
   - No build step. Open it directly in a browser or host as a static file.
   - SDK comes from esm.sh (CDN-served ES module).
 
-  Gotcha worth knowing
-  --------------------
-  - Average rating is computed in JS from a grouped count distribution. The
-    contract intentionally avoids a summable index because combining summable
-    and range-countable indices on the same resourceId prefix made inserts fail
-    on Platform testnet.
+  Gotchas worth knowing
+  ---------------------
+  - average() returns the exact (count, sum) integers; a resource with no
+    reviews returns an EMPTY map, so fall back to zero.
+  - Grouped-count keys are raw index-key bytes ("05" for rating 5), not values.
+  - These queries need a protocol version 14 network.
 -->
 <!DOCTYPE html>
 <html lang="en">
@@ -134,13 +135,14 @@
     // DASH PLATFORM SDK
     // ----------------------------------------------------------------------------
     // Everything in this section is the SDK surface this demo touches: the import,
-    // the contract identifier, the connection, count queries, and review query.
+    // the contract identifier, the connection, the average / grouped count
+    // aggregate queries, and the review query.
     // The rest of the file (DOM wiring, render helpers) is plumbing.
     // ============================================================================
 
     import { EvoSDK } from 'https://esm.sh/@dashevo/evo-sdk@5.0.1';
 
-    const CONTRACT_ID = 'BdgTqaTAPYMyhp1WdeWdcvYSgoD7AuJ7tVCaCSXyQgyP';
+    const CONTRACT_ID = 'EJHQrRenbFXEPvhgFXD7v8F2ewkqZ2JEdHGKMshZauxz';
     const DOC_TYPE = 'review';
     const REVIEW_LIMIT = 50;
     const RATING_VALUES = [1, 2, 3, 4, 5];
@@ -202,12 +204,11 @@
       return sdk;
     }
 
-    // Grouped-count keys are the hex of the raw index-key byte: "05" for
-    // rating 5 on protocol v14+, "85" (sign bit flipped) before it.
-    // Masking off the top bit decodes both.
+    // Grouped-count keys are the hex of the raw index-key byte, not the
+    // value: rating 5 → "05".
     function ratingFromKeyHex(key) {
       if (!/^[0-9a-f]{2}$/i.test(key)) return null;
-      const rating = parseInt(key, 16) & 0x7f;
+      const rating = parseInt(key, 16);
       return RATING_VALUES.includes(rating) ? rating : null;
     }
 
@@ -239,14 +240,17 @@
       return n != null ? n : null;
     }
 
-    async function getRatingCount(sdk, resourceId) {
-      const counts = await sdk.documents.count({
+    // Proven (count, sum) of `rating` for one resource, via the averageable
+    // [resourceId] index. One entry keyed "" — or an EMPTY map with no reviews.
+    async function getRatingSummary(sdk, resourceId) {
+      const result = await sdk.documents.average({
         dataContractId: CONTRACT_ID,
         documentTypeName: DOC_TYPE,
         where: [['resourceId', '==', resourceId]],
         orderBy: [['resourceId', 'asc']],
-      });
-      return toBigInt(firstMapValue(counts), 0n);
+      }, 'rating');
+      const { count, sum } = firstMapValue(result) ?? { count: 0n, sum: 0n };
+      return { resourceId, count, sum, average: count > 0n ? Number(sum) / Number(count) : null };
     }
 
     async function getRatingDistribution(sdk, resourceId) {
@@ -269,21 +273,20 @@
       return distribution;
     }
 
+    // Newest first, server-side: [resourceId, $updatedAt] (or
+    // [resourceId, rating, $updatedAt] with a filter) serves this, and
+    // $updatedAt is that index's trailing property. Results arrive in order.
     async function listResourceReviews(sdk, resourceId, ratingFilter) {
       const where = [['resourceId', '==', resourceId]];
-      let orderBy = [['resourceId', 'asc']];
-      if (ratingFilter != null) {
-        where.push(['rating', '==', ratingFilter]);
-        orderBy = [['rating', 'asc']];
-      }
+      if (ratingFilter != null) where.push(['rating', '==', ratingFilter]);
       const results = await sdk.documents.query({
         dataContractId: CONTRACT_ID,
         documentTypeName: DOC_TYPE,
         where,
-        orderBy,
+        orderBy: [['$updatedAt', 'desc']],
         limit: REVIEW_LIMIT,
       });
-      return normalizeReviews(results).sort((a, b) => (b.createdAt ?? 0) - (a.createdAt ?? 0));
+      return normalizeReviews(results);
     }
 
     function normalizeReviews(results) {
@@ -306,22 +309,6 @@
         createdAt: toTimestamp(data.$createdAt),
         updatedAt: toTimestamp(data.$updatedAt),
         revision: toNumber(data.$revision ?? doc?.revision, 0),
-      };
-    }
-
-    function summaryFromDistribution(resourceId, distribution) {
-      let count = 0n;
-      let sum = 0n;
-      for (const rating of RATING_VALUES) {
-        const c = distribution[rating] ?? 0n;
-        count += c;
-        sum += BigInt(rating) * c;
-      }
-      return {
-        resourceId,
-        count,
-        sum,
-        average: count > 0n ? Number(sum) / Number(count) : null,
       };
     }
 
@@ -396,9 +383,8 @@
       linkEl.href = resource.href;
     }
 
-    function renderAggregate(totalCount, distribution) {
-      const summary = summaryFromDistribution(selectedResourceId, distribution);
-      const count = totalCount ?? summary.count;
+    function renderAggregate(summary, distribution) {
+      const count = summary.count;
       const max = Math.max(1, ...RATING_VALUES.map((r) => Number(distribution[r] ?? 0n)));
       const score = makeDiv('score');
       score.append(
@@ -469,12 +455,12 @@
       aggregateEl.replaceChildren(statusLine('Loading ratings...'));
       reviewsEl.replaceChildren(statusLine('Loading reviews...'));
       try {
-        const [totalCount, distribution, reviews] = await Promise.all([
-          getRatingCount(sdk, resource.id),
+        const [summary, distribution, reviews] = await Promise.all([
+          getRatingSummary(sdk, resource.id),
           getRatingDistribution(sdk, resource.id),
           listResourceReviews(sdk, resource.id, ratingFilter),
         ]);
-        renderAggregate(totalCount, distribution);
+        renderAggregate(summary, distribution);
         renderReviews(reviews, ratingFilter);
       } catch (err) {
         const message = 'Error: ' + (err?.message ?? err);

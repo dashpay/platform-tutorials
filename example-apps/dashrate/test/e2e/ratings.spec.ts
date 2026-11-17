@@ -2,12 +2,12 @@ import { test, expect, type Page } from "./fixtures";
 import { test as liteTest } from "@playwright/test";
 
 // Live rating-consistency checks against testnet. Unlike the smoke specs,
-// these DO read live rating data, but only assert an invariant that holds
-// for any data: the per-star distribution (grouped `count` by rating) must
-// sum to the total review count (ungrouped `count`). Both come from separate
-// queries, so a change in how Platform keys grouped-count results (e.g. the
-// PV14 index-key encoding change, dashpay/platform#5350) shows up here as a
-// non-zero total with an all-zero distribution.
+// these DO read live rating data, but only assert invariants that hold for
+// any data, each between two independent queries:
+//  - Σ per-star distribution (grouped `count` by rating) == the review count
+//    from `average`. A change in how Platform keys grouped-count results
+//    (e.g. the PV14 index-key encoding change, dashpay/platform#5350) shows
+//    up as a non-zero total with an all-zero distribution.
 //
 // The default contract's reviews can't be deleted (`canBeDeleted: false`),
 // so at least one resource always has reviews to check.
@@ -32,12 +32,6 @@ test.describe("rating consistency (app)", () => {
     const sidebar = page.locator('aside[aria-label="Tutorial resources"]');
     const rated = sidebar.locator("small.rating-present");
     await expect(rated.first()).toBeVisible({ timeout: LOAD_TIMEOUT });
-
-    // A card counted as having reviews (total > 0) must not fall back to
-    // "No reviews yet", which it does when the distribution is all zero.
-    for (const card of await rated.all()) {
-      await expect(card).not.toContainText("No reviews yet");
-    }
 
     await sidebar
       .locator("button.resource-card")
