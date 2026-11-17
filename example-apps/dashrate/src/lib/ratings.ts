@@ -1,7 +1,19 @@
+import type { LeaderboardEntry } from "../dash/leaderboard";
 import type { RatingDistribution, RatingSummary } from "../dash/queries";
 import { shortId } from "./format";
 
 export const RATING_ROWS = [5, 4, 3, 2, 1] as const;
+
+/** The "4★+ average" filter's bound (inclusive). */
+export const HIGHLY_RATED_MIN_AVERAGE = 4;
+
+/** The cross-resource rankings shown beside the resource list. */
+export interface Leaderboards {
+  topRated: LeaderboardEntry[];
+  mostReviewed: LeaderboardEntry[];
+  /** Catalog resources averaging ≥ HIGHLY_RATED_MIN_AVERAGE. */
+  highlyRated: string[];
+}
 
 export const emptySummary = (resourceId: string): RatingSummary => ({
   resourceId,

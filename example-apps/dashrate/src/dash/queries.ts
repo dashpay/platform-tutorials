@@ -5,6 +5,9 @@
  *   sdk.documents.average(...)      // proven (count, sum) per resource
  *   sdk.documents.count(...)        // grouped: GROUP BY rating (histogram)
  *   sdk.documents.query(...)        // newest-first pages ($updatedAt desc + startAfter)
+ *
+ * Cross-resource rankings (documents.ranked / documents.having) live in
+ * leaderboard.ts.
  */
 import { consoleLogger, errorMessage, type Logger } from "../lib/logger";
 import type {

@@ -26,6 +26,45 @@ export type DashReviewQueryResults =
   | Map<string, DashReviewQueryDocument | undefined>
   | Record<string, DashReviewQueryDocument | undefined>;
 
+/** Which aggregate a `ranked` / `having` query groups by. */
+export type DashAggregateSelect =
+  | { type: "count" }
+  | { type: "sum"; property: string }
+  | { type: "avg"; property: string };
+
+/**
+ * One group of a `ranked` / `having` result. `value` is the raw aggregate:
+ * a count/sum as-is, an average as FIXED-POINT (value / valueScale,
+ * truncated). `valueAsNumber` is that already divided — use it for display.
+ */
+export interface DashGroupEntry {
+  groupKeyHex: string;
+  groupValue: unknown;
+  value: bigint;
+  valueAsNumber: number;
+  /** 0-based absolute rank; `ranked` only. */
+  rank?: bigint;
+}
+
+export interface DashGroupedResult {
+  entries: DashGroupEntry[];
+  aggregate: "count" | "sum" | "avg";
+  groupBy: string;
+  valueScale: bigint;
+  /** `ranked` only. */
+  startingRank?: bigint;
+}
+
+interface DashGroupedQueryBase {
+  dataContractId: string;
+  documentTypeName: string;
+  groupBy: string;
+  aggregate: DashAggregateSelect;
+  /** Required; 1 ≤ limit ≤ 100 (a hard ceiling — larger is rejected). */
+  limit: number;
+  direction?: "asc" | "desc";
+}
+
 export interface DashSdk {
   /** Platform protocol version negotiated with the network. */
   version(): number;
@@ -77,6 +116,22 @@ export interface DashSdk {
       },
       averageProperty: string,
     ): Promise<Map<string, { count: bigint; sum: bigint }>>;
+    ranked(
+      args: DashGroupedQueryBase & { offset?: number },
+    ): Promise<DashGroupedResult>;
+    having(
+      args: DashGroupedQueryBase & {
+        having:
+          | {
+              operator: "==" | ">" | ">=" | "<" | "<=";
+              value: number | bigint;
+            }
+          | {
+              operator: "between";
+              value: [number | bigint, number | bigint];
+            };
+      },
+    ): Promise<DashGroupedResult>;
     get(
       contractId: string,
       documentTypeName: string,
