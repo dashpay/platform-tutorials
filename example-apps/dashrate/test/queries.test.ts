@@ -1,14 +1,13 @@
 import { describe, expect, it, vi } from "vitest";
 import {
   findMyReviewForResource,
-  getRatingCount,
   getRatingDistribution,
+  getRatingSummary,
   listMyReviews,
   listResourceReviews,
   normalizeReviews,
   normalizeSingleReview,
   ratingFromKeyHex,
-  summaryFromDistribution,
 } from "../src/dash/queries";
 import type { DashSdk } from "../src/dash/types";
 
@@ -102,57 +101,18 @@ describe("DashRate query normalization", () => {
       rating: 5,
     });
   });
-
-  it("derives count, sum and average from a rating distribution", () => {
-    // 2×3 + 5×4 + 8×5 = 6 + 20 + 40 = 66 over 15 reviews → 4.4 avg.
-    const summary = summaryFromDistribution("dashnote", {
-      1: 0n,
-      2: 0n,
-      3: 2n,
-      4: 5n,
-      5: 8n,
-    });
-
-    expect(summary).toEqual({
-      resourceId: "dashnote",
-      count: 15n,
-      sum: 66n,
-      average: 4.4,
-    });
-  });
-
-  it("degrades to zeros for an all-zero distribution (no reviews)", () => {
-    const summary = summaryFromDistribution("tokens", {
-      1: 0n,
-      2: 0n,
-      3: 0n,
-      4: 0n,
-      5: 0n,
-    });
-
-    expect(summary).toEqual({
-      resourceId: "tokens",
-      count: 0n,
-      sum: 0n,
-      average: null,
-    });
-  });
 });
 
 describe("DashRate rating distribution", () => {
-  it("decodes PV14 plain-byte rating keys", () => {
-    // Literal keys as returned by testnet on protocol version 14.
+  it("decodes plain-byte rating keys", () => {
+    // Literal keys as returned by testnet.
     expect(ratingFromKeyHex("01")).toBe(1);
     expect(ratingFromKeyHex("05")).toBe(5);
   });
 
-  it("decodes pre-PV14 sign-flipped rating keys", () => {
-    expect(ratingFromKeyHex("81")).toBe(1);
-    expect(ratingFromKeyHex("85")).toBe(5);
-  });
-
   it("rejects keys that aren't a 1–5 rating", () => {
-    for (const key of ["", "00", "06", "80", "86", "0005", "zz"]) {
+    // Includes sign-flipped bytes ("81", "85"): not this encoding.
+    for (const key of ["", "00", "06", "80", "81", "85", "0005", "zz"]) {
       expect(ratingFromKeyHex(key)).toBeNull();
     }
   });
@@ -193,10 +153,10 @@ describe("DashRate rating distribution", () => {
     });
   });
 
-  it("decodes legacy keys and logs (skips) unexpected ones", async () => {
+  it("logs and skips unexpected keys", async () => {
     const countMock = vi.fn().mockResolvedValue(
       new Map([
-        ["81", 1n],
+        ["01", 1n],
         ["85", 3n],
         ["ff", 9n],
       ]),
@@ -211,7 +171,11 @@ describe("DashRate rating distribution", () => {
       log,
     });
 
-    expect(distribution).toEqual({ 1: 1n, 2: 0n, 3: 0n, 4: 0n, 5: 3n });
+    expect(distribution).toEqual({ 1: 1n, 2: 0n, 3: 0n, 4: 0n, 5: 0n });
+    expect(log).toHaveBeenCalledWith(
+      'Unexpected rating key "85" for tokens',
+      "error",
+    );
     expect(log).toHaveBeenCalledWith(
       'Unexpected rating key "ff" for tokens',
       "error",
@@ -219,45 +183,120 @@ describe("DashRate rating distribution", () => {
   });
 });
 
-describe("DashRate review list filtering", () => {
-  const reviewDoc = (rating: number) => ({
-    toJSON: () => ({
-      $ownerId: "owner-1",
-      resourceId: "dashnote",
-      rating,
-      reviewText: "",
-      $createdAt: 1,
-      $updatedAt: 1,
-      $revision: 1,
-    }),
-  });
+describe("DashRate review list paging", () => {
+  // Literal network-format docs: a Map in server (index-walk) order.
+  const doc = (id: string, rating: number, updatedAt: number) =>
+    [
+      id,
+      {
+        toJSON: () => ({
+          $id: id,
+          $ownerId: "owner-1",
+          resourceId: "dashnote",
+          rating,
+          $createdAt: updatedAt,
+          $updatedAt: updatedAt,
+          $revision: 1,
+        }),
+      },
+    ] as const;
 
-  it("orders by resourceId when unfiltered (served by [resourceId])", async () => {
-    const queryMock = vi.fn().mockResolvedValue([reviewDoc(3), reviewDoc(5)]);
+  it("asks for newest first and keeps the server order", async () => {
+    // limit 2 → asks for 3; the third only signals that a next page exists.
+    const queryMock = vi
+      .fn()
+      .mockResolvedValue(
+        new Map([
+          doc("6dpRo199kmSs4XB5ruPoB9rccpqnvrvMoYcyaaqWA11i", 3, 1794866785068),
+          doc("24ed92ePXVA9ztDrBwzhnhgXQcGbReBQL9jWGkjW9F7n", 4, 1794866776173),
+          doc("Gjke5QGEJgwFpwuMFM5q3PhQG5FR7zCvs7UEXCvcZVHU", 5, 1794866760270),
+        ]),
+      );
     const sdk = { documents: { query: queryMock } } as unknown as DashSdk;
 
-    await listResourceReviews({
+    const page = await listResourceReviews({
       sdk,
       contractId: "c1",
       resourceId: "dashnote",
+      limit: 2,
+      log: () => {},
+    });
+
+    expect(queryMock).toHaveBeenCalledWith({
+      dataContractId: "c1",
+      documentTypeName: "review",
+      where: [["resourceId", "==", "dashnote"]],
+      orderBy: [["$updatedAt", "desc"]],
+      limit: 3,
+    });
+    expect(page.reviews.map((review) => review.updatedAt)).toEqual([
+      1794866785068, 1794866776173,
+    ]);
+    // More than `limit` came back → the last SHOWN ID is the next cursor.
+    expect(page.nextCursor).toBe(
+      "24ed92ePXVA9ztDrBwzhnhgXQcGbReBQL9jWGkjW9F7n",
+    );
+  });
+
+  it("passes the cursor as startAfter and ends on a short page", async () => {
+    const queryMock = vi
+      .fn()
+      .mockResolvedValue(
+        new Map([
+          doc("Gjke5QGEJgwFpwuMFM5q3PhQG5FR7zCvs7UEXCvcZVHU", 5, 1794866760270),
+        ]),
+      );
+    const sdk = { documents: { query: queryMock } } as unknown as DashSdk;
+
+    const page = await listResourceReviews({
+      sdk,
+      contractId: "c1",
+      resourceId: "dashnote",
+      startAfter: "24ed92ePXVA9ztDrBwzhnhgXQcGbReBQL9jWGkjW9F7n",
+      limit: 2,
       log: () => {},
     });
 
     expect(queryMock).toHaveBeenCalledWith(
       expect.objectContaining({
-        where: [["resourceId", "==", "dashnote"]],
-        orderBy: [["resourceId", "asc"]],
+        startAfter: "24ed92ePXVA9ztDrBwzhnhgXQcGbReBQL9jWGkjW9F7n",
       }),
     );
+    expect(page.reviews).toHaveLength(1);
+    expect(page.nextCursor).toBeNull();
   });
 
-  it("orders by rating (the trailing index field) when filtered", async () => {
-    // orderBy MUST be the index's last property; ordering by resourceId
-    // here strips rating from the usable prefix and the query is rejected.
-    const queryMock = vi.fn().mockResolvedValue([reviewDoc(5)]);
+  it("ends without a cursor when the total is an exact multiple", async () => {
+    // Exactly `limit` rows: no extra row, so no "Load more" onto an empty page.
+    const queryMock = vi
+      .fn()
+      .mockResolvedValue(
+        new Map([
+          doc("5cCJnbvJdQBJrYpT2xc3Uf2Ju7WzbZnVjCn7s4dzdKfx", 2, 1794866767244),
+          doc("3dUELkAhDrXS7sFUcQ53WJ6ZUUkQgzfhm9PC7JNRay3m", 3, 1794866766000),
+        ]),
+      );
     const sdk = { documents: { query: queryMock } } as unknown as DashSdk;
 
-    await listResourceReviews({
+    const page = await listResourceReviews({
+      sdk,
+      contractId: "c1",
+      resourceId: "tokens",
+      limit: 2,
+      log: () => {},
+    });
+
+    expect(page.reviews).toHaveLength(2);
+    expect(page.nextCursor).toBeNull();
+  });
+
+  it("filters by rating server-side, still newest first", async () => {
+    // [resourceId, rating, $updatedAt] serves this; $updatedAt is its
+    // trailing property, so orderBy stays $updatedAt.
+    const queryMock = vi.fn().mockResolvedValue(new Map());
+    const sdk = { documents: { query: queryMock } } as unknown as DashSdk;
+
+    const page = await listResourceReviews({
       sdk,
       contractId: "c1",
       resourceId: "dashnote",
@@ -271,45 +310,73 @@ describe("DashRate review list filtering", () => {
           ["resourceId", "==", "dashnote"],
           ["rating", "==", 5],
         ],
-        orderBy: [["rating", "asc"]],
+        orderBy: [["$updatedAt", "desc"]],
+        limit: 11,
       }),
     );
+    expect(page).toEqual({ reviews: [], nextCursor: null });
   });
 });
 
-describe("DashRate getRatingCount", () => {
-  it("reads the single total from the ungrouped (empty-key) count map", async () => {
-    const countMock = vi.fn().mockResolvedValue(new Map([["", 7n]]));
-    const sdk = { documents: { count: countMock } } as unknown as DashSdk;
+describe("DashRate getRatingSummary", () => {
+  it("reads count and sum from the ungrouped average map", async () => {
+    // Literal testnet shape: Map(1) { '' => { count: 3n, sum: 11n } }.
+    const averageMock = vi
+      .fn()
+      .mockResolvedValue(new Map([["", { count: 3n, sum: 11n }]]));
+    const sdk = { documents: { average: averageMock } } as unknown as DashSdk;
 
-    const total = await getRatingCount({
+    const summary = await getRatingSummary({
       sdk,
       contractId: "c1",
-      resourceId: "tokens",
+      resourceId: "dashnote",
       log: () => {},
     });
 
-    expect(total).toBe(7n);
-    expect(countMock).toHaveBeenCalledWith({
-      dataContractId: "c1",
-      documentTypeName: "review",
-      where: [["resourceId", "==", "tokens"]],
-      orderBy: [["resourceId", "asc"]],
+    expect(summary).toEqual({
+      resourceId: "dashnote",
+      count: 3n,
+      sum: 11n,
+      average: 11 / 3,
     });
+    expect(averageMock).toHaveBeenCalledWith(
+      {
+        dataContractId: "c1",
+        documentTypeName: "review",
+        where: [["resourceId", "==", "dashnote"]],
+        orderBy: [["resourceId", "asc"]],
+      },
+      "rating",
+    );
   });
 
-  it("returns 0n when the count map is empty", async () => {
-    const countMock = vi.fn().mockResolvedValue(new Map());
-    const sdk = { documents: { count: countMock } } as unknown as DashSdk;
+  it("treats the empty map (no reviews) as zero", async () => {
+    // A resource with no reviews returns Map(0), NOT '' => {0n, 0n}.
+    const averageMock = vi.fn().mockResolvedValue(new Map());
+    const sdk = { documents: { average: averageMock } } as unknown as DashSdk;
 
     expect(
-      await getRatingCount({
+      await getRatingSummary({
         sdk,
         contractId: "c1",
-        resourceId: "tokens",
+        resourceId: "intro",
         log: () => {},
       }),
-    ).toBe(0n);
+    ).toEqual({ resourceId: "intro", count: 0n, sum: 0n, average: null });
+  });
+
+  it("logs and rethrows a failed query", async () => {
+    const averageMock = vi.fn().mockRejectedValue(new Error("boom"));
+    const sdk = { documents: { average: averageMock } } as unknown as DashSdk;
+    const log = vi.fn();
+
+    await expect(
+      getRatingSummary({ sdk, contractId: "c1", resourceId: "intro", log }),
+    ).rejects.toThrow("boom");
+    expect(log).toHaveBeenCalledWith(
+      "Average query failed for intro: boom",
+      "error",
+    );
   });
 });
 
@@ -326,11 +393,10 @@ describe("DashRate listMyReviews", () => {
     }),
   });
 
-  it("queries by owner and re-sorts results by updatedAt descending", async () => {
-    // Server orderBy is ascending; the helper re-sorts newest-first in JS.
+  it("queries by owner newest first and keeps the server order", async () => {
     const queryMock = vi
       .fn()
-      .mockResolvedValue([reviewDoc(100), reviewDoc(300), reviewDoc(200)]);
+      .mockResolvedValue([reviewDoc(300), reviewDoc(200), reviewDoc(100)]);
     const sdk = { documents: { query: queryMock } } as unknown as DashSdk;
 
     const reviews = await listMyReviews({
@@ -345,10 +411,7 @@ describe("DashRate listMyReviews", () => {
       dataContractId: "c1",
       documentTypeName: "review",
       where: [["$ownerId", "==", "owner-1"]],
-      orderBy: [
-        ["$ownerId", "asc"],
-        ["$updatedAt", "asc"],
-      ],
+      orderBy: [["$updatedAt", "desc"]],
       limit: 50,
     });
   });

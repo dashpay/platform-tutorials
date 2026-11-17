@@ -1,13 +1,10 @@
 /**
- * Read-side queries and aggregate helpers for DashRate reviews.
+ * Read-side queries for one resource's ratings and reviews.
  *
  * SDK methods:
- *   sdk.documents.query(...)
- *   sdk.documents.count(...)        // plain and grouped (GROUP BY rating)
- *
- * The count/sum/average shown per resource is derived in JS from the grouped
- * count distribution — there is no `sum`/`average` query (see
- * summaryFromDistribution).
+ *   sdk.documents.average(...)      // proven (count, sum) per resource
+ *   sdk.documents.count(...)        // grouped: GROUP BY rating (histogram)
+ *   sdk.documents.query(...)        // newest-first pages ($updatedAt desc + startAfter)
  */
 import { consoleLogger, errorMessage, type Logger } from "../lib/logger";
 import type {
@@ -39,7 +36,9 @@ export interface RatingSummary {
 /** Per-star review counts for a resource, keyed by rating value 1–5. */
 export type RatingDistribution = Record<number, bigint>;
 
-const REVIEW_LIMIT = 50;
+/** Page size for a resource's review list ("Load more" fetches the next). */
+export const REVIEW_PAGE_SIZE = 10;
+const MY_REVIEWS_LIMIT = 50;
 
 /** The valid rating values, used to build distribution lookup keys. */
 const RATING_VALUES = [1, 2, 3, 4, 5] as const;
@@ -53,16 +52,12 @@ export function firstMapValue<T>(map: Map<string, T>): T | undefined {
  * the key isn't a valid rating.
  *
  * Keys are the hex of the raw index-key bytes, not the value. `rating`
- * (integer 1–5) is stored as a single unsigned byte, and its encoding
- * depends on the network's protocol version:
- *   - PV14+:  plain value byte   — rating 5 → `0x05` → "05"
- *   - ≤ PV13: sign bit flipped   — rating 5 → `0x85` → "85"
- * (dashpay/platform#5350; the PV14 upgrade rekeys existing data.) Masking
- * off the top bit decodes both forms — a 1–5 rating never sets it.
+ * (integer 1–5) is stored as a single unsigned byte holding the value, so
+ * rating 5 → `0x05` → "05".
  */
 export function ratingFromKeyHex(key: string): number | null {
   if (!/^[0-9a-f]{2}$/i.test(key)) return null;
-  const rating = parseInt(key, 16) & 0x7f;
+  const rating = parseInt(key, 16);
   return (RATING_VALUES as readonly number[]).includes(rating) ? rating : null;
 }
 
@@ -129,31 +124,6 @@ export function normalizeSingleReview(
   return toReview(id, raw as DashReviewQueryDocument);
 }
 
-/**
- * Build a RatingSummary from a rating distribution. The per-star counts
- * carry everything the summary needs, exactly for the 1–5 integer scale:
- *   count   = Σ dist[r]
- *   sum     = Σ (r × dist[r])
- *   average = sum / count
- * So no separate `sum`/`average` query is needed — the grouped count that
- * draws the histogram also yields the average. (Dropping `summable` from
- * the contract is what avoids the index-aggregation conflict.)
- */
-export function summaryFromDistribution(
-  resourceId: string,
-  distribution: RatingDistribution,
-): RatingSummary {
-  let count = 0n;
-  let sum = 0n;
-  for (const rating of RATING_VALUES) {
-    const c = distribution[rating] ?? 0n;
-    count += c;
-    sum += BigInt(rating) * c;
-  }
-  const average = count > 0n ? Number(sum) / Number(count) : null;
-  return { resourceId, count, sum, average };
-}
-
 function resourceAggregateQuery(contractId: string, resourceId: string) {
   return {
     dataContractId: contractId,
@@ -164,13 +134,16 @@ function resourceAggregateQuery(contractId: string, resourceId: string) {
 }
 
 /**
- * Total review count for a resource — a plain ungrouped `count()` over the
- * single-property `resourceRatingAggregate` index. This is the basic
- * countable-index pattern (contrast with getRatingDistribution's grouped
- * count). The ungrouped result is a one-entry map keyed by "" — read it
- * with firstMapValue.
+ * Count, sum and average rating for a resource — one proven
+ * `documents.average` point lookup on the `averageable` [resourceId] index.
+ * The network returns the raw integers (not a pre-divided average), so both
+ * are exact; the average is divided here.
+ *
+ * The ungrouped result is a one-entry map keyed "". A resource with no
+ * reviews returns an EMPTY map (not `"" → {0n, 0n}`), so the zero fallback is
+ * required.
  */
-export async function getRatingCount({
+export async function getRatingSummary({
   sdk,
   contractId,
   resourceId,
@@ -180,13 +153,21 @@ export async function getRatingCount({
   contractId: string;
   resourceId: string;
   log?: Logger;
-}): Promise<bigint> {
-  const query = resourceAggregateQuery(contractId, resourceId);
+}): Promise<RatingSummary> {
   try {
-    const counts = await sdk.documents.count(query);
-    return firstMapValue(counts) ?? 0n;
+    const result = await sdk.documents.average(
+      resourceAggregateQuery(contractId, resourceId),
+      "rating",
+    );
+    const { count, sum } = result.get("") ??
+      firstMapValue(result) ?? { count: 0n, sum: 0n };
+    const average = count > 0n ? Number(sum) / Number(count) : null;
+    return { resourceId, count, sum, average };
   } catch (err) {
-    log(`Count query failed for ${resourceId}: ${errorMessage(err)}`, "error");
+    log(
+      `Average query failed for ${resourceId}: ${errorMessage(err)}`,
+      "error",
+    );
     throw err;
   }
 }
@@ -240,58 +221,67 @@ export async function getRatingDistribution({
   }
 }
 
+/** One page of reviews plus the cursor for the next (null on the last). */
+export interface ReviewPage {
+  reviews: ReviewRecord[];
+  nextCursor: string | null;
+}
+
+/**
+ * A page of a resource's reviews, newest first, optionally only one star
+ * value. Paging is server-side: pass the previous page's `nextCursor` as
+ * `startAfter` (an exclusive document ID). It asks for `limit + 1` and shows
+ * `limit`: the extra row only says whether another page exists, so an exact
+ * multiple of the page size doesn't end on an empty "Load more".
+ *
+ * `orderBy` must be the serving index's TRAILING property, so `$updatedAt`
+ * works for both shapes:
+ *  - no filter → `resourceId ==`              → resourceRecent [resourceId, $updatedAt]
+ *  - filter    → `resourceId ==, rating ==`   → resourceRatingRecent [resourceId, rating, $updatedAt]
+ * The map the SDK returns is already in index-walk (server) order — don't
+ * re-sort it.
+ */
 export async function listResourceReviews({
   sdk,
   contractId,
   resourceId,
   ratingFilter,
-  limit = REVIEW_LIMIT,
+  startAfter,
+  limit = REVIEW_PAGE_SIZE,
   log = consoleLogger,
 }: {
   sdk: DashSdk;
   contractId: string;
   resourceId: string;
   ratingFilter?: number;
+  startAfter?: string;
   limit?: number;
   log?: Logger;
-}): Promise<ReviewRecord[]> {
-  // Filtering by rating is done server-side via a `rating == N` clause —
-  // the data is already fetched, so this is to demonstrate Platform
-  // `where`-filtering and to stay correct past the fetch limit.
-  //
-  // The `orderBy` must align with the index that serves the query, and
-  // its field must be the index's trailing property (the matcher reserves
-  // the order-by field from the back of the index). So:
-  //  - no filter → resourceId equality on [resourceId] → order by resourceId
-  //  - filter    → resourceId+rating equalities on [resourceId, rating] →
-  //                order by rating (the last index property)
-  // Ordering by resourceId in the filtered case strips `rating` out of the
-  // usable index prefix and the query is rejected as "non indexed".
+}): Promise<ReviewPage> {
   const where: unknown[][] = [["resourceId", "==", resourceId]];
-  let orderBy: [string, "asc" | "desc"][] = [["resourceId", "asc"]];
-  if (ratingFilter != null) {
-    where.push(["rating", "==", ratingFilter]);
-    orderBy = [["rating", "asc"]];
-  }
+  if (ratingFilter != null) where.push(["rating", "==", ratingFilter]);
   const results = await sdk.documents.query({
     dataContractId: contractId,
     documentTypeName: "review",
     where,
-    orderBy,
-    limit,
+    orderBy: [["$updatedAt", "desc"]],
+    limit: limit + 1,
+    ...(startAfter ? { startAfter } : {}),
   });
-  const reviews = normalizeReviews(results).sort(
-    (left, right) => (right.createdAt ?? 0) - (left.createdAt ?? 0),
-  );
+  const fetched = normalizeReviews(results);
+  const reviews = fetched.slice(0, limit);
+  // The cursor is the last review SHOWN, so the extra one leads page 2.
+  const nextCursor =
+    fetched.length > limit ? (reviews[reviews.length - 1]?.id ?? null) : null;
   log(`Loaded ${reviews.length} reviews for ${resourceId}.`);
-  return reviews;
+  return { reviews, nextCursor };
 }
 
 export async function listMyReviews({
   sdk,
   contractId,
   ownerId,
-  limit = REVIEW_LIMIT,
+  limit = MY_REVIEWS_LIMIT,
   log = consoleLogger,
 }: {
   sdk: DashSdk;
@@ -303,16 +293,12 @@ export async function listMyReviews({
   const results = await sdk.documents.query({
     dataContractId: contractId,
     documentTypeName: "review",
+    // Newest first, server-side, via ownerReviews [$ownerId, $updatedAt].
     where: [["$ownerId", "==", ownerId]],
-    orderBy: [
-      ["$ownerId", "asc"],
-      ["$updatedAt", "asc"],
-    ],
+    orderBy: [["$updatedAt", "desc"]],
     limit,
   });
-  const reviews = normalizeReviews(results).sort(
-    (left, right) => (right.updatedAt ?? 0) - (left.updatedAt ?? 0),
-  );
+  const reviews = normalizeReviews(results);
   log(`Loaded ${reviews.length} reviews for identity ${ownerId}.`);
   return reviews;
 }

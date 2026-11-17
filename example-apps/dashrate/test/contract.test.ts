@@ -16,43 +16,71 @@ describe("DashRate review contract schema", () => {
     expect(REVIEW_SCHEMAS.review.canBeDeleted).toBe(false);
   });
 
-  it("defines rating fields and aggregate-friendly indices", () => {
+  it("defines the rating fields", () => {
     expect(REVIEW_SCHEMAS.review.properties.resourceId.type).toBe("string");
-    expect(REVIEW_SCHEMAS.review.properties.resourceId.maxLength).toBe(63);
+    // ≤ 59: the node rejects a longer string on an index with a ranked axis.
+    expect(REVIEW_SCHEMAS.review.properties.resourceId.maxLength).toBe(59);
     expect(REVIEW_SCHEMAS.review.properties.rating.minimum).toBe(1);
     expect(REVIEW_SCHEMAS.review.properties.rating.maximum).toBe(5);
-
-    const indexNames = REVIEW_SCHEMAS.review.indices.map((index) => index.name);
-    expect(indexNames).toContain("ownerAndResource");
-    expect(indexNames).toContain("ownerReviews");
-    expect(indexNames).toContain("resourceRatingAggregate");
-    expect(indexNames).toContain("resourceRatingDistribution");
-    const aggregate = REVIEW_SCHEMAS.review.indices.find(
-      (index) => index.name === "resourceRatingAggregate",
-    );
-    expect(aggregate).toMatchObject({
-      properties: [{ resourceId: "asc" }],
-      countable: "countable",
-    });
-    // Must stay count-only: a `summable` here makes the resourceId value
-    // tree count+sum, which conflicts with the count-only rating
-    // continuation of resourceRatingDistribution and breaks all inserts.
-    expect(aggregate).not.toHaveProperty("summable");
   });
 
-  it("indexes [resourceId, rating] count-only for grouped distribution", () => {
-    // Backs the grouped `count` GROUP BY rating (distribution) and the
-    // `rating == N` filter. Count-only (no summable) so it shares the
-    // resourceId prefix with resourceRatingAggregate without conflict.
+  it("matches the indices of the published default contract exactly", () => {
+    // Literal copy of the schema published as DEFAULT_CONTRACT_ID, so
+    // "Register a fresh contract" in Settings yields an equivalent contract.
+    // Indices are immutable once published — change this deliberately.
+    expect(REVIEW_SCHEMAS.review.indices).toEqual([
+      {
+        name: "ownerAndResource",
+        unique: true,
+        properties: [{ $ownerId: "asc" }, { resourceId: "asc" }],
+      },
+      {
+        name: "ownerReviews",
+        properties: [{ $ownerId: "asc" }, { $updatedAt: "asc" }],
+      },
+      {
+        name: "resourceRating",
+        properties: [{ resourceId: "asc" }],
+        averageable: "rating",
+        rangeAverageable: true,
+        rankedAverageable: true,
+        rankedCountable: true,
+      },
+      {
+        name: "resourceRatingDistribution",
+        properties: [{ resourceId: "asc" }, { rating: "asc" }],
+        countable: "countable",
+        rangeCountable: true,
+      },
+      {
+        name: "resourceRecent",
+        properties: [{ resourceId: "asc" }, { $updatedAt: "asc" }],
+      },
+      {
+        name: "resourceRatingRecent",
+        properties: [
+          { resourceId: "asc" },
+          { rating: "asc" },
+          { $updatedAt: "asc" },
+        ],
+      },
+    ]);
+    expect(REVIEW_SCHEMAS.review.required).toEqual([
+      "$createdAt",
+      "$updatedAt",
+      "resourceId",
+      "rating",
+    ]);
+  });
+
+  it("keeps the distribution index unranked", () => {
+    // A compound ranked index under the averageable [resourceId] prefix is
+    // rejected at registration.
     const distribution = REVIEW_SCHEMAS.review.indices.find(
       (index) => index.name === "resourceRatingDistribution",
     );
-    expect(distribution).toMatchObject({
-      properties: [{ resourceId: "asc" }, { rating: "asc" }],
-      countable: "countable",
-      rangeCountable: true,
-    });
-    expect(distribution).not.toHaveProperty("summable");
+    expect(distribution).not.toHaveProperty("rankedCountable");
+    expect(distribution).not.toHaveProperty("rankedAverageable");
   });
 });
 
