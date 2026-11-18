@@ -2,6 +2,7 @@ import { requireId } from "./ids";
 import type { ReadSdk, WhereClause } from "./types";
 import { toDocumentArray, type DocumentHandle } from "../lib/safeDoc";
 
+// The current registry's rating type; contract.ts declares `appReview` instead.
 export const RATING_DOCUMENT_TYPE = "appRating";
 export const STAR_VALUES = [1, 2, 3, 4, 5] as const;
 export type Stars = (typeof STAR_VALUES)[number];

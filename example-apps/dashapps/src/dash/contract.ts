@@ -4,23 +4,35 @@ import type { Logger } from "../lib/logger";
 import type { SessionSdk } from "../session/types";
 import { loadSdkModule } from "./sdkModule";
 import { seedSystemContractMetadata } from "./registryWrites";
-import { RATING_DOCUMENT_TYPE } from "./ratingReads";
 
+// test/contractSchema.test.ts pins this schema; the WASM parser skips the
+// node's meta-schema validation, so change the two together.
 export const DOCUMENT_TYPE = "appMetadata";
-export { RATING_DOCUMENT_TYPE };
+export const ENDORSEMENT_DOCUMENT_TYPE = "appEndorsement";
+export const REVIEW_DOCUMENT_TYPE = "appReview";
+
+const IDENTIFIER = {
+  type: "array",
+  byteArray: true,
+  minItems: 32,
+  maxItems: 32,
+  contentMediaType: "application/x.dash.dpp.identifier",
+} as const;
+
 export const APP_METADATA_SCHEMAS = {
   [DOCUMENT_TYPE]: {
     type: "object",
     documentsMutable: true,
     canBeDeleted: true,
+    // The endorsement's `findBy` keys ($ownerId, contractId) must never move.
+    transferable: 0,
+    tradeMode: 0,
+    immutable: ["contractId"],
     properties: {
       contractId: {
-        type: "array",
-        byteArray: true,
-        minItems: 32,
-        maxItems: 32,
-        contentMediaType: "application/x.dash.dpp.identifier",
+        ...IDENTIFIER,
         position: 0,
+        refersTo: { type: "contract" },
       },
       name: { type: "string", minLength: 1, maxLength: 63, position: 1 },
       description: { type: "string", maxLength: 1000, position: 2 },
@@ -101,29 +113,81 @@ export const APP_METADATA_SCHEMAS = {
         properties: [{ $ownerId: "asc" }, { contractId: "asc" }],
       },
       {
-        name: "byContractCreated",
-        properties: [{ contractId: "asc" }, { $createdAt: "asc" }],
+        name: "contractEntries",
+        properties: [{ contractId: "asc" }],
+        countable: "countable",
+        rangeCountable: true,
       },
-      { name: "byName", properties: [{ name: "asc" }] },
+      {
+        name: "contractRecent",
+        properties: [{ contractId: "asc" }, { $updatedAt: "asc" }],
+      },
       { name: "recent", properties: [{ $createdAt: "asc" }] },
       {
-        name: "byCategoryCreated",
+        name: "byCategoryRecent",
         properties: [{ category: "asc" }, { $createdAt: "asc" }],
+      },
+      { name: "byName", properties: [{ name: "asc" }] },
+      {
+        name: "byOwner",
+        properties: [{ $ownerId: "asc" }, { $updatedAt: "asc" }],
       },
     ],
   },
-  [RATING_DOCUMENT_TYPE]: {
+  [ENDORSEMENT_DOCUMENT_TYPE]: {
     type: "object",
     documentsMutable: true,
     canBeDeleted: true,
+    // A node refuses a transferable or tradeable type with an owner requirement.
+    transferable: 0,
+    tradeMode: 0,
+    // Not `publisherId`: a node refuses an immutable `findBy` reference.
+    immutable: ["contractId"],
     properties: {
       contractId: {
-        type: "array",
-        byteArray: true,
-        minItems: 32,
-        maxItems: 32,
-        contentMediaType: "application/x.dash.dpp.identifier",
+        ...IDENTIFIER,
         position: 0,
+        refersTo: { type: "contract", contractRequirements: { owner: "self" } },
+      },
+      publisherId: {
+        ...IDENTIFIER,
+        position: 1,
+        refersTo: {
+          type: "deletableDocument",
+          documentType: DOCUMENT_TYPE,
+          findBy: { $ownerId: ".", contractId: "contractId" },
+        },
+      },
+    },
+    required: ["$createdAt", "$updatedAt", "contractId", "publisherId"],
+    additionalProperties: false,
+    indices: [
+      {
+        name: "byContract",
+        unique: true,
+        properties: [{ contractId: "asc" }],
+      },
+      { name: "byPublisher", properties: [{ publisherId: "asc" }] },
+      { name: "recent", properties: [{ $createdAt: "asc" }] },
+      {
+        name: "byOwner",
+        properties: [{ $ownerId: "asc" }, { $updatedAt: "asc" }],
+      },
+    ],
+  },
+  [REVIEW_DOCUMENT_TYPE]: {
+    type: "object",
+    documentsMutable: true,
+    canBeDeleted: true,
+    immutable: ["contractId"],
+    properties: {
+      contractId: {
+        ...IDENTIFIER,
+        position: 0,
+        refersTo: {
+          type: "contract",
+          contractRequirements: { owner: "other" },
+        },
       },
       stars: { type: "integer", minimum: 1, maximum: 5, position: 1 },
       title: { type: "string", maxLength: 120, position: 2 },
@@ -138,17 +202,35 @@ export const APP_METADATA_SCHEMAS = {
         properties: [{ $ownerId: "asc" }, { contractId: "asc" }],
       },
       {
-        // Grouped count (GROUP BY stars) for the histogram, total and derived
-        // average; `stars == N` filter; highest/lowest ordering. Count-only:
-        // no `summable`, so no shared-prefix aggregation conflict (#3960).
-        name: "byContractStars",
+        name: "ownerRecent",
+        properties: [{ $ownerId: "asc" }, { $updatedAt: "asc" }],
+      },
+      {
+        name: "contractRating",
+        properties: [{ contractId: "asc" }],
+        averageable: "stars",
+        rangeAverageable: true,
+        rankedAverageable: true,
+        rankedCountable: true,
+      },
+      {
+        // Must stay unranked: its prefix ends the averageable contractRating.
+        name: "contractStars",
         properties: [{ contractId: "asc" }, { stars: "asc" }],
         countable: "countable",
         rangeCountable: true,
       },
       {
-        name: "byContractCreated",
-        properties: [{ contractId: "asc" }, { $createdAt: "asc" }],
+        name: "contractRecent",
+        properties: [{ contractId: "asc" }, { $updatedAt: "asc" }],
+      },
+      {
+        name: "contractStarsRecent",
+        properties: [
+          { contractId: "asc" },
+          { stars: "asc" },
+          { $updatedAt: "asc" },
+        ],
       },
     ],
   },
@@ -161,10 +243,52 @@ export const CONTRACT_CONFIG = {
   documentsMutableContractDefault: true,
   documentsCanBeDeletedContractDefault: true,
 };
+// No keywords: each costs 0.1 DASH at registration.
 export const DECLARED_METADATA = {
   description: "Community metadata registry for Dash Platform applications",
-  keywords: ["registry", "apps", "dapps"],
 };
+
+export const REGISTRY_MIN_PROTOCOL_VERSION = 14;
+
+type DataContractClass = Awaited<
+  ReturnType<typeof loadSdkModule>
+>["DataContract"];
+type DataContractInstance = InstanceType<DataContractClass>;
+
+export function buildRegistryContract(
+  DataContract: DataContractClass,
+  {
+    ownerId,
+    identityNonce,
+    platformVersion,
+  }: {
+    ownerId: ConstructorParameters<DataContractClass>[0]["ownerId"];
+    identityNonce: bigint;
+    platformVersion: number;
+  },
+): DataContractInstance {
+  if (platformVersion < REGISTRY_MIN_PROTOCOL_VERSION)
+    throw new Error(
+      `The registry contract needs platform protocol ${REGISTRY_MIN_PROTOCOL_VERSION}; the SDK is on ${platformVersion}.`,
+    );
+  const draft = new DataContract({
+    ownerId,
+    identityNonce,
+    schemas: APP_METADATA_SCHEMAS,
+    fullValidation: true,
+    platformVersion,
+  });
+  draft.setConfig(CONTRACT_CONFIG, platformVersion);
+  return DataContract.fromObject(
+    {
+      ...draft.toObject(platformVersion),
+      ...DECLARED_METADATA,
+      $formatVersion: "1",
+    },
+    true,
+    platformVersion,
+  );
+}
 
 export async function registerContract({
   sdk,
@@ -187,24 +311,11 @@ export async function registerContract({
     );
   const nonce = await sdk.identities.nonce(identity.id.toString());
   const { DataContract } = await loadSdkModule();
-  const candidate = new DataContract({
+  const dataContract = buildRegistryContract(DataContract, {
     ownerId: identity.id,
     identityNonce: BigInt(nonce ?? 0) + 1n,
-    schemas: APP_METADATA_SCHEMAS,
-    fullValidation: true,
+    platformVersion: sdk.version(),
   });
-  (
-    candidate as unknown as { setConfig(config: Record<string, unknown>): void }
-  ).setConfig(CONTRACT_CONFIG);
-  const dataContract = DataContract.fromObject(
-    {
-      ...candidate.toObject(sdk.version()),
-      ...DECLARED_METADATA,
-      $formatVersion: "1",
-    },
-    true,
-    sdk.version(),
-  );
   const published = await sdk.contracts.publish({
     dataContract,
     identityKey,
