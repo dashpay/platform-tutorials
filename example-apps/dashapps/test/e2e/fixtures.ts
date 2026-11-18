@@ -1,0 +1,181 @@
+import { EvoSDK } from "@dashevo/evo-sdk";
+import {
+  expect,
+  test as base,
+  type ConsoleMessage,
+  type Locator,
+  type Page,
+} from "@playwright/test";
+import { DEFAULT_CONTRACT_IDS } from "../../src/dash/contractStore";
+
+// Shared helpers for the interaction specs. Every test fails on a console
+// error or an uncaught page error.
+
+export const LOAD_TIMEOUT = 60_000;
+export const REGISTRY_ID = DEFAULT_CONTRACT_IDS.testnet;
+
+// A testnet node refusing or dropping a connection: the SDK moves on to
+// another node, and a read that still fails shows up in the UI instead.
+function benign(message: ConsoleMessage) {
+  const { url } = message.location();
+  return (
+    /^Failed to load resource: net::ERR_/.test(message.text()) &&
+    URL.canParse(url) &&
+    new URL(url).hostname !== "localhost"
+  );
+}
+
+export const test = base.extend<{ pageErrors: string[] }>({
+  pageErrors: [
+    async ({ page }, provide) => {
+      const errors: string[] = [];
+      page.on("console", (message) => {
+        if (message.type() === "error" && !benign(message))
+          errors.push(message.text());
+      });
+      page.on("pageerror", (error) => errors.push(error.message));
+      await provide(errors);
+      expect(errors, "console and page errors").toEqual([]);
+    },
+    { auto: true },
+  ],
+});
+
+export { expect };
+
+/** Waits for the app's own connection status, read-only or signed in. */
+export async function connected(page: Page) {
+  await expect(page.getByText(/^Connected · /)).toBeAttached({
+    timeout: LOAD_TIMEOUT,
+  });
+}
+
+export async function gotoDiscover(page: Page) {
+  await page.goto("/");
+  await expect(
+    page.getByRole("heading", { name: "Built on Dash Platform" }),
+  ).toBeVisible();
+  await connected(page);
+}
+
+/** Discover's feed rows once the first page has loaded; skips when empty. */
+export async function loadedListings(page: Page) {
+  await gotoDiscover(page);
+  const entries = page.locator(".registry-panel article.registry-entry");
+  const found = await entries
+    .first()
+    .waitFor({ timeout: LOAD_TIMEOUT })
+    .then(
+      () => true,
+      () => false,
+    );
+  test.skip(!found, "No listings on the registry.");
+  await expect(page.locator(".registry-panel > p[role=status]")).toHaveCount(
+    0,
+    { timeout: LOAD_TIMEOUT },
+  );
+  return entries;
+}
+
+/** A listing's name, without the badges and rating beside it. */
+export async function entryName(entry: Locator) {
+  return (await entry.locator(".entry-title").textContent())!.trim();
+}
+
+export async function nav(page: Page, name: string) {
+  const button = page
+    .getByRole("navigation", { name: "App navigation" })
+    .getByRole("button", { name, exact: true });
+  await button.click();
+  await expect(button).toHaveAttribute("aria-pressed", "true");
+}
+
+/** Opens a contract from Search; `reload: false` keeps the session. */
+export async function openContract(
+  page: Page,
+  contractId: string,
+  { reload = true } = {},
+) {
+  if (reload) await gotoDiscover(page);
+  await nav(page, "Search");
+  await page.getByLabel("Open a contract").fill(contractId);
+  const open = page.getByRole("button", { name: "Open", exact: true });
+  await expect(open).toBeEnabled({ timeout: LOAD_TIMEOUT });
+  await open.click();
+  await expect(page.locator(".detail-page")).toBeVisible();
+}
+
+/** The detail page once its contract, listings and ratings have loaded. */
+export async function detailLoaded(page: Page) {
+  await expect(page.locator(".technical-details")).toBeVisible({
+    timeout: LOAD_TIMEOUT,
+  });
+  await expect(page.locator('[aria-busy="true"]')).toHaveCount(0, {
+    timeout: LOAD_TIMEOUT,
+  });
+  await expect(
+    page
+      .getByRole("region", { name: "Ratings and reviews" })
+      .locator(".rating-average small"),
+  ).toHaveText(/^(\d+ ratings?|No ratings yet)$/, { timeout: LOAD_TIMEOUT });
+}
+
+export async function expectNoHorizontalOverflow(page: Page) {
+  await expect
+    .poll(() =>
+      page.evaluate(() => document.documentElement.scrollWidth <= innerWidth),
+    )
+    .toBe(true);
+}
+
+let sdk: Promise<EvoSDK> | undefined;
+function testnet() {
+  sdk ??= (async () => {
+    const client = EvoSDK.testnetTrusted();
+    await client.connect();
+    return client;
+  })();
+  return sdk;
+}
+
+type Json = Record<string, unknown>;
+
+async function documents(documentTypeName: string, limit = 100) {
+  const client = await testnet();
+  const result = await client.documents.query({
+    dataContractId: REGISTRY_ID,
+    documentTypeName,
+    limit,
+  });
+  return [...result.values()].map(
+    (document) => (document?.toJSON(client.version()) ?? {}) as Json,
+  );
+}
+
+/** The name of the newest listing, if the registry has one. */
+export async function listedName() {
+  const [entry] = await documents("appMetadata", 1);
+  return typeof entry?.name === "string" ? entry.name : undefined;
+}
+
+/** A contract with at least `min` listings, if the registry has one. */
+export async function contractWithListings(min: number) {
+  const counts = new Map<string, number>();
+  for (const { contractId } of await documents("appMetadata"))
+    if (typeof contractId === "string")
+      counts.set(contractId, (counts.get(contractId) ?? 0) + 1);
+  return [...counts].find(([, count]) => count >= min)?.[0];
+}
+
+/** Review counts per contract, from up to 100 reviews. */
+export async function reviewCounts() {
+  const counts = new Map<string, { total: number; written: number }>();
+  for (const { contractId, body } of await documents("appReview")) {
+    if (typeof contractId !== "string") continue;
+    const count = counts.get(contractId) ?? { total: 0, written: 0 };
+    count.total++;
+    if (typeof body === "string" && body) count.written++;
+    counts.set(contractId, count);
+  }
+  return counts;
+}
