@@ -18,12 +18,14 @@ export default defineConfig({
     trace: "retain-on-failure",
   },
 
-  // Keep one browser project. Focused tests resize its viewport for the
-  // responsive rules; this is not a full mobile browser/device matrix.
   projects: [
     {
       name: "chromium-desktop",
       use: { ...devices["Desktop Chrome"] },
+    },
+    {
+      name: "chromium-mobile",
+      use: { ...devices["Pixel 7"] },
     },
   ],
 

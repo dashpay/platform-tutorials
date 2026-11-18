@@ -1,5 +1,5 @@
 import { expect, test } from "@playwright/test";
-test("read-only discovery boots and remains usable on mobile", async ({
+test("read-only discovery boots without horizontal overflow", async ({
   page,
 }) => {
   const errors: string[] = [];
@@ -12,7 +12,6 @@ test("read-only discovery boots and remains usable on mobile", async ({
   await page.getByRole("button", { name: "Search", exact: true }).click();
   await expect(page.getByLabel("Discover by keyword")).toBeVisible();
   await expect(page.getByLabel("Open a contract")).toBeVisible();
-  await page.setViewportSize({ width: 390, height: 844 });
   expect(
     await page.evaluate(
       () => document.documentElement.scrollWidth <= innerWidth,
