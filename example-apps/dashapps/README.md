@@ -34,7 +34,9 @@ Anyone may publish metadata describing any contract, one entry per identity per 
 
 Discovery covers recent entries, name-prefix search, category browsing, keyword search, every entry for a given contract, and a signed-in user's own submissions, each paged by the network. Signed-in testnet users can submit, edit, and withdraw their metadata.
 
-Each app also carries community reviews: one 1–5 star rating per identity per contract, with an optional title and body; a contract's owner can't review it. An app's page shows the proven average, a per-star histogram from one grouped `count`, and reviews the network serves already ordered — newest first, highest or lowest rated, or one star value — a page at a time. Signed-in testnet users can add, edit, or remove their own review. The data layer also ranks contracts by average and by count, and finds up to 100 contracts averaging 4★ or more.
+Each app also carries community reviews: one 1–5 star rating per identity per contract, with an optional title and body; a contract's owner can't review it. An app's page shows the proven average, a per-star histogram from one grouped `count`, and reviews the network serves already ordered — newest first, highest or lowest rated, or one star value — a page at a time. Signed-in testnet users can add, edit, or remove their own review.
+
+Discover lists the latest entries with an Official or Community badge and each app's average and review count, with an "Official only" switch (newest endorsements first) and a 4★+ filter (up to 100 contracts from one `having` query). A leaderboard ranks apps by average and by number of reviews; equal scores share a rank. A contract's owner sees which listing is official on its page and can mark any listed entry official, re-point, or withdraw the endorsement; after listing their own contract, the app offers the endorsement as a second step. My submissions also lists the contracts you've endorsed.
 
 Registry entries carry a category, tags, tagline, app launch URL, and icon URL. External icon URLs are not rendered — displaying arbitrary remote images needs a same-origin sanitizing proxy that this app does not ship.
 
