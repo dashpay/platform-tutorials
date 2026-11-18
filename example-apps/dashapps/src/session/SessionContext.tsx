@@ -205,8 +205,10 @@ export function SessionProvider({ children }: { children: ReactNode }) {
     setState((previous) => ({ ...previous, balance }));
   }
   function setRegistryId(input: string) {
-    const id = input.trim();
-    if (id) requireId(id);
+    const typed = input.trim();
+    if (typed) requireId(typed);
+    // Saving the default stores no override, so a later default still applies.
+    const id = typed === DEFAULT_CONTRACT_IDS[network] ? "" : typed;
     const persisted = saveContractId(network, id);
     const selected = id || DEFAULT_CONTRACT_IDS[network];
     if (selected !== registries[network]) {

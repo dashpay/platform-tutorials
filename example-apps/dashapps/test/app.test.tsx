@@ -11,6 +11,7 @@ import {
 import { afterEach, beforeEach, expect, it, vi } from "vitest";
 import App from "../src/App";
 import { loadSdkCore } from "../src/dash/sdkCore";
+import { DEFAULT_CONTRACT_IDS } from "../src/dash/contractStore";
 import { contract, deferred, id, sdk } from "./helpers";
 import type { ContractHandle } from "../src/dash/types";
 import { ContractSummaryStore } from "../src/dash/contractSummaryStore";
@@ -339,6 +340,33 @@ it("validates and saves Settings without carrying pending discovery results", as
     pending.resolve(new Map([[id(2), contract()]]));
   });
   expect(screen.queryByText("Example contract")).toBeNull();
+});
+
+it("saving the default registry stores no override", async () => {
+  localStorage.setItem("dashapps.contractId.testnet", id(7));
+  const client = connect();
+  vi.mocked(client.contracts.getMany).mockResolvedValue(
+    new Map([
+      [
+        id(7),
+        {
+          ...contract(),
+          schemas: { appMetadata: {}, appEndorsement: {}, appReview: {} },
+        },
+      ],
+    ]),
+  );
+  render(<App />);
+  await ready();
+  fireEvent.click(screen.getByRole("button", { name: "Settings" }));
+  fireEvent.click(screen.getByRole("button", { name: "Change" }));
+  fireEvent.change(screen.getByLabelText("Registry contract ID"), {
+    target: { value: DEFAULT_CONTRACT_IDS.testnet },
+  });
+  fireEvent.click(screen.getByRole("button", { name: "Save registry" }));
+  await screen.findByText("Registry selection saved.");
+  expect(localStorage.getItem("dashapps.contractId.testnet")).toBeNull();
+  expect(screen.getByText(DEFAULT_CONTRACT_IDS.testnet)).toBeTruthy();
 });
 
 it("shows the rating summary in the hero and the ratings section on an app page", async () => {

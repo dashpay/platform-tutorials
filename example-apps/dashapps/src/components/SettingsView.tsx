@@ -95,9 +95,11 @@ export function SettingsView() {
             )}
           </div>
           {editing ? (
-            <button type="submit">Save registry</button>
+            <button key="save" type="submit">
+              Save registry
+            </button>
           ) : (
-            <button type="button" onClick={() => setEditing(true)}>
+            <button key="change" type="button" onClick={() => setEditing(true)}>
               {session.registryId ? "Change" : "Set"}
             </button>
           )}

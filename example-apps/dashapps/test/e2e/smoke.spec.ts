@@ -19,3 +19,16 @@ test("read-only discovery boots without horizontal overflow", async ({
   ).toBe(true);
   expect(errors).toEqual([]);
 });
+
+test("Settings opens the registry editor without saving", async ({ page }) => {
+  await page.goto("/");
+  await page.getByRole("button", { name: "Settings" }).click();
+  await page.getByRole("button", { name: "Change" }).click();
+  await expect(page.getByLabel("Registry contract ID")).toBeVisible();
+  await expect(page.getByText("Registry selection saved.")).toHaveCount(0);
+  expect(
+    await page.evaluate(() =>
+      localStorage.getItem("dashapps.contractId.testnet"),
+    ),
+  ).toBeNull();
+});
