@@ -34,7 +34,7 @@ Anyone may publish metadata describing any contract, so the app distinguishes tw
 
 Discovery covers recent entries, name-prefix search, category browsing, keyword search, every proposal for a given contract, and a signed-in user's own submissions. Signed-in testnet users can submit, edit, and withdraw their metadata.
 
-Each app also carries community ratings: one 1–5 star rating per identity per contract, with an optional title and review body. An app's page shows the average, a per-star histogram built from a single grouped provable `count`, and sortable, filterable reviews. Signed-in testnet users can add, edit, or remove their own rating.
+Each app also carries community ratings: one 1–5 star rating per identity per contract, with an optional title and review body. An app's page shows the average, a per-star histogram built from a single grouped provable `count`, and reviews the network serves already ordered — newest first, highest or lowest rated, or one star value — a page at a time. Signed-in testnet users can add, edit, or remove their own rating.
 
 Registry entries carry a category, tags, tagline, app launch URL, and icon URL. External icon URLs are not rendered — displaying arbitrary remote images needs a same-origin sanitizing proxy that this app does not ship.
 
@@ -48,7 +48,7 @@ The registry schema lives in [`src/dash/contract.ts`](src/dash/contract.ts) and 
 
 `appMetadata` describes one app: a target `contractId`, a required `name`, `tagline`, and `category` (a 16-value enum), plus an optional description, up to five kebab-case tags, and website, repository, docs, app, and icon URLs. Its indices back the read paths directly — a unique `$ownerId + contractId` index enforces one entry per identity per app, with separate indices for a contract's entries, name-prefix search, the recent feed, and category browsing.
 
-`appRating` holds one rating: the target `contractId`, a required integer `stars` (1–5), and an optional title and body. A unique `$ownerId + contractId` index enforces one rating per identity per app. The `contractId + stars` index is `countable` plus `rangeCountable`, which backs the histogram, the total, the `stars == N` filter, and star ordering; a `contractId + $createdAt` index backs recency.
+`appRating` holds one rating: the target `contractId`, a required integer `stars` (1–5), and an optional title and body. A unique `$ownerId + contractId` index enforces one rating per identity per app. The `contractId + stars` index is `countable` plus `rangeCountable`, which backs the histogram, the total, the `stars == N` filter, and Highest/Lowest; a `contractId + $createdAt` index backs "Most recent". The network serves both orders a page at a time; the app never re-sorts a page.
 
 Neither rating index is `summable` — the average is derived in JS from the grouped distribution count rather than from a separate `sum`/`average` query.
 
@@ -91,7 +91,7 @@ The `@dashevo/evo-sdk` browser bundle is roughly 8 MB, so it is never imported a
 
 [`test/`](test/) uses Vitest + Testing Library, flat and named by subject. The default Vitest environment is Node; component tests opt into jsdom per file with `// @vitest-environment jsdom`. Unit and component tests use mocked SDK responses, covering errors and stale requests as well as success. Run with `npm run test`.
 
-[`test/e2e/`](test/e2e/) holds a Playwright suite that runs against real testnet with no mocks, auto-starting Vite on port 5187. The specs are read-only shell smoke tests — they assert rendering, not live registry data. Run with `npm run test:e2e`, or `npm run test:e2e:ui` for the interactive runner.
+[`test/e2e/`](test/e2e/) holds a Playwright suite that runs against real testnet with no mocks, auto-starting Vite on port 5187. The specs are read-only: a shell smoke test, and a ratings spec that checks invariants that hold for any live data (reviews newest first; the histogram total equals the reviews listed). Run with `npm run test:e2e`, or `npm run test:e2e:ui` for the interactive runner.
 
 ## Deploying to GitHub Pages
 
