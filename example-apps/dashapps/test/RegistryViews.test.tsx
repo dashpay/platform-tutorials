@@ -1,23 +1,32 @@
 // @vitest-environment jsdom
-import { cleanup, fireEvent, render, screen } from "@testing-library/react";
+import {
+  act,
+  cleanup,
+  fireEvent,
+  render,
+  screen,
+} from "@testing-library/react";
 import { afterEach, expect, it, vi } from "vitest";
 import {
+  CategoryBrowser,
   ContractRegistry,
   RegistryExplorer,
 } from "../src/components/RegistryViews";
 import { useSession } from "../src/session/useSession";
 import {
   allProposals,
+  entriesByCategory,
   exactRegistryEntry,
   myEntries,
   recentEntries,
 } from "../src/dash/registryReads";
-import { id } from "./helpers";
+import { deferred, id } from "./helpers";
 
 vi.mock("../src/session/useSession", () => ({ useSession: vi.fn() }));
 vi.mock("../src/dash/registryReads", () => ({
   APP_CATEGORIES: ["other"],
   allProposals: vi.fn(),
+  entriesByCategory: vi.fn(),
   exactRegistryEntry: vi.fn(),
   myEntries: vi.fn(),
   recentEntries: vi.fn(),
@@ -216,4 +225,70 @@ it("edits the signed-in user's proposal from a canonical Discover card", async (
     screen.getByRole("dialog", { name: "Edit your submission" }),
   ).toBeTruthy();
   expect(screen.getByDisplayValue("My proposed name")).toBeTruthy();
+});
+
+function categoryEntry(n: number, contract = n) {
+  return {
+    id: id(n),
+    ownerId: id(1),
+    contractId: id(100 + contract),
+    name: `App ${n}`,
+    tagline: `Tagline ${n}`,
+    category: "games" as const,
+    tags: [],
+    createdAt: BigInt(n),
+    revision: 1n,
+  };
+}
+
+it("pages a category from the server and keeps its order", async () => {
+  vi.mocked(useSession).mockReturnValue({
+    network: "testnet",
+    connection: {
+      sdk: {},
+      names: { resolve: vi.fn(async () => null) },
+      resolver: {
+        summaryMany: vi.fn(() => new Map()),
+        resolve: vi.fn(async () => new Map()),
+      },
+    },
+    registryId: id(3),
+    identityId: id(1),
+    keyManager: {},
+  } as never);
+  const second = deferred<Awaited<ReturnType<typeof entriesByCategory>>>();
+  // Server order (not createdAt order) must be kept: 40, 52, then 17, 23.
+  vi.mocked(entriesByCategory)
+    .mockResolvedValueOnce({
+      entries: [categoryEntry(40), categoryEntry(52)],
+      cursor: id(52),
+    })
+    .mockReturnValueOnce(second.promise);
+  render(<CategoryBrowser category="games" open={vi.fn()} onBack={vi.fn()} />);
+  await screen.findByText("App 52");
+  expect(screen.getByText("2+ apps in this category")).toBeTruthy();
+  expect(entriesByCategory).toHaveBeenCalledWith({}, id(3), "games");
+  fireEvent.click(screen.getByRole("button", { name: "Load more" }));
+  expect(entriesByCategory).toHaveBeenLastCalledWith(
+    {},
+    id(3),
+    "games",
+    id(52),
+  );
+  expect(
+    (screen.getByRole("button", { name: "Loading…" }) as HTMLButtonElement)
+      .disabled,
+  ).toBe(true);
+  await act(async () => {
+    second.resolve({
+      // App 52 overlaps; 17 shares App 40's target and collapses into it.
+      entries: [categoryEntry(52), categoryEntry(17, 40), categoryEntry(23)],
+      cursor: undefined,
+    });
+  });
+  expect(
+    screen.getAllByText(/^App \d+$/).map((node) => node.textContent),
+  ).toEqual(["App 40", "App 52", "App 23"]);
+  expect(screen.getByText("3 apps in this category")).toBeTruthy();
+  expect(screen.queryByRole("button", { name: "Load more" })).toBeNull();
 });

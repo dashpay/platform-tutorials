@@ -1,6 +1,7 @@
 import { expect, it, vi } from "vitest";
 import {
   allProposals,
+  entriesByCategory,
   exactRegistryEntry,
   myEntries,
   recentEntries,
@@ -118,6 +119,87 @@ it("skips malformed registry documents without losing valid entries or paginatio
   expect(recent.entries).toHaveLength(48);
   expect(recent.entries.map((entry) => entry.id)).not.toContain(id(34));
   expect(recent.cursor).toBe(id(59));
+});
+
+it("pages a category newest first with limit + 1 and a document-ID cursor", async () => {
+  const client = sdk();
+  // An order no local sort produces; the page must come back as given.
+  vi.mocked(client.documents.query)
+    .mockResolvedValueOnce([document(40), document(52), document(17)])
+    .mockResolvedValueOnce([document(23)]);
+  const first = await entriesByCategory(
+    client,
+    id(9),
+    "developer-tools",
+    undefined,
+    2,
+  );
+  expect(first.entries.map((entry) => entry.id)).toEqual([id(40), id(52)]);
+  expect(first.cursor).toBe(id(52));
+  const second = await entriesByCategory(
+    client,
+    id(9),
+    "developer-tools",
+    first.cursor,
+    2,
+  );
+  expect(second.entries.map((entry) => entry.id)).toEqual([id(23)]);
+  expect(second.cursor).toBeUndefined();
+  expect(vi.mocked(client.documents.query).mock.calls.map(([a]) => a)).toEqual([
+    {
+      dataContractId: id(9),
+      documentTypeName: "appMetadata",
+      where: [["category", "==", "developer-tools"]],
+      orderBy: [["$createdAt", "desc"]],
+      limit: 3,
+    },
+    {
+      dataContractId: id(9),
+      documentTypeName: "appMetadata",
+      where: [["category", "==", "developer-tools"]],
+      orderBy: [["$createdAt", "desc"]],
+      limit: 3,
+      startAfter: id(52),
+    },
+  ]);
+});
+
+it("defaults category pages to 25 and rejects a stuck cursor", async () => {
+  const client = sdk();
+  vi.mocked(client.documents.query).mockResolvedValueOnce(
+    Array.from({ length: 26 }, (_, index) => document(index + 10)),
+  );
+  const page = await entriesByCategory(client, id(9), "games");
+  expect(page.entries).toHaveLength(25);
+  expect(page.cursor).toBe(id(34));
+  expect(client.documents.query).toHaveBeenCalledWith(
+    expect.objectContaining({ limit: 26 }),
+  );
+  vi.mocked(client.documents.query).mockResolvedValueOnce([
+    document(30),
+    document(31),
+  ]);
+  await expect(
+    entriesByCategory(client, id(9), "games", id(30), 1),
+  ).rejects.toThrow("did not advance");
+});
+
+it("reads proposals newest first from the server and keeps its order", async () => {
+  const client = sdk();
+  vi.mocked(client.documents.query).mockResolvedValueOnce([
+    document(7),
+    document(30),
+    document(12),
+  ]);
+  const proposals = await allProposals(client, id(9), id(2));
+  expect(proposals.map((entry) => entry.id)).toEqual([id(7), id(30), id(12)]);
+  expect(client.documents.query).toHaveBeenCalledWith({
+    dataContractId: id(9),
+    documentTypeName: "appMetadata",
+    where: [["contractId", "==", id(2)]],
+    orderBy: [["$createdAt", "desc"]],
+    limit: 100,
+  });
 });
 
 it("scans proposals and personal submissions to completion", async () => {

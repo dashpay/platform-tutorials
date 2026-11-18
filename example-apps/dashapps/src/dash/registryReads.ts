@@ -101,34 +101,41 @@ export function registryEntry(document: DocumentHandle): RegistryEntry {
   };
 }
 
+export const CATEGORY_PAGE_SIZE = 25;
+
 export async function entriesByCategory(
   sdk: ReadSdk,
   registryId: string,
   category: AppCategory,
   cursor?: string,
+  limit = CATEGORY_PAGE_SIZE,
 ) {
-  const page = await query(sdk, {
-    dataContractId: requireId(registryId),
-    documentTypeName: REGISTRY_DOCUMENT_TYPE,
-    where: [["category", "==", category]],
-    orderBy: [
-      ["category", "asc"],
-      ["$createdAt", "asc"],
-    ],
-    limit: 25,
-    ...(cursor ? { startAfter: requireId(cursor) } : {}),
-  });
-  const next = page.rowCount === 25 ? page.lastId : undefined;
-  if (next && next === cursor)
+  const startAfter = cursor ? requireId(cursor) : undefined;
+  const page = await query(
+    sdk,
+    {
+      dataContractId: requireId(registryId),
+      documentTypeName: REGISTRY_DOCUMENT_TYPE,
+      where: [["category", "==", category]],
+      orderBy: [["$createdAt", "desc"]],
+      limit: limit + 1,
+      ...(startAfter ? { startAfter } : {}),
+    },
+    limit,
+  );
+  const next = page.rowCount > limit ? page.lastId : undefined;
+  if (next && next === startAfter)
     throw new Error("Category pagination cursor did not advance.");
-  return { entries: page.entries.reverse(), cursor: next };
+  return { entries: page.entries, cursor: next };
 }
 
 async function query(
   sdk: ReadSdk,
   args: Parameters<ReadSdk["documents"]["query"]>[0],
+  shown?: number,
 ) {
-  const documents = toDocumentArray(await sdk.documents.query(args));
+  const returned = toDocumentArray(await sdk.documents.query(args));
+  const documents = shown === undefined ? returned : returned.slice(0, shown);
   const entries = documents.flatMap((document) => {
     try {
       return [registryEntry(document)];
@@ -145,7 +152,7 @@ async function query(
     )?.toObject?.() ?? {};
   return {
     entries,
-    rowCount: documents.length,
+    rowCount: returned.length,
     lastId: last ? requireId(last.id ?? lastObject.$id) : undefined,
   };
 }
@@ -185,10 +192,7 @@ export async function allProposals(
       dataContractId: requireId(registryId),
       documentTypeName: REGISTRY_DOCUMENT_TYPE,
       where: [["contractId", "==", requireId(contractId)]],
-      orderBy: [
-        ["contractId", "asc"],
-        ["$createdAt", "asc"],
-      ],
+      orderBy: [["$createdAt", "desc"]],
       limit: 100,
       ...(startAfter ? { startAfter } : {}),
     });
@@ -202,7 +206,7 @@ export async function allProposals(
           "Proposal scan exceeded the 2,000-document safety limit.",
         );
     }
-    if (page.rowCount < 100) return entries.reverse();
+    if (page.rowCount < 100) return entries;
     const next = page.lastId!;
     if (next === startAfter)
       throw new Error("Proposal pagination cursor did not advance.");

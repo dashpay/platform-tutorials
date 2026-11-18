@@ -16,6 +16,7 @@ import {
   ownRating,
   ratingSummary,
   summarize,
+  type RatingPage,
   type RatingRecord,
 } from "../src/dash/ratingReads";
 import { removeRating, saveRating } from "../src/dash/ratingWrites";
@@ -53,6 +54,9 @@ function rating(n: number, stars = 5, owner = 7): RatingRecord {
     revision: 1n,
   };
 }
+function page(ratings: RatingRecord[], cursor?: string): RatingPage {
+  return { ratings, cursor };
+}
 function session(overrides: Record<string, unknown> = {}) {
   vi.mocked(useSession).mockReturnValue({
     network: "testnet",
@@ -72,7 +76,7 @@ function signedIn(own: RatingRecord | null = null) {
 it("renders the average, histogram and list, and reports the summary upward", async () => {
   session();
   vi.mocked(ratingSummary).mockResolvedValue(summary);
-  vi.mocked(listRatings).mockResolvedValue([rating(1), rating(2, 3)]);
+  vi.mocked(listRatings).mockResolvedValue(page([rating(1), rating(2, 3)]));
   const onSummary = vi.fn();
   render(<AppRatings contractId={id(2)} onSummary={onSummary} />);
   await screen.findByText("4.4");
@@ -103,7 +107,7 @@ it("renders the average, histogram and list, and reports the summary upward", as
 it("shows the empty state and keeps the list when the summary fails", async () => {
   session();
   vi.mocked(ratingSummary).mockRejectedValue(new Error("count unavailable"));
-  vi.mocked(listRatings).mockResolvedValue([]);
+  vi.mocked(listRatings).mockResolvedValue(page([]));
   const onSummary = vi.fn();
   render(<AppRatings contractId={id(2)} onSummary={onSummary} />);
   await screen.findByText(/count unavailable/);
@@ -120,7 +124,7 @@ it("shows the empty state and keeps the list when the summary fails", async () =
 it("filters by star from the histogram and sorts with the chips", async () => {
   session();
   vi.mocked(ratingSummary).mockResolvedValue(summary);
-  vi.mocked(listRatings).mockResolvedValue([]);
+  vi.mocked(listRatings).mockResolvedValue(page([]));
   render(<AppRatings contractId={id(2)} />);
   await screen.findByText("4.4");
   fireEvent.click(screen.getByRole("button", { name: "5 stars: 16" }));
@@ -149,29 +153,79 @@ it("filters by star from the histogram and sorts with the chips", async () => {
   );
 });
 
-it("hides ratings without text when Written only is on and reveals 25 at a time", async () => {
+it("loads the next server page with the cursor and hides unwritten ratings on request", async () => {
   session();
   vi.mocked(ratingSummary).mockResolvedValue(summary);
-  vi.mocked(listRatings).mockResolvedValue(
-    Array.from({ length: 30 }, (_, index) => rating(index + 1)),
-  );
+  const second = deferred<RatingPage>();
+  vi.mocked(listRatings)
+    .mockResolvedValueOnce(page([rating(1), rating(2)], id(2)))
+    .mockReturnValueOnce(second.promise);
   render(<AppRatings contractId={id(2)} />);
   await screen.findByText("Title 2");
-  expect(screen.getByText("Title 25")).toBeTruthy();
-  expect(screen.queryByText("Title 26")).toBeNull();
-  fireEvent.click(screen.getByRole("button", { name: /Show more/ }));
-  expect(screen.getByText("Title 30")).toBeTruthy();
-  expect(screen.queryByRole("button", { name: /Show more/ })).toBeNull();
+  fireEvent.click(screen.getByRole("button", { name: "Load more" }));
+  expect(listRatings).toHaveBeenLastCalledWith({}, id(3), id(2), {
+    sort: "recent",
+    stars: undefined,
+    cursor: id(2),
+  });
+  const loading = screen.getByRole("button", {
+    name: "Loading…",
+  }) as HTMLButtonElement;
+  expect(loading.disabled).toBe(true);
+  await act(async () => {
+    // A row already shown (edited between pages) is not duplicated.
+    second.resolve(page([rating(2), rating(3), rating(4)]));
+  });
+  // Appended in server order after the first page; no further page.
+  expect(
+    screen.getAllByText(/^Title \d+$/).map((node) => node.textContent),
+  ).toEqual(["Title 1", "Title 2", "Title 3", "Title 4"]);
+  expect(screen.queryByRole("button", { name: "Load more" })).toBeNull();
   fireEvent.click(screen.getByRole("button", { name: "Written only" }));
   expect(screen.queryByText("Title 2")).toBeNull();
+  expect(screen.getByText("Title 3")).toBeTruthy();
+  expect(listRatings).toHaveBeenCalledTimes(2);
+});
+
+it("keeps the loaded ratings and reports a failed Load more", async () => {
+  session();
+  vi.mocked(ratingSummary).mockResolvedValue(summary);
+  vi.mocked(listRatings)
+    .mockResolvedValueOnce(page([rating(1)], id(1)))
+    .mockRejectedValueOnce(new Error("node timeout"));
+  render(<AppRatings contractId={id(2)} />);
+  fireEvent.click(await screen.findByRole("button", { name: "Load more" }));
+  await screen.findByText("Could not load more ratings: node timeout");
   expect(screen.getByText("Title 1")).toBeTruthy();
-  expect(listRatings).toHaveBeenCalledTimes(1);
+  expect(
+    (screen.getByRole("button", { name: "Load more" }) as HTMLButtonElement)
+      .disabled,
+  ).toBe(false);
+});
+
+it("drops a Load more response that lands after the sort changed", async () => {
+  session();
+  vi.mocked(ratingSummary).mockResolvedValue(summary);
+  const late = deferred<RatingPage>();
+  vi.mocked(listRatings)
+    .mockResolvedValueOnce(page([rating(1)], id(1)))
+    .mockReturnValueOnce(late.promise)
+    .mockResolvedValueOnce(page([rating(5, 1)]));
+  render(<AppRatings contractId={id(2)} />);
+  fireEvent.click(await screen.findByRole("button", { name: "Load more" }));
+  fireEvent.click(screen.getByRole("button", { name: "Lowest rated" }));
+  await screen.findByText("Title 5");
+  await act(async () => {
+    late.resolve(page([rating(3)]));
+  });
+  expect(screen.queryByText("Title 3")).toBeNull();
+  expect(screen.queryByText("Title 1")).toBeNull();
 });
 
 it("lets a signed-in user pick stars, write a review and save it", async () => {
   signedIn(null);
   vi.mocked(ratingSummary).mockResolvedValue(summary);
-  vi.mocked(listRatings).mockResolvedValue([]);
+  vi.mocked(listRatings).mockResolvedValue(page([]));
   vi.mocked(saveRating).mockResolvedValue("created");
   render(<AppRatings contractId={id(2)} />);
   await screen.findByText("Used this app?");
@@ -216,7 +270,7 @@ it("shows the user's existing rating and lets them remove it", async () => {
   const own = rating(9, 3, 1);
   signedIn(own);
   vi.mocked(ratingSummary).mockResolvedValue(summary);
-  vi.mocked(listRatings).mockResolvedValue([rating(1), own]);
+  vi.mocked(listRatings).mockResolvedValue(page([rating(1), own]));
   vi.mocked(removeRating).mockResolvedValue(undefined);
   render(<AppRatings contractId={id(2)} />);
   await waitFor(() =>
@@ -239,10 +293,50 @@ it("shows the user's existing rating and lets them remove it", async () => {
   );
 });
 
+it("locks the editor while ratings reload after a save", async () => {
+  const own = rating(9, 3, 1);
+  signedIn(own);
+  vi.mocked(ratingSummary).mockResolvedValue(summary);
+  vi.mocked(listRatings).mockResolvedValue(page([own]));
+  vi.mocked(saveRating).mockResolvedValue("updated");
+  render(<AppRatings contractId={id(2)} />);
+  fireEvent.click(await screen.findByRole("button", { name: "Edit review" }));
+  const dialog = await screen.findByRole("dialog", {
+    name: "Edit your review",
+  });
+  const reloaded = deferred<RatingRecord | null>();
+  const saved = { ...own, stars: 4 as const, title: "Saved", revision: 2n };
+  vi.mocked(ownRating).mockReturnValueOnce(reloaded.promise);
+  fireEvent.click(within(dialog).getByRole("button", { name: "Save changes" }));
+  await screen.findByText("Rating updated.");
+  // Until the saved rating is re-read, nothing can open the editor.
+  const edit = screen.getByRole("button", {
+    name: "Write a review",
+  }) as HTMLButtonElement;
+  expect(edit.disabled).toBe(true);
+  for (const star of within(
+    screen.getByRole("radiogroup", { name: "Your rating" }),
+  ).getAllByRole("radio"))
+    expect((star as HTMLButtonElement).disabled).toBe(true);
+  fireEvent.click(edit);
+  expect(screen.queryByRole("dialog")).toBeNull();
+  await act(async () => {
+    reloaded.resolve(saved);
+  });
+  fireEvent.click(await screen.findByRole("button", { name: "Edit review" }));
+  const reopened = await screen.findByRole("dialog", {
+    name: "Edit your review",
+  });
+  expect(
+    (within(reopened).getByLabelText("Title (optional)") as HTMLInputElement)
+      .value,
+  ).toBe("Saved");
+});
+
 it("surfaces write failures inside the editor", async () => {
   signedIn(null);
   vi.mocked(ratingSummary).mockResolvedValue(summary);
-  vi.mocked(listRatings).mockResolvedValue([]);
+  vi.mocked(listRatings).mockResolvedValue(page([]));
   vi.mocked(saveRating).mockRejectedValue(new Error("insufficient balance"));
   render(<AppRatings contractId={id(2)} />);
   fireEvent.click(
@@ -267,16 +361,16 @@ it("surfaces write failures inside the editor", async () => {
 it("ignores a late list response after the sort changed", async () => {
   session();
   vi.mocked(ratingSummary).mockResolvedValue(summary);
-  const slow = deferred<RatingRecord[]>();
+  const slow = deferred<RatingPage>();
   vi.mocked(listRatings)
     .mockReturnValueOnce(slow.promise)
-    .mockResolvedValue([rating(2, 1)]);
+    .mockResolvedValue(page([rating(2, 1)]));
   render(<AppRatings contractId={id(2)} />);
   await screen.findByText("4.4");
   fireEvent.click(screen.getByRole("button", { name: "Lowest rated" }));
   await screen.findByText("Title 2");
   await act(async () => {
-    slow.resolve([rating(1)]);
+    slow.resolve(page([rating(1)]));
   });
   expect(screen.queryByText("Title 1")).toBeNull();
 });
@@ -288,7 +382,7 @@ it("renders nothing without a registry and a mainnet-only prompt when signed out
   cleanup();
   session({ network: "mainnet" });
   vi.mocked(ratingSummary).mockResolvedValue(summary);
-  vi.mocked(listRatings).mockResolvedValue([]);
+  vi.mocked(listRatings).mockResolvedValue(page([]));
   render(<AppRatings contractId={id(2)} />);
   expect(
     (

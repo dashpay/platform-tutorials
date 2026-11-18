@@ -5,7 +5,7 @@ import { toDocumentArray, type DocumentHandle } from "../lib/safeDoc";
 export const RATING_DOCUMENT_TYPE = "appRating";
 export const STAR_VALUES = [1, 2, 3, 4, 5] as const;
 export type Stars = (typeof STAR_VALUES)[number];
-/** Ratings revealed per "Show more" step in the UI. */
+/** Ratings per server page; "Load more" fetches the next one. */
 export const RATING_PAGE_SIZE = 25;
 export type RatingSort = "recent" | "highest" | "lowest";
 
@@ -40,17 +40,11 @@ export function isStars(value: unknown): value is Stars {
  * Decode a grouped `count` result-map key back to its star value, or null if
  * the key isn't a valid star value.
  *
- * Keys are the hex of the raw index-key bytes, not the value. `stars`
- * (integer 1–5) is stored as a single byte whose encoding depends on the
- * network's protocol version (dashpay/platform#5350; the PV14 upgrade rekeys
- * existing data):
- *   - PV14+:  plain value byte — 5 stars → `0x05` → "05"
- *   - ≤ PV13: sign bit flipped — 5 stars → `0x85` → "85"
- * Masking off the top bit decodes both forms — a 1–5 value never sets it.
+ * Keys are the hex of the raw index-key bytes, not the value: 5 stars → "05".
  */
 export function starsFromKeyHex(key: string): Stars | null {
   if (!/^[0-9a-f]{2}$/i.test(key)) return null;
-  const stars = parseInt(key, 16) & 0x7f;
+  const stars = parseInt(key, 16);
   return isStars(stars) ? stars : null;
 }
 
@@ -122,30 +116,24 @@ export function ratingRecord(document: DocumentHandle): RatingRecord {
   };
 }
 
-async function query(
-  sdk: ReadSdk,
-  args: Parameters<ReadSdk["documents"]["query"]>[0],
-) {
-  const documents = toDocumentArray(await sdk.documents.query(args));
-  const ratings = documents.flatMap((document) => {
+function documentId(document: DocumentHandle) {
+  const object =
+    (
+      document as DocumentHandle & {
+        toObject?: () => Record<string, unknown>;
+      }
+    ).toObject?.() ?? {};
+  return requireId(document.id ?? object.$id);
+}
+
+function parseRatings(documents: DocumentHandle[]) {
+  return documents.flatMap((document) => {
     try {
       return [ratingRecord(document)];
     } catch {
       return [];
     }
   });
-  const last = documents.at(-1);
-  const lastObject =
-    (
-      last as DocumentHandle & {
-        toObject?: () => Record<string, unknown>;
-      }
-    )?.toObject?.() ?? {};
-  return {
-    ratings,
-    rowCount: documents.length,
-    lastId: last ? requireId(last.id ?? lastObject.$id) : undefined,
-  };
 }
 
 /**
@@ -179,70 +167,54 @@ export async function ratingSummary(
   return summarize(distribution);
 }
 
-export const RATING_SCAN_LIMIT = 2_000;
-
-function byNewest(left: RatingRecord, right: RatingRecord) {
-  return Number((right.createdAt ?? 0n) - (left.createdAt ?? 0n));
+export interface RatingPage {
+  ratings: RatingRecord[];
+  cursor?: string;
 }
 
 /**
- * Every rating for a contract, sorted client-side. Platform silently ignores
- * `desc` in `orderBy` (verified on testnet), so there is no server-side
- * "newest N" or "highest N": the list is scanned to completion through the
- * serving index (`byContractCreated` for recency, `byContractStars` for star
- * ordering and the `stars == N` point filter), paged by document-ID
- * `startAfter`, then sorted here. Ratings per app are small; a 2,000-document
- * safety ceiling guards the scan.
+ * One server-ordered page of a contract's ratings; don't re-sort it. Ties
+ * within one star value come back in document-ID order, not by time. The
+ * extra `limit + 1` row only says whether another page exists.
  */
 export async function listRatings(
   sdk: ReadSdk,
   registryId: string,
   contractId: string,
-  options: { sort?: RatingSort; stars?: Stars } = {},
-): Promise<RatingRecord[]> {
+  options: {
+    sort?: RatingSort;
+    stars?: Stars;
+    cursor?: string;
+    limit?: number;
+  } = {},
+): Promise<RatingPage> {
   const sort = options.sort ?? "recent";
+  const limit = options.limit ?? RATING_PAGE_SIZE;
   const where: WhereClause[] = [["contractId", "==", requireId(contractId)]];
-  let orderBy: [string, "asc" | "desc"][] = [["$createdAt", "asc"]];
+  let orderBy: [string, "asc" | "desc"][];
   if (options.stars !== undefined) {
     if (!isStars(options.stars)) throw new Error("Choose 1 to 5 stars.");
     where.push(["stars", "==", options.stars]);
     orderBy = [["stars", "asc"]];
-  } else if (sort !== "recent") orderBy = [["stars", "asc"]];
-  const ratings: RatingRecord[] = [];
-  const seen = new Set<string>();
-  let startAfter: string | undefined;
-  for (;;) {
-    const page = await query(sdk, {
+  } else if (sort === "recent") orderBy = [["$createdAt", "desc"]];
+  else orderBy = [["stars", sort === "highest" ? "desc" : "asc"]];
+  const startAfter = options.cursor ? requireId(options.cursor) : undefined;
+  const documents = toDocumentArray(
+    await sdk.documents.query({
       dataContractId: requireId(registryId),
       documentTypeName: RATING_DOCUMENT_TYPE,
       where,
       orderBy,
-      limit: 100,
+      limit: limit + 1,
       ...(startAfter ? { startAfter } : {}),
-    });
-    for (const rating of page.ratings) {
-      if (seen.has(rating.id))
-        throw new Error("Rating pagination returned a duplicate document.");
-      seen.add(rating.id);
-      ratings.push(rating);
-      if (ratings.length > RATING_SCAN_LIMIT)
-        throw new Error(
-          "Rating scan exceeded the 2,000-document safety limit.",
-        );
-    }
-    if (page.rowCount < 100) break;
-    const next = page.lastId!;
-    if (next === startAfter)
-      throw new Error("Rating pagination cursor did not advance.");
-    startAfter = next;
-  }
-  return ratings.sort((left, right) => {
-    if (options.stars === undefined && sort !== "recent") {
-      const delta = right.stars - left.stars;
-      if (delta !== 0) return sort === "highest" ? delta : -delta;
-    }
-    return byNewest(left, right);
-  });
+    }),
+  );
+  const shown = documents.slice(0, limit);
+  const cursor =
+    documents.length > limit ? documentId(shown[shown.length - 1]) : undefined;
+  if (cursor && cursor === startAfter)
+    throw new Error("Rating pagination cursor did not advance.");
+  return { ratings: parseRatings(shown), cursor };
 }
 
 export async function ownRating(
@@ -251,18 +223,20 @@ export async function ownRating(
   ownerId: string,
   contractId: string,
 ): Promise<RatingRecord | null> {
-  const { ratings } = await query(sdk, {
-    dataContractId: requireId(registryId),
-    documentTypeName: RATING_DOCUMENT_TYPE,
-    where: [
-      ["$ownerId", "==", requireId(ownerId)],
-      ["contractId", "==", requireId(contractId)],
-    ],
-    orderBy: [
-      ["$ownerId", "asc"],
-      ["contractId", "asc"],
-    ],
-    limit: 1,
-  });
-  return ratings[0] ?? null;
+  const documents = toDocumentArray(
+    await sdk.documents.query({
+      dataContractId: requireId(registryId),
+      documentTypeName: RATING_DOCUMENT_TYPE,
+      where: [
+        ["$ownerId", "==", requireId(ownerId)],
+        ["contractId", "==", requireId(contractId)],
+      ],
+      orderBy: [
+        ["$ownerId", "asc"],
+        ["contractId", "asc"],
+      ],
+      limit: 1,
+    }),
+  );
+  return parseRatings(documents)[0] ?? null;
 }

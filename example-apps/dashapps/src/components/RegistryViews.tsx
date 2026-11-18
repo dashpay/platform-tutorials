@@ -169,6 +169,8 @@ function Entry({
   );
 }
 
+const NO_ENTRIES: RegistryEntry[] = [];
+
 function canonicalEntries(
   entries: RegistryEntry[],
   contractOwners: Map<string, string>,
@@ -1023,14 +1025,34 @@ export function CategoryBrowser({
   onBack(): void;
 }) {
   const session = useSession();
-  const [entries, setEntries] = useState<RegistryEntry[]>([]);
   const [filter, setFilter] = useState<"all" | "launchable" | "official">(
     "all",
   );
-  const [error, setError] = useState("");
-  const [busy, setBusy] = useState(
-    Boolean(session.connection && session.registryId),
-  );
+  const scope =
+    session.connection && session.registryId
+      ? `${session.registryId}:${category}`
+      : "";
+  const [listing, setListing] = useState<{
+    scope: string;
+    entries: RegistryEntry[];
+    cursor?: string;
+    error: string;
+    load: number;
+  }>({ scope: "", entries: NO_ENTRIES, error: "", load: 0 });
+  const listingCurrent = listing.scope === scope ? listing : undefined;
+  const entries = listingCurrent?.entries ?? NO_ENTRIES;
+  const cursor = listingCurrent?.cursor;
+  const busy = Boolean(scope) && !listingCurrent;
+  const request = useRef(0);
+  const [more, setMore] = useState<{
+    load: number;
+    busy: boolean;
+    error: string;
+  }>({ load: -1, busy: false, error: "" });
+  const moreCurrent =
+    listingCurrent && more.load === listingCurrent.load ? more : undefined;
+  const moreBusy = moreCurrent?.busy ?? false;
+  const error = listingCurrent?.error || moreCurrent?.error || "";
   const [contractOwners, setContractOwners] = useState(
     new Map<string, string>(),
   );
@@ -1041,20 +1063,72 @@ export function CategoryBrowser({
       return () => {
         current = false;
       };
+    const load = ++request.current;
     void entriesByCategory(session.connection.sdk, session.registryId, category)
       .then((page) => {
-        if (current) setEntries(page.entries);
+        if (current)
+          setListing({
+            scope,
+            entries: page.entries,
+            cursor: page.cursor,
+            error: "",
+            load,
+          });
       })
       .catch((caught) => {
-        if (current) setError(errorMessage(caught));
-      })
-      .finally(() => {
-        if (current) setBusy(false);
+        if (current)
+          setListing({
+            scope,
+            entries: NO_ENTRIES,
+            error: errorMessage(caught),
+            load,
+          });
       });
     return () => {
       current = false;
     };
-  }, [category, session.connection, session.registryId]);
+  }, [category, scope, session.connection, session.registryId]);
+  async function loadMore() {
+    if (
+      !session.connection ||
+      !session.registryId ||
+      !listingCurrent ||
+      !cursor ||
+      moreBusy
+    )
+      return;
+    const { load } = listingCurrent;
+    setMore({ load, busy: true, error: "" });
+    try {
+      const page = await entriesByCategory(
+        session.connection.sdk,
+        session.registryId,
+        category,
+        cursor,
+      );
+      if (load !== request.current) return;
+      setListing((previous) =>
+        previous.load !== load
+          ? previous
+          : {
+              ...previous,
+              entries: [
+                ...new Map(
+                  [...previous.entries, ...page.entries].map((entry) => [
+                    entry.id,
+                    entry,
+                  ]),
+                ).values(),
+              ],
+              cursor: page.cursor,
+            },
+      );
+      setMore({ load, busy: false, error: "" });
+    } catch (caught) {
+      if (load === request.current)
+        setMore({ load, busy: false, error: errorMessage(caught) });
+    }
+  }
   useEffect(() => {
     let current = true;
     if (!session.connection || entries.length === 0)
@@ -1125,8 +1199,9 @@ export function CategoryBrowser({
         </div>
       </div>
       <p className="category-count">
-        {visible.length} {visible.length === 1 ? "app" : "apps"} in this
-        category
+        {`${visible.length}${cursor ? "+" : ""} ${
+          visible.length === 1 && !cursor ? "app" : "apps"
+        } in this category`}
       </p>
       {busy && <p role="status">Loading category…</p>}
       {error && (
@@ -1143,6 +1218,11 @@ export function CategoryBrowser({
           showTags
         />
       ))}
+      {cursor && (
+        <button disabled={moreBusy} onClick={() => void loadMore()}>
+          {moreBusy ? "Loading…" : "Load more"}
+        </button>
+      )}
       {!session.identityId &&
         (signingIn ? (
           <div className="category-signin-form">

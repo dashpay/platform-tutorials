@@ -64,16 +64,24 @@ it("parses strict rating documents and rejects malformed stars", () => {
   ).toThrow();
 });
 
-it("decodes grouped-count keys in both PV14+ and pre-PV14 forms", () => {
+it("decodes grouped-count keys as the plain rating byte", () => {
   // Literal network keys, not keys built with the app's own encoder.
   expect(["01", "02", "03", "04", "05"].map(starsFromKeyHex)).toEqual([
     1, 2, 3, 4, 5,
   ]);
-  expect(["81", "82", "83", "84", "85"].map(starsFromKeyHex)).toEqual([
-    1, 2, 3, 4, 5,
-  ]);
-  expect(starsFromKeyHex("8A")).toBeNull();
-  for (const key of ["00", "06", "80", "86", "ff", "5", "0005", "zz", ""]) {
+  // The old sign-flipped form ("85") must read as unknown.
+  for (const key of [
+    "81",
+    "85",
+    "00",
+    "06",
+    "80",
+    "ff",
+    "5",
+    "0005",
+    "zz",
+    "",
+  ]) {
     expect(starsFromKeyHex(key)).toBeNull();
   }
 });
@@ -92,7 +100,7 @@ it("derives total and average from the distribution", () => {
 
 it("reads the grouped count with a between range and defaults absent stars to 0", async () => {
   const client = sdk();
-  // PV14+ network format: plain value bytes.
+  // Network format: plain value bytes.
   vi.mocked(client.documents.count).mockResolvedValue(
     new Map([
       ["03", 2n],
@@ -115,18 +123,6 @@ it("reads the grouped count with a between range and defaults absent stars to 0"
   });
 });
 
-it("still reads pre-PV14 sign-flipped keys", async () => {
-  const client = sdk();
-  vi.mocked(client.documents.count).mockResolvedValue(
-    new Map([
-      ["81", 1n],
-      ["84", 3n],
-    ]),
-  );
-  const summary = await ratingSummary(client, id(9), id(2));
-  expect(summary.distribution).toEqual({ 1: 1n, 2: 0n, 3: 0n, 4: 3n, 5: 0n });
-});
-
 it("rejects malformed count responses instead of showing zero", async () => {
   const client = sdk();
   vi.mocked(client.documents.count).mockResolvedValue(new Map([["05", -1n]]));
@@ -134,10 +130,12 @@ it("rejects malformed count responses instead of showing zero", async () => {
     "Malformed count response.",
   );
   // An unrecognized key means the encoding changed; surface it, don't zero it.
-  vi.mocked(client.documents.count).mockResolvedValue(new Map([["06", 1n]]));
-  await expect(ratingSummary(client, id(9), id(2))).rejects.toThrow(
-    "Malformed count response.",
-  );
+  for (const key of ["06", "85"]) {
+    vi.mocked(client.documents.count).mockResolvedValue(new Map([[key, 1n]]));
+    await expect(ratingSummary(client, id(9), id(2))).rejects.toThrow(
+      "Malformed count response.",
+    );
+  }
   vi.mocked(client.documents.count).mockResolvedValue(
     [] as unknown as Map<string, bigint>,
   );
@@ -146,71 +144,129 @@ it("rejects malformed count responses instead of showing zero", async () => {
   );
 });
 
-it("scans through the serving index ascending and sorts client-side", async () => {
-  // Platform ignores `desc`, so every sort scans asc and orders in JS.
+it("asks the serving index for each sort and filter, server-ordered", async () => {
   const client = sdk();
-  const rows = [
-    document(10, 3),
-    document(11, 5),
-    document(12, 4),
-    document(13, 5),
-  ];
-  vi.mocked(client.documents.query).mockResolvedValue(rows);
-  const recent = await listRatings(client, id(9), id(2));
-  const highest = await listRatings(client, id(9), id(2), { sort: "highest" });
-  const lowest = await listRatings(client, id(9), id(2), { sort: "lowest" });
-  const filtered = await listRatings(client, id(9), id(2), {
-    sort: "highest",
-    stars: 3,
-  });
-  expect(recent.map((r) => r.id)).toEqual([id(13), id(12), id(11), id(10)]);
-  expect(highest.map((r) => r.id)).toEqual([id(13), id(11), id(12), id(10)]);
-  expect(lowest.map((r) => r.id)).toEqual([id(10), id(12), id(13), id(11)]);
-  expect(filtered.map((r) => r.id)).toEqual([id(13), id(12), id(11), id(10)]);
-  const calls = vi.mocked(client.documents.query).mock.calls.map(([args]) => ({
-    where: args.where,
-    orderBy: args.orderBy,
-  }));
-  expect(calls).toEqual([
-    { where: [["contractId", "==", id(2)]], orderBy: [["$createdAt", "asc"]] },
-    { where: [["contractId", "==", id(2)]], orderBy: [["stars", "asc"]] },
-    { where: [["contractId", "==", id(2)]], orderBy: [["stars", "asc"]] },
+  await listRatings(client, id(9), id(2));
+  await listRatings(client, id(9), id(2), { sort: "highest" });
+  await listRatings(client, id(9), id(2), { sort: "lowest" });
+  // A star filter wins over the sort: `stars ==` on byContractStars.
+  await listRatings(client, id(9), id(2), { sort: "highest", stars: 3 });
+  await listRatings(client, id(9), id(2), { cursor: id(40), limit: 10 });
+  expect(
+    vi.mocked(client.documents.query).mock.calls.map(([args]) => args),
+  ).toEqual([
     {
+      dataContractId: id(9),
+      documentTypeName: "appRating",
+      where: [["contractId", "==", id(2)]],
+      orderBy: [["$createdAt", "desc"]],
+      limit: 26,
+    },
+    {
+      dataContractId: id(9),
+      documentTypeName: "appRating",
+      where: [["contractId", "==", id(2)]],
+      orderBy: [["stars", "desc"]],
+      limit: 26,
+    },
+    {
+      dataContractId: id(9),
+      documentTypeName: "appRating",
+      where: [["contractId", "==", id(2)]],
+      orderBy: [["stars", "asc"]],
+      limit: 26,
+    },
+    {
+      dataContractId: id(9),
+      documentTypeName: "appRating",
       where: [
         ["contractId", "==", id(2)],
         ["stars", "==", 3],
       ],
       orderBy: [["stars", "asc"]],
+      limit: 26,
+    },
+    {
+      dataContractId: id(9),
+      documentTypeName: "appRating",
+      where: [["contractId", "==", id(2)]],
+      orderBy: [["$createdAt", "desc"]],
+      limit: 11,
+      startAfter: id(40),
     },
   ]);
-  expect(vi.mocked(client.documents.query).mock.calls[0][0]).toMatchObject({
-    dataContractId: id(9),
-    documentTypeName: "appRating",
-    limit: 100,
-  });
+  await expect(
+    listRatings(client, id(9), id(2), { stars: 6 as never }),
+  ).rejects.toThrow("Choose 1 to 5 stars.");
 });
 
-it("pages the scan by document ID, skips malformed rows and detects stuck cursors", async () => {
+it("returns rows in the order the SDK gave them, never re-sorted", async () => {
+  // An order no local sort produces, so any client re-sort fails.
+  const rows = [
+    document(20, 4),
+    document(31, 5),
+    document(12, 1),
+    document(27, 3),
+  ];
+  const order = [id(20), id(31), id(12), id(27)];
+  for (const sort of ["recent", "highest", "lowest"] as const) {
+    const client = sdk();
+    vi.mocked(client.documents.query).mockResolvedValue(rows);
+    const page = await listRatings(client, id(9), id(2), { sort });
+    expect(page.ratings.map((rating) => rating.id)).toEqual(order);
+    expect(page.cursor).toBeUndefined();
+  }
+});
+
+it("pages with limit + 1: the extra row only signals another page", async () => {
   const client = sdk();
-  const page = Array.from({ length: 100 }, (_, index) => document(index + 10));
-  page[3] = {
+  // Map-shaped results, as the SDK returns them.
+  const asMap = (rows: ReturnType<typeof document>[]) =>
+    new Map(rows.map((row) => [row.id, row]));
+  vi.mocked(client.documents.query)
+    .mockResolvedValueOnce(asMap([document(50), document(41), document(47)]))
+    .mockResolvedValueOnce(asMap([document(47), document(33)]));
+  const first = await listRatings(client, id(9), id(2), { limit: 2 });
+  expect(first.ratings.map((rating) => rating.id)).toEqual([id(50), id(41)]);
+  // The cursor is the last row SHOWN, so the extra row leads page 2.
+  expect(first.cursor).toBe(id(41));
+  const second = await listRatings(client, id(9), id(2), {
+    limit: 2,
+    cursor: first.cursor,
+  });
+  expect(client.documents.query).toHaveBeenNthCalledWith(
+    2,
+    expect.objectContaining({ limit: 3, startAfter: id(41) }),
+  );
+  expect(second.ratings.map((rating) => rating.id)).toEqual([id(47), id(33)]);
+  expect(second.cursor).toBeUndefined();
+});
+
+it("skips malformed rows but still advances the cursor past them", async () => {
+  const client = sdk();
+  const bad = {
     ...document(13),
     properties: { ...document(13).properties, stars: 9 },
   };
-  vi.mocked(client.documents.query)
-    .mockResolvedValueOnce(page)
-    .mockResolvedValueOnce([document(200)]);
-  const all = await listRatings(client, id(9), id(2));
-  expect(all).toHaveLength(100);
-  expect(all.map((r) => r.id)).not.toContain(id(13));
-  expect(client.documents.query).toHaveBeenNthCalledWith(
-    2,
-    expect.objectContaining({ startAfter: id(109) }),
-  );
-  vi.mocked(client.documents.query).mockResolvedValue(page);
-  await expect(listRatings(client, id(9), id(2))).rejects.toThrow(
-    /duplicate document|did not advance/,
-  );
+  vi.mocked(client.documents.query).mockResolvedValue([
+    document(15),
+    bad,
+    document(11),
+  ]);
+  const page = await listRatings(client, id(9), id(2), { limit: 2 });
+  expect(page.ratings.map((rating) => rating.id)).toEqual([id(15)]);
+  expect(page.cursor).toBe(id(13));
+});
+
+it("rejects a cursor that does not advance", async () => {
+  const client = sdk();
+  vi.mocked(client.documents.query).mockResolvedValue([
+    document(30),
+    document(31),
+  ]);
+  await expect(
+    listRatings(client, id(9), id(2), { limit: 1, cursor: id(30) }),
+  ).rejects.toThrow("did not advance");
 });
 
 it("looks up the caller's own rating through the unique owner index", async () => {
