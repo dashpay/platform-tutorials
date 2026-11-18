@@ -22,6 +22,8 @@ export function ResourcesView({
   summaries,
   distributions,
   reviews,
+  hasMoreReviews,
+  loadingMoreReviews,
   reviewFilter,
   loadingRatings,
   history,
@@ -35,6 +37,7 @@ export function ResourcesView({
   dpnsNames,
   onSelectResource,
   onReviewFilterChange,
+  onLoadMoreReviews,
   onSaveReview,
   onOpenSettings,
   onRatingChange,
@@ -46,6 +49,8 @@ export function ResourcesView({
   summaries: Record<string, RatingSummary>;
   distributions: Record<string, RatingDistribution>;
   reviews: ReviewRecord[];
+  hasMoreReviews: boolean;
+  loadingMoreReviews: boolean;
   reviewFilter: number | null;
   loadingRatings: boolean;
   history: ReviewHistoryEntry[];
@@ -59,6 +64,7 @@ export function ResourcesView({
   dpnsNames: Record<string, string | null>;
   onSelectResource: (resourceId: string) => void;
   onReviewFilterChange: (rating: number | null) => void;
+  onLoadMoreReviews: () => void;
   onSaveReview: (event: FormEvent) => void;
   onOpenSettings: () => void;
   onRatingChange: (rating: number) => void;
@@ -220,6 +226,9 @@ export function ResourcesView({
 
         <RecentReviews
           reviews={reviews}
+          hasMore={hasMoreReviews}
+          loadingMore={loadingMoreReviews}
+          onLoadMore={onLoadMoreReviews}
           reviewFilter={reviewFilter}
           loadingRatings={loadingRatings}
           dpnsNames={dpnsNames}

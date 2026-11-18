@@ -310,6 +310,19 @@ time {
   padding: 24px 28px 30px;
 }
 
+.load-more {
+  background: transparent;
+  box-shadow: inset 0 0 0 1px #dbe4dc;
+  color: #2f856b;
+  font-size: 0.85rem;
+  margin-top: 12px;
+  padding: 0.45rem 0.9rem;
+}
+
+.load-more:hover:not(:disabled) {
+  background: #f4f8f5;
+}
+
 .resource-list,
 .reviews {
   display: grid;
@@ -925,6 +938,7 @@ textarea {
 .hiw-card-sub {
   color: #697771;
   font-weight: 400;
+  overflow-wrap: anywhere;
 }
 
 /* Operations table + code peek, side by side on desktop. */

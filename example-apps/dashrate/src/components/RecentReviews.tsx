@@ -4,12 +4,18 @@ import { ReviewRow } from "./ReviewRow";
 
 export function RecentReviews({
   reviews,
+  hasMore,
+  loadingMore,
+  onLoadMore,
   reviewFilter,
   loadingRatings,
   dpnsNames,
   onClearFilter,
 }: {
   reviews: ReviewRecord[];
+  hasMore: boolean;
+  loadingMore: boolean;
+  onLoadMore: () => void;
   reviewFilter: number | null;
   loadingRatings: boolean;
   dpnsNames: Record<string, string | null>;
@@ -54,6 +60,16 @@ export function RecentReviews({
             />
           ))}
         </ul>
+      )}
+      {reviews.length > 0 && hasMore && (
+        <button
+          type="button"
+          className="load-more"
+          disabled={loadingMore}
+          onClick={onLoadMore}
+        >
+          {loadingMore ? "Loading…" : "Load more"}
+        </button>
       )}
     </section>
   );

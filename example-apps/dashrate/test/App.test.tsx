@@ -26,7 +26,14 @@ const {
   identityKeyManagerCreate,
   ratingsState,
   myReviewsState,
+  ratingsArgs,
 } = vi.hoisted(() => ({
+  // Every args object App passes to useResourceRatings, in render order.
+  ratingsArgs: [] as Array<{
+    selectedResourceId: string;
+    refreshToken: number;
+    connectReadOnly: () => Promise<unknown>;
+  }>,
   loadStoredContractId: vi.fn<() => string>(),
   saveContractId: vi.fn(),
   clearStoredContractId: vi.fn(),
@@ -40,6 +47,9 @@ const {
     summaries: {},
     distributions: {},
     reviews: [] as ReviewRecord[],
+    hasMoreReviews: false,
+    loadingMoreReviews: false,
+    loadMoreReviews: vi.fn().mockResolvedValue(undefined),
     reviewFilter: null,
     setReviewFilter: vi.fn(),
     mySelectedReview: null as ReviewRecord | null,
@@ -51,8 +61,6 @@ const {
     reviewText: "",
     setReviewText: vi.fn(),
     loadingRatings: false,
-    loadResourceData: vi.fn().mockResolvedValue(undefined),
-    refreshReviews: vi.fn().mockResolvedValue([]),
   },
   myReviewsState: {
     myReviews: [] as ReviewRecord[],
@@ -78,7 +86,10 @@ vi.mock("../src/dash/review", () => ({ saveReview }));
 vi.mock("../src/dash/history", () => ({ fetchReviewHistory }));
 
 vi.mock("../src/hooks/useResourceRatings", () => ({
-  useResourceRatings: () => ratingsState,
+  useResourceRatings: (args: (typeof ratingsArgs)[number]) => {
+    ratingsArgs.push(args);
+    return ratingsState;
+  },
 }));
 
 vi.mock("../src/hooks/useMyReviews", () => ({
@@ -93,13 +104,21 @@ vi.mock("../src/hooks/useDpnsNames", () => ({
 // orchestration handlers.
 vi.mock("../src/components/ResourcesView", () => ({
   ResourcesView: ({
+    history,
     onSaveReview,
     onLoadHistory,
+    onSelectResource,
   }: {
+    history: unknown[];
     onSaveReview: (event: { preventDefault: () => void }) => void;
     onLoadHistory: () => void;
+    onSelectResource: (resourceId: string) => void;
   }) => (
     <div data-testid="resources-view">
+      <p data-testid="history-count">{history.length}</p>
+      <button type="button" onClick={() => onSelectResource("dashnote")}>
+        select dashnote
+      </button>
       <button
         type="button"
         onClick={() => onSaveReview({ preventDefault: () => {} })}
@@ -225,9 +244,8 @@ beforeEach(() => {
   loadStoredContractId.mockReturnValue("stored-contract-id");
   registerContract.mockResolvedValue("new-contract-id");
   saveReview.mockResolvedValue("review-id");
+  ratingsArgs.length = 0;
   fetchReviewHistory.mockResolvedValue([]);
-  ratingsState.loadResourceData.mockResolvedValue(undefined);
-  ratingsState.refreshReviews.mockResolvedValue([]);
   myReviewsState.refreshMyReviews.mockResolvedValue([]);
   ratingsState.rating = null;
   ratingsState.reviews = [];
@@ -237,6 +255,23 @@ beforeEach(() => {
 
 afterEach(() => {
   cleanup();
+});
+
+describe("App read-only client", () => {
+  it("connects once and shares the client across reads", async () => {
+    createClient.mockResolvedValue({ tag: "read-only" });
+    loadSdkCore.mockResolvedValue({ createClient });
+    render(<App />);
+    const { connectReadOnly } = ratingsArgs[0];
+
+    const [first, second] = await Promise.all([
+      connectReadOnly(),
+      connectReadOnly(),
+    ]);
+    expect(first).toBe(second);
+    expect(await connectReadOnly()).toBe(first);
+    expect(createClient).toHaveBeenCalledOnce();
+  });
 });
 
 describe("App view routing", () => {
@@ -366,10 +401,84 @@ describe("App save-review success", () => {
     expect(saveReview).toHaveBeenCalledWith(
       expect.objectContaining({ contractId: "stored-contract-id", rating: 5 }),
     );
-    // All three post-save refreshes fire.
-    expect(ratingsState.loadResourceData).toHaveBeenCalled();
+    // The hooks reload through the refresh token, not captured callbacks.
+    await waitFor(() => {
+      expect(ratingsArgs.at(-1)?.refreshToken).toBe(1);
+    });
     expect(myReviewsState.refreshMyReviews).toHaveBeenCalled();
-    expect(ratingsState.refreshReviews).toHaveBeenCalled();
+  });
+
+  it("refreshes the resource selected AFTER the save, not the saved one", async () => {
+    ratingsState.rating = 5;
+    let finishSave!: (id: string) => void;
+    saveReview.mockReturnValueOnce(
+      new Promise<string>((resolve) => {
+        finishSave = resolve;
+      }),
+    );
+    render(<App />);
+    await signIn();
+    goToResources();
+    fireEvent.click(screen.getByRole("button", { name: /save review/i }));
+    await waitFor(() => expect(saveReview).toHaveBeenCalled());
+
+    // The user moves on while the save is in flight.
+    fireEvent.click(screen.getByRole("button", { name: /select dashnote/i }));
+    finishSave("review-id");
+
+    await waitFor(() => {
+      expect(ratingsArgs.at(-1)).toMatchObject({
+        selectedResourceId: "dashnote",
+        refreshToken: 1,
+      });
+    });
+    // The save itself was for the resource selected when Save was clicked.
+    expect(saveReview).toHaveBeenCalledWith(
+      expect.objectContaining({ resourceId: "intro" }),
+    );
+  });
+
+  it("reports a refresh failure after a successful save as saved", async () => {
+    ratingsState.rating = 5;
+    myReviewsState.refreshMyReviews.mockRejectedValueOnce(new Error("timeout"));
+    render(<App />);
+    await signIn();
+    goToResources();
+    fireEvent.click(screen.getByRole("button", { name: /save review/i }));
+
+    await waitFor(() => {
+      expect(
+        screen.getByText("Saved, but refreshing failed: timeout"),
+      ).toBeTruthy();
+    });
+    expect(screen.queryByText(/Save failed/)).toBeNull();
+  });
+
+  it("closes an open revision-history panel, which is now stale", async () => {
+    ratingsState.rating = 5;
+    ratingsState.mySelectedReview = {
+      id: "rev-1",
+      ownerId: "owner-1",
+      resourceId: "intro",
+      rating: 4,
+      reviewText: "",
+      createdAt: 1,
+      updatedAt: 2,
+      revision: 1,
+    };
+    fetchReviewHistory.mockResolvedValue([{ revision: 1 }]);
+    render(<App />);
+    await signIn();
+    goToResources();
+    fireEvent.click(screen.getByRole("button", { name: /load history/i }));
+    await waitFor(() => {
+      expect(screen.getByTestId("history-count").textContent).toBe("1");
+    });
+
+    fireEvent.click(screen.getByRole("button", { name: /save review/i }));
+    await waitFor(() => {
+      expect(screen.getByTestId("history-count").textContent).toBe("0");
+    });
   });
 
   it("surfaces a status when the save fails", async () => {

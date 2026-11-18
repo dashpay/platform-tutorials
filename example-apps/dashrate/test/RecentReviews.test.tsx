@@ -29,6 +29,9 @@ function makeReview(overrides: Partial<ReviewRecord> = {}): ReviewRecord {
 function renderList(overrides: Partial<Props> = {}) {
   const props: Props = {
     reviews: [],
+    hasMore: false,
+    loadingMore: false,
+    onLoadMore: vi.fn(),
     reviewFilter: null,
     loadingRatings: false,
     dpnsNames: {},
@@ -75,6 +78,9 @@ describe("RecentReviews", () => {
     const { rerender } = render(
       <RecentReviews
         reviews={[]}
+        hasMore={false}
+        loadingMore={false}
+        onLoadMore={() => {}}
         reviewFilter={null}
         loadingRatings={false}
         dpnsNames={{}}
@@ -86,6 +92,9 @@ describe("RecentReviews", () => {
     rerender(
       <RecentReviews
         reviews={[]}
+        hasMore={false}
+        loadingMore={false}
+        onLoadMore={() => {}}
         reviewFilter={2}
         loadingRatings={false}
         dpnsNames={{}}
@@ -94,5 +103,45 @@ describe("RecentReviews", () => {
     );
     fireEvent.click(screen.getByRole("button", { name: /clear filter/i }));
     expect(onClearFilter).toHaveBeenCalledOnce();
+  });
+
+  it("offers Load more only while another page exists", () => {
+    const onLoadMore = vi.fn();
+    const { rerender } = renderList({
+      reviews: [makeReview()],
+      hasMore: true,
+      onLoadMore,
+    });
+    fireEvent.click(screen.getByRole("button", { name: "Load more" }));
+    expect(onLoadMore).toHaveBeenCalledOnce();
+
+    rerender(
+      <RecentReviews
+        reviews={[makeReview()]}
+        hasMore={true}
+        loadingMore={true}
+        onLoadMore={onLoadMore}
+        reviewFilter={null}
+        loadingRatings={false}
+        dpnsNames={{}}
+        onClearFilter={() => {}}
+      />,
+    );
+    const busy = screen.getByRole("button", { name: "Loading…" });
+    expect((busy as HTMLButtonElement).disabled).toBe(true);
+
+    rerender(
+      <RecentReviews
+        reviews={[makeReview()]}
+        hasMore={false}
+        loadingMore={false}
+        onLoadMore={onLoadMore}
+        reviewFilter={null}
+        loadingRatings={false}
+        dpnsNames={{}}
+        onClearFilter={() => {}}
+      />,
+    );
+    expect(screen.queryByRole("button", { name: /load more/i })).toBeNull();
   });
 });

@@ -3,7 +3,7 @@ const REPO =
 const DASH_DIR =
   "https://github.com/dashpay/platform-tutorials/tree/main/example-apps/dashrate/src/dash";
 
-type QueryGlyph = "count" | "distribution" | "filter" | "history";
+type QueryGlyph = "average" | "distribution" | "paging" | "history";
 
 const QUERY_CARDS: Array<{
   label: string;
@@ -12,9 +12,9 @@ const QUERY_CARDS: Array<{
   file: string;
 }> = [
   {
-    label: "Total count",
-    sub: "documents.count",
-    glyph: "count",
+    label: "Proven average",
+    sub: "documents.average",
+    glyph: "average",
     file: "queries.ts",
   },
   {
@@ -24,9 +24,9 @@ const QUERY_CARDS: Array<{
     file: "queries.ts",
   },
   {
-    label: "Filter by rating",
-    sub: "documents.query · rating == N",
-    glyph: "filter",
+    label: "Newest-first pages",
+    sub: "documents.query · $updatedAt desc + startAfter",
+    glyph: "paging",
     file: "queries.ts",
   },
   {
@@ -50,11 +50,12 @@ function QueryGlyphIcon({ kind }: { kind: QueryGlyph }) {
     "aria-hidden": true,
   };
   switch (kind) {
-    case "count":
-      // Stacked rows — a provable total.
+    case "average":
+      // A balance point on a scale — sum ÷ count.
       return (
         <svg {...common}>
-          <path d="M4 6h16M4 12h16M4 18h10" />
+          <path d="M4 18h16" />
+          <path d="M12 18 8 8h8z" />
         </svg>
       );
     case "distribution":
@@ -64,11 +65,12 @@ function QueryGlyphIcon({ kind }: { kind: QueryGlyph }) {
           <path d="M6 20V10M12 20V4M18 20v-7" />
         </svg>
       );
-    case "filter":
-      // Funnel — narrowing the result set with a where clause.
+    case "paging":
+      // A list with a "next" arrow — cursor paging.
       return (
         <svg {...common}>
-          <path d="M3 4h18l-7 8v6l-4 2v-8z" />
+          <path d="M4 6h12M4 11h12M4 16h6" />
+          <path d="m15 15 3 3 3-3M18 11v7" />
         </svg>
       );
     case "history":
@@ -85,15 +87,19 @@ function QueryGlyphIcon({ kind }: { kind: QueryGlyph }) {
 
 const OPS: Array<{ op: string; file: string; sdk: string }> = [
   {
-    op: "Recent reviews for a resource",
+    op: "Average rating per resource",
     file: "queries.ts",
-    sdk: "documents.query",
+    sdk: "documents.average",
   },
-  { op: "Total review count", file: "queries.ts", sdk: "documents.count" },
   {
     op: "Rating distribution (per star)",
     file: "queries.ts",
     sdk: "documents.count · groupBy",
+  },
+  {
+    op: "Reviews, newest first, paged",
+    file: "queries.ts",
+    sdk: "documents.query · startAfter",
   },
   {
     op: "Save / edit a review",
@@ -115,11 +121,13 @@ const OPS: Array<{ op: string; file: string; sdk: string }> = [
 const READING_ORDER: Array<{ file: string; caption: string }> = [
   {
     file: "contract.ts",
-    caption: "Schema + the four indices (unique, countable, rangeCountable).",
+    caption:
+      "Schema + indices: unique, averageable, ranked, range-countable, and the timestamp indices that page newest first.",
   },
   {
     file: "queries.ts",
-    caption: "Every read — count, grouped count, filtered query.",
+    caption:
+      "One resource's reads — average, grouped count, paged and filtered queries.",
   },
   { file: "review.ts", caption: "Save = query, then create or get → replace." },
   {
@@ -128,15 +136,25 @@ const READING_ORDER: Array<{ file: string; caption: string }> = [
   },
 ];
 
-const SAMPLE_CODE = `const counts = await sdk.documents.count({
+const SAMPLE_CODE = `// Proven (count, sum) for one resource — divide for the average.
+const avg = await sdk.documents.average(
+  {
+    dataContractId: contractId,
+    documentTypeName: "review",
+    where: [["resourceId", "==", resourceId]],
+  },
+  "rating",
+);
+const { count, sum } = avg.get("") ?? { count: 0n, sum: 0n };
+
+// Its reviews, newest first: ask for one extra to know if there's a page 2.
+const page = await sdk.documents.query({
   dataContractId: contractId,
   documentTypeName: "review",
-  where: [
-    ["resourceId", "==", resourceId],
-    ["rating", "between", [1, 5]],
-  ],
-  orderBy: [["rating", "asc"]],
-  groupBy: ["rating"],
+  where: [["resourceId", "==", resourceId]],
+  orderBy: [["$updatedAt", "desc"]],
+  limit: 10 + 1,
+  startAfter: lastShownId, // omit on the first page
 });`;
 
 export function HowItWorks() {
@@ -150,8 +168,8 @@ export function HowItWorks() {
           and resource. The unique <code>$ownerId + resourceId</code> index
           prevents duplicate reviews by the same identity, so saving again edits
           the existing document instead of creating a second one. The rest of
-          this page walks the relational query surface the app demonstrates —
-          provable counts, grouped counts, range filters, and revision history.
+          this page walks the query surface the app demonstrates — proven
+          averages, grouped counts, newest-first paging, and revision history.
         </p>
       </header>
 
@@ -210,9 +228,9 @@ export function HowItWorks() {
             </a>
           </div>
           <p className="muted hiw-code-caption">
-            The provable grouped <code>count</code> that drives the per-star
-            distribution bars. The average is derived in JS from these counts —
-            there is no separate <code>sum</code> / <code>average</code> query.
+            <code>average</code> returns the exact integers, not a quotient —
+            divide in JS. Pages come back already newest first; the extra row
+            only decides whether to offer &ldquo;Load more&rdquo;.
           </p>
           <pre className="hiw-code-pre">{SAMPLE_CODE}</pre>
         </section>
@@ -223,6 +241,7 @@ export function HowItWorks() {
         <p className="muted hiw-reading-intro">
           Read these in order to build up the mental model: schema and indices
           first, then the reads, then the write, and finally revision history.
+          Every read is a proof-verified Platform query.
         </p>
         <ol className="hiw-reading-list">
           {READING_ORDER.map((item, i) => (

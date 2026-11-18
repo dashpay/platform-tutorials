@@ -1,6 +1,9 @@
 /**
  * DashRate review data contract: schema definition + registration.
  *
+ * The aggregate/ranked index keywords (averageable, rankedAverageable, …)
+ * need document meta-schema v3, i.e. a protocol version 14 network.
+ *
  * SDK methods:
  *   new DataContract({ ownerId, identityNonce, schemas, fullValidation })
  *   sdk.contracts.publish({ dataContract, identityKey, signer })
@@ -19,7 +22,10 @@ export const REVIEW_SCHEMAS = {
       resourceId: {
         type: "string",
         minLength: 1,
-        maxLength: 63,
+        // ≤ 59, not 63: an index declaring a ranked axis caps its group key
+        // (the property's UTF-8 bytes, up to 4 per char) at 239 bytes. The
+        // node enforces this at publish; offline validation does not.
+        maxLength: 59,
         position: 0,
       },
       rating: {
@@ -38,31 +44,54 @@ export const REVIEW_SCHEMAS = {
     additionalProperties: false,
     indices: [
       {
+        // One review per identity per resource; a second save edits.
         name: "ownerAndResource",
         unique: true,
         properties: [{ $ownerId: "asc" }, { resourceId: "asc" }],
       },
       {
+        // "My reviews", newest first: orderBy $updatedAt desc.
         name: "ownerReviews",
         properties: [{ $ownerId: "asc" }, { $updatedAt: "asc" }],
       },
       {
-        // Total review count per resource — the basic countable-index + count() pattern.
-        // Count-only: no `summable`, because a count+sum value tree at this shared `resourceId`
-        // prefix can't host the count-only `rating` continuation that resourceRatingDistribution
-        // needs (the drive rejects the insert). See dashpay/platform#3960
-        name: "resourceRatingAggregate",
+        // The per-resource aggregate index. `averageable: "rating"` keeps a
+        // provable (count, sum) of `rating` per resourceId → documents.average.
+        // `rangeAverageable` (= rangeCountable + rangeSummable) is the
+        // prerequisite for the two ranked axes (avg and count), which let
+        // documents.ranked / documents.having rank resources against each
+        // other. They're part of the published contract either way.
+        name: "resourceRating",
         properties: [{ resourceId: "asc" }],
-        countable: "countable",
+        averageable: "rating",
+        rangeAverageable: true,
+        rankedAverageable: true,
+        rankedCountable: true,
       },
       {
-        // Grouped/range count for the rating distribution (count GROUP BY
-        // rating) and the `rating == N` filter. `rating` is the last
-        // property and carries the range walk via rangeCountable.
+        // Per-star histogram (count GROUP BY rating) and the `rating == N`
+        // filter. Count-only and NOT ranked: a compound ranked index under the
+        // averageable [resourceId] prefix is rejected at registration.
         name: "resourceRatingDistribution",
         properties: [{ resourceId: "asc" }, { rating: "asc" }],
         countable: "countable",
         rangeCountable: true,
+      },
+      {
+        // A resource's reviews newest first, paged server-side
+        // (orderBy $updatedAt desc + startAfter).
+        name: "resourceRecent",
+        properties: [{ resourceId: "asc" }, { $updatedAt: "asc" }],
+      },
+      {
+        // The same, within one star value (the histogram's `rating == N`
+        // filter), still newest first and paged.
+        name: "resourceRatingRecent",
+        properties: [
+          { resourceId: "asc" },
+          { rating: "asc" },
+          { $updatedAt: "asc" },
+        ],
       },
     ],
   },
@@ -71,7 +100,7 @@ export const REVIEW_SCHEMAS = {
 const STORAGE_KEY = "dashrate.contractId";
 
 export const DEFAULT_CONTRACT_ID =
-  "BdgTqaTAPYMyhp1WdeWdcvYSgoD7AuJ7tVCaCSXyQgyP";
+  "EJHQrRenbFXEPvhgFXD7v8F2ewkqZ2JEdHGKMshZauxz";
 
 export function loadStoredContractId(): string {
   try {

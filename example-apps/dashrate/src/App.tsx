@@ -1,4 +1,4 @@
-import { useCallback, useMemo, useState } from "react";
+import { useCallback, useMemo, useRef, useState } from "react";
 import { findResource, RESOURCES } from "./catalog/resources";
 import { AppNotices } from "./components/AppNotices";
 import { HowItWorks } from "./components/HowItWorks";
@@ -35,6 +35,10 @@ export default function App() {
   const [history, setHistory] = useState<ReviewHistoryEntry[]>([]);
   const [status, setStatus] = useState("");
   const [busy, setBusy] = useState(false);
+  // Bumped after a save to make the data hooks reload for whatever is
+  // selected at that moment (see handleSaveReview).
+  const [refreshToken, setRefreshToken] = useState(0);
+  const readOnlySdk = useRef<Promise<DashSdk> | null>(null);
 
   const selectedResource = useMemo(
     () => findResource(selectedResourceId) ?? RESOURCES[0],
@@ -46,15 +50,26 @@ export default function App() {
     if (level !== "info") setStatus(message);
   }, []);
 
-  const connectReadOnly = useCallback(async (): Promise<DashSdk> => {
-    const { createClient } = await loadSdkCore();
-    return (await createClient("testnet")) as unknown as DashSdk;
+  // One shared read-only client: connecting is the slow part, so build it
+  // once and reuse it for every read (retry after a failed connect).
+  const connectReadOnly = useCallback((): Promise<DashSdk> => {
+    if (!readOnlySdk.current) {
+      readOnlySdk.current = (async () => {
+        const { createClient } = await loadSdkCore();
+        return (await createClient("testnet")) as unknown as DashSdk;
+      })();
+      readOnlySdk.current.catch(() => {
+        readOnlySdk.current = null;
+      });
+    }
+    return readOnlySdk.current;
   }, []);
 
   const ratings = useResourceRatings({
     contractId,
     session,
     selectedResourceId,
+    refreshToken,
     connectReadOnly,
     log,
     setStatus,
@@ -126,12 +141,21 @@ export default function App() {
         reviewText: ratings.reviewText,
         log,
       });
-      await ratings.loadResourceData(session.sdk);
-      await myReviewsState.refreshMyReviews(session);
-      await ratings.refreshReviews(session.sdk);
-      setStatus("");
     } catch (err) {
       setStatus(`Save failed: ${errorMessage(err)}`);
+      setBusy(false);
+      return;
+    }
+
+    // Reload via the token, not functions captured when Save was clicked, so
+    // the hooks always reload the CURRENT selection. Reads can trail a write
+    // by about a block, so the new review may take a moment to show.
+    setRefreshToken((token) => token + 1);
+    setHistory([]); // an open "previous versions" panel is now stale
+    try {
+      await myReviewsState.refreshMyReviews(session);
+    } catch (err) {
+      setStatus(`Saved, but refreshing failed: ${errorMessage(err)}`);
     } finally {
       setBusy(false);
     }
@@ -209,6 +233,7 @@ export default function App() {
     setSelectedResourceId(resourceId);
     ratings.setReviewFilter(null);
     setHistory([]);
+    setStatus(""); // messages about the previous resource no longer apply
   }
 
   function handleEditMyReview(review: ReviewRecord) {
@@ -234,11 +259,15 @@ export default function App() {
           summaries={ratings.summaries}
           distributions={ratings.distributions}
           reviews={ratings.reviews}
+          hasMoreReviews={ratings.hasMoreReviews}
+          loadingMoreReviews={ratings.loadingMoreReviews}
           reviewFilter={ratings.reviewFilter}
           loadingRatings={ratings.loadingRatings}
           history={history}
           signedIn={Boolean(session)}
-          busy={busy}
+          // Also locked while ratings reload: the load overwrites the form
+          // with the saved review, so edits typed meanwhile would be lost.
+          busy={busy || ratings.loadingRatings}
           contractId={contractId}
           rating={ratings.rating}
           hoverRating={ratings.hoverRating}
@@ -247,6 +276,7 @@ export default function App() {
           dpnsNames={dpnsNames}
           onSelectResource={handleSelectResource}
           onReviewFilterChange={ratings.setReviewFilter}
+          onLoadMoreReviews={() => void ratings.loadMoreReviews()}
           onSaveReview={handleSaveReview}
           onOpenSettings={() => setView("settings")}
           onRatingChange={ratings.setRating}
