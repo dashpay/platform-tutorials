@@ -337,3 +337,47 @@ it("pages a category from the server and keeps its order", async () => {
   expect(screen.getByText("3 apps in this category")).toBeTruthy();
   expect(screen.queryByRole("button", { name: "Load more" })).toBeNull();
 });
+
+it("drops a Load more response for a contract no longer shown", async () => {
+  const entry = (contract: number, n: number, name: string) => ({
+    id: id(n),
+    ownerId: id(n + 50),
+    contractId: id(contract),
+    name,
+    tagline: "Metadata",
+    category: "other" as const,
+    tags: [],
+    revision: 1n,
+  });
+  const pageA = [entry(2, 10, "First A"), entry(2, 11, "Second A")];
+  const pageB = [entry(7, 20, "First B"), entry(7, 21, "Second B")];
+  const more = deferred<Awaited<ReturnType<typeof contractEntries>>>();
+  vi.mocked(contractEntries)
+    .mockResolvedValueOnce({ entries: pageA, cursor: pageA[1].id })
+    .mockReturnValueOnce(more.promise)
+    .mockResolvedValueOnce({ entries: pageB, cursor: undefined });
+  vi.mocked(contractEntryCount).mockResolvedValue(3n);
+  vi.mocked(officialListing).mockResolvedValue(null);
+  vi.mocked(publisherEntry).mockResolvedValue(null);
+  vi.mocked(useSession).mockReturnValue({
+    connection: { sdk: {}, names: { resolve: vi.fn(async () => null) } },
+    registryId: id(3),
+    identityId: null,
+    keyManager: null,
+  } as never);
+
+  const { rerender } = render(
+    <ContractRegistry contractId={id(2)} onMutation={vi.fn()} />,
+  );
+  fireEvent.click(
+    await screen.findByRole("button", { name: /Switch listing/ }),
+  );
+  fireEvent.click(screen.getByRole("button", { name: "Load more listings" }));
+  rerender(<ContractRegistry contractId={id(7)} onMutation={vi.fn()} />);
+  expect((await screen.findAllByText(/Second B/)).length).toBeGreaterThan(0);
+  await act(async () =>
+    more.resolve({ entries: [entry(2, 12, "Third A")], cursor: undefined }),
+  );
+  expect(screen.queryByText(/Third A/)).toBeNull();
+  expect(screen.getAllByText(/Second B/).length).toBeGreaterThan(0);
+});

@@ -80,7 +80,7 @@ async function replaceRating(
     REVIEW_DOCUMENT_TYPE,
     draft,
   );
-  await submit(() =>
+  await submit("review", () =>
     args.sdk.documents.replace({ document, identityKey, signer }),
   );
 }
@@ -129,7 +129,7 @@ export async function saveRating(args: {
     draft,
   );
   try {
-    await submit(() =>
+    await submit("review", () =>
       args.sdk.documents.create({ document, identityKey, signer }),
     );
     return "created";
@@ -166,7 +166,7 @@ export async function removeRating(args: {
     args.rating.id,
   );
   if (!current) throw new Error("This rating no longer exists.");
-  await submit(() =>
+  await submit("review", () =>
     args.sdk.documents.delete({ document: current, identityKey, signer }),
   );
 }

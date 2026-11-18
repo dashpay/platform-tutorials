@@ -241,8 +241,10 @@ export function ContractRegistry({
   const [editorOpen, setEditorOpen] = useState(false);
   const [expanded, setExpanded] = useState(false);
   const [selectedId, setSelectedId] = useState<string>();
+  const loadToken = useRef(0);
   useEffect(() => {
     let current = true;
+    loadToken.current += 1;
     if (!session.connection || !session.registryId) {
       return () => {
         current = false;
@@ -271,10 +273,13 @@ export function ContractRegistry({
           setEntries(listings.value.entries);
           setCursor(listings.value.cursor);
         }
-        if (officialResult.status === "fulfilled")
-          setOfficial(officialResult.value);
+        setOfficial(
+          officialResult.status === "fulfilled"
+            ? officialResult.value
+            : undefined,
+        );
         if (ownEntry.status === "fulfilled") setOwn(ownEntry.value);
-        if (count.status === "fulfilled") setTotal(count.value);
+        setTotal(count.status === "fulfilled" ? count.value : undefined);
         const preferred =
           officialResult.status === "fulfilled" && officialResult.value?.entry
             ? officialResult.value.entry
@@ -314,6 +319,7 @@ export function ContractRegistry({
   ]);
   async function loadMore() {
     if (!session.connection || !session.registryId || !cursor) return;
+    const token = loadToken.current;
     setMoreBusy(true);
     try {
       const page = await contractEntries(
@@ -322,6 +328,7 @@ export function ContractRegistry({
         contractId,
         cursor,
       );
+      if (token !== loadToken.current) return;
       setEntries((previous) => [
         ...new Map(
           [...previous, ...page.entries].map((entry) => [entry.id, entry]),

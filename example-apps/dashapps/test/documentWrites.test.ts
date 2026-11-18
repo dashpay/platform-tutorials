@@ -3,6 +3,7 @@ import {
   explainWriteError,
   isDuplicate,
   submit,
+  type WriteKind,
 } from "../src/dash/documentWrites";
 
 // Messages as the network returned them on testnet.
@@ -39,44 +40,48 @@ const REFUSALS = {
   },
 };
 
-function explained(error: unknown) {
-  return (explainWriteError(error) as Error).message;
+function explained(error: unknown, kind: WriteKind) {
+  return (explainWriteError(error, kind) as Error).message;
 }
 
 it("rewords reference, owner-requirement and immutability refusals", () => {
-  expect(explained(REFUSALS.missingPublisher)).toBe(
+  expect(explained(REFUSALS.missingPublisher, "endorsement")).toBe(
     "That publisher has no entry for this contract. They need to publish one first.",
   );
-  expect(explained(REFUSALS.missingContract)).toBe(
+  expect(explained(REFUSALS.missingContract, "entry")).toBe(
     "The target contract does not exist on this network.",
   );
-  expect(explained(REFUSALS.notOwner)).toBe(
+  expect(explained(REFUSALS.notOwner, "endorsement")).toBe(
     "Only the contract's owner can choose its official entry.",
   );
-  expect(explained(REFUSALS.ownReview)).toBe(
+  expect(explained(REFUSALS.ownReview, "review")).toBe(
     "You can't review a contract you own.",
   );
-  expect(explained(REFUSALS.immutable)).toBe(
+  expect(explained(REFUSALS.immutable, "entry")).toBe(
     "A registry document can't be moved to a different contract.",
   );
   // The message alone is enough when an error carries no code.
-  expect(explained(new Error(REFUSALS.notOwner.message))).toBe(
+  expect(explained(new Error(REFUSALS.notOwner.message), "endorsement")).toBe(
     "Only the contract's owner can choose its official entry.",
   );
-  expect((explainWriteError(REFUSALS.immutable) as Error).cause).toBe(
+  expect((explainWriteError(REFUSALS.immutable, "entry") as Error).cause).toBe(
     REFUSALS.immutable,
   );
 });
 
 it("leaves duplicates and unrelated failures for the caller", async () => {
-  expect(explainWriteError(REFUSALS.duplicate)).toBe(REFUSALS.duplicate);
+  expect(explainWriteError(REFUSALS.duplicate, "endorsement")).toBe(
+    REFUSALS.duplicate,
+  );
   expect(isDuplicate(REFUSALS.duplicate)).toBe(true);
   expect(isDuplicate({ message: REFUSALS.duplicate.message })).toBe(true);
   expect(isDuplicate(REFUSALS.immutable)).toBe(false);
   const failure = new Error("insufficient balance");
-  await expect(submit(() => Promise.reject(failure))).rejects.toBe(failure);
+  await expect(submit("entry", () => Promise.reject(failure))).rejects.toBe(
+    failure,
+  );
   await expect(
-    submit(() => Promise.reject(REFUSALS.ownReview)),
+    submit("review", () => Promise.reject(REFUSALS.ownReview)),
   ).rejects.toThrow("You can't review a contract you own.");
-  expect(await submit(async () => "done")).toBe("done");
+  expect(await submit("entry", async () => "done")).toBe("done");
 });

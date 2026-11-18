@@ -66,7 +66,7 @@ async function repoint(
     ENDORSEMENT_DOCUMENT_TYPE,
     draft,
   );
-  await submit(() =>
+  await submit("endorsement", () =>
     args.sdk.documents.replace({ document, identityKey, signer }),
   );
 }
@@ -120,7 +120,7 @@ export async function endorse(
     draft,
   );
   try {
-    await submit(() =>
+    await submit("endorsement", () =>
       args.sdk.documents.create({ document, identityKey, signer }),
     );
     return "created";
@@ -135,6 +135,8 @@ export async function endorse(
       throw new Error(
         "This contract already has an endorsement, but it could not be loaded. Refresh and try again.",
       );
+    if (committed.publisherId === requireId(args.publisherId))
+      return "unchanged";
     await repoint(args, committed, auth);
     return "updated";
   }
@@ -157,7 +159,7 @@ export async function withdrawEndorsement(args: {
     args.endorsement.id,
   );
   if (!current) throw new Error("This endorsement no longer exists.");
-  await submit(() =>
+  await submit("endorsement", () =>
     args.sdk.documents.delete({ document: current, identityKey, signer }),
   );
 }

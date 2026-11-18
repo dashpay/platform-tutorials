@@ -201,6 +201,24 @@ it("resolves a 40105 race by re-pointing the committed endorsement", async () =>
   expect(context.replace).toHaveBeenCalledOnce();
 });
 
+it("leaves a 40105 race alone when it already names the publisher", async () => {
+  const context = setup();
+  const original = context.query.getMockImplementation()!;
+  let endorsementReads = 0;
+  context.query.mockImplementation(async (args) =>
+    args.documentTypeName === "appEndorsement"
+      ? endorsementReads++ === 0
+        ? []
+        : [endorsementDocument(delegate)]
+      : original(args),
+  );
+  context.create.mockRejectedValue({ code: 40105 });
+  expect(await endorse({ ...context.args, publisherId: delegate })).toBe(
+    "unchanged",
+  );
+  expect(context.replace).not.toHaveBeenCalled();
+});
+
 it("rewords the network refusing a publisher whose entry vanished", async () => {
   const context = setup({ endorsed: contractOwner });
   context.replace.mockRejectedValue({

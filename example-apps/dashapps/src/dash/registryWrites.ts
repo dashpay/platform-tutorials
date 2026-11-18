@@ -109,7 +109,7 @@ export async function createMetadata(args: {
     draft,
   );
   try {
-    await submit(() =>
+    await submit("entry", () =>
       args.sdk.documents.create({ document, identityKey, signer }),
     );
   } catch (error) {
@@ -186,7 +186,7 @@ export async function editMetadata(args: {
     REGISTRY_DOCUMENT_TYPE,
     draft,
   );
-  await submit(() =>
+  await submit("entry", () =>
     args.sdk.documents.replace({ document, identityKey, signer }),
   );
 }
@@ -212,7 +212,7 @@ export async function withdrawMetadata(args: {
     args.entry.id,
   );
   if (!current) throw new Error("This metadata entry no longer exists.");
-  await submit(() =>
+  await submit("entry", () =>
     args.sdk.documents.delete({ document: current, identityKey, signer }),
   );
 }

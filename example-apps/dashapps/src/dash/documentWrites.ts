@@ -86,19 +86,23 @@ export function isDuplicate(error: unknown) {
   return isConsensusError(error, CONSENSUS_ERRORS.duplicate);
 }
 
+export type WriteKind = "entry" | "endorsement" | "review";
+
 /** Reword the reference and immutability refusals for the user. */
-export function explainWriteError(error: unknown): unknown {
-  const message = errorMessage(error);
+export function explainWriteError(error: unknown, kind: WriteKind): unknown {
   if (isConsensusError(error, CONSENSUS_ERRORS.referenceNotFound))
     return new Error(
-      message.includes("document")
+      kind === "endorsement"
         ? "That publisher has no entry for this contract. They need to publish one first."
         : "The target contract does not exist on this network.",
       { cause: error },
     );
-  if (isConsensusError(error, CONSENSUS_ERRORS.ownerRequirement))
+  if (
+    kind !== "entry" &&
+    isConsensusError(error, CONSENSUS_ERRORS.ownerRequirement)
+  )
     return new Error(
-      message.includes("owner other")
+      kind === "review"
         ? "You can't review a contract you own."
         : "Only the contract's owner can choose its official entry.",
       { cause: error },
@@ -112,10 +116,13 @@ export function explainWriteError(error: unknown): unknown {
 }
 
 /** Broadcast a document transition, translating consensus refusals. */
-export async function submit<T>(transition: () => Promise<T>): Promise<T> {
+export async function submit<T>(
+  kind: WriteKind,
+  transition: () => Promise<T>,
+): Promise<T> {
   try {
     return await transition();
   } catch (error) {
-    throw explainWriteError(error);
+    throw explainWriteError(error, kind);
   }
 }

@@ -59,7 +59,7 @@ export async function leaderboard(
   return toEntries(result);
 }
 
-/** Every contract whose average is at least `minAverage` (inclusive). */
+/** Up to 100 contracts whose average is at least `minAverage` (inclusive). */
 export async function highlyRated(
   sdk: ReadSdk,
   registryId: string,
