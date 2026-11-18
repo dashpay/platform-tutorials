@@ -244,9 +244,11 @@ function RatingCard({
 
 export function AppRatings({
   contractId,
+  contractOwnerId,
   onSummary,
 }: {
   contractId: string;
+  contractOwnerId?: string;
   onSummary?(summary: RatingSummary | null): void;
 }) {
   const session = useSession();
@@ -473,7 +475,17 @@ export function AppRatings({
           })}
         </div>
       </div>
-      {identityId ? (
+      {identityId && identityId === contractOwnerId ? (
+        <div className="rating-cta">
+          <div>
+            <strong>You own this contract</strong>
+            <small>
+              The network won&apos;t accept a review from a contract&apos;s
+              owner. Any other identity can still review it.
+            </small>
+          </div>
+        </div>
+      ) : identityId ? (
         <div className="rating-cta">
           <div>
             <strong>{own ? "Your rating" : "Used this app?"}</strong>

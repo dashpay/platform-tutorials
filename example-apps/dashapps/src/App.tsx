@@ -22,8 +22,11 @@ import { formatAverage, pluralize } from "./lib/format";
 import {
   CategoryBrowser,
   ContractRegistry,
+  MyEndorsements,
   RegistryExplorer,
 } from "./components/RegistryViews";
+import { Leaderboard } from "./components/Leaderboard";
+import { useLeaderboards } from "./hooks/useLeaderboards";
 import type { RegistryEntry } from "./dash/registryReads";
 import { categoryLabel } from "./dash/categoryLabel";
 import { APP_CATEGORIES, type AppCategory } from "./dash/registryReads";
@@ -133,6 +136,10 @@ function Browser({
   const discoverEntries = cachedRegistryEntries;
   const [discoverOfficial, setDiscoverOfficial] = useState(
     new Map<string, string>(),
+  );
+  const leaderboards = useLeaderboards(
+    view === "discover" ? connection?.sdk : undefined,
+    session.registryId,
   );
   const request = useRef(0);
   useEffect(() => {
@@ -357,10 +364,17 @@ function Browser({
                 />
               </div>
             )}
-            {!official && preferredEntry && (
-              <span className="community-label">
-                Community-provided listing
+            {official ? (
+              <span className="entry-badge official">
+                <ProvenanceIcon />
+                Official listing, chosen by the contract owner
               </span>
+            ) : (
+              preferredEntry && (
+                <span className="community-label">
+                  Community-provided listing
+                </span>
+              )
             )}
           </div>
           <div className="detail-hero-actions">
@@ -399,6 +413,7 @@ function Browser({
           <>
             <ContractRegistry
               contractId={selected}
+              contractOwnerId={detail.ownerId}
               onMutation={() => setRegistryRefresh((value) => value + 1)}
               onPreferredEntry={setPreferredEntry}
               onOfficialPublisher={setOfficialPublisher}
@@ -421,6 +436,7 @@ function Browser({
               <AppRatings
                 key={`ratings:${selected}`}
                 contractId={selected}
+                contractOwnerId={detail.ownerId}
                 onSummary={setRatingSummary}
               />
             </div>
@@ -1023,7 +1039,7 @@ function Browser({
             initialMode={view === "mine" ? "mine" : "recent"}
             showNavigation={false}
             showNetwork={view !== "mine"}
-            heading={view === "discover" ? "Recently added" : undefined}
+            heading={view === "discover" ? "Latest listings" : undefined}
             subheading={view === "discover" ? "Newest first" : undefined}
             onEntries={view === "discover" ? cacheRegistryEntries : undefined}
             onOfficialPublishers={
@@ -1032,9 +1048,15 @@ function Browser({
             onCategory={chooseCategory}
             showPublishers={view !== "discover"}
             initialEntries={view === "discover" ? discoverEntries : undefined}
+            filters={view === "discover"}
+            highlyRated={leaderboards.leaderboards?.highlyRated ?? null}
             aside={
               view === "discover" ? (
                 <>
+                  <Leaderboard
+                    {...leaderboards}
+                    open={(id, name, entry) => void inspect(id, name, entry)}
+                  />
                   <section className="panel describe-panel">
                     <h2>Describe a contract</h2>
                     <p>
@@ -1059,7 +1081,14 @@ function Browser({
                     </div>
                   </section>
                 </>
-              ) : undefined
+              ) : (
+                <MyEndorsements
+                  open={(id, name, entry) => {
+                    setTarget(id);
+                    void inspect(id, name, entry);
+                  }}
+                />
+              )
             }
             open={(id, name, entry) => {
               setTarget(id);

@@ -40,6 +40,19 @@ it("loads both rankings, the 4★+ set and names for the ranked rows", async () 
       where: [["contractId", "in", [id(20), id(21), id(22)]]],
     }),
   );
+  // One batched average gives every ranked row its review count.
+  expect(client.documents.average).toHaveBeenCalledWith(
+    expect.objectContaining({
+      where: [["contractId", "in", [id(20), id(21), id(22)]]],
+      groupBy: ["contractId"],
+    }),
+    "stars",
+  );
+  expect([...result.current.leaderboards!.averages.keys()]).toEqual([
+    id(20),
+    id(21),
+    id(22),
+  ]);
 });
 
 it("keeps a failure local and reloads on a refresh token bump", async () => {

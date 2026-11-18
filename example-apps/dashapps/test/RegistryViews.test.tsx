@@ -5,11 +5,13 @@ import {
   fireEvent,
   render,
   screen,
+  within,
 } from "@testing-library/react";
-import { afterEach, expect, it, vi } from "vitest";
+import { afterEach, beforeEach, expect, it, vi } from "vitest";
 import {
   CategoryBrowser,
   ContractRegistry,
+  MyEndorsements,
   RegistryExplorer,
 } from "../src/components/RegistryViews";
 import { useSession } from "../src/session/useSession";
@@ -23,9 +25,15 @@ import {
 } from "../src/dash/registryReads";
 import {
   endorsementsFor,
+  myEndorsements,
+  officialFeed,
   officialListing,
+  officialListingOf,
   type Endorsement,
 } from "../src/dash/endorsementReads";
+import { endorse, withdrawEndorsement } from "../src/dash/endorsementWrites";
+import { createMetadata } from "../src/dash/registryWrites";
+import { ratingAverages } from "../src/dash/ratingReads";
 import { deferred, id } from "./helpers";
 
 vi.mock("../src/session/useSession", () => ({ useSession: vi.fn() }));
@@ -43,8 +51,21 @@ vi.mock("../src/dash/registryReads", () => ({
 vi.mock("../src/dash/endorsementReads", async (importOriginal) => ({
   ...(await importOriginal<typeof import("../src/dash/endorsementReads")>()),
   endorsementsFor: vi.fn(),
+  myEndorsements: vi.fn(),
+  officialFeed: vi.fn(),
   officialListing: vi.fn(),
+  officialListingOf: vi.fn(),
 }));
+vi.mock("../src/dash/endorsementWrites", () => ({
+  endorse: vi.fn(),
+  withdrawEndorsement: vi.fn(),
+}));
+vi.mock("../src/dash/registryWrites", () => ({
+  createMetadata: vi.fn(),
+  editMetadata: vi.fn(),
+  withdrawMetadata: vi.fn(),
+}));
+vi.mock("../src/dash/ratingReads", () => ({ ratingAverages: vi.fn() }));
 
 function endorsement(contractId: string, publisherId: string): Endorsement {
   return {
@@ -73,6 +94,10 @@ function mockContract(
   );
   vi.mocked(publisherEntry).mockResolvedValue(own);
 }
+
+beforeEach(() => {
+  vi.mocked(ratingAverages).mockResolvedValue(new Map());
+});
 
 afterEach(() => {
   cleanup();
@@ -380,4 +405,326 @@ it("drops a Load more response for a contract no longer shown", async () => {
   );
   expect(screen.queryByText(/Third A/)).toBeNull();
   expect(screen.getAllByText(/Second B/).length).toBeGreaterThan(0);
+});
+
+function listing(n: number, contract: number, owner: number, name: string) {
+  return {
+    id: id(n),
+    ownerId: id(owner),
+    contractId: id(contract),
+    name,
+    tagline: `${name} tagline`,
+    category: "other" as const,
+    tags: [],
+    revision: 1n,
+  };
+}
+
+function signedInAs(identity: number | null) {
+  vi.mocked(useSession).mockReturnValue({
+    network: "testnet",
+    connection: { sdk: {}, names: { resolve: vi.fn(async () => null) } },
+    registryId: id(3),
+    identityId: identity === null ? null : id(identity),
+    keyManager: identity === null ? null : {},
+    refreshBalance: vi.fn(async () => undefined),
+  } as never);
+}
+
+it("badges each listing official or community and shows its rating", async () => {
+  signedInAs(null);
+  vi.mocked(recentEntries).mockResolvedValue({
+    entries: [listing(10, 20, 1, "Endorsed"), listing(11, 21, 2, "Proposed")],
+    cursor: undefined,
+  });
+  vi.mocked(endorsementsFor).mockResolvedValue(
+    new Map([[id(20), endorsement(id(20), id(1))]]),
+  );
+  vi.mocked(ratingAverages).mockResolvedValue(
+    new Map([
+      [id(20), { count: 3n, sum: 13n, average: 13 / 3 }],
+      [id(21), { count: 0n, sum: 0n, average: null }],
+    ]),
+  );
+  render(<RegistryExplorer open={vi.fn()} showNavigation={false} />);
+  const endorsed = (await screen.findByText("Endorsed")).closest("article")!;
+  const proposed = screen.getByText("Proposed").closest("article")!;
+  await within(endorsed).findByText("Official");
+  expect(within(proposed).getByText("Community")).toBeTruthy();
+  await within(endorsed).findByText("★ 4.3 · 3 reviews");
+  expect(within(proposed).getByText("No reviews yet")).toBeTruthy();
+  expect(ratingAverages).toHaveBeenCalledWith({}, id(3), [id(20), id(21)]);
+});
+
+it("switches the feed to official listings and filters to 4★+", async () => {
+  signedInAs(null);
+  vi.mocked(recentEntries).mockResolvedValue({
+    entries: [listing(10, 20, 1, "Alpha"), listing(11, 21, 2, "Beta")],
+    cursor: undefined,
+  });
+  vi.mocked(endorsementsFor).mockResolvedValue(new Map());
+  const endorsed = listing(12, 22, 4, "Gamma");
+  vi.mocked(officialFeed).mockResolvedValue({
+    listings: [
+      { endorsement: endorsement(id(22), id(4)), entry: endorsed },
+      // The publisher withdrew this one; there is nothing to list.
+      { endorsement: endorsement(id(23), id(5)), entry: null },
+    ],
+    cursor: undefined,
+  });
+  const onEntries = vi.fn();
+  render(
+    <RegistryExplorer
+      open={vi.fn()}
+      showNavigation={false}
+      filters
+      highlyRated={new Set([id(21)])}
+      onEntries={onEntries}
+    />,
+  );
+  await screen.findByText("Alpha");
+  fireEvent.click(screen.getByRole("button", { name: "4★+" }));
+  expect(screen.queryByText("Alpha")).toBeNull();
+  expect(screen.getByText("Beta")).toBeTruthy();
+  expect(
+    screen.getByText(/1 of 2 loaded apps average 4★ or more/),
+  ).toBeTruthy();
+  fireEvent.click(screen.getByRole("button", { name: "4★+" }));
+  fireEvent.click(screen.getByRole("button", { name: "Official only" }));
+  await screen.findByText("Gamma");
+  expect(officialFeed).toHaveBeenCalledWith({}, id(3), undefined);
+  expect(screen.queryByText("Alpha")).toBeNull();
+  expect(screen.getAllByRole("link", { name: /View details/ })).toHaveLength(1);
+  expect(
+    screen.getByText("Chosen by contract owners · newest first"),
+  ).toBeTruthy();
+  // The featured shelves keep the full feed, not the filtered one.
+  expect(onEntries).not.toHaveBeenCalledWith([endorsed]);
+});
+
+it("disables the 4★+ chip until the set has loaded", async () => {
+  signedInAs(null);
+  vi.mocked(recentEntries).mockResolvedValue({
+    entries: [],
+    cursor: undefined,
+  });
+  render(<RegistryExplorer open={vi.fn()} showNavigation={false} filters />);
+  await screen.findByText("No registry entries found.");
+  expect(
+    (screen.getByRole("button", { name: "4★+" }) as HTMLButtonElement).disabled,
+  ).toBe(true);
+});
+
+it("offers endorsement controls to the contract owner only", async () => {
+  const own = listing(10, 2, 1, "Owner listing");
+  const delegate = listing(11, 2, 6, "Delegate listing");
+  mockContract([own, delegate], own, own);
+  vi.mocked(endorse).mockResolvedValue("updated");
+  signedInAs(6);
+  const { unmount } = render(
+    <ContractRegistry
+      contractId={id(2)}
+      contractOwnerId={id(1)}
+      onMutation={vi.fn()}
+    />,
+  );
+  await screen.findByRole("button", { name: /Switch listing/ });
+  expect(screen.queryByText("You own this contract")).toBeNull();
+  expect(screen.queryByRole("button", { name: "Make official" })).toBeNull();
+  unmount();
+
+  signedInAs(1);
+  const onMutation = vi.fn();
+  render(
+    <ContractRegistry
+      contractId={id(2)}
+      contractOwnerId={id(1)}
+      onMutation={onMutation}
+    />,
+  );
+  const panel = await screen.findByLabelText("Official listing");
+  expect(panel.textContent).toContain("Official listing: Owner listing");
+  expect(within(panel).getAllByRole("listitem")).toHaveLength(2);
+  fireEvent.click(within(panel).getByRole("button", { name: "Make official" }));
+  await screen.findByText("Delegate listing is now the official listing.");
+  expect(endorse).toHaveBeenCalledWith(
+    expect.objectContaining({ contractId: id(2), publisherId: id(6) }),
+  );
+  expect(onMutation).toHaveBeenCalled();
+  vi.mocked(withdrawEndorsement).mockResolvedValue(undefined);
+  fireEvent.click(
+    await screen.findByRole("button", { name: "Withdraw endorsement" }),
+  );
+  await screen.findByText(/Endorsement withdrawn/);
+  expect(withdrawEndorsement).toHaveBeenCalledWith(
+    expect.objectContaining({ endorsement: endorsement(id(2), id(1)) }),
+  );
+});
+
+it("prompts an owner whose entry is not endorsed to mark it official", async () => {
+  const own = listing(10, 2, 1, "Owner listing");
+  mockContract([own], null, own);
+  vi.mocked(endorse).mockResolvedValue("created");
+  signedInAs(1);
+  render(
+    <ContractRegistry
+      contractId={id(2)}
+      contractOwnerId={id(1)}
+      onMutation={vi.fn()}
+    />,
+  );
+  await screen.findByText("Your entry isn't official yet.");
+  expect(
+    screen.queryByRole("button", { name: "Withdraw endorsement" }),
+  ).toBeNull();
+  fireEvent.click(screen.getByRole("button", { name: "Mark as official" }));
+  await screen.findByText("Owner listing is now the official listing.");
+  expect(endorse).toHaveBeenCalledWith(
+    expect.objectContaining({ publisherId: id(1) }),
+  );
+});
+
+it("explains a dangling endorsement to the owner and to everyone else", async () => {
+  const community = listing(11, 2, 6, "Community listing");
+  vi.mocked(contractEntries).mockResolvedValue({
+    entries: [community],
+    cursor: undefined,
+  });
+  vi.mocked(contractEntryCount).mockResolvedValue(1n);
+  vi.mocked(officialListing).mockResolvedValue({
+    endorsement: endorsement(id(2), id(5)),
+    entry: null,
+  });
+  vi.mocked(publisherEntry).mockResolvedValue(null);
+  signedInAs(null);
+  const { unmount } = render(
+    <ContractRegistry
+      contractId={id(2)}
+      contractOwnerId={id(1)}
+      onMutation={vi.fn()}
+    />,
+  );
+  await screen.findByText(/official listing was withdrawn by its publisher/);
+  expect(screen.queryByRole("button", { name: "Make official" })).toBeNull();
+  unmount();
+
+  signedInAs(1);
+  render(
+    <ContractRegistry
+      contractId={id(2)}
+      contractOwnerId={id(1)}
+      onMutation={vi.fn()}
+    />,
+  );
+  const panel = await screen.findByLabelText("Official listing");
+  expect(panel.textContent).toContain("nothing is official right now");
+  expect(
+    within(panel).getByRole("button", { name: "Make official" }),
+  ).toBeTruthy();
+  expect(
+    within(panel).getByRole("button", { name: "Withdraw endorsement" }),
+  ).toBeTruthy();
+});
+
+it("offers to mark a new entry official when the signer owns the contract", async () => {
+  mockContract([], null, null);
+  vi.mocked(createMetadata).mockResolvedValue({ contractOwnerId: id(1) });
+  vi.mocked(endorse).mockResolvedValue("created");
+  signedInAs(1);
+  const onMutation = vi.fn();
+  render(
+    <ContractRegistry
+      contractId={id(2)}
+      contractOwnerId={id(1)}
+      onMutation={onMutation}
+    />,
+  );
+  fireEvent.click(
+    await screen.findByRole("button", { name: "Add your entry" }),
+  );
+  const dialog = screen.getByRole("dialog", { name: "Submit metadata" });
+  fireEvent.change(within(dialog).getByLabelText("Name"), {
+    target: { value: "New app" },
+  });
+  fireEvent.change(within(dialog).getByLabelText("Tagline"), {
+    target: { value: "Does things" },
+  });
+  fireEvent.click(
+    within(dialog).getByRole("button", { name: "Submit metadata" }),
+  );
+  await within(dialog).findByRole("heading", { name: "Mark it as official?" });
+  expect(onMutation).not.toHaveBeenCalled();
+  fireEvent.click(
+    within(dialog).getByRole("button", { name: "Mark as official" }),
+  );
+  await vi.waitFor(() => expect(onMutation).toHaveBeenCalled());
+  expect(endorse).toHaveBeenCalledWith(
+    expect.objectContaining({ contractId: id(2), publisherId: id(1) }),
+  );
+  expect(screen.queryByRole("dialog")).toBeNull();
+});
+
+it("closes straight after creating an entry for someone else's contract", async () => {
+  mockContract([], null, null);
+  vi.mocked(createMetadata).mockResolvedValue({ contractOwnerId: id(9) });
+  signedInAs(1);
+  const onMutation = vi.fn();
+  render(
+    <ContractRegistry
+      contractId={id(2)}
+      contractOwnerId={id(9)}
+      onMutation={onMutation}
+    />,
+  );
+  fireEvent.click(
+    await screen.findByRole("button", { name: "Add your entry" }),
+  );
+  const dialog = screen.getByRole("dialog", { name: "Submit metadata" });
+  fireEvent.change(within(dialog).getByLabelText("Name"), {
+    target: { value: "New app" },
+  });
+  fireEvent.change(within(dialog).getByLabelText("Tagline"), {
+    target: { value: "Does things" },
+  });
+  fireEvent.click(
+    within(dialog).getByRole("button", { name: "Submit metadata" }),
+  );
+  await vi.waitFor(() => expect(onMutation).toHaveBeenCalled());
+  expect(screen.queryByText("Mark it as official?")).toBeNull();
+  expect(endorse).not.toHaveBeenCalled();
+});
+
+it("lists the contracts the signed-in identity has endorsed", async () => {
+  signedInAs(1);
+  const mine = listing(10, 20, 1, "Mine");
+  const delegated = listing(11, 21, 6, "Delegated");
+  const endorsements = [
+    endorsement(id(20), id(1)),
+    endorsement(id(21), id(6)),
+    endorsement(id(22), id(7)),
+  ];
+  vi.mocked(myEndorsements).mockResolvedValue({
+    endorsements,
+    cursor: undefined,
+  });
+  vi.mocked(officialListingOf).mockImplementation(async (_sdk, _r, item) => ({
+    endorsement: item,
+    entry:
+      item.contractId === id(20)
+        ? mine
+        : item.contractId === id(21)
+          ? delegated
+          : null,
+  }));
+  const open = vi.fn();
+  render(<MyEndorsements open={open} />);
+  const rows = await screen.findAllByRole("listitem");
+  expect(rows.map((row) => row.textContent)).toEqual([
+    "MineYour entry",
+    "DelegatedA delegate's entry",
+    expect.stringContaining("Entry withdrawn"),
+  ]);
+  expect(myEndorsements).toHaveBeenCalledWith({}, id(3), id(1), undefined);
+  fireEvent.click(screen.getByRole("button", { name: /Delegated/ }));
+  expect(open).toHaveBeenCalledWith(id(21), "Delegated", delegated);
 });

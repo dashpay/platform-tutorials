@@ -15,10 +15,17 @@ import {
 import {
   collapseByContract,
   endorsementsFor,
+  myEndorsements,
+  officialFeed,
   officialListing,
+  officialListingOf,
   type OfficialListing,
 } from "../dash/endorsementReads";
+import { endorse, withdrawEndorsement } from "../dash/endorsementWrites";
+import { ratingAverages, type RatingAverage } from "../dash/ratingReads";
+import { HIGHLY_RATED_MIN_AVERAGE } from "../dash/leaderboard";
 import { errorMessage } from "../lib/logger";
+import { formatAverage, pluralize } from "../lib/format";
 import {
   createMetadata,
   editMetadata,
@@ -34,10 +41,27 @@ import { ProvenanceIcon } from "./ProvenanceIcon";
 import { ExternalLaunch } from "./ExternalLaunch";
 import { ModalDialog } from "./ModalDialog";
 
+function EntryRating({ rating }: { rating: RatingAverage }) {
+  return (
+    <span className="entry-rating">
+      {rating.count > 0n ? (
+        <>
+          ★ {formatAverage(rating.average)} ·{" "}
+          {pluralize(rating.count, "review")}
+        </>
+      ) : (
+        "No reviews yet"
+      )}
+    </span>
+  );
+}
+
 function Entry({
   entry,
   open,
   officialPublisherId,
+  provenanceKnown = false,
+  rating,
   showTags = false,
   showPublisher = true,
   onCategory,
@@ -47,6 +71,8 @@ function Entry({
   entry: RegistryEntry;
   open?: (id: string, name: string, entry: RegistryEntry) => void;
   officialPublisherId?: string;
+  provenanceKnown?: boolean;
+  rating?: RatingAverage;
   showTags?: boolean;
   showPublisher?: boolean;
   onCategory?: (category: AppCategory) => void;
@@ -97,8 +123,18 @@ function Entry({
           ) : (
             <strong>{entry.name}</strong>
           )}
-          {official && <ProvenanceIcon />}
+          {official && !provenanceKnown && <ProvenanceIcon />}
+          {provenanceKnown &&
+            (official ? (
+              <span className="entry-badge official">
+                <ProvenanceIcon />
+                Official
+              </span>
+            ) : (
+              <span className="entry-badge community">Community</span>
+            ))}
           {own && <span className="entry-badge own">Your entry</span>}
+          {rating && <EntryRating rating={rating} />}
           <button
             className="chip category-chip"
             onClick={(event) => {
@@ -179,12 +215,16 @@ function Entry({
 
 const NO_ENTRIES: RegistryEntry[] = [];
 
-/** Contract ID → endorsed publisher ID for the contracts of loaded entries. */
+/**
+ * Contract ID → endorsed publisher ID for the contracts of loaded entries,
+ * and the contracts already looked up (absent from the map: no endorsement).
+ */
 function useOfficialPublishers(entries: RegistryEntry[]) {
   const session = useSession();
   const [officialPublishers, setOfficialPublishers] = useState(
     new Map<string, string>(),
   );
+  const [checked, setChecked] = useState(new Set<string>());
   useEffect(() => {
     let current = true;
     if (!session.connection || !session.registryId || entries.length === 0)
@@ -206,23 +246,206 @@ function useOfficialPublishers(entries: RegistryEntry[]) {
             ]),
           ),
         );
+        setChecked(new Set(entries.map((entry) => entry.contractId)));
       })
       .catch(() => undefined);
     return () => {
       current = false;
     };
   }, [entries, session.connection, session.registryId]);
-  return officialPublishers;
+  return { officialPublishers, checked };
+}
+
+/** Average and review count per contract, one batched `average` per 100. */
+function useRatingAverages(entries: RegistryEntry[]) {
+  const session = useSession();
+  const [averages, setAverages] = useState(new Map<string, RatingAverage>());
+  useEffect(() => {
+    let current = true;
+    if (!session.connection || !session.registryId || entries.length === 0)
+      return () => {
+        current = false;
+      };
+    void ratingAverages(
+      session.connection.sdk,
+      session.registryId,
+      entries.map((entry) => entry.contractId),
+    )
+      .then((result) => {
+        if (current) setAverages(result);
+      })
+      .catch(() => undefined);
+    return () => {
+      current = false;
+    };
+  }, [entries, session.connection, session.registryId]);
+  return averages;
+}
+
+function OwnerPanel({
+  contractId,
+  official,
+  listings,
+  own,
+  onChanged,
+}: {
+  contractId: string;
+  official: OfficialListing | null | undefined;
+  listings: RegistryEntry[];
+  own: RegistryEntry | null | undefined;
+  onChanged(notice: string): void;
+}) {
+  const session = useSession();
+  const [busy, setBusy] = useState(false);
+  const [error, setError] = useState("");
+  const publisherId = official?.endorsement.publisherId;
+  const officialEntry = official?.entry ?? null;
+  async function run(action: () => Promise<string>) {
+    setBusy(true);
+    setError("");
+    try {
+      const notice = await action();
+      void session.refreshBalance().catch(() => undefined);
+      onChanged(notice);
+    } catch (caught) {
+      setError(errorMessage(caught));
+    } finally {
+      setBusy(false);
+    }
+  }
+  const makeOfficial = (entry: RegistryEntry) =>
+    void run(async () => {
+      const result = await endorse({
+        sdk: session.connection!.sdk,
+        keyManager: session.keyManager!,
+        registryId: session.registryId,
+        contractId,
+        publisherId: entry.ownerId,
+      });
+      return result === "unchanged"
+        ? "That listing is already official."
+        : `${entry.name} is now the official listing.`;
+    });
+  const publisherName = (id: string) =>
+    id === session.identityId ? (
+      "you"
+    ) : (
+      <DpnsName identityId={id} resolver={session.connection!.names} nameOnly />
+    );
+  return (
+    <div className="owner-panel" aria-label="Official listing">
+      <p className="eyebrow">You own this contract</p>
+      {officialEntry ? (
+        <p>
+          <ProvenanceIcon /> Official listing:{" "}
+          <strong>{officialEntry.name}</strong>, published by{" "}
+          {publisherName(officialEntry.ownerId)}.
+        </p>
+      ) : official ? (
+        <p>
+          The listing you marked official was withdrawn by its publisher, so
+          nothing is official right now. Make another listing official, or
+          withdraw the endorsement.
+        </p>
+      ) : own ? (
+        <div className="owner-prompt">
+          <p>
+            <strong>Your entry isn't official yet.</strong> Until you mark it,
+            it shows as a community listing.
+          </p>
+          <button
+            type="button"
+            className="primary-pill"
+            disabled={busy || !session.keyManager}
+            onClick={() => makeOfficial(own)}
+          >
+            {busy ? "Saving…" : "Mark as official"}
+          </button>
+        </div>
+      ) : (
+        <p>
+          No listing is official yet.{" "}
+          {listings.length
+            ? "Make any listing official: yours or one a delegate published."
+            : "Add your entry below, then mark it as official."}
+        </p>
+      )}
+      {(official
+        ? listings.length > 0
+        : listings.some((entry) => entry.id !== own?.id)) && (
+        <ul className="owner-listings">
+          {listings.map((entry) => (
+            <li key={entry.id}>
+              <span
+                className="app-mark"
+                data-category={entry.category}
+                aria-hidden="true"
+              >
+                {entry.name.slice(0, 1).toUpperCase()}
+              </span>
+              <span>
+                <strong>{entry.name}</strong>
+                <small>by {publisherName(entry.ownerId)}</small>
+              </span>
+              {entry.ownerId === publisherId ? (
+                <span className="entry-badge">Official</span>
+              ) : (
+                <button
+                  type="button"
+                  className="muted-pill"
+                  disabled={busy || !session.keyManager}
+                  onClick={() => makeOfficial(entry)}
+                >
+                  Make official
+                </button>
+              )}
+            </li>
+          ))}
+        </ul>
+      )}
+      {official && (
+        <button
+          type="button"
+          className="muted-pill danger"
+          disabled={busy || !session.keyManager}
+          onClick={() =>
+            void run(async () => {
+              await withdrawEndorsement({
+                sdk: session.connection!.sdk,
+                keyManager: session.keyManager!,
+                registryId: session.registryId,
+                endorsement: official.endorsement,
+              });
+              return "Endorsement withdrawn. Every listing is now a community listing.";
+            })
+          }
+        >
+          Withdraw endorsement
+        </button>
+      )}
+      <small>
+        &ldquo;Official&rdquo; only means the contract&apos;s owner chose it.
+        The choice is its own document, so each change is one write.
+      </small>
+      {error && (
+        <p className="error" role="alert">
+          {error}
+        </p>
+      )}
+    </div>
+  );
 }
 
 export function ContractRegistry({
   contractId,
+  contractOwnerId,
   onMutation,
   onPreferredEntry,
   onOfficialPublisher,
   managementHost,
 }: {
   contractId: string;
+  contractOwnerId?: string;
   onMutation(): void;
   onPreferredEntry?(entry: RegistryEntry | null): void;
   onOfficialPublisher?(publisherId: string | null): void;
@@ -241,6 +464,8 @@ export function ContractRegistry({
   const [editorOpen, setEditorOpen] = useState(false);
   const [expanded, setExpanded] = useState(false);
   const [selectedId, setSelectedId] = useState<string>();
+  const [notice, setNotice] = useState("");
+  const listedWhileOpen = useRef(false);
   const loadToken = useRef(0);
   useEffect(() => {
     let current = true;
@@ -379,7 +604,17 @@ export function ContractRegistry({
     setSelectedId(entry.id);
     onPreferredEntry?.(entry);
   };
-  if (ordered.length <= 1 && !error && !session.identityId) return null;
+  const dangling = Boolean(official && !official.entry);
+  const isOwner =
+    Boolean(session.identityId) && session.identityId === contractOwnerId;
+  const reload = () => {
+    listedWhileOpen.current = false;
+    setBusy(true);
+    setRefresh((value) => value + 1);
+    onMutation();
+  };
+  if (ordered.length <= 1 && !error && !session.identityId && !dangling)
+    return null;
   const managementAction = (
     <>
       {session.identityId && (
@@ -407,7 +642,10 @@ export function ContractRegistry({
     editorOpen ? (
       <ModalDialog
         label={own ? "Edit your submission" : "Submit metadata"}
-        onClose={() => setEditorOpen(false)}
+        onClose={() => {
+          setEditorOpen(false);
+          if (listedWhileOpen.current) reload();
+        }}
       >
         <MetadataEditor
           key={`${own?.id ?? "new"}:${own?.revision ?? 0}`}
@@ -416,9 +654,10 @@ export function ContractRegistry({
           onCancel={() => setEditorOpen(false)}
           onChanged={() => {
             setEditorOpen(false);
-            setBusy(true);
-            setRefresh((value) => value + 1);
-            onMutation();
+            reload();
+          }}
+          onListed={() => {
+            listedWhileOpen.current = true;
           }}
         />
       </ModalDialog>
@@ -529,6 +768,29 @@ export function ContractRegistry({
           )}
         </>
       )}
+      {dangling && !isOwner && (
+        <p className="listing-note">
+          The contract owner&apos;s official listing was withdrawn by its
+          publisher, so every listing here is a community listing.
+        </p>
+      )}
+      {isOwner && (
+        <OwnerPanel
+          contractId={contractId}
+          official={official}
+          listings={ordered}
+          own={own}
+          onChanged={(message) => {
+            setNotice(message);
+            reload();
+          }}
+        />
+      )}
+      {notice && (
+        <p className="listing-note" role="status">
+          {notice}
+        </p>
+      )}
       {managementHost
         ? createPortal(managementAction, managementHost)
         : managementAction}
@@ -542,11 +804,14 @@ function MetadataEditor({
   contractId,
   onCancel,
   onChanged,
+  onListed,
 }: {
   entry: RegistryEntry | null;
   contractId: string;
   onCancel(): void;
   onChanged(): void;
+  /** The entry is saved but the editor stays open to offer endorsing it. */
+  onListed?(): void;
 }) {
   const session = useSession();
   const [input, setInput] = useState<MetadataInput>({
@@ -564,6 +829,7 @@ function MetadataEditor({
   const [busy, setBusy] = useState(false);
   const [error, setError] = useState("");
   const [notice, setNotice] = useState("");
+  const [offerEndorse, setOfferEndorse] = useState(false);
   if (!session.connection || !session.keyManager || !session.registryId)
     return null;
   const change = (field: keyof MetadataInput, value: string) =>
@@ -582,14 +848,21 @@ function MetadataEditor({
           entry,
           input,
         });
-      else
-        await createMetadata({
+      else {
+        const { contractOwnerId } = await createMetadata({
           sdk: session.connection!.sdk,
           keyManager: session.keyManager!,
           registryId: session.registryId,
           targetId: contractId,
           input,
         });
+        if (contractOwnerId === session.identityId) {
+          void session.refreshBalance().catch(() => undefined);
+          setOfferEndorse(true);
+          onListed?.();
+          return;
+        }
+      }
       setNotice(entry ? "Metadata updated." : "Metadata submitted.");
       void session.refreshBalance().catch(() => undefined);
       onChanged();
@@ -621,6 +894,51 @@ function MetadataEditor({
       setBusy(false);
     }
   }
+  async function markOfficial() {
+    setBusy(true);
+    setError("");
+    try {
+      await endorse({
+        sdk: session.connection!.sdk,
+        keyManager: session.keyManager!,
+        registryId: session.registryId,
+        contractId,
+        publisherId: session.identityId!,
+      });
+      void session.refreshBalance().catch(() => undefined);
+      onChanged();
+    } catch (caught) {
+      setError(errorMessage(caught));
+    } finally {
+      setBusy(false);
+    }
+  }
+  if (offerEndorse)
+    return (
+      <div className="metadata-form endorse-step">
+        <p role="status">✓ Your entry is listed.</p>
+        <p className="eyebrow">Step 2 of 2 · optional</p>
+        <h3>Mark it as official?</h3>
+        <p>
+          You own this contract, so you can make your entry the official one.
+          Until then it shows as a community listing. The endorsement is a
+          separate document, so this is one more write.
+        </p>
+        <div className="actions">
+          <button disabled={busy} onClick={() => void markOfficial()}>
+            {busy ? "Saving…" : "Mark as official"}
+          </button>
+          <button type="button" disabled={busy} onClick={onChanged}>
+            Not now
+          </button>
+        </div>
+        {error && (
+          <p className="error" role="alert">
+            {error}
+          </p>
+        )}
+      </div>
+    );
   return (
     <form
       className="metadata-form"
@@ -770,6 +1088,8 @@ export function RegistryExplorer({
   showPublishers = true,
   showNetwork = true,
   initialEntries = [],
+  filters = false,
+  highlyRated = null,
 }: {
   open(id: string, name: string, entry: RegistryEntry): void;
   initialMode?: "recent" | "name" | "mine";
@@ -783,9 +1103,16 @@ export function RegistryExplorer({
   showPublishers?: boolean;
   showNetwork?: boolean;
   initialEntries?: RegistryEntry[];
+  /** Show the All / Official only switch and the 4★+ chip. */
+  filters?: boolean;
+  /** Contracts averaging 4★ or more; null until loaded. */
+  highlyRated?: Set<string> | null;
 }) {
   const session = useSession();
-  const [mode, setMode] = useState<"recent" | "name" | "mine">(initialMode);
+  const [mode, setMode] = useState<"recent" | "official" | "name" | "mine">(
+    initialMode,
+  );
+  const [highOnly, setHighOnly] = useState(false);
   const [term, setTerm] = useState("");
   const [entries, setEntries] = useState<RegistryEntry[]>(initialEntries);
   const [cursor, setCursor] = useState<string>();
@@ -803,13 +1130,18 @@ export function RegistryExplorer({
     ownEntriesResult.scope === ownEntriesScope
       ? ownEntriesResult.entries
       : new Map<string, RegistryEntry>();
-  const officialPublishers = useOfficialPublishers(entries);
+  const { officialPublishers, checked } = useOfficialPublishers(entries);
+  const averages = useRatingAverages(entries);
   const request = useRef(0);
 
   const displayedEntries = useMemo(
     () => collapseByContract(entries, officialPublishers),
     [entries, officialPublishers],
   );
+  const highFilter = highOnly && highlyRated !== null;
+  const visibleEntries = highFilter
+    ? displayedEntries.filter((entry) => highlyRated.has(entry.contractId))
+    : displayedEntries;
   useEffect(() => {
     let current = true;
     if (
@@ -846,9 +1178,10 @@ export function RegistryExplorer({
     session.identityId,
     session.registryId,
   ]);
+  // Discover's featured shelves are built from the full feed, never a filter.
   useEffect(() => {
-    onEntries?.(displayedEntries);
-  }, [displayedEntries, onEntries]);
+    if (mode !== "official" && !busy) onEntries?.(displayedEntries);
+  }, [busy, displayedEntries, mode, onEntries]);
   useEffect(() => {
     onOfficialPublishers?.(officialPublishers);
   }, [officialPublishers, onOfficialPublishers]);
@@ -870,6 +1203,19 @@ export function RegistryExplorer({
           session.identityId,
           from,
         );
+      } else if (selected === "official") {
+        const page = await officialFeed(
+          session.connection.sdk,
+          session.registryId,
+          from,
+        );
+        result = {
+          // A withdrawn entry leaves its endorsement with nothing to show.
+          entries: page.listings.flatMap((listing) =>
+            listing.entry ? [listing.entry] : [],
+          ),
+          cursor: page.cursor,
+        };
       } else
         result =
           selected === "recent"
@@ -920,7 +1266,7 @@ export function RegistryExplorer({
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [session.connection, session.registryId, initialMode]);
 
-  function choose(next: "recent" | "name" | "mine") {
+  function choose(next: "recent" | "official" | "name" | "mine") {
     request.current++;
     setMode(next);
     setEntries([]);
@@ -940,7 +1286,11 @@ export function RegistryExplorer({
                 : "Recently added")}
         </h2>
         {(subheading || showNetwork) && (
-          <span>{subheading ?? session.network}</span>
+          <span>
+            {mode === "official"
+              ? "Chosen by contract owners · newest first"
+              : (subheading ?? session.network)}
+          </span>
         )}
       </div>
       {!session.registryId ? (
@@ -968,6 +1318,39 @@ export function RegistryExplorer({
                 My submissions
               </button>
             </nav>
+          )}
+          {filters && (
+            <div className="feed-filters">
+              <div className="segment" aria-label="Listing filter">
+                <button
+                  aria-pressed={mode === "recent"}
+                  onClick={() => choose("recent")}
+                >
+                  All
+                </button>
+                <button
+                  aria-pressed={mode === "official"}
+                  onClick={() => choose("official")}
+                >
+                  Official only
+                </button>
+              </div>
+              <button
+                className="filter-chip"
+                aria-pressed={highFilter}
+                disabled={highlyRated === null}
+                title={`Apps averaging ${HIGHLY_RATED_MIN_AVERAGE}★ or more, from one proven query`}
+                onClick={() => setHighOnly((value) => !value)}
+              >
+                {HIGHLY_RATED_MIN_AVERAGE}★+
+              </button>
+              {highFilter && (
+                <small>
+                  {visibleEntries.length} of {displayedEntries.length} loaded
+                  apps average {HIGHLY_RATED_MIN_AVERAGE}★ or more
+                </small>
+              )}
+            </div>
           )}
           {mode === "name" && (
             <form
@@ -998,17 +1381,25 @@ export function RegistryExplorer({
               {error}
             </p>
           )}
-          {!busy && !error && !displayedEntries.length && (
-            <p>No registry entries found.</p>
+          {!busy && !error && !visibleEntries.length && (
+            <p>
+              {highFilter && displayedEntries.length
+                ? `No loaded app averages ${HIGHLY_RATED_MIN_AVERAGE}★ or more yet.`
+                : mode === "official"
+                  ? "No contract owner has marked a listing official yet."
+                  : "No registry entries found."}
+            </p>
           )}
           <div className={aside ? "registry-layout" : undefined}>
             <div>
-              {displayedEntries.map((entry) => (
+              {visibleEntries.map((entry) => (
                 <Entry
                   key={entry.id}
                   entry={entry}
                   open={open}
                   officialPublisherId={officialPublishers.get(entry.contractId)}
+                  provenanceKnown={checked.has(entry.contractId)}
+                  rating={averages.get(entry.contractId)}
                   onCategory={onCategory}
                   showPublisher={showPublishers}
                   onEdit={session.keyManager ? setEditingEntry : undefined}
@@ -1086,7 +1477,8 @@ export function CategoryBrowser({
     listingCurrent && more.load === listingCurrent.load ? more : undefined;
   const moreBusy = moreCurrent?.busy ?? false;
   const error = listingCurrent?.error || moreCurrent?.error || "";
-  const officialPublishers = useOfficialPublishers(entries);
+  const { officialPublishers, checked } = useOfficialPublishers(entries);
+  const averages = useRatingAverages(entries);
   const [signingIn, setSigningIn] = useState(false);
   useEffect(() => {
     let current = true;
@@ -1215,6 +1607,8 @@ export function CategoryBrowser({
           entry={entry}
           open={open}
           officialPublisherId={officialPublishers.get(entry.contractId)}
+          provenanceKnown={checked.has(entry.contractId)}
+          rating={averages.get(entry.contractId)}
           showTags
         />
       ))}
@@ -1249,6 +1643,116 @@ export function CategoryBrowser({
             </button>
           </section>
         ))}
+    </section>
+  );
+}
+
+/** Contracts the signed-in identity has endorsed, with the entry each names. */
+export function MyEndorsements({
+  open,
+}: {
+  open(id: string, name: string, entry?: RegistryEntry): void;
+}) {
+  const session = useSession();
+  const [listings, setListings] = useState<OfficialListing[]>();
+  const [cursor, setCursor] = useState<string>();
+  const [error, setError] = useState("");
+  const [busy, setBusy] = useState(false);
+  const request = useRef(0);
+  async function load(from?: string) {
+    if (!session.connection || !session.registryId || !session.identityId)
+      return;
+    const token = ++request.current;
+    setBusy(true);
+    setError("");
+    try {
+      const sdk = session.connection.sdk;
+      const page = await myEndorsements(
+        sdk,
+        session.registryId,
+        session.identityId,
+        from,
+      );
+      const loaded = await Promise.all(
+        page.endorsements.map((endorsement) =>
+          officialListingOf(sdk, session.registryId, endorsement),
+        ),
+      );
+      if (token !== request.current) return;
+      setListings((previous) => [...(from ? (previous ?? []) : []), ...loaded]);
+      setCursor(page.cursor);
+    } catch (caught) {
+      if (token === request.current) setError(errorMessage(caught));
+    } finally {
+      if (token === request.current) setBusy(false);
+    }
+  }
+  useEffect(() => {
+    const timer = window.setTimeout(() => void load(), 0);
+    const generation = request;
+    return () => {
+      window.clearTimeout(timer);
+      generation.current++;
+    };
+    // load is event-oriented; a session change remounts the view.
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [session.connection, session.registryId, session.identityId]);
+  return (
+    <section className="panel side-panel">
+      <h2>Endorsed by you</h2>
+      <p>Contracts you own, and the listing you marked official for each.</p>
+      {error && (
+        <p className="error" role="alert">
+          {error}
+        </p>
+      )}
+      {!listings && !error && <p role="status">Loading…</p>}
+      {listings?.length === 0 && (
+        <p>
+          None yet. A contract&apos;s owner can mark one listing for it as
+          official.
+        </p>
+      )}
+      {listings && listings.length > 0 && (
+        <ul className="side-list">
+          {listings.map(({ endorsement, entry }) => (
+            <li key={endorsement.id}>
+              <button
+                type="button"
+                className="side-row"
+                onClick={() =>
+                  open(
+                    endorsement.contractId,
+                    entry?.name ?? "",
+                    entry ?? undefined,
+                  )
+                }
+              >
+                <span className="side-row-title">
+                  {entry?.name ??
+                    `${endorsement.contractId.slice(0, 6)}…${endorsement.contractId.slice(-4)}`}
+                  <small>
+                    {!entry
+                      ? "Entry withdrawn: re-point or withdraw"
+                      : entry.ownerId === session.identityId
+                        ? "Your entry"
+                        : "A delegate's entry"}
+                  </small>
+                </span>
+              </button>
+            </li>
+          ))}
+        </ul>
+      )}
+      {cursor && (
+        <button
+          className="open-pill"
+          disabled={busy}
+          onClick={() => void load(cursor)}
+        >
+          {busy ? "Loading…" : "Load more"}
+        </button>
+      )}
     </section>
   );
 }

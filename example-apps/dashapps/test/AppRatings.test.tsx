@@ -397,3 +397,15 @@ it("renders nothing without a registry and a mainnet-only prompt when signed out
     ).disabled,
   ).toBe(true);
 });
+
+it("shows the contract's owner a note instead of the review form", async () => {
+  signedIn(null);
+  vi.mocked(ratingSummary).mockResolvedValue(summary);
+  vi.mocked(listRatings).mockResolvedValue(page([rating(2)]));
+  render(<AppRatings contractId={id(2)} contractOwnerId={id(1)} />);
+  await screen.findByText("You own this contract");
+  expect(screen.getByText(/won't accept a review/)).toBeTruthy();
+  expect(screen.queryByRole("button", { name: "Write a review" })).toBeNull();
+  expect(screen.queryByRole("radiogroup", { name: "Your rating" })).toBeNull();
+  await screen.findByText("Title 2");
+});

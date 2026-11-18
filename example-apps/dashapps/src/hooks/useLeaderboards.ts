@@ -6,6 +6,7 @@ import {
   type LeaderboardEntry,
   type RankedName,
 } from "../dash/leaderboard";
+import { ratingAverages, type RatingAverage } from "../dash/ratingReads";
 import type { ReadSdk } from "../dash/types";
 import { errorMessage } from "../lib/logger";
 
@@ -15,11 +16,13 @@ export interface Leaderboards {
   /** Contract IDs averaging 4★ or more. */
   highlyRated: Set<string>;
   names: Map<string, RankedName>;
+  /** Average and review count for every ranked contract. */
+  averages: Map<string, RatingAverage>;
 }
 
 /**
  * "Top rated" and "Most rated" (two `ranked` calls), the 4★+ set (`having`),
- * and display names for the ranked rows. Reloads per registry and on each
+ * and display names and review counts for the ranked rows. Reloads per registry and on each
  * `refreshToken` bump; a failure stays local so it never blocks other views.
  */
 export function useLeaderboards(
@@ -44,9 +47,13 @@ export function useLeaderboards(
           leaderboard(sdk, registryId, "count"),
           highlyRated(sdk, registryId),
         ]);
-        const names = await rankedNames(sdk, registryId, [
+        const ranked = [
           ...topRated.map((entry) => entry.contractId),
           ...mostRated.map((entry) => entry.contractId),
+        ];
+        const [names, averages] = await Promise.all([
+          rankedNames(sdk, registryId, ranked),
+          ratingAverages(sdk, registryId, ranked),
         ]);
         if (active)
           setState({
@@ -56,6 +63,7 @@ export function useLeaderboards(
               mostRated,
               highlyRated: new Set(highly.map((entry) => entry.contractId)),
               names,
+              averages,
             },
             error: "",
           });
