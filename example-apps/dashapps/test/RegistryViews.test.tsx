@@ -694,6 +694,37 @@ it("closes straight after creating an entry for someone else's contract", async 
   expect(endorse).not.toHaveBeenCalled();
 });
 
+it("skips the mark-official step when the owner already endorsed a listing", async () => {
+  const delegated = listing(10, 2, 6, "Delegated");
+  mockContract([delegated], delegated, null);
+  vi.mocked(createMetadata).mockResolvedValue({ contractOwnerId: id(1) });
+  signedInAs(1);
+  const onMutation = vi.fn();
+  render(
+    <ContractRegistry
+      contractId={id(2)}
+      contractOwnerId={id(1)}
+      onMutation={onMutation}
+    />,
+  );
+  fireEvent.click(
+    await screen.findByRole("button", { name: "Add your entry" }),
+  );
+  const dialog = screen.getByRole("dialog", { name: "Submit metadata" });
+  fireEvent.change(within(dialog).getByLabelText("Name"), {
+    target: { value: "New app" },
+  });
+  fireEvent.change(within(dialog).getByLabelText("Tagline"), {
+    target: { value: "Does things" },
+  });
+  fireEvent.click(
+    within(dialog).getByRole("button", { name: "Submit metadata" }),
+  );
+  await vi.waitFor(() => expect(onMutation).toHaveBeenCalled());
+  expect(screen.queryByText("Mark it as official?")).toBeNull();
+  expect(endorse).not.toHaveBeenCalled();
+});
+
 it("lists the contracts the signed-in identity has endorsed", async () => {
   signedInAs(1);
   const mine = listing(10, 20, 1, "Mine");

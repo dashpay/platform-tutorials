@@ -333,7 +333,7 @@ function OwnerPanel({
       <DpnsName identityId={id} resolver={session.connection!.names} nameOnly />
     );
   return (
-    <div className="owner-panel" aria-label="Official listing">
+    <section className="owner-panel" aria-label="Official listing">
       <p className="eyebrow">You own this contract</p>
       {officialEntry ? (
         <p>
@@ -432,7 +432,7 @@ function OwnerPanel({
           {error}
         </p>
       )}
-    </div>
+    </section>
   );
 }
 
@@ -659,6 +659,7 @@ export function ContractRegistry({
           onListed={() => {
             listedWhileOpen.current = true;
           }}
+          endorsed={Boolean(official)}
         />
       </ModalDialog>
     ) : null;
@@ -805,11 +806,13 @@ function MetadataEditor({
   onCancel,
   onChanged,
   onListed,
+  endorsed = false,
 }: {
   entry: RegistryEntry | null;
   contractId: string;
   onCancel(): void;
   onChanged(): void;
+  endorsed?: boolean;
   /** The entry is saved but the editor stays open to offer endorsing it. */
   onListed?(): void;
 }) {
@@ -856,7 +859,7 @@ function MetadataEditor({
           targetId: contractId,
           input,
         });
-        if (contractOwnerId === session.identityId) {
+        if (contractOwnerId === session.identityId && !endorsed) {
           void session.refreshBalance().catch(() => undefined);
           setOfferEndorse(true);
           onListed?.();
@@ -928,7 +931,12 @@ function MetadataEditor({
           <button disabled={busy} onClick={() => void markOfficial()}>
             {busy ? "Saving…" : "Mark as official"}
           </button>
-          <button type="button" disabled={busy} onClick={onChanged}>
+          <button
+            type="button"
+            className="secondary"
+            disabled={busy}
+            onClick={onChanged}
+          >
             Not now
           </button>
         </div>
@@ -1183,8 +1191,8 @@ export function RegistryExplorer({
     if (mode !== "official" && !busy) onEntries?.(displayedEntries);
   }, [busy, displayedEntries, mode, onEntries]);
   useEffect(() => {
-    onOfficialPublishers?.(officialPublishers);
-  }, [officialPublishers, onOfficialPublishers]);
+    if (mode !== "official") onOfficialPublishers?.(officialPublishers);
+  }, [mode, officialPublishers, onOfficialPublishers]);
 
   async function load(selected = mode, more = false) {
     if (!session.connection || !session.registryId) return;
@@ -1321,7 +1329,7 @@ export function RegistryExplorer({
           )}
           {filters && (
             <div className="feed-filters">
-              <div className="segment" aria-label="Listing filter">
+              <div className="segment" role="group" aria-label="Listing filter">
                 <button
                   aria-pressed={mode === "recent"}
                   onClick={() => choose("recent")}
@@ -1386,7 +1394,9 @@ export function RegistryExplorer({
               {highFilter && displayedEntries.length
                 ? `No loaded app averages ${HIGHLY_RATED_MIN_AVERAGE}★ or more yet.`
                 : mode === "official"
-                  ? "No contract owner has marked a listing official yet."
+                  ? cursor
+                    ? "No official listings on this page."
+                    : "No contract owner has marked a listing official yet."
                   : "No registry entries found."}
             </p>
           )}

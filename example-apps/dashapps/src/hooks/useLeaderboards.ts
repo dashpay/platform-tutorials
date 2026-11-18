@@ -22,8 +22,8 @@ export interface Leaderboards {
 
 /**
  * "Top rated" and "Most rated" (two `ranked` calls), the 4★+ set (`having`),
- * and display names and review counts for the ranked rows. Reloads per registry and on each
- * `refreshToken` bump; a failure stays local so it never blocks other views.
+ * and display names and review counts for the ranked rows. Reloads per
+ * registry and on each `refreshToken` bump; a failure stays local.
  */
 export function useLeaderboards(
   sdk: ReadSdk | undefined,

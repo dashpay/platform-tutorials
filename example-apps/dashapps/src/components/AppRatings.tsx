@@ -246,10 +246,12 @@ export function AppRatings({
   contractId,
   contractOwnerId,
   onSummary,
+  onMutation,
 }: {
   contractId: string;
   contractOwnerId?: string;
   onSummary?(summary: RatingSummary | null): void;
+  onMutation?(): void;
 }) {
   const session = useSession();
   const { connection, registryId, identityId } = session;
@@ -418,6 +420,7 @@ export function AppRatings({
     setQuickStars(null);
     setNotice(message);
     setRefresh((value) => value + 1);
+    onMutation?.();
   };
   return (
     <section className="app-ratings" aria-label="Ratings and reviews">

@@ -232,7 +232,8 @@ it("lets a signed-in user pick stars, write a review and save it", async () => {
   vi.mocked(ratingSummary).mockResolvedValue(summary);
   vi.mocked(listRatings).mockResolvedValue(page([]));
   vi.mocked(saveRating).mockResolvedValue("created");
-  render(<AppRatings contractId={id(2)} />);
+  const onMutation = vi.fn();
+  render(<AppRatings contractId={id(2)} onMutation={onMutation} />);
   await screen.findByText("Used this app?");
   await screen.findByRole("button", { name: "Write a review" });
   fireEvent.click(
@@ -266,6 +267,7 @@ it("lets a signed-in user pick stars, write a review and save it", async () => {
     }),
   );
   expect(screen.queryByRole("dialog")).toBeNull();
+  expect(onMutation).toHaveBeenCalledOnce();
   await waitFor(() =>
     expect(vi.mocked(ratingSummary).mock.calls.length).toBeGreaterThan(before),
   );

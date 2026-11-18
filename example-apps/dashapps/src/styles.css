@@ -557,7 +557,8 @@ small {
   gap: 9px;
   margin: 15px 0;
 }
-.actions button[aria-pressed="false"] {
+.actions button[aria-pressed="false"],
+.metadata-form .actions .secondary {
   background: #f1f3f6;
   color: #334155;
 }

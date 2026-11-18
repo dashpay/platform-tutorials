@@ -140,6 +140,7 @@ function Browser({
   const leaderboards = useLeaderboards(
     view === "discover" ? connection?.sdk : undefined,
     session.registryId,
+    registryRefresh,
   );
   const request = useRef(0);
   useEffect(() => {
@@ -438,6 +439,7 @@ function Browser({
                 contractId={selected}
                 contractOwnerId={detail.ownerId}
                 onSummary={setRatingSummary}
+                onMutation={() => setRegistryRefresh((value) => value + 1)}
               />
             </div>
             <section className="about-app">
