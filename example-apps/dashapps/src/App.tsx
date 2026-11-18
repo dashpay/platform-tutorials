@@ -1203,9 +1203,17 @@ function SessionViews() {
             key={`settings:${session.network}:${session.connectionGeneration}`}
           />
         </div>
-      ) : registryCheck === "outdated" ? (
+      ) : registryCheck.status === "outdated" ? (
         <OutdatedRegistry />
-      ) : registryCheck === "checking" && session.status !== "error" ? (
+      ) : registryCheck.status === "failed" && session.status !== "error" ? (
+        <section className="panel" role="alert">
+          <h2>Couldn&apos;t check the registry.</h2>
+          <p>The network didn&apos;t return the registry contract.</p>
+          <button className="primary-pill" onClick={registryCheck.retry}>
+            Try again
+          </button>
+        </section>
+      ) : registryCheck.status === "checking" && session.status !== "error" ? (
         <p>Checking the registry…</p>
       ) : (
         <Browser
@@ -1229,8 +1237,10 @@ function OutdatedRegistry() {
       <h2>This registry was made for an older version of the app.</h2>
       <p>
         It doesn&apos;t have the listings, endorsements, and reviews this
-        version reads. Switch back to the default registry, or choose another
-        one in Settings.
+        version reads.{" "}
+        {DEFAULT_CONTRACT_IDS[session.network]
+          ? "Switch back to the default registry, or choose another one in Settings."
+          : "Choose a current registry in Settings."}
       </p>
       {DEFAULT_CONTRACT_IDS[session.network] && (
         <button

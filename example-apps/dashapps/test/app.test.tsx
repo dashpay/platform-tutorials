@@ -424,9 +424,37 @@ it("browses a saved registry that has every document type", async () => {
   render(<App />);
   await screen.findByRole("heading", { name: "Built on Dash Platform" });
   await waitFor(() => expect(client.documents.query).toHaveBeenCalled());
+  expect(client.contracts.getMany).toHaveBeenCalledWith([id(7)]);
   expect(
     screen.queryByText(
       "This registry was made for an older version of the app.",
     ),
   ).toBeNull();
+});
+
+it("waits for the registry check and offers a retry when it fails", async () => {
+  localStorage.setItem("dashapps.contractId.testnet", id(7));
+  const client = connect();
+  const first = deferred<Map<string, ContractHandle | undefined>>();
+  vi.mocked(client.contracts.getMany).mockReturnValueOnce(first.promise);
+  render(<App />);
+  await screen.findByText("Checking the registry…");
+  expect(client.documents.query).not.toHaveBeenCalled();
+  first.reject(new Error("timeout"));
+  await screen.findByText("Couldn't check the registry.");
+  expect(client.documents.query).not.toHaveBeenCalled();
+  vi.mocked(client.contracts.getMany).mockResolvedValue(
+    new Map([
+      [
+        id(7),
+        {
+          ...contract(),
+          schemas: { appMetadata: {}, appEndorsement: {}, appReview: {} },
+        },
+      ],
+    ]),
+  );
+  fireEvent.click(screen.getByRole("button", { name: "Try again" }));
+  await screen.findByRole("heading", { name: "Built on Dash Platform" });
+  await waitFor(() => expect(client.documents.query).toHaveBeenCalled());
 });

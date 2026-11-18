@@ -31,6 +31,17 @@ async function mostRatedContract(): Promise<string | undefined> {
   return typeof contractId === "string" ? contractId : undefined;
 }
 
+async function hasListings() {
+  const sdk = EvoSDK.testnetTrusted();
+  await sdk.connect();
+  const documents = await sdk.documents.query({
+    dataContractId: REGISTRY_ID,
+    documentTypeName: "appMetadata",
+    limit: 1,
+  });
+  return documents.size > 0;
+}
+
 async function openContract(page: Page, contractId: string) {
   await page.goto("/");
   await page.getByRole("button", { name: "Search", exact: true }).click();
@@ -149,6 +160,7 @@ test("each Most rated row matches the app's own review count", async ({
 
 test("every app the 4★+ filter keeps averages at least 4", async ({ page }) => {
   test.setTimeout(120_000);
+  test.skip(!(await hasListings()), "No listings on the testnet registry.");
   await page.goto("/");
   const listings = page.locator(".registry-panel");
   await expect(listings.locator("article.registry-entry").first()).toBeVisible({

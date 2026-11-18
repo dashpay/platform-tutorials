@@ -57,7 +57,7 @@ The shell is a six-view app (`discover` / `search` / `category` / `mine` / `add`
 - `contractStars` — (`contractId`, `stars`), `countable` + `rangeCountable`, unranked; the star histogram
 - `contractRecent` / `contractStarsRecent` — (`contractId`[, `stars`], `$updatedAt`); review lists, newest first within a star value
 
-`DEFAULT_CONTRACT_IDS.testnet` is `DkpxWsi5D9cP3RvNiF2uMDEhFF3cFCmsVhHXY5HNawkN`; mainnet has no default. Overrides are stored per network under `localStorage['dashapps.contractId.<network>']`. A saved registry without all three document types (one published for an older version of the app) gets a single notice with a "Use the default registry" button instead of the views, so its reads never run; the check is one cached `contracts.getMany` per registry and is skipped for the default. The registry's own declared metadata (`DECLARED_METADATA`) makes it discoverable through Keyword Search.
+`DEFAULT_CONTRACT_IDS.testnet` is `DkpxWsi5D9cP3RvNiF2uMDEhFF3cFCmsVhHXY5HNawkN`; mainnet has no default. Overrides are stored per network under `localStorage['dashapps.contractId.<network>']`. A saved registry without all three document types (one published for an older version of the app) gets a single notice with a "Use the default registry" button instead of the views, so its reads never run; the check is one cached `contracts.getMany` per registry, is skipped for the default, and offers "Try again" if it fails. The registry declares a description (`DECLARED_METADATA`) but no keywords, so it is reached by its configured ID rather than Keyword Search.
 
 ## SDK Patterns
 

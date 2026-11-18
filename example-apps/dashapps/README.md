@@ -56,7 +56,7 @@ The registry schema lives in [`src/dash/contract.ts`](src/dash/contract.ts) and 
 
 Aggregate results need care: grouped `count` and `average` leave out groups with no documents (the app fills in zeros), and key each group by its raw index bytes in hex — a star value is a single byte, a contract ID its 32 bytes. The histogram must keep its `stars between [1,5]` range; grouping without one is refused.
 
-Settings accepts a registry contract ID separately for each network, stored under `localStorage['dashapps.contractId.<network>']`. Testnet defaults to a published registry (`DkpxWsi5D9cP3RvNiF2uMDEhFF3cFCmsVhHXY5HNawkN`) so a fresh install can browse immediately; mainnet has no default. If the saved registry was published for an older version of the app and lacks one of the three document types, the app says so and offers to switch back to the default.
+Settings accepts a registry contract ID separately for each network, stored under `localStorage['dashapps.contractId.<network>']`. Testnet defaults to a published registry (`DkpxWsi5D9cP3RvNiF2uMDEhFF3cFCmsVhHXY5HNawkN`) so a fresh install can browse immediately; mainnet has no default. If the saved registry was published for an older version of the app and lacks one of the three document types, the app says so and offers to switch back to the default; if the check itself fails, it offers to try again.
 
 ## Platform operations at a glance
 

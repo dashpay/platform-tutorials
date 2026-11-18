@@ -4,24 +4,47 @@ import { DEFAULT_CONTRACT_IDS } from "../../src/dash/contractStore";
 
 // Live, read-only: an app from the "Official only" feed (newest endorsements)
 // carries the Official badge, and its own page shows the official listing.
-// Endorsements are deletable, so the test skips when the registry has none.
+// The test skips when no endorsement points at an entry that still exists.
 
 const LOAD_TIMEOUT = 60_000;
 
-async function hasEndorsement() {
+async function hasOfficialListing() {
   const sdk = EvoSDK.testnetTrusted();
   await sdk.connect();
-  const documents = await sdk.documents.query({
-    dataContractId: DEFAULT_CONTRACT_IDS.testnet,
+  const registry = DEFAULT_CONTRACT_IDS.testnet;
+  const endorsements = await sdk.documents.query({
+    dataContractId: registry,
     documentTypeName: "appEndorsement",
-    limit: 1,
+    limit: 20,
   });
-  return documents.size > 0;
+  for (const document of endorsements.values()) {
+    const { contractId, publisherId } = document?.toJSON(sdk.version()) ?? {};
+    if (typeof contractId !== "string" || typeof publisherId !== "string")
+      continue;
+    const entries = await sdk.documents.query({
+      dataContractId: registry,
+      documentTypeName: "appMetadata",
+      where: [
+        ["$ownerId", "==", publisherId],
+        ["contractId", "==", contractId],
+      ],
+      orderBy: [
+        ["$ownerId", "asc"],
+        ["contractId", "asc"],
+      ],
+      limit: 1,
+    });
+    if (entries.size > 0) return true;
+  }
+  return false;
 }
 
 test("an endorsed app shows the Official badge", async ({ page }) => {
   test.setTimeout(120_000);
-  test.skip(!(await hasEndorsement()), "No endorsements on the registry.");
+  test.skip(
+    !(await hasOfficialListing()),
+    "No endorsed listing on the registry.",
+  );
   await page.goto("/");
   const listings = page.locator(".registry-panel");
   const filter = listings.getByRole("group", { name: "Listing filter" });
