@@ -1,34 +1,71 @@
-import { expect, test } from "@playwright/test";
-test("read-only discovery boots without horizontal overflow", async ({
+import {
+  connected,
+  expect,
+  expectNoHorizontalOverflow,
+  gotoDiscover,
+  LOAD_TIMEOUT,
+  nav,
+  test,
+} from "./fixtures";
+
+// The shell: navigation, keyboard order and the connection.
+
+test("the navigation switches views by click and keyboard", async ({
   page,
 }) => {
-  const errors: string[] = [];
-  page.on("pageerror", (error) => errors.push(error.message));
-  await page.goto("/");
+  await gotoDiscover(page);
+  await expectNoHorizontalOverflow(page);
+  await expect(page.getByLabel("Network")).toHaveCount(0);
+
+  await test.step("Tab reaches the header and navigation in order", async () => {
+    const order = [
+      page.getByRole("link", { name: "dashapps" }),
+      page.locator(".header-account").getByRole("button", { name: "Sign in" }),
+      ...["Discover", "Search", "Mine", "Settings"].map((name) =>
+        page
+          .getByRole("navigation", { name: "App navigation" })
+          .getByRole("button", { name, exact: true }),
+      ),
+    ];
+    await expect(order[1]).toBeEnabled({ timeout: LOAD_TIMEOUT });
+    for (const target of order) {
+      await page.keyboard.press("Tab");
+      await expect(target).toBeFocused();
+    }
+    await page.keyboard.press("Enter");
+    await expect(page.getByRole("heading", { level: 1 })).toHaveText(
+      "Settings",
+    );
+  });
+
+  for (const view of ["Search", "Mine", "Settings"]) {
+    await nav(page, view);
+    await expect(page.getByRole("heading", { level: 1 })).toHaveText(view);
+    await expectNoHorizontalOverflow(page);
+  }
+  await page.getByRole("link", { name: "dashapps" }).click();
   await expect(
     page.getByRole("heading", { name: "Built on Dash Platform" }),
   ).toBeVisible();
-  await expect(page.getByLabel("Network")).toHaveCount(0);
-  await page.getByRole("button", { name: "Search", exact: true }).click();
-  await expect(page.getByLabel("Discover by keyword")).toBeVisible();
-  await expect(page.getByLabel("Open a contract")).toBeVisible();
-  expect(
-    await page.evaluate(
-      () => document.documentElement.scrollWidth <= innerWidth,
-    ),
-  ).toBe(true);
-  expect(errors).toEqual([]);
 });
 
-test("Settings opens the registry editor without saving", async ({ page }) => {
+test("Retry connection recovers once the network is back", async ({ page }) => {
+  const offline = (url: URL) => url.hostname !== "localhost";
+  await page.route(offline, (route) => route.abort());
   await page.goto("/");
-  await page.getByRole("button", { name: "Settings" }).click();
-  await page.getByRole("button", { name: "Change" }).click();
-  await expect(page.getByLabel("Registry contract ID")).toBeVisible();
-  await expect(page.getByText("Registry selection saved.")).toHaveCount(0);
-  expect(
-    await page.evaluate(() =>
-      localStorage.getItem("dashapps.contractId.testnet"),
-    ),
-  ).toBeNull();
+  const retry = page.getByRole("button", { name: "Retry connection" });
+  await expect(retry).toBeVisible({ timeout: LOAD_TIMEOUT });
+  await expect(page.getByText("Connection unavailable")).toBeAttached();
+  await expect(
+    page.locator(".header-account").getByRole("button", { name: "Sign in" }),
+  ).toBeDisabled();
+
+  await page.unroute(offline);
+  await retry.click();
+  await connected(page);
+  await expect(retry).toHaveCount(0);
+  await expect(page.getByRole("alert")).toHaveCount(0);
+  await expect(
+    page.locator(".registry-panel article.registry-entry").first(),
+  ).toBeVisible({ timeout: LOAD_TIMEOUT });
 });

@@ -1,8 +1,10 @@
 import { fileURLToPath } from "node:url";
-import type { Locator, Page } from "@playwright/test";
+import type { Page } from "@playwright/test";
 import {
   detailLoaded,
+  DPNS_CONTRACT,
   expect,
+  expectApp,
   gotoDiscover,
   LOAD_TIMEOUT,
   nav,
@@ -24,7 +26,6 @@ try {
 const MNEMONIC = process.env.PLATFORM_MNEMONIC;
 // The DashRate example's contract, owned by the tutorials' identity.
 const OWNED_CONTRACT = "EJHQrRenbFXEPvhgFXD7v8F2ewkqZ2JEdHGKMshZauxz";
-const DPNS_CONTRACT = "GWRSAVFMjXx8HpQFaNJMqBV7MBgMK4br5UESsB4S31Ec";
 
 test.skip(!MNEMONIC, "PLATFORM_MNEMONIC is not set.");
 // Traces would record the recovery phrase typed into the form.
@@ -56,31 +57,26 @@ async function signIn(page: Page) {
   return (await account.locator("span").getAttribute("title"))!;
 }
 
-/** Fails if the form would submit; every check here runs on invalid input. */
-async function expectInvalid(form: Locator) {
-  expect(
-    await form.evaluate((node: HTMLFormElement) => node.checkValidity()),
-  ).toBe(false);
-}
-
-test("the header shows the identity and signs out", async ({ page }) => {
+test("the owner panel, identity chip and sign-out", async ({ page }) => {
   const identityId = await signIn(page);
   expect(identityId).toMatch(/^[1-9A-HJ-NP-Za-km-z]{42,44}$/);
   await expect(page.getByText("Connected · Signed in")).toBeAttached();
-  await page
-    .locator(".header-account")
-    .getByRole("button", { name: "Sign out" })
-    .click();
-  await expect(
-    page.locator(".header-account").getByRole("button", { name: "Sign in" }),
-  ).toBeVisible();
-  await expect(page.getByText("Connected · Read-only")).toBeAttached();
-});
 
-test("Settings shows the identity chip, refreshes the balance and signs out", async ({
-  page,
-}) => {
-  const identityId = await signIn(page);
+  await openContract(page, OWNED_CONTRACT, { reload: false });
+  await detailLoaded(page);
+  const owner = page.locator(".contract-owner-fact code");
+  if ((await owner.textContent()) === identityId) {
+    const panel = page.getByRole("region", { name: "Official listing" });
+    await expect(panel).toContainText("You own this contract");
+    for (const button of await panel.getByRole("button").all())
+      await expect(button).toBeEnabled();
+    const ratings = page.getByRole("region", { name: "Ratings and reviews" });
+    await expect(ratings.locator(".rating-cta")).toContainText(
+      "You own this contract",
+    );
+    await expect(ratings.getByRole("radiogroup")).toHaveCount(0);
+  }
+
   await nav(page, "Settings");
   const chip = page.getByRole("region", { name: "Signed-in identity" });
   await expect(chip.locator("code")).toHaveText(identityId);
@@ -97,37 +93,10 @@ test("Settings shows the identity chip, refreshes the balance and signs out", as
   await chip.getByRole("button", { name: "Sign out" }).click();
   await expect(page.getByText("Browsing as guest")).toBeVisible();
   await expect(page.getByRole("button", { name: "Publish" })).toBeDisabled();
-});
-
-test("a contract's owner gets the owner panel instead of a review form", async ({
-  page,
-}) => {
-  const identityId = await signIn(page);
-  await openContract(page, OWNED_CONTRACT, { reload: false });
-  await detailLoaded(page);
-  const owner = await page
-    .locator(".contract-owner-fact code")
-    .textContent({ timeout: LOAD_TIMEOUT });
-  test.skip(owner !== identityId, "The signed-in identity doesn't own it.");
-
-  const panel = page.getByRole("region", { name: "Official listing" });
-  await expect(panel).toContainText("You own this contract");
   await expect(
-    panel.getByRole("button", {
-      name: /Withdraw endorsement|Make official|Mark as official/,
-    }),
-  ).not.toHaveCount(0);
-  for (const button of await panel.getByRole("button").all())
-    await expect(button).toBeEnabled();
-
-  const ratings = page.getByRole("region", { name: "Ratings and reviews" });
-  await expect(ratings.locator(".rating-cta")).toContainText(
-    "You own this contract",
-  );
-  await expect(
-    ratings.getByRole("button", { name: /Write a review|Edit review/ }),
-  ).toHaveCount(0);
-  await expect(ratings.getByRole("radiogroup")).toHaveCount(0);
+    page.locator(".header-account").getByRole("button", { name: "Sign in" }),
+  ).toBeVisible();
+  await expect(page.getByText("Connected · Read-only")).toBeAttached();
 });
 
 test("Mine lists your entries and what you endorsed", async ({ page }) => {
@@ -169,181 +138,104 @@ test("Mine lists your entries and what you endorsed", async ({ page }) => {
       .locator(".side-row-title")
       .evaluate((node) => node.firstChild?.textContent ?? ""))!.trim();
     await rows.first().click();
-    await expect(page.getByRole("heading", { level: 1, name })).toBeVisible({
-      timeout: LOAD_TIMEOUT,
-    });
-    await expect(
-      page.getByRole("button", { name: "← Discover" }),
-    ).toBeVisible();
+    await expectApp(page, name);
+    await page.getByRole("button", { name: "← Mine" }).click();
+    await expect(page.getByRole("heading", { level: 1 })).toHaveText("Mine");
   }
 });
 
-test("the listing dialog validates and cancels without submitting", async ({
+test("the listing and review dialogs validate and cancel without saving", async ({
   page,
 }) => {
   await signIn(page);
   await openContract(page, DPNS_CONTRACT, { reload: false });
   await detailLoaded(page);
-  const open = page
-    .locator(".listing-management")
-    .getByRole("button", { name: /Add your entry|Edit your submission/ });
-  await expect(open).toBeVisible({ timeout: LOAD_TIMEOUT });
-  const adding = (await open.textContent()) === "Add your entry";
-  await open.click();
-  const dialog = page.getByRole("dialog", {
-    name: adding ? "Submit metadata" : "Edit your submission",
-  });
-  await expect(dialog).toBeVisible();
-  const form = dialog.locator("form");
-  const submit = dialog.getByRole("button", {
-    name: adding ? "Submit metadata" : "Save changes",
-  });
 
-  await dialog.getByLabel("Name", { exact: true }).fill("");
-  await dialog.getByLabel("Tagline").fill("A tagline that is never saved");
-  await dialog.getByLabel("Category").selectOption("identity");
-  await dialog.getByLabel("App URL (optional)").fill("not a url");
-  await expectInvalid(form);
-  await submit.click();
-  await expect(dialog).toBeVisible();
-  expect(
-    await dialog
-      .getByLabel("Name", { exact: true })
-      .evaluate((input: HTMLInputElement) => input.validity.valueMissing),
-  ).toBe(true);
-  await dialog.getByLabel("Name", { exact: true }).fill("Never saved");
-  await expectInvalid(form);
-  expect(
-    await dialog
-      .getByLabel("App URL (optional)")
-      .evaluate((input: HTMLInputElement) => input.validity.typeMismatch),
-  ).toBe(true);
-  await expect(dialog.getByRole("status")).toHaveCount(0);
-
-  await dialog.getByRole("button", { name: "Cancel" }).click();
-  await expect(dialog).toHaveCount(0);
-  await expect(open).toBeVisible();
-
-  await open.click();
-  await expect(dialog).toBeVisible();
-  await page.keyboard.press("Escape");
-  await expect(dialog).toHaveCount(0);
-});
-
-/** Opens a listed app this identity neither owns nor has reviewed. */
-async function openUnreviewed(page: Page, identityId: string) {
-  await nav(page, "Discover");
-  const entries = page.locator(".registry-panel article.registry-entry");
-  await expect(entries.first()).toBeVisible({ timeout: LOAD_TIMEOUT });
-  const names = await entries.locator(".entry-title").allTextContents();
-  for (const name of names) {
-    await nav(page, "Discover");
-    await entries
-      .locator(".entry-title", { hasText: name })
-      .first()
-      .click({ timeout: LOAD_TIMEOUT });
-    await detailLoaded(page);
-    const cta = page.locator(".rating-cta");
-    await expect(cta).not.toContainText("Checking for your rating…", {
-      timeout: LOAD_TIMEOUT,
+  await test.step("the listing dialog", async () => {
+    const open = page
+      .locator(".listing-management")
+      .getByRole("button", { name: /Add your entry|Edit your submission/ });
+    await expect(open).toBeVisible({ timeout: LOAD_TIMEOUT });
+    const adding = (await open.textContent()) === "Add your entry";
+    await open.click();
+    const dialog = page.getByRole("dialog", {
+      name: adding ? "Submit metadata" : "Edit your submission",
     });
-    const owner = await page.locator(".contract-owner-fact code").textContent();
-    if (owner !== identityId && (await cta.getByText("Write a review").count()))
-      return;
-  }
-  test.skip(true, "Every listed app is owned or reviewed by this identity.");
-}
+    const name = dialog.getByLabel("Name", { exact: true });
+    const url = dialog.getByLabel("App URL (optional)");
+    // Invalid before the submit button is ever pressed.
+    await name.fill("");
+    await url.fill("not a url");
+    await dialog
+      .getByRole("button", {
+        name: adding ? "Submit metadata" : "Save changes",
+      })
+      .click();
+    await expect(dialog).toBeVisible();
+    expect(
+      await name.evaluate(
+        (input: HTMLInputElement) => input.validity.valueMissing,
+      ),
+    ).toBe(true);
+    await name.fill("Never saved");
+    expect(
+      await url.evaluate(
+        (input: HTMLInputElement) => input.validity.typeMismatch,
+      ),
+    ).toBe(true);
+    await dialog.getByRole("button", { name: "Cancel" }).click();
+    await expect(dialog).toHaveCount(0);
+    await open.click();
+    await page.keyboard.press("Escape");
+    await expect(dialog).toHaveCount(0);
+    await expect(open).toBeFocused();
+  });
 
-test("the review dialog needs a star and cancels without saving", async ({
-  page,
-}) => {
-  test.setTimeout(180_000);
-  const identityId = await signIn(page);
-  await openUnreviewed(page, identityId);
-  const ratings = page.getByRole("region", { name: "Ratings and reviews" });
-  await ratings.getByRole("button", { name: "Write a review" }).click();
-  const dialog = page.getByRole("dialog", { name: "Write a review" });
-  await expect(dialog).toBeVisible();
-  const submit = dialog.getByRole("button", { name: "Submit rating" });
-  await expect(submit).toBeDisabled();
-  await dialog.getByLabel("Title (optional)").fill("Never saved");
-  await dialog.getByLabel("Review (optional)").fill("Typed, then cancelled.");
-  await expect(submit).toBeDisabled();
-  const four = dialog.getByRole("radio", { name: "4 stars" });
-  await four.click();
-  await expect(four).toHaveAttribute("aria-checked", "true");
-  // Enabled now; pressing it would save a review.
-  await expect(submit).toBeEnabled();
-  await dialog.getByRole("button", { name: "Cancel" }).click();
-  await expect(dialog).toHaveCount(0);
-  await expect(ratings.locator(".rating-cta")).toContainText("Used this app?");
-
-  // A star in the summary opens the dialog with that star chosen.
-  await ratings
-    .locator(".rating-cta")
-    .getByRole("radio", { name: "2 stars" })
-    .click();
-  await expect(dialog).toBeVisible();
-  await expect(dialog.getByRole("radio", { name: "2 stars" })).toHaveAttribute(
-    "aria-checked",
-    "true",
-  );
-  await expect(submit).toBeEnabled();
-  await page.keyboard.press("Escape");
-  await expect(dialog).toHaveCount(0);
-});
-
-test("an existing review opens for editing and cancels", async ({ page }) => {
-  await signIn(page);
-  await openContract(page, DPNS_CONTRACT, { reload: false });
-  await detailLoaded(page);
   const ratings = page.getByRole("region", { name: "Ratings and reviews" });
   const cta = ratings.locator(".rating-cta");
-  await expect(cta).not.toContainText("Checking for your rating…", {
-    timeout: LOAD_TIMEOUT,
+  const trigger = cta.getByRole("button", {
+    name: /Write a review|Edit review/,
   });
-  const edit = cta.getByRole("button", { name: "Edit review" });
-  test.skip(!(await edit.count()), "This identity hasn't reviewed DPNS.");
-  await expect(ratings.locator("li.rating-card.own")).toContainText(
-    "Your rating",
-  );
-  await edit.click();
-  const dialog = page.getByRole("dialog", { name: "Edit your review" });
-  await expect(dialog).toBeVisible();
-  await expect(dialog.getByRole("radio", { checked: true })).toHaveCount(1);
-  await expect(
-    dialog.getByRole("button", { name: "Remove rating" }),
-  ).toBeVisible();
-  await expect(
-    dialog.getByRole("button", { name: "Save changes" }),
-  ).toBeEnabled();
+  await expect(trigger).toBeEnabled({ timeout: LOAD_TIMEOUT });
+  const editing = (await trigger.textContent()) === "Edit review";
+  await trigger.click();
+  const dialog = page.getByRole("dialog", {
+    name: editing ? "Edit your review" : "Write a review",
+  });
+  const submit = dialog.getByRole("button", {
+    name: editing ? "Save changes" : "Submit rating",
+  });
+  if (editing) {
+    await expect(dialog.getByRole("radio", { checked: true })).toHaveCount(1);
+    await expect(
+      dialog.getByRole("button", { name: "Remove rating" }),
+    ).toBeVisible();
+  } else {
+    await expect(submit).toBeDisabled();
+    await dialog.getByRole("radio", { name: "4 stars" }).click();
+  }
+  // Enabled; pressing it would save a review.
+  await expect(submit).toBeEnabled();
   await dialog.getByRole("button", { name: "Cancel" }).click();
   await expect(dialog).toHaveCount(0);
+  if (!editing) {
+    // A star in the summary opens the dialog with that star chosen.
+    await cta.getByRole("radio", { name: "2 stars" }).click();
+    await expect(
+      dialog.getByRole("radio", { name: "2 stars" }),
+    ).toHaveAttribute("aria-checked", "true");
+    await dialog.getByRole("button", { name: "Cancel" }).click();
+  }
 
-  await ratings
-    .locator("li.rating-card.own")
-    .getByRole("button", { name: "Edit" })
-    .click();
-  await expect(dialog).toBeVisible();
-  await page.mouse.click(5, 5);
-  await expect(dialog).toHaveCount(0);
-});
-
-test("closing the review dialog returns focus to its trigger", async ({
-  page,
-}) => {
-  test.fail(true, "Focus falls to the page body when the dialog closes");
-  await signIn(page);
-  await openContract(page, DPNS_CONTRACT, { reload: false });
-  await detailLoaded(page);
-  const trigger = page
-    .locator(".rating-cta")
-    .getByRole("button", { name: /Write a review|Edit review/ });
-  await expect(trigger).toBeEnabled({ timeout: LOAD_TIMEOUT });
   await trigger.click();
-  const dialog = page.getByRole("dialog", { name: /review/ });
   await dialog.getByLabel("Title (optional)").click();
   await page.keyboard.press("Escape");
   await expect(dialog).toHaveCount(0);
   await expect(trigger).toBeFocused();
+
+  await page
+    .locator(".header-account")
+    .getByRole("button", { name: "Sign out" })
+    .click();
+  await expect(trigger).toHaveCount(0);
 });

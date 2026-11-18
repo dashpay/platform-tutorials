@@ -8,11 +8,12 @@ import {
 } from "@playwright/test";
 import { DEFAULT_CONTRACT_IDS } from "../../src/dash/contractStore";
 
-// Shared helpers for the interaction specs. Every test fails on a console
-// error or an uncaught page error.
+// Shared helpers for the specs. Every test fails on a console error or an
+// uncaught page error.
 
 export const LOAD_TIMEOUT = 60_000;
 export const REGISTRY_ID = DEFAULT_CONTRACT_IDS.testnet;
+export const DPNS_CONTRACT = "GWRSAVFMjXx8HpQFaNJMqBV7MBgMK4br5UESsB4S31Ec";
 
 // A testnet node refusing or dropping a connection: the SDK moves on to
 // another node, and a read that still fails shows up in the UI instead.
@@ -82,6 +83,13 @@ export async function entryName(entry: Locator) {
   return (await entry.locator(".entry-title").textContent())!.trim();
 }
 
+/** Waits for the app page titled `name`. */
+export async function expectApp(page: Page, name: string) {
+  await expect(page.getByRole("heading", { level: 1, name })).toBeVisible({
+    timeout: LOAD_TIMEOUT,
+  });
+}
+
 export async function nav(page: Page, name: string) {
   const button = page
     .getByRole("navigation", { name: "App navigation" })
@@ -128,6 +136,17 @@ export async function expectNoHorizontalOverflow(page: Page) {
     .toBe(true);
 }
 
+/** The sign-in dialog, closed by Escape with focus back on `trigger`. */
+export async function expectSignInDialog(page: Page, trigger: Locator) {
+  await trigger.click();
+  const dialog = page.getByRole("dialog", { name: "Sign in to dashapps" });
+  await expect(dialog).toBeVisible();
+  await expect(dialog.getByLabel("Mnemonic or private key")).toBeFocused();
+  await page.keyboard.press("Escape");
+  await expect(dialog).toHaveCount(0);
+  await expect(trigger).toBeFocused();
+}
+
 let sdk: Promise<EvoSDK> | undefined;
 function testnet() {
   sdk ??= (async () => {
@@ -158,16 +177,7 @@ export async function listedName() {
   return typeof entry?.name === "string" ? entry.name : undefined;
 }
 
-/** A contract with at least `min` listings, if the registry has one. */
-export async function contractWithListings(min: number) {
-  const counts = new Map<string, number>();
-  for (const { contractId } of await documents("appMetadata"))
-    if (typeof contractId === "string")
-      counts.set(contractId, (counts.get(contractId) ?? 0) + 1);
-  return [...counts].find(([, count]) => count >= min)?.[0];
-}
-
-/** Review counts per contract, from up to 100 reviews. */
+/** Review counts per contract, from up to 100 reviews, most reviewed first. */
 export async function reviewCounts() {
   const counts = new Map<string, { total: number; written: number }>();
   for (const { contractId, body } of await documents("appReview")) {
@@ -177,5 +187,5 @@ export async function reviewCounts() {
     if (typeof body === "string" && body) count.written++;
     counts.set(contractId, count);
   }
-  return counts;
+  return [...counts].sort(([, left], [, right]) => right.total - left.total);
 }
