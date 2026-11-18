@@ -176,10 +176,24 @@ async function documents(
   );
 }
 
-/** The name of the newest listing, if the registry has one. */
+/** The name Search shows for the newest listed app: its official or only listing. */
 export async function listedName() {
-  const [entry] = await documents("appMetadata", 1, [["$createdAt", "desc"]]);
-  return typeof entry?.name === "string" ? entry.name : undefined;
+  const entries = await documents("appMetadata", 100, [["$createdAt", "desc"]]);
+  const official = new Map(
+    (await documents("appEndorsement")).map((e) => [
+      e.contractId,
+      e.publisherId,
+    ]),
+  );
+  const perContract = new Map<unknown, number>();
+  for (const { contractId } of entries)
+    perContract.set(contractId, (perContract.get(contractId) ?? 0) + 1);
+  const shown = entries.find(
+    (entry) =>
+      perContract.get(entry.contractId) === 1 ||
+      official.get(entry.contractId) === entry.$ownerId,
+  );
+  return typeof shown?.name === "string" ? shown.name : undefined;
 }
 
 /** Review counts per contract, from up to 100 reviews, most reviewed first. */
