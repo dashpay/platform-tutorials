@@ -2,14 +2,22 @@ import { useEffect, useMemo, useRef, useState } from "react";
 import { createPortal } from "react-dom";
 import { useSession } from "../session/useSession";
 import {
-  allProposals,
+  contractEntries,
+  contractEntryCount,
   entriesByCategory,
-  exactRegistryEntry,
   myEntries,
+  publisherEntriesFor,
+  publisherEntry,
   recentEntries,
   searchEntriesByName,
   type RegistryEntry,
 } from "../dash/registryReads";
+import {
+  collapseByContract,
+  endorsementsFor,
+  officialListing,
+  type OfficialListing,
+} from "../dash/endorsementReads";
 import { errorMessage } from "../lib/logger";
 import {
   createMetadata,
@@ -29,7 +37,7 @@ import { ModalDialog } from "./ModalDialog";
 function Entry({
   entry,
   open,
-  contractOwnerId,
+  officialPublisherId,
   showTags = false,
   showPublisher = true,
   onCategory,
@@ -38,7 +46,7 @@ function Entry({
 }: {
   entry: RegistryEntry;
   open?: (id: string, name: string, entry: RegistryEntry) => void;
-  contractOwnerId?: string;
+  officialPublisherId?: string;
   showTags?: boolean;
   showPublisher?: boolean;
   onCategory?: (category: AppCategory) => void;
@@ -46,7 +54,7 @@ function Entry({
   editEntry?: RegistryEntry;
 }) {
   const session = useSession();
-  const ownerProvided = entry.ownerId === contractOwnerId;
+  const official = entry.ownerId === officialPublisherId;
   const own = entry.ownerId === session.identityId;
   return (
     <article
@@ -89,7 +97,7 @@ function Entry({
           ) : (
             <strong>{entry.name}</strong>
           )}
-          {ownerProvided && <ProvenanceIcon />}
+          {official && <ProvenanceIcon />}
           {own && <span className="entry-badge own">Your entry</span>}
           <button
             className="chip category-chip"
@@ -135,7 +143,7 @@ function Entry({
           <ExternalLaunch
             className="launch-pill"
             url={entry.appUrl}
-            verified={ownerProvided}
+            verified={official}
           >
             Launch ↗
           </ExternalLaunch>
@@ -171,50 +179,64 @@ function Entry({
 
 const NO_ENTRIES: RegistryEntry[] = [];
 
-function canonicalEntries(
-  entries: RegistryEntry[],
-  contractOwners: Map<string, string>,
-) {
-  const byContract = new Map<string, RegistryEntry>();
-  for (const entry of entries) {
-    const current = byContract.get(entry.contractId);
-    if (!current) {
-      byContract.set(entry.contractId, entry);
-      continue;
-    }
-    const contractOwner = contractOwners.get(entry.contractId);
-    const entryIsOwnerProvided = entry.ownerId === contractOwner;
-    const currentIsOwnerProvided = current.ownerId === contractOwner;
-    if (entryIsOwnerProvided && !currentIsOwnerProvided)
-      byContract.set(entry.contractId, entry);
-    else if (
-      entryIsOwnerProvided === currentIsOwnerProvided &&
-      (entry.createdAt ?? 0n) > (current.createdAt ?? 0n)
+/** Contract ID → endorsed publisher ID for the contracts of loaded entries. */
+function useOfficialPublishers(entries: RegistryEntry[]) {
+  const session = useSession();
+  const [officialPublishers, setOfficialPublishers] = useState(
+    new Map<string, string>(),
+  );
+  useEffect(() => {
+    let current = true;
+    if (!session.connection || !session.registryId || entries.length === 0)
+      return () => {
+        current = false;
+      };
+    void endorsementsFor(
+      session.connection.sdk,
+      session.registryId,
+      entries.map((entry) => entry.contractId),
     )
-      byContract.set(entry.contractId, entry);
-  }
-  return [...byContract.values()];
+      .then((endorsements) => {
+        if (!current) return;
+        setOfficialPublishers(
+          new Map(
+            [...endorsements].map(([contractId, endorsement]) => [
+              contractId,
+              endorsement.publisherId,
+            ]),
+          ),
+        );
+      })
+      .catch(() => undefined);
+    return () => {
+      current = false;
+    };
+  }, [entries, session.connection, session.registryId]);
+  return officialPublishers;
 }
 
 export function ContractRegistry({
   contractId,
-  contractOwnerId,
   onMutation,
   onPreferredEntry,
+  onOfficialPublisher,
   managementHost,
 }: {
   contractId: string;
-  contractOwnerId: string;
   onMutation(): void;
   onPreferredEntry?(entry: RegistryEntry | null): void;
+  onOfficialPublisher?(publisherId: string | null): void;
   managementHost?: HTMLElement | null;
 }) {
   const session = useSession();
   const [entries, setEntries] = useState<RegistryEntry[]>([]);
-  const [canonical, setCanonical] = useState<RegistryEntry | null>();
+  const [cursor, setCursor] = useState<string>();
+  const [total, setTotal] = useState<bigint>();
+  const [official, setOfficial] = useState<OfficialListing | null>();
   const [own, setOwn] = useState<RegistryEntry | null>();
   const [error, setError] = useState("");
   const [busy, setBusy] = useState(true);
+  const [moreBusy, setMoreBusy] = useState(false);
   const [refresh, setRefresh] = useState(0);
   const [editorOpen, setEditorOpen] = useState(false);
   const [expanded, setExpanded] = useState(false);
@@ -228,37 +250,44 @@ export function ContractRegistry({
     }
     void (async () => {
       try {
-        const [proposals, ownerEntry, ownEntry] = await Promise.allSettled([
-          allProposals(session.connection!.sdk, session.registryId, contractId),
-          exactRegistryEntry(
-            session.connection!.sdk,
-            session.registryId,
-            contractOwnerId,
-            contractId,
-          ),
-          session.identityId
-            ? exactRegistryEntry(
-                session.connection!.sdk,
-                session.registryId,
-                session.identityId,
-                contractId,
-              )
-            : Promise.resolve(null),
-        ]);
+        const sdk = session.connection!.sdk;
+        const [listings, officialResult, ownEntry, count] =
+          await Promise.allSettled([
+            contractEntries(sdk, session.registryId, contractId),
+            officialListing(sdk, session.registryId, contractId),
+            session.identityId
+              ? publisherEntry(
+                  sdk,
+                  session.registryId,
+                  session.identityId,
+                  contractId,
+                )
+              : Promise.resolve(null),
+            contractEntryCount(sdk, session.registryId, contractId),
+          ]);
         if (!current) return;
         setError("");
-        if (proposals.status === "fulfilled") setEntries(proposals.value);
-        if (ownerEntry.status === "fulfilled") setCanonical(ownerEntry.value);
+        if (listings.status === "fulfilled") {
+          setEntries(listings.value.entries);
+          setCursor(listings.value.cursor);
+        }
+        if (officialResult.status === "fulfilled")
+          setOfficial(officialResult.value);
         if (ownEntry.status === "fulfilled") setOwn(ownEntry.value);
+        if (count.status === "fulfilled") setTotal(count.value);
         const preferred =
-          ownerEntry.status === "fulfilled" && ownerEntry.value
-            ? ownerEntry.value
-            : proposals.status === "fulfilled"
-              ? (proposals.value[0] ?? null)
+          officialResult.status === "fulfilled" && officialResult.value?.entry
+            ? officialResult.value.entry
+            : listings.status === "fulfilled"
+              ? (listings.value.entries[0] ?? null)
               : null;
         setSelectedId(preferred?.id);
         onPreferredEntry?.(preferred);
-        const failures = [proposals, ownerEntry, ownEntry]
+        if (officialResult.status === "fulfilled")
+          onOfficialPublisher?.(
+            officialResult.value?.endorsement.publisherId ?? null,
+          );
+        const failures = [listings, officialResult, ownEntry, count]
           .filter(
             (result): result is PromiseRejectedResult =>
               result.status === "rejected",
@@ -276,13 +305,35 @@ export function ContractRegistry({
     };
   }, [
     contractId,
-    contractOwnerId,
     refresh,
     session.connection,
     session.identityId,
     session.registryId,
     onPreferredEntry,
+    onOfficialPublisher,
   ]);
+  async function loadMore() {
+    if (!session.connection || !session.registryId || !cursor) return;
+    setMoreBusy(true);
+    try {
+      const page = await contractEntries(
+        session.connection.sdk,
+        session.registryId,
+        contractId,
+        cursor,
+      );
+      setEntries((previous) => [
+        ...new Map(
+          [...previous, ...page.entries].map((entry) => [entry.id, entry]),
+        ).values(),
+      ]);
+      setCursor(page.cursor);
+    } catch (caught) {
+      setError(errorMessage(caught));
+    } finally {
+      setMoreBusy(false);
+    }
+  }
   if (!session.registryId)
     return <p>No registry is configured for this network.</p>;
   if (busy)
@@ -292,7 +343,7 @@ export function ContractRegistry({
         aria-label="Community metadata"
         aria-busy="true"
       >
-        <h3>Canonical metadata</h3>
+        <h3>Official metadata</h3>
         <div className="registry-entry skeleton-entry" aria-hidden="true">
           <span className="skeleton-block skeleton-mark" />
           <div className="skeleton-copy">
@@ -308,8 +359,13 @@ export function ContractRegistry({
         </span>
       </section>
     );
-  const community = entries.filter((entry) => entry.id !== canonical?.id);
-  const ordered = canonical ? [canonical, ...community] : entries;
+  const officialEntry = official?.entry ?? null;
+  const community = entries.filter((entry) => entry.id !== officialEntry?.id);
+  const communityTotal =
+    total === undefined
+      ? community.length
+      : Number(total) - (officialEntry ? 1 : 0);
+  const ordered = officialEntry ? [officialEntry, ...community] : entries;
   const selected =
     ordered.find((entry) => entry.id === selectedId) ?? ordered[0] ?? null;
   const choose = (entry: RegistryEntry) => {
@@ -376,13 +432,13 @@ export function ContractRegistry({
             <p>
               <ProvenanceIcon /> Showing the{" "}
               <strong>
-                {selected?.ownerId === contractOwnerId
-                  ? "contract owner's"
+                {selected && selected.id === officialEntry?.id
+                  ? "official"
                   : "community"}
               </strong>{" "}
-              listing · {community.length} community{" "}
-              {community.length === 1 ? "proposal" : "proposals"} also{" "}
-              {community.length === 1 ? "exists" : "exist"}
+              listing · {communityTotal} community{" "}
+              {communityTotal === 1 ? "proposal" : "proposals"} also{" "}
+              {communityTotal === 1 ? "exists" : "exist"}
             </p>
             <button
               type="button"
@@ -395,7 +451,7 @@ export function ContractRegistry({
           {expanded && (
             <div className="listing-options">
               {ordered.map((entry) => {
-                const ownerProvided = entry.ownerId === contractOwnerId;
+                const isOfficial = entry.id === officialEntry?.id;
                 return (
                   <label
                     key={entry.id}
@@ -416,8 +472,8 @@ export function ContractRegistry({
                     </span>
                     <span>
                       <strong>
-                        {ownerProvided
-                          ? "Contract owner"
+                        {isOfficial
+                          ? "Official publisher"
                           : entry.ownerId === session.identityId
                             ? "You"
                             : "Community member"}
@@ -449,8 +505,17 @@ export function ContractRegistry({
                   </label>
                 );
               })}
+              {cursor && (
+                <button
+                  type="button"
+                  disabled={moreBusy}
+                  onClick={() => void loadMore()}
+                >
+                  {moreBusy ? "Loading…" : "Load more listings"}
+                </button>
+              )}
               <p className="listing-note">
-                The owner's listing is shown by default. Switching is local to
+                The official listing is shown by default. Switching is local to
                 this session.
               </p>
             </div>
@@ -693,7 +758,7 @@ export function RegistryExplorer({
   subheading,
   aside,
   onEntries,
-  onContractOwners,
+  onOfficialPublishers,
   onCategory,
   showPublishers = true,
   showNetwork = true,
@@ -706,7 +771,7 @@ export function RegistryExplorer({
   subheading?: string;
   aside?: React.ReactNode;
   onEntries?: (entries: RegistryEntry[]) => void;
-  onContractOwners?: (owners: Map<string, string>) => void;
+  onOfficialPublishers?: (publishers: Map<string, string>) => void;
   onCategory?: (category: AppCategory) => void;
   showPublishers?: boolean;
   showNetwork?: boolean;
@@ -731,40 +796,34 @@ export function RegistryExplorer({
     ownEntriesResult.scope === ownEntriesScope
       ? ownEntriesResult.entries
       : new Map<string, RegistryEntry>();
-  const [contractOwners, setContractOwners] = useState(() => {
-    if (!session.connection) return new Map<string, string>();
-    const ids = [...new Set(initialEntries.map((entry) => entry.contractId))];
-    return new Map(
-      [...session.connection.resolver.summaryMany(ids)].map(([id, summary]) => [
-        id,
-        summary.ownerId,
-      ]),
-    );
-  });
+  const officialPublishers = useOfficialPublishers(entries);
   const request = useRef(0);
 
   const displayedEntries = useMemo(
-    () => canonicalEntries(entries, contractOwners),
-    [entries, contractOwners],
+    () => collapseByContract(entries, officialPublishers),
+    [entries, officialPublishers],
   );
   useEffect(() => {
     let current = true;
-    if (!session.connection || !session.registryId || !session.identityId) {
+    if (
+      !session.connection ||
+      !session.registryId ||
+      !session.identityId ||
+      entries.length === 0
+    ) {
       return () => {
         current = false;
       };
     }
-    void myEntries(
+    void publisherEntriesFor(
       session.connection.sdk,
       session.registryId,
       session.identityId,
+      entries.map((entry) => entry.contractId),
     )
       .then((result) => {
-        if (!current) return;
-        setOwnEntriesResult({
-          scope: ownEntriesScope,
-          entries: new Map(result.map((entry) => [entry.contractId, entry])),
-        });
+        if (current)
+          setOwnEntriesResult({ scope: ownEntriesScope, entries: result });
       })
       .catch(() => {
         if (current)
@@ -774,6 +833,7 @@ export function RegistryExplorer({
       current = false;
     };
   }, [
+    entries,
     ownEntriesScope,
     session.connection,
     session.identityId,
@@ -783,40 +843,8 @@ export function RegistryExplorer({
     onEntries?.(displayedEntries);
   }, [displayedEntries, onEntries]);
   useEffect(() => {
-    let current = true;
-    if (!session.connection || entries.length === 0)
-      return () => {
-        current = false;
-      };
-    const ids = [...new Set(entries.map((entry) => entry.contractId))];
-    const cachedOwners = new Map(
-      [...session.connection.resolver.summaryMany(ids)].map(([id, summary]) => [
-        id,
-        summary.ownerId,
-      ]),
-    );
-    if (cachedOwners.size) {
-      void Promise.resolve().then(() => {
-        if (!current) return;
-        setContractOwners(cachedOwners);
-        onContractOwners?.(cachedOwners);
-      });
-    }
-    void session.connection.resolver
-      .resolve(ids)
-      .then((results) => {
-        if (!current) return;
-        const owners = new Map<string, string>();
-        for (const [id, result] of results)
-          if (result.status === "found") owners.set(id, result.ownerId);
-        setContractOwners(owners);
-        onContractOwners?.(owners);
-      })
-      .catch(() => undefined);
-    return () => {
-      current = false;
-    };
-  }, [entries, onContractOwners, session.connection]);
+    onOfficialPublishers?.(officialPublishers);
+  }, [officialPublishers, onOfficialPublishers]);
 
   async function load(selected = mode, more = false) {
     if (!session.connection || !session.registryId) return;
@@ -824,47 +852,45 @@ export function RegistryExplorer({
     setBusy(true);
     setError("");
     try {
+      const from = more ? cursor : undefined;
+      let result;
       if (selected === "mine") {
         if (!session.identityId)
           throw new Error("Sign in to view your submissions.");
-        const result = await myEntries(
+        result = await myEntries(
           session.connection.sdk,
           session.registryId,
           session.identityId,
+          from,
         );
-        if (request.current === token) {
-          setEntries(result);
-          setCursor(undefined);
-        }
-      } else {
-        const result =
+      } else
+        result =
           selected === "recent"
             ? await recentEntries(
                 session.connection.sdk,
                 session.registryId,
-                more ? cursor : undefined,
+                from,
               )
             : await searchEntriesByName(
                 session.connection.sdk,
                 session.registryId,
                 term,
-                more ? cursor : undefined,
+                from,
               );
-        if (request.current === token) {
-          setEntries((previous) =>
-            more
-              ? [
-                  ...new Map(
-                    [...previous, ...result.entries].map((entry) => [
-                      entry.id,
-                      entry,
-                    ]),
-                  ).values(),
-                ]
-              : result.entries,
-          );
-          setCursor(result.cursor);
-        }
+      if (request.current === token) {
+        setEntries((previous) =>
+          more
+            ? [
+                ...new Map(
+                  [...previous, ...result.entries].map((entry) => [
+                    entry.id,
+                    entry,
+                  ]),
+                ).values(),
+              ]
+            : result.entries,
+        );
+        setCursor(result.cursor);
       }
     } catch (caught) {
       if (request.current === token) setError(errorMessage(caught));
@@ -975,7 +1001,7 @@ export function RegistryExplorer({
                   key={entry.id}
                   entry={entry}
                   open={open}
-                  contractOwnerId={contractOwners.get(entry.contractId)}
+                  officialPublisherId={officialPublishers.get(entry.contractId)}
                   onCategory={onCategory}
                   showPublisher={showPublishers}
                   onEdit={session.keyManager ? setEditingEntry : undefined}
@@ -1053,9 +1079,7 @@ export function CategoryBrowser({
     listingCurrent && more.load === listingCurrent.load ? more : undefined;
   const moreBusy = moreCurrent?.busy ?? false;
   const error = listingCurrent?.error || moreCurrent?.error || "";
-  const [contractOwners, setContractOwners] = useState(
-    new Map<string, string>(),
-  );
+  const officialPublishers = useOfficialPublishers(entries);
   const [signingIn, setSigningIn] = useState(false);
   useEffect(() => {
     let current = true;
@@ -1129,47 +1153,16 @@ export function CategoryBrowser({
         setMore({ load, busy: false, error: errorMessage(caught) });
     }
   }
-  useEffect(() => {
-    let current = true;
-    if (!session.connection || entries.length === 0)
-      return () => {
-        current = false;
-      };
-    const ids = [...new Set(entries.map((entry) => entry.contractId))];
-    const cachedOwners = new Map(
-      [...session.connection.resolver.summaryMany(ids)].map(([id, summary]) => [
-        id,
-        summary.ownerId,
-      ]),
-    );
-    if (cachedOwners.size)
-      void Promise.resolve().then(() => {
-        if (current) setContractOwners(cachedOwners);
-      });
-    void session.connection.resolver
-      .resolve(ids)
-      .then((results) => {
-        if (!current) return;
-        const owners = new Map<string, string>();
-        for (const [id, result] of results)
-          if (result.status === "found") owners.set(id, result.ownerId);
-        setContractOwners(owners);
-      })
-      .catch(() => undefined);
-    return () => {
-      current = false;
-    };
-  }, [entries, session.connection]);
-  const canonical = useMemo(
-    () => canonicalEntries(entries, contractOwners),
-    [entries, contractOwners],
+  const collapsed = useMemo(
+    () => collapseByContract(entries, officialPublishers),
+    [entries, officialPublishers],
   );
-  const visible = canonical.filter(
+  const visible = collapsed.filter(
     (entry) =>
       filter === "all" ||
       (filter === "launchable"
         ? Boolean(entry.appUrl)
-        : entry.ownerId === contractOwners.get(entry.contractId)),
+        : entry.ownerId === officialPublishers.get(entry.contractId)),
   );
   return (
     <section className="category-page">
@@ -1192,7 +1185,7 @@ export function CategoryBrowser({
               onClick={() => setFilter(value)}
             >
               {value === "official"
-                ? "Owner-provided"
+                ? "Official"
                 : categoryLabel(value as AppCategory)}
             </button>
           ))}
@@ -1214,7 +1207,7 @@ export function CategoryBrowser({
           key={entry.id}
           entry={entry}
           open={open}
-          contractOwnerId={contractOwners.get(entry.contractId)}
+          officialPublisherId={officialPublishers.get(entry.contractId)}
           showTags
         />
       ))}

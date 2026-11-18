@@ -3,13 +3,13 @@ import type { SessionSdk } from "../session/types";
 import { requireId } from "./ids";
 import {
   APP_CATEGORIES,
-  exactRegistryEntry,
+  publisherEntry,
   REGISTRY_DOCUMENT_TYPE,
   type AppCategory,
   type RegistryEntry,
 } from "./registryReads";
 import { loadSdkModule } from "./sdkModule";
-import { freshTarget, isDuplicate, prepare } from "./documentWrites";
+import { freshTarget, isDuplicate, prepare, submit } from "./documentWrites";
 import { normalizeUrl } from "../lib/urls";
 import { SYSTEM_CONTRACT_METADATA } from "./systemContractMetadata";
 
@@ -76,23 +76,22 @@ export function metadataProperties(targetId: string, input: MetadataInput) {
   };
 }
 
+/** Returns the target's owner so the caller can offer to mark the entry official. */
 export async function createMetadata(args: {
   sdk: SessionSdk;
   keyManager: DashKeyManager;
   registryId: string;
   targetId: string;
   input: MetadataInput;
-}) {
-  await freshTarget(args.sdk, args.targetId);
+}): Promise<{ contractOwnerId: string }> {
+  const contractOwnerId = await freshTarget(args.sdk, args.targetId);
   const { identity, identityKey, signer } = await args.keyManager.getAuth();
   if (!identityKey)
     throw new Error(
       "The identity has no usable authentication key for metadata writes.",
     );
   const ownerId = identity.id.toString();
-  if (
-    await exactRegistryEntry(args.sdk, args.registryId, ownerId, args.targetId)
-  )
+  if (await publisherEntry(args.sdk, args.registryId, ownerId, args.targetId))
     throw new Error(
       "You already submitted metadata for this contract. Edit your existing entry.",
     );
@@ -110,7 +109,9 @@ export async function createMetadata(args: {
     draft,
   );
   try {
-    await args.sdk.documents.create({ document, identityKey, signer });
+    await submit(() =>
+      args.sdk.documents.create({ document, identityKey, signer }),
+    );
   } catch (error) {
     if (isDuplicate(error))
       throw new Error(
@@ -118,6 +119,7 @@ export async function createMetadata(args: {
       );
     throw error;
   }
+  return { contractOwnerId };
 }
 
 export async function seedSystemContractMetadata(args: {
@@ -184,7 +186,9 @@ export async function editMetadata(args: {
     REGISTRY_DOCUMENT_TYPE,
     draft,
   );
-  await args.sdk.documents.replace({ document, identityKey, signer });
+  await submit(() =>
+    args.sdk.documents.replace({ document, identityKey, signer }),
+  );
 }
 
 export async function withdrawMetadata(args: {
@@ -208,5 +212,7 @@ export async function withdrawMetadata(args: {
     args.entry.id,
   );
   if (!current) throw new Error("This metadata entry no longer exists.");
-  await args.sdk.documents.delete({ document: current, identityKey, signer });
+  await submit(() =>
+    args.sdk.documents.delete({ document: current, identityKey, signer }),
+  );
 }

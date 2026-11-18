@@ -69,13 +69,11 @@ export function ExternalLaunch({
               <div
                 className={`external-launch-trust ${verified ? "verified" : "community"}`}
               >
-                <strong>
-                  {verified ? "Contract-owner link" : "Community link"}
-                </strong>
+                <strong>{verified ? "Official link" : "Community link"}</strong>
                 <p>
                   {verified
-                    ? "This URL was submitted by the app contract owner."
-                    : "This URL was submitted by a community member and was not verified by the app contract owner."}
+                    ? "This URL comes from the entry the app's contract owner marked as official."
+                    : "This URL was submitted by a community member and was not endorsed by the app's contract owner."}
                 </p>
               </div>
               <p>DashApps does not control or endorse the destination.</p>

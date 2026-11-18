@@ -1,7 +1,7 @@
 import { isBase58Id } from "./ids";
 import type { Network } from "./types";
 export const DEFAULT_CONTRACT_IDS: Record<Network, string> = {
-  testnet: "BXcWyLZDtcPrEmd8tmPt6A7h4YuqgPGVJU1PBvs1dYiS",
+  testnet: "DkpxWsi5D9cP3RvNiF2uMDEhFF3cFCmsVhHXY5HNawkN",
   mainnet: "",
 };
 export function loadContractId(network: Network): string {

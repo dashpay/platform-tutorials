@@ -1,9 +1,10 @@
 /**
  * Read-only backup of the dashapps registry.
  *
- * Pages the whole appMetadata collection and writes one JSON file holding each
- * document's identity ($id, $ownerId, timestamps, revision) plus its metadata
- * properties, so listings can be restored or re-seeded after a contract change.
+ * Pages every appMetadata, appEndorsement and appReview document and writes
+ * one JSON file holding each document's identity ($id, $ownerId, timestamps,
+ * revision) plus its properties, so the registry can be restored or re-seeded
+ * after a contract change.
  *
  * Usage:
  *   node scripts/backup-registry.mjs [--network testnet|mainnet]
@@ -60,9 +61,17 @@ function bytesId(value) {
   return encoded;
 }
 
-const DOCUMENT_TYPE = "appMetadata";
+const DOCUMENT_TYPES = ["appMetadata", "appEndorsement", "appReview"];
+const IDENTIFIER_PROPERTIES = new Set(["contractId", "publisherId"]);
+// Each type is walked along an index covering every document; reviews have no
+// $createdAt index, so they walk the unique ($ownerId, contractId) one.
+const BACKUP_ORDER = {
+  appMetadata: [["$createdAt", "asc"]],
+  appEndorsement: [["$createdAt", "asc"]],
+  appReview: [["$ownerId", "asc"]],
+};
 const DEFAULT_CONTRACT_IDS = {
-  testnet: "EoMc3L6KsLBr9aTSbBwuZKcVFRnarMfxFMQFXCGY5ZGo",
+  testnet: "DkpxWsi5D9cP3RvNiF2uMDEhFF3cFCmsVhHXY5HNawkN",
   mainnet: "",
 };
 const PAGE_SIZE = 100;
@@ -93,9 +102,7 @@ const outPath = resolve(out || `backups/dashapps-${network}-${stamp}.json`);
 
 const sdk = await createClient(network);
 
-// $createdAt is the only ordering shared by every entry, so pagination walks
-// the "recent" index and uses the last document ID as the cursor.
-async function fetchAll() {
+async function fetchAll(documentTypeName) {
   const entries = [];
   const seen = new Set();
   let startAfter;
@@ -103,8 +110,8 @@ async function fetchAll() {
     const page = rows(
       await sdk.documents.query({
         dataContractId: contractId,
-        documentTypeName: DOCUMENT_TYPE,
-        orderBy: [["$createdAt", "asc"]],
+        documentTypeName,
+        orderBy: BACKUP_ORDER[documentTypeName],
         limit: PAGE_SIZE,
         ...(startAfter ? { startAfter } : {}),
       }),
@@ -127,11 +134,11 @@ async function fetchAll() {
 function serialize(doc) {
   const object = doc.toObject?.(sdk.version()) ?? {};
   const properties = doc.properties ?? object;
-  const metadata = {};
+  const values = {};
   for (const [key, value] of Object.entries(properties)) {
     if (key.startsWith("$")) continue;
-    // contractId is a 32-byte identifier; store it as canonical base58.
-    metadata[key] = key === "contractId" ? bytesId(value) : value;
+    // Identifier properties are 32 bytes; store them as canonical base58.
+    values[key] = IDENTIFIER_PROPERTIES.has(key) ? bytesId(value) : value;
   }
   return {
     $id: documentId(doc, sdk.version()),
@@ -139,7 +146,7 @@ function serialize(doc) {
     $createdAt: stringOrNull(doc.createdAt ?? object.$createdAt),
     $updatedAt: stringOrNull(doc.updatedAt ?? object.$updatedAt),
     $revision: stringOrNull(doc.revision ?? object.$revision),
-    metadata,
+    properties: values,
   };
 }
 
@@ -148,20 +155,23 @@ function stringOrNull(value) {
 }
 
 try {
-  const documents = await fetchAll();
+  const documents = {};
+  for (const type of DOCUMENT_TYPES)
+    documents[type] = (await fetchAll(type)).map(serialize);
   const backup = {
     network,
     contractId,
-    documentTypeName: DOCUMENT_TYPE,
     protocolVersion: sdk.version(),
     backedUpAt: new Date().toISOString(),
-    count: documents.length,
-    entries: documents.map(serialize),
+    counts: Object.fromEntries(
+      DOCUMENT_TYPES.map((type) => [type, documents[type].length]),
+    ),
+    documents,
   };
   await mkdir(dirname(outPath), { recursive: true });
   await writeFile(outPath, `${JSON.stringify(backup, null, 2)}\n`);
   console.log(
-    `Backed up ${backup.count} ${DOCUMENT_TYPE} documents from ${contractId} (${network}) to ${outPath}`,
+    `Backed up ${DOCUMENT_TYPES.map((type) => `${backup.counts[type]} ${type}`).join(", ")} documents from ${contractId} (${network}) to ${outPath}`,
   );
 } catch (error) {
   console.error(error instanceof Error ? error.message : String(error));

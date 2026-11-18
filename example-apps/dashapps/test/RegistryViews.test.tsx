@@ -14,24 +14,65 @@ import {
 } from "../src/components/RegistryViews";
 import { useSession } from "../src/session/useSession";
 import {
-  allProposals,
+  contractEntries,
+  contractEntryCount,
   entriesByCategory,
-  exactRegistryEntry,
-  myEntries,
+  publisherEntriesFor,
+  publisherEntry,
   recentEntries,
 } from "../src/dash/registryReads";
+import {
+  endorsementsFor,
+  officialListing,
+  type Endorsement,
+} from "../src/dash/endorsementReads";
 import { deferred, id } from "./helpers";
 
 vi.mock("../src/session/useSession", () => ({ useSession: vi.fn() }));
 vi.mock("../src/dash/registryReads", () => ({
   APP_CATEGORIES: ["other"],
-  allProposals: vi.fn(),
+  contractEntries: vi.fn(),
+  contractEntryCount: vi.fn(),
   entriesByCategory: vi.fn(),
-  exactRegistryEntry: vi.fn(),
   myEntries: vi.fn(),
+  publisherEntriesFor: vi.fn(),
+  publisherEntry: vi.fn(),
   recentEntries: vi.fn(),
   searchEntriesByName: vi.fn(),
 }));
+vi.mock("../src/dash/endorsementReads", async (importOriginal) => ({
+  ...(await importOriginal<typeof import("../src/dash/endorsementReads")>()),
+  endorsementsFor: vi.fn(),
+  officialListing: vi.fn(),
+}));
+
+function endorsement(contractId: string, publisherId: string): Endorsement {
+  return {
+    id: id(80),
+    ownerId: publisherId,
+    contractId,
+    publisherId,
+    revision: 1n,
+  };
+}
+
+function mockContract(
+  entries: Awaited<ReturnType<typeof contractEntries>>["entries"],
+  official: (typeof entries)[number] | null,
+  own: (typeof entries)[number] | null,
+) {
+  vi.mocked(contractEntries).mockResolvedValue({ entries, cursor: undefined });
+  vi.mocked(contractEntryCount).mockResolvedValue(BigInt(entries.length));
+  vi.mocked(officialListing).mockResolvedValue(
+    official
+      ? {
+          endorsement: endorsement(official.contractId, official.ownerId),
+          entry: official,
+        }
+      : null,
+  );
+  vi.mocked(publisherEntry).mockResolvedValue(own);
+}
 
 afterEach(() => {
   cleanup();
@@ -49,8 +90,7 @@ it("shows metadata before opening the owner's editor", async () => {
     tags: [],
     revision: 1n,
   };
-  vi.mocked(allProposals).mockResolvedValue([entry]);
-  vi.mocked(exactRegistryEntry).mockResolvedValue(entry);
+  mockContract([entry], entry, entry);
   vi.mocked(useSession).mockReturnValue({
     connection: {
       sdk: {},
@@ -61,13 +101,7 @@ it("shows metadata before opening the owner's editor", async () => {
     keyManager: {},
   } as never);
 
-  render(
-    <ContractRegistry
-      contractId={id(2)}
-      contractOwnerId={id(1)}
-      onMutation={vi.fn()}
-    />,
-  );
+  render(<ContractRegistry contractId={id(2)} onMutation={vi.fn()} />);
 
   await screen.findByRole("button", { name: "Edit your submission" });
   expect(
@@ -96,8 +130,7 @@ it("does not render an empty switcher for one signed-out listing", async () => {
     tags: [],
     revision: 1n,
   };
-  vi.mocked(allProposals).mockResolvedValue([entry]);
-  vi.mocked(exactRegistryEntry).mockResolvedValue(entry);
+  mockContract([entry], null, null);
   vi.mocked(useSession).mockReturnValue({
     connection: {
       sdk: {},
@@ -112,7 +145,6 @@ it("does not render an empty switcher for one signed-out listing", async () => {
   render(
     <ContractRegistry
       contractId={id(2)}
-      contractOwnerId={id(1)}
       onMutation={vi.fn()}
       onPreferredEntry={onPreferredEntry}
     />,
@@ -123,28 +155,28 @@ it("does not render an empty switcher for one signed-out listing", async () => {
   expect(screen.queryByRole("button", { name: /Switch listing/ })).toBeNull();
 });
 
-it("defaults to the owner listing and lets the user select a community listing", async () => {
-  const canonical = {
+it("defaults to the endorsed listing and lets the user select a community listing", async () => {
+  const official = {
     id: id(4),
     ownerId: id(1),
     contractId: id(2),
-    name: "Owner app",
-    tagline: "Canonical metadata",
+    name: "Official app",
+    tagline: "Official metadata",
     category: "other" as const,
     tags: [],
     appUrl: "https://owner.example/app",
     revision: 1n,
   };
   const community = {
-    ...canonical,
+    ...official,
     id: id(5),
     ownerId: id(6),
     name: "Community proposal",
     tagline: "Suggested metadata",
     appUrl: "https://community.example/app",
   };
-  vi.mocked(allProposals).mockResolvedValue([canonical, community]);
-  vi.mocked(exactRegistryEntry).mockResolvedValue(canonical);
+  // The server lists the community entry first; the official one still leads.
+  mockContract([community, official], official, null);
   vi.mocked(useSession).mockReturnValue({
     connection: {
       sdk: {},
@@ -156,12 +188,13 @@ it("defaults to the owner listing and lets the user select a community listing",
   } as never);
 
   const onPreferredEntry = vi.fn();
+  const onOfficialPublisher = vi.fn();
   render(
     <ContractRegistry
       contractId={id(2)}
-      contractOwnerId={id(1)}
       onMutation={vi.fn()}
       onPreferredEntry={onPreferredEntry}
+      onOfficialPublisher={onOfficialPublisher}
     />,
   );
 
@@ -169,47 +202,56 @@ it("defaults to the owner listing and lets the user select a community listing",
     await screen.findByRole("button", { name: /Switch listing/ }),
   );
   expect(screen.getByText(/Showing the/).textContent).toContain(
-    "contract owner's",
+    "official listing · 1 community proposal",
   );
-  expect(onPreferredEntry).toHaveBeenCalledWith(canonical);
+  expect(onPreferredEntry).toHaveBeenCalledWith(official);
+  expect(onOfficialPublisher).toHaveBeenCalledWith(id(1));
+  expect(
+    screen
+      .getAllByRole("radio")
+      .map((radio) => radio.closest("label")?.textContent),
+  ).toEqual([
+    expect.stringContaining("Official publisher"),
+    expect.stringContaining("Community member"),
+  ]);
   fireEvent.click(screen.getByRole("radio", { name: /Community member/ }));
   expect(onPreferredEntry).toHaveBeenLastCalledWith(community);
   expect(screen.getByText(/Showing the/).textContent).toContain("community");
 });
 
-it("edits the signed-in user's proposal from a canonical Discover card", async () => {
-  const canonical = {
+it("edits the signed-in user's proposal from an official Discover card", async () => {
+  const official = {
     id: id(4),
     ownerId: id(1),
     contractId: id(2),
-    name: "Owner app",
-    tagline: "Canonical metadata",
+    name: "Official app",
+    tagline: "Official metadata",
     category: "other" as const,
     tags: [],
     revision: 1n,
   };
   const ownProposal = {
-    ...canonical,
+    ...official,
     id: id(5),
     ownerId: id(6),
     name: "My proposed name",
     tagline: "My proposed metadata",
   };
+  // Newest first: the proposal is newer, but the official entry is shown.
   vi.mocked(recentEntries).mockResolvedValue({
-    entries: [canonical, ownProposal],
+    entries: [ownProposal, official],
     cursor: undefined,
   });
-  vi.mocked(myEntries).mockResolvedValue([ownProposal]);
+  vi.mocked(endorsementsFor).mockResolvedValue(
+    new Map([[id(2), endorsement(id(2), id(1))]]),
+  );
+  vi.mocked(publisherEntriesFor).mockResolvedValue(
+    new Map([[id(2), ownProposal]]),
+  );
   vi.mocked(useSession).mockReturnValue({
     connection: {
       sdk: {},
       names: { resolve: vi.fn(async () => null) },
-      resolver: {
-        summaryMany: vi.fn(() => new Map()),
-        resolve: vi.fn(
-          async () => new Map([[id(2), { status: "found", ownerId: id(1) }]]),
-        ),
-      },
     },
     registryId: id(3),
     identityId: id(6),
@@ -219,6 +261,12 @@ it("edits the signed-in user's proposal from a canonical Discover card", async (
 
   render(<RegistryExplorer open={open} showNavigation={false} />);
 
+  await screen.findByText("Official app");
+  expect(screen.queryByText("My proposed name")).toBeNull();
+  expect(publisherEntriesFor).toHaveBeenCalledWith({}, id(3), id(6), [
+    id(2),
+    id(2),
+  ]);
   fireEvent.click(await screen.findByRole("button", { name: "Edit" }));
   expect(open).not.toHaveBeenCalled();
   expect(
@@ -247,10 +295,6 @@ it("pages a category from the server and keeps its order", async () => {
     connection: {
       sdk: {},
       names: { resolve: vi.fn(async () => null) },
-      resolver: {
-        summaryMany: vi.fn(() => new Map()),
-        resolve: vi.fn(async () => new Map()),
-      },
     },
     registryId: id(3),
     identityId: id(1),
@@ -264,6 +308,7 @@ it("pages a category from the server and keeps its order", async () => {
       cursor: id(52),
     })
     .mockReturnValueOnce(second.promise);
+  vi.mocked(endorsementsFor).mockResolvedValue(new Map());
   render(<CategoryBrowser category="games" open={vi.fn()} onBack={vi.fn()} />);
   await screen.findByText("App 52");
   expect(screen.getByText("2+ apps in this category")).toBeTruthy();

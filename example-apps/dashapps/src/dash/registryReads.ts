@@ -1,6 +1,7 @@
 import { requireId } from "./ids";
 import type { ReadSdk } from "./types";
 import { toDocumentArray, type DocumentHandle } from "../lib/safeDoc";
+import { chunks, parseEach, queryPage } from "./paging";
 
 export const REGISTRY_DOCUMENT_TYPE = "appMetadata";
 export const APP_CATEGORIES = [
@@ -102,192 +103,202 @@ export function registryEntry(document: DocumentHandle): RegistryEntry {
 }
 
 export const CATEGORY_PAGE_SIZE = 25;
+export const RECENT_PAGE_SIZE = 50;
+export const ENTRY_PAGE_SIZE = 25;
 
-export async function entriesByCategory(
+export interface EntryPage {
+  entries: RegistryEntry[];
+  cursor?: string;
+}
+
+async function page(
+  sdk: ReadSdk,
+  args: Parameters<typeof queryPage>[1],
+  limit: number,
+  cursor?: string,
+): Promise<EntryPage> {
+  const { items, cursor: next } = await queryPage(
+    sdk,
+    args,
+    registryEntry,
+    limit,
+    cursor,
+  );
+  return { entries: items, cursor: next };
+}
+
+export function entriesByCategory(
   sdk: ReadSdk,
   registryId: string,
   category: AppCategory,
   cursor?: string,
   limit = CATEGORY_PAGE_SIZE,
 ) {
-  const startAfter = cursor ? requireId(cursor) : undefined;
-  const page = await query(
+  return page(
     sdk,
     {
       dataContractId: requireId(registryId),
       documentTypeName: REGISTRY_DOCUMENT_TYPE,
       where: [["category", "==", category]],
       orderBy: [["$createdAt", "desc"]],
-      limit: limit + 1,
-      ...(startAfter ? { startAfter } : {}),
     },
     limit,
+    cursor,
   );
-  const next = page.rowCount > limit ? page.lastId : undefined;
-  if (next && next === startAfter)
-    throw new Error("Category pagination cursor did not advance.");
-  return { entries: page.entries, cursor: next };
 }
 
-async function query(
-  sdk: ReadSdk,
-  args: Parameters<ReadSdk["documents"]["query"]>[0],
-  shown?: number,
-) {
-  const returned = toDocumentArray(await sdk.documents.query(args));
-  const documents = shown === undefined ? returned : returned.slice(0, shown);
-  const entries = documents.flatMap((document) => {
-    try {
-      return [registryEntry(document)];
-    } catch {
-      return [];
-    }
-  });
-  const last = documents.at(-1);
-  const lastObject =
-    (
-      last as DocumentHandle & {
-        toObject?: () => Record<string, unknown>;
-      }
-    )?.toObject?.() ?? {};
-  return {
-    entries,
-    rowCount: returned.length,
-    lastId: last ? requireId(last.id ?? lastObject.$id) : undefined,
-  };
-}
-
-export async function exactRegistryEntry(
-  sdk: ReadSdk,
-  registryId: string,
-  ownerId: string,
-  contractId: string,
-) {
-  const { entries } = await query(sdk, {
-    dataContractId: requireId(registryId),
-    documentTypeName: REGISTRY_DOCUMENT_TYPE,
-    where: [
-      ["$ownerId", "==", requireId(ownerId)],
-      ["contractId", "==", requireId(contractId)],
-    ],
-    orderBy: [
-      ["$ownerId", "asc"],
-      ["contractId", "asc"],
-    ],
-    limit: 1,
-  });
-  return entries[0] ?? null;
-}
-
-export async function allProposals(
-  sdk: ReadSdk,
-  registryId: string,
-  contractId: string,
-) {
-  const entries: RegistryEntry[] = [];
-  const ids = new Set<string>();
-  let startAfter: string | undefined;
-  for (;;) {
-    const page = await query(sdk, {
-      dataContractId: requireId(registryId),
-      documentTypeName: REGISTRY_DOCUMENT_TYPE,
-      where: [["contractId", "==", requireId(contractId)]],
-      orderBy: [["$createdAt", "desc"]],
-      limit: 100,
-      ...(startAfter ? { startAfter } : {}),
-    });
-    for (const entry of page.entries) {
-      if (ids.has(entry.id))
-        throw new Error("Proposal pagination returned a duplicate document.");
-      ids.add(entry.id);
-      entries.push(entry);
-      if (entries.length > 2_000)
-        throw new Error(
-          "Proposal scan exceeded the 2,000-document safety limit.",
-        );
-    }
-    if (page.rowCount < 100) return entries;
-    const next = page.lastId!;
-    if (next === startAfter)
-      throw new Error("Proposal pagination cursor did not advance.");
-    startAfter = next;
-  }
-}
-
-export async function recentEntries(
+export function recentEntries(
   sdk: ReadSdk,
   registryId: string,
   cursor?: string,
+  limit = RECENT_PAGE_SIZE,
 ) {
-  const page = await query(sdk, {
-    dataContractId: requireId(registryId),
-    documentTypeName: REGISTRY_DOCUMENT_TYPE,
-    where: [],
-    orderBy: [["$createdAt", "desc"]],
-    limit: 50,
-    ...(cursor ? { startAfter: requireId(cursor) } : {}),
-  });
-  const next = page.rowCount === 50 ? page.lastId : undefined;
-  if (next && next === cursor)
-    throw new Error("Recent pagination cursor did not advance.");
-  return { entries: page.entries, cursor: next };
+  return page(
+    sdk,
+    {
+      dataContractId: requireId(registryId),
+      documentTypeName: REGISTRY_DOCUMENT_TYPE,
+      where: [],
+      orderBy: [["$createdAt", "desc"]],
+    },
+    limit,
+    cursor,
+  );
 }
 
-export async function searchEntriesByName(
+export function searchEntriesByName(
   sdk: ReadSdk,
   registryId: string,
   value: string,
   cursor?: string,
+  limit = ENTRY_PAGE_SIZE,
 ) {
   const prefix = value.trim();
   if (!prefix || prefix.length > 63)
     throw new Error("Use a name prefix of 1–63 characters.");
-  const page = await query(sdk, {
-    dataContractId: requireId(registryId),
-    documentTypeName: REGISTRY_DOCUMENT_TYPE,
-    where: [["name", "startsWith", prefix]],
-    orderBy: [["name", "asc"]],
-    limit: 25,
-    ...(cursor ? { startAfter: requireId(cursor) } : {}),
-  });
-  const next = page.rowCount === 25 ? page.lastId : undefined;
-  if (next && next === cursor)
-    throw new Error("Name pagination cursor did not advance.");
-  return { entries: page.entries, cursor: next };
+  return page(
+    sdk,
+    {
+      dataContractId: requireId(registryId),
+      documentTypeName: REGISTRY_DOCUMENT_TYPE,
+      where: [["name", "startsWith", prefix]],
+      orderBy: [["name", "asc"]],
+    },
+    limit,
+    cursor,
+  );
 }
 
-export async function myEntries(
+/** An identity's entries, most recently updated first. */
+export function myEntries(
   sdk: ReadSdk,
   registryId: string,
   ownerId: string,
+  cursor?: string,
+  limit = RECENT_PAGE_SIZE,
 ) {
-  const entries: RegistryEntry[] = [];
-  let startAfter: string | undefined;
-  const seen = new Set<string>();
-  for (;;) {
-    const page = await query(sdk, {
+  return page(
+    sdk,
+    {
       dataContractId: requireId(registryId),
       documentTypeName: REGISTRY_DOCUMENT_TYPE,
       where: [["$ownerId", "==", requireId(ownerId)]],
+      orderBy: [["$updatedAt", "desc"]],
+    },
+    limit,
+    cursor,
+  );
+}
+
+/** Every entry describing one contract, most recently updated first. */
+export function contractEntries(
+  sdk: ReadSdk,
+  registryId: string,
+  contractId: string,
+  cursor?: string,
+  limit = ENTRY_PAGE_SIZE,
+) {
+  return page(
+    sdk,
+    {
+      dataContractId: requireId(registryId),
+      documentTypeName: REGISTRY_DOCUMENT_TYPE,
+      where: [["contractId", "==", requireId(contractId)]],
+      orderBy: [["$updatedAt", "desc"]],
+    },
+    limit,
+    cursor,
+  );
+}
+
+/** A contract with no entries comes back as an empty map, not a zero. */
+export async function contractEntryCount(
+  sdk: ReadSdk,
+  registryId: string,
+  contractId: string,
+): Promise<bigint> {
+  const counts = await sdk.documents.count({
+    dataContractId: requireId(registryId),
+    documentTypeName: REGISTRY_DOCUMENT_TYPE,
+    where: [["contractId", "==", requireId(contractId)]],
+  });
+  if (!(counts instanceof Map) || counts.size > 1)
+    throw new Error("Malformed count response.");
+  const value = counts.size ? counts.get("") : 0n;
+  if (typeof value !== "bigint" || value < 0n)
+    throw new Error("Malformed count response.");
+  return value;
+}
+
+/** The entry one identity published for one contract, if any. */
+export async function publisherEntry(
+  sdk: ReadSdk,
+  registryId: string,
+  publisherId: string,
+  contractId: string,
+): Promise<RegistryEntry | null> {
+  const documents = toDocumentArray(
+    await sdk.documents.query({
+      dataContractId: requireId(registryId),
+      documentTypeName: REGISTRY_DOCUMENT_TYPE,
+      where: [
+        ["$ownerId", "==", requireId(publisherId)],
+        ["contractId", "==", requireId(contractId)],
+      ],
       orderBy: [
         ["$ownerId", "asc"],
         ["contractId", "asc"],
       ],
-      limit: 100,
-      ...(startAfter ? { startAfter } : {}),
-    });
-    for (const entry of page.entries) {
-      if (seen.has(entry.id))
-        throw new Error(
-          "My submissions pagination returned a duplicate document.",
-        );
-      seen.add(entry.id);
-      entries.push(entry);
-    }
-    if (page.rowCount < 100) return entries;
-    const next = page.lastId!;
-    if (next === startAfter)
-      throw new Error("My submissions cursor did not advance.");
-    startAfter = next;
+      limit: 1,
+    }),
+  );
+  return parseEach(documents, registryEntry)[0] ?? null;
+}
+
+/** One identity's entries for a set of contracts, keyed by contract ID. */
+export async function publisherEntriesFor(
+  sdk: ReadSdk,
+  registryId: string,
+  publisherId: string,
+  contractIds: string[],
+) {
+  const ids = [...new Set(contractIds.map((value) => requireId(value)))];
+  const entries = new Map<string, RegistryEntry>();
+  for (const chunk of chunks(ids)) {
+    const documents = toDocumentArray(
+      await sdk.documents.query({
+        dataContractId: requireId(registryId),
+        documentTypeName: REGISTRY_DOCUMENT_TYPE,
+        where: [
+          ["$ownerId", "==", requireId(publisherId)],
+          ["contractId", "in", chunk],
+        ],
+        orderBy: [["contractId", "asc"]],
+        limit: chunk.length,
+      }),
+    );
+    for (const entry of parseEach(documents, registryEntry))
+      entries.set(entry.contractId, entry);
   }
+  return entries;
 }

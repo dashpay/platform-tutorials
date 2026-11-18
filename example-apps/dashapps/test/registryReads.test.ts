@@ -1,9 +1,11 @@
 import { expect, it, vi } from "vitest";
 import {
-  allProposals,
+  contractEntries,
+  contractEntryCount,
   entriesByCategory,
-  exactRegistryEntry,
   myEntries,
+  publisherEntriesFor,
+  publisherEntry,
   recentEntries,
   registryEntry,
   searchEntriesByName,
@@ -57,12 +59,12 @@ it("uses exact, recent and name index shapes with document-ID cursors", async ()
   vi.mocked(client.documents.query)
     .mockResolvedValueOnce([document(3)])
     .mockResolvedValueOnce(
-      Array.from({ length: 50 }, (_, index) => document(index + 10)),
+      Array.from({ length: 51 }, (_, index) => document(index + 10)),
     )
     .mockResolvedValueOnce(
-      Array.from({ length: 25 }, (_, index) => document(index + 100)),
+      Array.from({ length: 26 }, (_, index) => document(index + 100)),
     );
-  expect(await exactRegistryEntry(client, id(9), id(1), id(2))).toMatchObject({
+  expect(await publisherEntry(client, id(9), id(1), id(2))).toMatchObject({
     id: id(3),
   });
   const recent = await recentEntries(client, id(9), id(8));
@@ -86,7 +88,7 @@ it("uses exact, recent and name index shapes with document-ID cursors", async ()
     2,
     expect.objectContaining({
       orderBy: [["$createdAt", "desc"]],
-      limit: 50,
+      limit: 51,
       startAfter: id(8),
     }),
   );
@@ -95,7 +97,7 @@ it("uses exact, recent and name index shapes with document-ID cursors", async ()
     expect.objectContaining({
       where: [["name", "startsWith", "App"]],
       orderBy: [["name", "asc"]],
-      limit: 25,
+      limit: 26,
       startAfter: id(7),
     }),
   );
@@ -103,7 +105,7 @@ it("uses exact, recent and name index shapes with document-ID cursors", async ()
 
 it("skips malformed registry documents without losing valid entries or pagination", async () => {
   const client = sdk();
-  const page = Array.from({ length: 50 }, (_, index) => document(index + 10));
+  const page = Array.from({ length: 51 }, (_, index) => document(index + 10));
   page[24] = {
     ...document(34),
     properties: { ...document(34).properties, category: "untrusted" },
@@ -184,47 +186,81 @@ it("defaults category pages to 25 and rejects a stuck cursor", async () => {
   ).rejects.toThrow("did not advance");
 });
 
-it("reads proposals newest first from the server and keeps its order", async () => {
+it("pages a contract's entries and an identity's entries by last update", async () => {
   const client = sdk();
-  vi.mocked(client.documents.query).mockResolvedValueOnce([
-    document(7),
-    document(30),
-    document(12),
+  vi.mocked(client.documents.query)
+    .mockResolvedValueOnce([document(7), document(30), document(12)])
+    .mockResolvedValueOnce([document(44, 1, 5), document(9, 1, 6)]);
+  const listings = await contractEntries(client, id(9), id(2), undefined, 2);
+  // Server order, never re-sorted.
+  expect(listings.entries.map((entry) => entry.id)).toEqual([id(7), id(30)]);
+  expect(listings.cursor).toBe(id(30));
+  const mine = await myEntries(client, id(9), id(1), id(70));
+  expect(mine.entries.map((entry) => entry.id)).toEqual([id(44), id(9)]);
+  expect(mine.cursor).toBeUndefined();
+  expect(vi.mocked(client.documents.query).mock.calls.map(([a]) => a)).toEqual([
+    {
+      dataContractId: id(9),
+      documentTypeName: "appMetadata",
+      where: [["contractId", "==", id(2)]],
+      orderBy: [["$updatedAt", "desc"]],
+      limit: 3,
+    },
+    {
+      dataContractId: id(9),
+      documentTypeName: "appMetadata",
+      where: [["$ownerId", "==", id(1)]],
+      orderBy: [["$updatedAt", "desc"]],
+      limit: 51,
+      startAfter: id(70),
+    },
   ]);
-  const proposals = await allProposals(client, id(9), id(2));
-  expect(proposals.map((entry) => entry.id)).toEqual([id(7), id(30), id(12)]);
-  expect(client.documents.query).toHaveBeenCalledWith({
+});
+
+it("counts a contract's entries, reading an empty result as zero", async () => {
+  const client = sdk();
+  vi.mocked(client.documents.count)
+    .mockResolvedValueOnce(new Map([["", 4n]]))
+    .mockResolvedValueOnce(new Map())
+    .mockResolvedValueOnce(new Map([["05", 1n]]));
+  expect(await contractEntryCount(client, id(9), id(2))).toBe(4n);
+  expect(await contractEntryCount(client, id(9), id(2))).toBe(0n);
+  await expect(contractEntryCount(client, id(9), id(2))).rejects.toThrow(
+    "Malformed count response.",
+  );
+  expect(client.documents.count).toHaveBeenCalledWith({
     dataContractId: id(9),
     documentTypeName: "appMetadata",
     where: [["contractId", "==", id(2)]],
-    orderBy: [["$createdAt", "desc"]],
-    limit: 100,
   });
 });
 
-it("scans proposals and personal submissions to completion", async () => {
+it("looks up an identity's entries for a page of contracts with `in`", async () => {
   const client = sdk();
-  const first = Array.from({ length: 100 }, (_, index) => document(index + 10));
-  vi.mocked(client.documents.query)
-    .mockResolvedValueOnce(first)
-    .mockResolvedValueOnce([document(200)])
-    .mockResolvedValueOnce([document(300)]);
-  const proposals = await allProposals(client, id(9), id(2));
-  expect(proposals).toHaveLength(101);
+  vi.mocked(client.documents.query).mockResolvedValue([
+    document(40, 1, 6),
+    document(41, 1, 4),
+  ]);
+  const targets = Array.from({ length: 120 }, (_, index) => id(index + 1));
+  const entries = await publisherEntriesFor(client, id(9), id(1), [
+    ...targets,
+    id(4),
+  ]);
+  expect(entries.get(id(4))?.id).toBe(id(41));
+  expect(entries.get(id(6))?.id).toBe(id(40));
+  expect(client.documents.query).toHaveBeenCalledTimes(2);
+  expect(client.documents.query).toHaveBeenNthCalledWith(1, {
+    dataContractId: id(9),
+    documentTypeName: "appMetadata",
+    where: [
+      ["$ownerId", "==", id(1)],
+      ["contractId", "in", targets.slice(0, 100)],
+    ],
+    orderBy: [["contractId", "asc"]],
+    limit: 100,
+  });
   expect(client.documents.query).toHaveBeenNthCalledWith(
     2,
-    expect.objectContaining({ startAfter: id(109) }),
-  );
-  expect(await myEntries(client, id(9), id(1))).toHaveLength(1);
-  expect(client.documents.query).toHaveBeenNthCalledWith(
-    3,
-    expect.objectContaining({
-      where: [["$ownerId", "==", id(1)]],
-      orderBy: [
-        ["$ownerId", "asc"],
-        ["contractId", "asc"],
-      ],
-      limit: 100,
-    }),
+    expect.objectContaining({ limit: 20 }),
   );
 });

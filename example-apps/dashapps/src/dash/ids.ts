@@ -78,8 +78,3 @@ export function requireId(value: unknown): string {
   if (!id) throw new IdReadError();
   return id;
 }
-
-/** Canonicality accepts normalized strings only, never implicit coercion. */
-export function assertBase58Id(value: unknown): asserts value is string {
-  if (!isBase58Id(value)) throw new IdReadError();
-}

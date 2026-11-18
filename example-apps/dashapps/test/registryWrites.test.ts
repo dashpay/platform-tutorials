@@ -56,7 +56,7 @@ function setup(options: { target?: boolean; existing?: FakeDocument } = {}) {
   const replace = vi.fn();
   const remove = vi.fn();
   const del = vi.fn();
-  const query = vi.fn(async () => []);
+  const query = vi.fn(async () => [] as unknown[]);
   const get = vi.fn(async () => options.existing);
   const sdk = {
     version: () => 13,
@@ -85,6 +85,7 @@ function setup(options: { target?: boolean; existing?: FakeDocument } = {}) {
     replace,
     del,
     get,
+    query,
     remove,
   };
 }
@@ -159,6 +160,70 @@ it("prepares identifier metadata and classifies a uniqueness race", async () => 
     description: "Description",
     website: "https://example.com/",
   });
+});
+
+it("returns the target's owner so the caller can offer an endorsement", async () => {
+  const context = setup();
+  expect(
+    await createMetadata({
+      sdk: context.sdk as never,
+      keyManager: context.keyManager as never,
+      registryId: context.registryId,
+      targetId: context.targetId,
+      input,
+    }),
+  ).toEqual({ contractOwnerId: id(9) });
+  expect(context.query).toHaveBeenCalledWith(
+    expect.objectContaining({
+      where: [
+        ["$ownerId", "==", context.ownerId],
+        ["contractId", "==", context.targetId],
+      ],
+    }),
+  );
+});
+
+it("refuses a second entry for the same contract before broadcasting", async () => {
+  const context = setup();
+  context.query.mockResolvedValue([
+    {
+      id: id(4),
+      ownerId: context.ownerId,
+      properties: {
+        contractId: context.targetId,
+        name: "Mine",
+        tagline: "Mine",
+        category: "other",
+      },
+    },
+  ]);
+  await expect(
+    createMetadata({
+      sdk: context.sdk as never,
+      keyManager: context.keyManager as never,
+      registryId: context.registryId,
+      targetId: context.targetId,
+      input,
+    }),
+  ).rejects.toThrow("Edit your existing entry");
+  expect(context.create).not.toHaveBeenCalled();
+});
+
+it("rewords reference refusals from the network", async () => {
+  const context = setup();
+  context.create.mockRejectedValue({
+    code: 40120,
+    message: `referenced contract ${context.targetId} not found for path contractId`,
+  });
+  await expect(
+    createMetadata({
+      sdk: context.sdk as never,
+      keyManager: context.keyManager as never,
+      registryId: context.registryId,
+      targetId: context.targetId,
+      input,
+    }),
+  ).rejects.toThrow("does not exist on this network");
 });
 
 it("increments the network revision for edits and deletes the fetched document", async () => {

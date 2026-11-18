@@ -117,6 +117,7 @@ function Browser({
     DocumentSchemaSummary[]
   >([]);
   const [preferredEntry, setPreferredEntry] = useState<RegistryEntry | null>();
+  const [officialPublisher, setOfficialPublisher] = useState<string | null>();
   const [ratingSummary, setRatingSummary] = useState<RatingSummary | null>(
     null,
   );
@@ -130,7 +131,7 @@ function Browser({
   const [mineSigningIn, setMineSigningIn] = useState(false);
   const [showAllCategories, setShowAllCategories] = useState(false);
   const discoverEntries = cachedRegistryEntries;
-  const [discoverContractOwners, setDiscoverContractOwners] = useState(
+  const [discoverOfficial, setDiscoverOfficial] = useState(
     new Map<string, string>(),
   );
   const request = useRef(0);
@@ -230,7 +231,10 @@ function Browser({
     );
     if (entry) setPreferredEntry(entry);
     else if (id !== selected) setPreferredEntry(undefined);
-    if (id !== selected) setRatingSummary(null);
+    if (id !== selected) {
+      setRatingSummary(null);
+      setOfficialPublisher(discoverOfficial.get(id));
+    }
     setDescription(undefined);
     setDescriptionError("");
     setMissing(false);
@@ -272,7 +276,9 @@ function Browser({
       selectedName ||
       detail?.description ||
       "Platform app";
-    const official = preferredEntry?.ownerId === detail?.ownerId;
+    const official =
+      Boolean(officialPublisher) &&
+      preferredEntry?.ownerId === officialPublisher;
     const appUrl = safeHref(preferredEntry?.appUrl);
     const website = safeHref(preferredEntry?.website);
     return (
@@ -393,9 +399,9 @@ function Browser({
           <>
             <ContractRegistry
               contractId={selected}
-              contractOwnerId={detail.ownerId}
               onMutation={() => setRegistryRefresh((value) => value + 1)}
               onPreferredEntry={setPreferredEntry}
+              onOfficialPublisher={setOfficialPublisher}
               managementHost={listingManagementHost}
             />
             <div className="detail-metadata">
@@ -616,7 +622,7 @@ function Browser({
               {featured?.name ?? "Discover Platform apps"}
               {featured &&
                 featured.ownerId ===
-                  discoverContractOwners.get(featured.contractId) && (
+                  discoverOfficial.get(featured.contractId) && (
                   <ProvenanceIcon />
                 )}
             </h2>
@@ -637,7 +643,7 @@ function Browser({
                   url={featured.appUrl}
                   verified={
                     featured.ownerId ===
-                    discoverContractOwners.get(featured.contractId)
+                    discoverOfficial.get(featured.contractId)
                   }
                 >
                   Launch ↗
@@ -684,7 +690,7 @@ function Browser({
                     <span className="featured-title">
                       <strong>{entry.name}</strong>
                       {entry.ownerId ===
-                        discoverContractOwners.get(entry.contractId) && (
+                        discoverOfficial.get(entry.contractId) && (
                         <ProvenanceIcon />
                       )}
                     </span>
@@ -832,7 +838,7 @@ function Browser({
                     <span className="featured-title">
                       <strong>{entry.name}</strong>
                       {entry.ownerId ===
-                        discoverContractOwners.get(entry.contractId) && (
+                        discoverOfficial.get(entry.contractId) && (
                         <ProvenanceIcon />
                       )}
                     </span>
@@ -852,8 +858,7 @@ function Browser({
                     className="launch-pill"
                     url={entry.appUrl!}
                     verified={
-                      entry.ownerId ===
-                      discoverContractOwners.get(entry.contractId)
+                      entry.ownerId === discoverOfficial.get(entry.contractId)
                     }
                   >
                     Launch ↗
@@ -1021,8 +1026,8 @@ function Browser({
             heading={view === "discover" ? "Recently added" : undefined}
             subheading={view === "discover" ? "Newest first" : undefined}
             onEntries={view === "discover" ? cacheRegistryEntries : undefined}
-            onContractOwners={
-              view === "discover" ? setDiscoverContractOwners : undefined
+            onOfficialPublishers={
+              view === "discover" ? setDiscoverOfficial : undefined
             }
             onCategory={chooseCategory}
             showPublishers={view !== "discover"}

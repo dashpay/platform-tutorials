@@ -2,8 +2,8 @@ export function ProvenanceIcon() {
   return (
     <span
       className="provenance-icon"
-      title="Metadata provided by the contract owner"
-      aria-label="Metadata provided by the contract owner"
+      title="Official entry, endorsed by the contract owner"
+      aria-label="Official entry, endorsed by the contract owner"
       role="img"
     >
       <svg viewBox="0 0 20 20" aria-hidden="true">

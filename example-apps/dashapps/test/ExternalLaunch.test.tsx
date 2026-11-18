@@ -42,9 +42,9 @@ it("identifies contract-owner links in the confirmation", () => {
     </ExternalLaunch>,
   );
 
-  expect(screen.queryByText("Contract-owner link")).toBeNull();
+  expect(screen.queryByText("Official link")).toBeNull();
   fireEvent.click(screen.getByRole("button", { name: "Launch" }));
-  expect(screen.getByText("Contract-owner link")).toBeTruthy();
+  expect(screen.getByText("Official link")).toBeTruthy();
   expect(screen.queryByText("Community link")).toBeNull();
 });
 
