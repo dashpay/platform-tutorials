@@ -17,8 +17,7 @@ export function useDialog<T extends HTMLElement>(onClose: () => void) {
   useEffect(() => {
     const dialog = ref.current;
     return () => {
-      // After a backdrop press has moved focus; Strict Mode re-runs this
-      // cleanup on a dialog that is still open.
+      // Deferred so the click that closed the dialog cannot take focus back.
       setTimeout(() => {
         if (!dialog?.isConnected && opener instanceof HTMLElement)
           opener.focus();

@@ -996,6 +996,11 @@ select:focus-visible {
   color: #64748b;
   font-size: 12px;
 }
+.search-note {
+  margin: 8px 0 0;
+  color: #64748b;
+  font-size: 12px;
+}
 .detail-page {
   padding: 28px 36px 45px;
 }

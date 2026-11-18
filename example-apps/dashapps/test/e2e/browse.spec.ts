@@ -49,12 +49,17 @@ test("Search stays disabled until the app connects", async ({ page }) => {
     "0 apps · keyword “zzqxnosuchkeyword”",
   );
 
-  await test.step("a short keyword shows only its error", async () => {
-    await search.input.fill("ab");
+  await test.step("a short term searches names; a long one only errors", async () => {
+    await search.input.fill("zq");
+    await search.submit.click();
+    await expect(search.summary).toHaveText("0 apps · keyword “zq”", {
+      timeout: LOAD_TIMEOUT,
+    });
+    await expect(page.getByRole("alert")).toHaveCount(0);
+    await search.input.fill("z".repeat(64));
     await search.submit.click();
     await expect(page.getByRole("alert")).toHaveText(
-      /Use a keyword of 3–50 characters\./,
-      { timeout: LOAD_TIMEOUT },
+      /Use 3–50 characters for a keyword, or up to 63 for a name\./,
     );
     await expect(page.locator(".search-results")).toHaveCount(0);
   });
@@ -76,6 +81,7 @@ test("Search finds a listed app on a fresh load and links back", async ({
   await connected(page);
   await nav(page, "Search");
   release();
+  await expect(page.getByText(/Name matches are case-sensitive/)).toBeVisible();
   const search = searchBox(page);
   await search.input.fill(name!);
   await search.submit.click();

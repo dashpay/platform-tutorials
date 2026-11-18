@@ -90,7 +90,8 @@ test("Mine and an app's rating prompt open sign-in", async ({ page }) => {
   await card.getByRole("button", { name: "Sign in" }).click();
   const dialog = page.getByRole("dialog", { name: "Sign in to dashapps" });
   await dialog.getByRole("button", { name: "Close sign in" }).click();
-  await expect(card).toBeVisible();
+  // The form replaced the card; focus goes back to the card's button.
+  await expect(card.getByRole("button", { name: "Sign in" })).toBeFocused();
 
   await nav(page, "Discover");
   await entries.first().locator(".entry-title").click();

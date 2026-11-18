@@ -28,7 +28,13 @@ import {
 import { Leaderboard } from "./components/Leaderboard";
 import { useLeaderboards } from "./hooks/useLeaderboards";
 import { useRegistryCheck } from "./hooks/useRegistryCheck";
+import { useInlineSignIn } from "./hooks/useInlineSignIn";
 import { categoryLabel } from "./dash/categoryLabel";
+import {
+  collapseByContract,
+  endorsementsFor,
+  type Endorsement,
+} from "./dash/endorsementReads";
 import {
   APP_CATEGORIES,
   searchEntriesByName,
@@ -113,6 +119,10 @@ function Browser({
   const [term, setTerm] = useState("");
   const [ids, setIds] = useState<string[]>([]);
   const [named, setNamed] = useState<RegistryEntry[]>([]);
+  const [searchOfficial, setSearchOfficial] = useState(
+    new Map<string, string>(),
+  );
+  const [partialFailure, setPartialFailure] = useState("");
   const [cursor, setCursor] = useState<string>();
   const [resolved, setResolved] = useState(new Map<string, Resolution>());
   const [summaries, setSummaries] = useState(
@@ -138,8 +148,18 @@ function Browser({
   const [missing, setMissing] = useState(false);
   const [busy, setBusy] = useState(false);
   const [registryRefresh, setRegistryRefresh] = useState(0);
-  const [mineSigningIn, setMineSigningIn] = useState(false);
-  const [addSigningIn, setAddSigningIn] = useState(false);
+  const {
+    signingIn: mineSigningIn,
+    button: mineSignInButton,
+    open: openMineSignIn,
+    close: closeMineSignIn,
+  } = useInlineSignIn();
+  const {
+    signingIn: addSigningIn,
+    button: addSignInButton,
+    open: openAddSignIn,
+    close: closeAddSignIn,
+  } = useInlineSignIn();
   const [technicalOpen, setTechnicalOpen] = useState(false);
   const [showAllCategories, setShowAllCategories] = useState(false);
   const discoverEntries = cachedRegistryEntries;
@@ -167,28 +187,77 @@ function Browser({
     connection.resolver.clear();
     const token = ++request.current;
     const query = more ? term : keyword;
-    setBusy(true);
+    const length = query.trim().length;
+    const registryId = session.registryId;
+    const byKeyword = more || (length >= 3 && length <= 50);
+    const byName =
+      !more && registryId && length >= 1 && length <= 63 ? registryId : "";
     setError("");
+    if (!byKeyword && !byName) {
+      setError("Use 3–50 characters for a keyword, or up to 63 for a name.");
+      setSearched(false);
+      return;
+    }
+    setBusy(true);
     if (!more) {
       setIds([]);
       setNamed([]);
+      setSearchOfficial(new Map());
+      setPartialFailure("");
       setCursor(undefined);
       setTerm(query);
       setSearched(false);
       setResolved(new Map());
     }
     try {
-      const [page, names] = await Promise.all([
-        searchKeywords(connection.sdk, query, more ? cursor : undefined),
+      const [keywordResult, nameResult] = await Promise.allSettled([
+        byKeyword
+          ? searchKeywords(connection.sdk, query, more ? cursor : undefined)
+          : undefined,
         // Registry names come from the byName index, not the loaded feed.
-        (async () =>
-          more || !session.registryId
-            ? undefined
-            : searchEntriesByName(connection.sdk, session.registryId, query))(),
+        byName
+          ? (async () => {
+              const { entries } = await searchEntriesByName(
+                connection.sdk,
+                byName,
+                query,
+              );
+              const endorsements = await endorsementsFor(
+                connection.sdk,
+                byName,
+                entries.map((entry) => entry.contractId),
+              ).catch(() => new Map<string, Endorsement>());
+              return { entries, endorsements };
+            })()
+          : undefined,
       ]);
       if (request.current !== token) return;
-      if (names) setNamed(names.entries);
+      const failures = [keywordResult, nameResult].flatMap((result) =>
+        result.status === "rejected" ? [result.reason] : [],
+      );
+      // Only a search that ran can fail; show the other's results if it worked.
+      if (failures.length === Number(byKeyword) + Number(Boolean(byName)))
+        throw failures[0];
+      if (failures.length)
+        setPartialFailure(
+          `Part of the search failed (${message(failures[0])}). Showing the rest.`,
+        );
+      if (nameResult.status === "fulfilled" && nameResult.value) {
+        const { entries, endorsements } = nameResult.value;
+        setNamed(entries);
+        setSearchOfficial(
+          new Map(
+            [...endorsements].map(([id, endorsement]) => [
+              id,
+              endorsement.publisherId,
+            ]),
+          ),
+        );
+      }
       setSearched(true);
+      const page =
+        keywordResult.status === "fulfilled" ? keywordResult.value : undefined;
+      if (!page) return;
       const cached = connection.resolver.summaryMany(page.ids);
       setIds((previous) => [
         ...new Set([...(more ? previous : []), ...page.ids]),
@@ -436,7 +505,7 @@ function Browser({
           detail &&
           !session.identityId &&
           (addSigningIn ? (
-            <SignInForm onClose={() => setAddSigningIn(false)} />
+            <SignInForm onClose={closeAddSignIn} />
           ) : (
             <section className="signed-out-card">
               <span className="account-avatar">S</span>
@@ -447,7 +516,8 @@ function Browser({
               {session.network === "testnet" ? (
                 <button
                   className="sign-in-pill"
-                  onClick={() => setAddSigningIn(true)}
+                  ref={addSignInButton}
+                  onClick={openAddSignIn}
                 >
                   Sign in
                 </button>
@@ -642,11 +712,11 @@ function Browser({
         (value) => value.toLowerCase().includes(query),
       ),
     );
-    return [
-      ...new Map(
-        [...named, ...loaded].map((entry) => [entry.id, entry]),
-      ).values(),
-    ];
+    // One row per app, as on Discover: the feed's entry, or the official one.
+    return collapseByContract(
+      [...loaded, ...named],
+      new Map([...searchOfficial, ...discoverOfficial]),
+    );
   })();
   const matchedContractIds = new Set(
     registryMatches.map((entry) => entry.contractId),
@@ -846,6 +916,11 @@ function Browser({
               {busy ? "Searching…" : "Search"}
             </button>
           </div>
+          {view === "search" && (
+            <p className="search-note">
+              Name matches are case-sensitive and match the start of the name.
+            </p>
+          )}
         </form>
       )}
       {view === "discover" && (
@@ -949,6 +1024,7 @@ function Browser({
             {" · keyword “"}
             {term}”
           </p>
+          {partialFailure && <p className="search-note">{partialFailure}</p>}
           {registryMatches.map((entry) => (
             <article className="registry-entry" key={`registry:${entry.id}`}>
               <span className="app-mark" data-category={entry.category}>
@@ -1066,7 +1142,7 @@ function Browser({
       {view === "mine" && !session.identityId ? (
         mineSigningIn ? (
           <div className="mine-signin">
-            <SignInForm onClose={() => setMineSigningIn(false)} />
+            <SignInForm onClose={closeMineSignIn} />
           </div>
         ) : (
           <section className="signed-out-card mine-signin">
@@ -1079,7 +1155,8 @@ function Browser({
               <button
                 className="sign-in-pill"
                 disabled={!connection}
-                onClick={() => setMineSigningIn(true)}
+                ref={mineSignInButton}
+                onClick={openMineSignIn}
               >
                 Sign in
               </button>
@@ -1310,7 +1387,7 @@ function OutdatedRegistry() {
 }
 function Account() {
   const session = useSession();
-  const [signingIn, setSigningIn] = useState(false);
+  const { signingIn, button, open, close } = useInlineSignIn();
   if (session.identityId) return <IdentityChip key={session.identityId} />;
   if (session.network === "mainnet")
     return (
@@ -1323,7 +1400,7 @@ function Account() {
       </section>
     );
   return signingIn ? (
-    <SignInForm onClose={() => setSigningIn(false)} />
+    <SignInForm onClose={close} />
   ) : (
     <section className="signed-out-card">
       <span className="account-avatar">S</span>
@@ -1333,8 +1410,9 @@ function Account() {
       </div>
       <button
         className="sign-in-pill"
+        ref={button}
         disabled={!session.connection}
-        onClick={() => setSigningIn(true)}
+        onClick={open}
       >
         Sign in
       </button>

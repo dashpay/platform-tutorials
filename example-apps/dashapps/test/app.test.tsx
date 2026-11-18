@@ -488,40 +488,57 @@ it("waits for the registry check and offers a retry when it fails", async () => 
   await waitFor(() => expect(client.documents.query).toHaveBeenCalled());
 });
 
-it("searches registry names on the network and rejects short keywords", async () => {
+it("searches registry names on the network, one row per app", async () => {
   const client = connect();
-  vi.mocked(client.documents.query).mockImplementation(async (query) =>
-    JSON.stringify(query.where).includes("startsWith")
-      ? [
-          {
-            id: id(5),
-            ownerId: id(1),
-            revision: 1n,
-            properties: {
-              contractId: id(2),
-              name: "Listed app",
-              tagline: "Not in the loaded feed",
-              category: "games",
-              tags: "",
-            },
-          },
-        ]
-      : [],
-  );
+  const listing = (owner: number, name: string) => ({
+    id: id(owner + 10),
+    ownerId: id(owner),
+    revision: 1n,
+    properties: {
+      contractId: id(2),
+      name,
+      tagline: "Not in the loaded feed",
+      category: "games",
+      tags: "",
+    },
+  });
+  vi.mocked(client.documents.query).mockImplementation(async (query) => {
+    if (query.documentTypeName === "contractKeywords")
+      throw new Error("keyword node down");
+    if (query.documentTypeName === "appEndorsement")
+      return [
+        {
+          id: id(9),
+          ownerId: id(8),
+          revision: 1n,
+          properties: { contractId: id(2), publisherId: id(1) },
+        },
+      ];
+    return JSON.stringify(query.where).includes("startsWith")
+      ? [listing(3, "Listed copy"), listing(1, "Listed app")]
+      : [];
+  });
   render(<App />);
   await ready();
   openSearch();
   const keyword = screen.getByLabelText("Discover by keyword");
 
-  fireEvent.change(keyword, { target: { value: "ab" } });
+  fireEvent.change(keyword, { target: { value: "x".repeat(64) } });
   fireEvent.submit(keyword.closest("form")!);
-  await screen.findByText(/Use a keyword of 3–50 characters/);
-  expect(screen.queryByText("No apps found for this keyword.")).toBeNull();
+  await screen.findByText(/Use 3–50 characters for a keyword/);
 
-  fireEvent.change(keyword, { target: { value: "Listed" } });
+  // Too short for a keyword, but still a name prefix.
+  fireEvent.change(keyword, { target: { value: "Li" } });
   fireEvent.submit(keyword.closest("form")!);
   expect(
     await screen.findByRole("button", { name: "Listed app" }),
   ).toBeTruthy();
-  expect(screen.getByText("1 app · keyword “Listed”")).toBeTruthy();
+  expect(screen.queryByRole("button", { name: "Listed copy" })).toBeNull();
+  expect(screen.getByText("1 app · keyword “Li”")).toBeTruthy();
+  expect(screen.queryByRole("alert")).toBeNull();
+
+  fireEvent.change(keyword, { target: { value: "Listed" } });
+  fireEvent.submit(keyword.closest("form")!);
+  expect(await screen.findByText(/Part of the search failed/)).toBeTruthy();
+  expect(screen.getByRole("button", { name: "Listed app" })).toBeTruthy();
 });

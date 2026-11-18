@@ -37,6 +37,7 @@ import type { AppCategory } from "../dash/registryReads";
 import { categoryLabel } from "../dash/categoryLabel";
 import { DpnsName } from "./DpnsName";
 import { SignInForm } from "./SignInForm";
+import { useInlineSignIn } from "../hooks/useInlineSignIn";
 import { ProvenanceIcon } from "./ProvenanceIcon";
 import { ExternalLaunch } from "./ExternalLaunch";
 import { ModalDialog } from "./ModalDialog";
@@ -1496,7 +1497,7 @@ export function CategoryBrowser({
   const error = listingCurrent?.error || moreCurrent?.error || "";
   const { officialPublishers, checked } = useOfficialPublishers(entries);
   const averages = useRatingAverages(entries);
-  const [signingIn, setSigningIn] = useState(false);
+  const { signingIn, button, open: openSignIn, close } = useInlineSignIn();
   useEffect(() => {
     let current = true;
     if (!session.connection || !session.registryId)
@@ -1637,7 +1638,7 @@ export function CategoryBrowser({
       {!session.identityId &&
         (signingIn ? (
           <div className="category-signin-form">
-            <SignInForm onClose={() => setSigningIn(false)} />
+            <SignInForm onClose={close} />
           </div>
         ) : (
           <section className="signed-out-card category-signin">
@@ -1654,7 +1655,8 @@ export function CategoryBrowser({
             <button
               className="sign-in-pill"
               disabled={!session.connection || session.network === "mainnet"}
-              onClick={() => setSigningIn(true)}
+              ref={button}
+              onClick={openSignIn}
             >
               Sign in
             </button>
