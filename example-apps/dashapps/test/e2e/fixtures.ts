@@ -159,12 +159,17 @@ function testnet() {
 
 type Json = Record<string, unknown>;
 
-async function documents(documentTypeName: string, limit = 100) {
+async function documents(
+  documentTypeName: string,
+  limit = 100,
+  orderBy?: [string, "asc" | "desc"][],
+) {
   const client = await testnet();
   const result = await client.documents.query({
     dataContractId: REGISTRY_ID,
     documentTypeName,
     limit,
+    ...(orderBy ? { where: [], orderBy } : {}),
   });
   return [...result.values()].map(
     (document) => (document?.toJSON(client.version()) ?? {}) as Json,
@@ -173,7 +178,7 @@ async function documents(documentTypeName: string, limit = 100) {
 
 /** The name of the newest listing, if the registry has one. */
 export async function listedName() {
-  const [entry] = await documents("appMetadata", 1);
+  const [entry] = await documents("appMetadata", 1, [["$createdAt", "desc"]]);
   return typeof entry?.name === "string" ? entry.name : undefined;
 }
 

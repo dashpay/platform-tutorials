@@ -86,7 +86,9 @@ test("Search finds a listed app on a fresh load and links back", async ({
   await search.input.fill(name!);
   await search.submit.click();
   await expect(search.summary).toHaveText(
-    new RegExp(`^\\d+ apps? · keyword “${name}”$`),
+    new RegExp(
+      `^\\d+ apps? · keyword “${name!.replace(/[.*+?^${}()|[\]\\]/g, "\\$&")}”$`,
+    ),
     { timeout: LOAD_TIMEOUT },
   );
   const match = page

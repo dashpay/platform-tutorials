@@ -163,15 +163,10 @@ test("the listing and review dialogs validate and cancel without saving", async 
     });
     const name = dialog.getByLabel("Name", { exact: true });
     const url = dialog.getByLabel("App URL (optional)");
-    // Invalid before the submit button is ever pressed.
+    // The write button is never pressed; the form's own validity is checked.
+    const form = dialog.locator("form");
     await name.fill("");
     await url.fill("not a url");
-    await dialog
-      .getByRole("button", {
-        name: adding ? "Submit metadata" : "Save changes",
-      })
-      .click();
-    await expect(dialog).toBeVisible();
     expect(
       await name.evaluate(
         (input: HTMLInputElement) => input.validity.valueMissing,
@@ -183,6 +178,11 @@ test("the listing and review dialogs validate and cancel without saving", async 
         (input: HTMLInputElement) => input.validity.typeMismatch,
       ),
     ).toBe(true);
+    expect(
+      await form.evaluate((element: HTMLFormElement) =>
+        element.checkValidity(),
+      ),
+    ).toBe(false);
     await dialog.getByRole("button", { name: "Cancel" }).click();
     await expect(dialog).toHaveCount(0);
     await open.click();
