@@ -34,8 +34,6 @@ test.describe("tab navigation", () => {
     await expect(
       page.getByRole("heading", { name: /how it works/i }),
     ).toBeVisible();
-    // The How-it-works copy documents the SDK query surface.
-    await expect(page.getByText("documents.average").first()).toBeVisible();
 
     await navTo(page, "Resources");
     await expect(

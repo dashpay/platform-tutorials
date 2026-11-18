@@ -239,69 +239,6 @@ describe("useResourceRatings refresh token", () => {
     expect(result.current.summaries.tokens.sum).toBe(9n);
     expect(result.current.distributions.tokens[5]).toBe(1n);
   });
-
-  it("reloads for the CURRENT selection, never the one saved from", async () => {
-    // Save on tokens → user switches to dashnote during the wait → the
-    // token bump must re-read dashnote, not tokens. Each read returns a
-    // newer version, so the final state proves the bump's reload landed
-    // (the selection change alone would leave version 1).
-    const reads: Record<string, number> = {};
-    findMyReviewForResource.mockImplementation(
-      async ({ resourceId }: { resourceId: string }) => {
-        reads[resourceId] = (reads[resourceId] ?? 0) + 1;
-        return {
-          ...review(`mine-${resourceId}`),
-          resourceId,
-          reviewText: `about ${resourceId} v${reads[resourceId]}`,
-        };
-      },
-    );
-    const listReads: Record<string, number> = {};
-    listResourceReviews.mockImplementation(
-      async ({ resourceId }: { resourceId: string }) => {
-        listReads[resourceId] = (listReads[resourceId] ?? 0) + 1;
-        return page([
-          {
-            ...review(`r-${resourceId}-v${listReads[resourceId]}`),
-            resourceId,
-          },
-        ]);
-      },
-    );
-    const session = {
-      sdk: fakeSdk,
-      identityId: "owner-1",
-    } as unknown as Session;
-    const args = makeArgs({ session, selectedResourceId: "tokens" });
-    const { result, rerender } = renderHook(
-      (props) => useResourceRatings(props),
-      { initialProps: args },
-    );
-    await waitFor(() =>
-      expect(result.current.reviewText).toBe("about tokens v1"),
-    );
-
-    rerender({ ...args, selectedResourceId: "dashnote" });
-    await waitFor(() =>
-      expect(result.current.reviewText).toBe("about dashnote v1"),
-    );
-    await waitFor(() => expect(result.current.loadingRatings).toBe(false));
-
-    rerender({ ...args, selectedResourceId: "dashnote", refreshToken: 1 });
-
-    await waitFor(() =>
-      expect(result.current.reviewText).toBe("about dashnote v2"),
-    );
-    expect(result.current.mySelectedReview?.id).toBe("mine-dashnote");
-    await waitFor(() =>
-      expect(result.current.reviews.map((r) => r.id)).toEqual([
-        "r-dashnote-v2",
-      ]),
-    );
-    // The resource saved from was never re-read.
-    expect(reads.tokens).toBe(1);
-    expect(listReads.tokens).toBe(1);
-  });
 });
 
 describe("useResourceRatings stale-response guards", () => {

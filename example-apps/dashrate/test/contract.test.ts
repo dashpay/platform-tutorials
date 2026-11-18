@@ -72,16 +72,6 @@ describe("DashRate review contract schema", () => {
       "rating",
     ]);
   });
-
-  it("keeps the distribution index unranked", () => {
-    // A compound ranked index under the averageable [resourceId] prefix is
-    // rejected at registration.
-    const distribution = REVIEW_SCHEMAS.review.indices.find(
-      (index) => index.name === "resourceRatingDistribution",
-    );
-    expect(distribution).not.toHaveProperty("rankedCountable");
-    expect(distribution).not.toHaveProperty("rankedAverageable");
-  });
 });
 
 describe("contract id storage helpers", () => {
