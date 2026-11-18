@@ -2,6 +2,7 @@ import { useEffect, useRef, useState } from "react";
 import { useSession } from "../session/useSession";
 import { errorMessage } from "../lib/logger";
 import { detectSecretShape } from "../lib/detectSecretShape";
+import { useDialog } from "../hooks/useDialog";
 export function SignInForm({ onClose }: { onClose(): void }) {
   const session = useSession();
   const [busy, setBusy] = useState(false);
@@ -23,8 +24,10 @@ export function SignInForm({ onClose }: { onClose(): void }) {
     setNeedsIdentityId(false);
     onClose();
   }
+  const ref = useDialog<HTMLElement>(close);
   return (
     <section
+      ref={ref}
       className="panel login-panel"
       role="dialog"
       aria-modal="true"

@@ -467,6 +467,7 @@ it("waits for the registry check and offers a retry when it fails", async () => 
   vi.mocked(client.contracts.getMany).mockReturnValueOnce(first.promise);
   render(<App />);
   await screen.findByText("Checking the registry…");
+  await waitFor(() => expect(client.contracts.getMany).toHaveBeenCalled());
   expect(client.documents.query).not.toHaveBeenCalled();
   first.reject(new Error("timeout"));
   await screen.findByText("Couldn't check the registry.");
@@ -485,4 +486,42 @@ it("waits for the registry check and offers a retry when it fails", async () => 
   fireEvent.click(screen.getByRole("button", { name: "Try again" }));
   await screen.findByRole("heading", { name: "Built on Dash Platform" });
   await waitFor(() => expect(client.documents.query).toHaveBeenCalled());
+});
+
+it("searches registry names on the network and rejects short keywords", async () => {
+  const client = connect();
+  vi.mocked(client.documents.query).mockImplementation(async (query) =>
+    JSON.stringify(query.where).includes("startsWith")
+      ? [
+          {
+            id: id(5),
+            ownerId: id(1),
+            revision: 1n,
+            properties: {
+              contractId: id(2),
+              name: "Listed app",
+              tagline: "Not in the loaded feed",
+              category: "games",
+              tags: "",
+            },
+          },
+        ]
+      : [],
+  );
+  render(<App />);
+  await ready();
+  openSearch();
+  const keyword = screen.getByLabelText("Discover by keyword");
+
+  fireEvent.change(keyword, { target: { value: "ab" } });
+  fireEvent.submit(keyword.closest("form")!);
+  await screen.findByText(/Use a keyword of 3–50 characters/);
+  expect(screen.queryByText("No apps found for this keyword.")).toBeNull();
+
+  fireEvent.change(keyword, { target: { value: "Listed" } });
+  fireEvent.submit(keyword.closest("form")!);
+  expect(
+    await screen.findByRole("button", { name: "Listed app" }),
+  ).toBeTruthy();
+  expect(screen.getByText("1 app · keyword “Listed”")).toBeTruthy();
 });

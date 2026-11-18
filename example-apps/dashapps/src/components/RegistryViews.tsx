@@ -626,7 +626,7 @@ export function ContractRegistry({
                 ? "You have no submission for this contract."
                 : "Your submission could not be determined."}
           </p>
-          {session.keyManager && own !== undefined && !editorOpen && (
+          {session.keyManager && own !== undefined && (
             <button type="button" onClick={() => setEditorOpen(true)}>
               {own ? "Edit your submission" : "Add your entry"}
             </button>
@@ -1126,6 +1126,9 @@ export function RegistryExplorer({
   const [cursor, setCursor] = useState<string>();
   const [error, setError] = useState("");
   const [busy, setBusy] = useState(false);
+  const [loaded, setLoaded] = useState(initialMode === "name");
+  // Nothing is "not found" until a load has finished.
+  const loading = busy || (!loaded && session.status !== "error");
   const [editingEntry, setEditingEntry] = useState<RegistryEntry | null>(null);
   const ownEntriesScope = session.connection
     ? `${session.network}:${session.registryId}:${session.identityId ?? ""}`
@@ -1256,7 +1259,10 @@ export function RegistryExplorer({
     } catch (caught) {
       if (request.current === token) setError(errorMessage(caught));
     } finally {
-      if (request.current === token) setBusy(false);
+      if (request.current === token) {
+        setBusy(false);
+        setLoaded(true);
+      }
     }
   }
 
@@ -1280,6 +1286,7 @@ export function RegistryExplorer({
     setEntries([]);
     setCursor(undefined);
     setError("");
+    setLoaded(next === "name");
     if (next !== "name") void load(next);
   }
   return (
@@ -1379,7 +1386,7 @@ export function RegistryExplorer({
               </div>
             </form>
           )}
-          {busy && (
+          {loading && (
             <p role="status">
               {entries.length ? "Refreshing registry…" : "Loading registry…"}
             </p>
@@ -1389,7 +1396,7 @@ export function RegistryExplorer({
               {error}
             </p>
           )}
-          {!busy && !error && !visibleEntries.length && (
+          {!loading && !error && !visibleEntries.length && (
             <p>
               {highFilter && displayedEntries.length
                 ? `No loaded app averages ${HIGHLY_RATED_MIN_AVERAGE}★ or more yet.`

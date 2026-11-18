@@ -1,4 +1,5 @@
-import { useEffect, type ReactNode } from "react";
+import type { ReactNode } from "react";
+import { useDialog } from "../hooks/useDialog";
 
 /** Backdrop-dismissable dialog; Escape closes it. */
 export function ModalDialog({
@@ -10,19 +11,10 @@ export function ModalDialog({
   onClose(): void;
   children: ReactNode;
 }) {
-  useEffect(() => {
-    const closeOnEscape = (event: KeyboardEvent) => {
-      if (event.key === "Escape") {
-        event.preventDefault();
-        onClose();
-      }
-    };
-    document.addEventListener("keydown", closeOnEscape, true);
-    return () => document.removeEventListener("keydown", closeOnEscape, true);
-  }, [onClose]);
-
+  const ref = useDialog<HTMLDivElement>(onClose);
   return (
     <div
+      ref={ref}
       className="metadata-modal-backdrop"
       role="presentation"
       onMouseDown={(event) => {

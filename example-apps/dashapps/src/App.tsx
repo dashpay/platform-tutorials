@@ -28,9 +28,13 @@ import {
 import { Leaderboard } from "./components/Leaderboard";
 import { useLeaderboards } from "./hooks/useLeaderboards";
 import { useRegistryCheck } from "./hooks/useRegistryCheck";
-import type { RegistryEntry } from "./dash/registryReads";
 import { categoryLabel } from "./dash/categoryLabel";
-import { APP_CATEGORIES, type AppCategory } from "./dash/registryReads";
+import {
+  APP_CATEGORIES,
+  searchEntriesByName,
+  type AppCategory,
+  type RegistryEntry,
+} from "./dash/registryReads";
 import type { Resolution } from "./dash/types";
 import type { ContractSummary } from "./dash/contractSummaryStore";
 import { contractFacts } from "./dash/contractFacts";
@@ -108,6 +112,7 @@ function Browser({
   const [keyword, setKeyword] = useState(initialKeyword);
   const [term, setTerm] = useState("");
   const [ids, setIds] = useState<string[]>([]);
+  const [named, setNamed] = useState<RegistryEntry[]>([]);
   const [cursor, setCursor] = useState<string>();
   const [resolved, setResolved] = useState(new Map<string, Resolution>());
   const [summaries, setSummaries] = useState(
@@ -134,6 +139,8 @@ function Browser({
   const [busy, setBusy] = useState(false);
   const [registryRefresh, setRegistryRefresh] = useState(0);
   const [mineSigningIn, setMineSigningIn] = useState(false);
+  const [addSigningIn, setAddSigningIn] = useState(false);
+  const [technicalOpen, setTechnicalOpen] = useState(false);
   const [showAllCategories, setShowAllCategories] = useState(false);
   const discoverEntries = cachedRegistryEntries;
   const [discoverOfficial, setDiscoverOfficial] = useState(
@@ -164,18 +171,24 @@ function Browser({
     setError("");
     if (!more) {
       setIds([]);
+      setNamed([]);
       setCursor(undefined);
       setTerm(query);
-      setSearched(true);
+      setSearched(false);
       setResolved(new Map());
     }
     try {
-      const page = await searchKeywords(
-        connection.sdk,
-        query,
-        more ? cursor : undefined,
-      );
+      const [page, names] = await Promise.all([
+        searchKeywords(connection.sdk, query, more ? cursor : undefined),
+        // Registry names come from the byName index, not the loaded feed.
+        (async () =>
+          more || !session.registryId
+            ? undefined
+            : searchEntriesByName(connection.sdk, session.registryId, query))(),
+      ]);
       if (request.current !== token) return;
+      if (names) setNamed(names.entries);
+      setSearched(true);
       const cached = connection.resolver.summaryMany(page.ids);
       setIds((previous) => [
         ...new Set([...(more ? previous : []), ...page.ids]),
@@ -243,6 +256,7 @@ function Browser({
     else if (id !== selected) setPreferredEntry(undefined);
     if (id !== selected) {
       setRatingSummary(null);
+      setTechnicalOpen(false);
       setOfficialPublisher(discoverOfficial.get(id));
     }
     setDescription(undefined);
@@ -300,12 +314,18 @@ function Browser({
             setSelected("");
             setSelectedName("");
             setDetail(undefined);
+            setTechnicalOpen(false);
             setDocumentSchemas([]);
             setMissing(false);
             setError("");
           }}
         >
-          ← {view === "search" ? "Search" : "Discover"}
+          ←{" "}
+          {view === "category" && category
+            ? categoryLabel(category)
+            : view === "add"
+              ? "Add an app"
+              : view[0].toUpperCase() + view.slice(1)}
         </button>
         <div className="detail-hero">
           <span
@@ -412,6 +432,30 @@ function Browser({
             />
           </div>
         </div>
+        {view === "add" &&
+          detail &&
+          !session.identityId &&
+          (addSigningIn ? (
+            <SignInForm onClose={() => setAddSigningIn(false)} />
+          ) : (
+            <section className="signed-out-card">
+              <span className="account-avatar">S</span>
+              <div>
+                <strong>Sign in to add your entry</strong>
+                <small>One entry per identity per contract.</small>
+              </div>
+              {session.network === "testnet" ? (
+                <button
+                  className="sign-in-pill"
+                  onClick={() => setAddSigningIn(true)}
+                >
+                  Sign in
+                </button>
+              ) : (
+                <small>Switch to testnet to sign in.</small>
+              )}
+            </section>
+          ))}
         {detail && (
           <>
             <ContractRegistry
@@ -485,7 +529,10 @@ function Browser({
                 />
               </div>
             </section>
-            <details className="technical-details">
+            <details
+              className="technical-details"
+              onToggle={(event) => setTechnicalOpen(event.currentTarget.open)}
+            >
               <summary>
                 <span>
                   <strong>Technical details</strong>
@@ -495,7 +542,7 @@ function Browser({
                     {detail.documentTypes.length === 1 ? "type" : "types"}
                   </small>
                 </span>
-                <span>Expand</span>
+                <span>{technicalOpen ? "Collapse" : "Expand"}</span>
               </summary>
               <div className="document-types">
                 {documentSchemas.map((schema) => (
@@ -590,11 +637,16 @@ function Browser({
   const registryMatches = (() => {
     if (!searched) return [];
     const query = term.trim().toLowerCase();
-    return discoverEntries.filter((entry) =>
+    const loaded = discoverEntries.filter((entry) =>
       [entry.name, entry.tagline, entry.description ?? "", ...entry.tags].some(
         (value) => value.toLowerCase().includes(query),
       ),
     );
+    return [
+      ...new Map(
+        [...named, ...loaded].map((entry) => [entry.id, entry]),
+      ).values(),
+    ];
   })();
   const matchedContractIds = new Set(
     registryMatches.map((entry) => entry.contractId),
@@ -789,7 +841,7 @@ function Browser({
             />
             <button
               aria-label={view === "discover" ? "Search apps" : "Search"}
-              disabled={!keyword || busy}
+              disabled={!keyword || busy || !connection}
             >
               {busy ? "Searching…" : "Search"}
             </button>
@@ -1059,6 +1111,9 @@ function Browser({
                 <>
                   <Leaderboard
                     {...leaderboards}
+                    loading={
+                      leaderboards.loading || session.status === "connecting"
+                    }
                     open={(id, name, entry) => void inspect(id, name, entry)}
                   />
                   <section className="panel describe-panel">
