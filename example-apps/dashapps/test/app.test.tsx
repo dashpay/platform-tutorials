@@ -379,3 +379,54 @@ it("shows the rating summary in the hero and the ratings section on an app page"
   ).toBe(true);
   expect(screen.getByRole("button", { name: "Sign in to rate" })).toBeTruthy();
 });
+
+it("flags an older registry and switches back to the default", async () => {
+  localStorage.setItem("dashapps.contractId.testnet", id(7));
+  const client = connect();
+  vi.mocked(client.contracts.getMany).mockResolvedValue(
+    new Map([
+      [id(7), { ...contract(), schemas: { appMetadata: {}, appRating: {} } }],
+    ]),
+  );
+  render(<App />);
+  await screen.findByText(
+    "This registry was made for an older version of the app.",
+  );
+  expect(client.documents.query).not.toHaveBeenCalled();
+  expect(client.documents.ranked).not.toHaveBeenCalled();
+  fireEvent.click(
+    screen.getByRole("button", { name: "Use the default registry" }),
+  );
+  await screen.findByRole("heading", { name: "Built on Dash Platform" });
+  expect(localStorage.getItem("dashapps.contractId.testnet")).toBeNull();
+  expect(
+    screen.queryByText(
+      "This registry was made for an older version of the app.",
+    ),
+  ).toBeNull();
+  expect(client.contracts.getMany).toHaveBeenCalledTimes(1);
+});
+
+it("browses a saved registry that has every document type", async () => {
+  localStorage.setItem("dashapps.contractId.testnet", id(7));
+  const client = connect();
+  vi.mocked(client.contracts.getMany).mockResolvedValue(
+    new Map([
+      [
+        id(7),
+        {
+          ...contract(),
+          schemas: { appMetadata: {}, appEndorsement: {}, appReview: {} },
+        },
+      ],
+    ]),
+  );
+  render(<App />);
+  await screen.findByRole("heading", { name: "Built on Dash Platform" });
+  await waitFor(() => expect(client.documents.query).toHaveBeenCalled());
+  expect(
+    screen.queryByText(
+      "This registry was made for an older version of the app.",
+    ),
+  ).toBeNull();
+});

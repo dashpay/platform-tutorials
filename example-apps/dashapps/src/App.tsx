@@ -27,6 +27,7 @@ import {
 } from "./components/RegistryViews";
 import { Leaderboard } from "./components/Leaderboard";
 import { useLeaderboards } from "./hooks/useLeaderboards";
+import { useRegistryCheck } from "./hooks/useRegistryCheck";
 import type { RegistryEntry } from "./dash/registryReads";
 import { categoryLabel } from "./dash/categoryLabel";
 import { APP_CATEGORIES, type AppCategory } from "./dash/registryReads";
@@ -36,6 +37,7 @@ import { contractFacts } from "./dash/contractFacts";
 import { searchKeywords, shortDescription } from "./dash/keywordSearch";
 import { requireId } from "./dash/ids";
 import type { Network } from "./dash/types";
+import { DEFAULT_CONTRACT_IDS } from "./dash/contractStore";
 
 import { errorMessage as message } from "./lib/logger";
 import {
@@ -1152,6 +1154,11 @@ function SessionViews() {
       })),
     [session.network],
   );
+  const registryCheck = useRegistryCheck(
+    session.connection?.sdk,
+    session.registryId,
+    session.network,
+  );
   function navigate(next: View, keyword = "") {
     setBrowserKeyword(keyword);
     setView(next);
@@ -1196,6 +1203,10 @@ function SessionViews() {
             key={`settings:${session.network}:${session.connectionGeneration}`}
           />
         </div>
+      ) : registryCheck === "outdated" ? (
+        <OutdatedRegistry />
+      ) : registryCheck === "checking" && session.status !== "error" ? (
+        <p>Checking the registry…</p>
       ) : (
         <Browser
           view={view}
@@ -1209,6 +1220,27 @@ function SessionViews() {
         />
       )}
     </>
+  );
+}
+function OutdatedRegistry() {
+  const session = useSession();
+  return (
+    <section className="panel" role="alert">
+      <h2>This registry was made for an older version of the app.</h2>
+      <p>
+        It doesn&apos;t have the listings, endorsements, and reviews this
+        version reads. Switch back to the default registry, or choose another
+        one in Settings.
+      </p>
+      {DEFAULT_CONTRACT_IDS[session.network] && (
+        <button
+          className="primary-pill"
+          onClick={() => session.setRegistryId("")}
+        >
+          Use the default registry
+        </button>
+      )}
+    </section>
   );
 }
 function Account() {
