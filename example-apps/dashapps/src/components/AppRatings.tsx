@@ -203,7 +203,11 @@ function RatingCard({
 }) {
   const session = useSession();
   return (
-    <li className={`rating-card${own ? " own" : ""}`}>
+    <li
+      className={`rating-card${own ? " own" : ""}`}
+      // The "Most recent" ordering key; the visible time is the last edit.
+      data-created-at={rating.createdAt?.toString()}
+    >
       <div className="rating-card-head">
         <span className="rating-avatar" aria-hidden="true">
           {rating.ownerId.slice(0, 1)}
