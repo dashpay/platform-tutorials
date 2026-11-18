@@ -190,8 +190,8 @@ describe("useResourceRatings partial failures", () => {
 
 describe("useResourceRatings refresh token", () => {
   it("reloads everything on a token bump alone (same selection)", async () => {
-    // Save on tokens and stay there: the bump must re-read the list and
-    // the viewer's review, or the new revision never shows.
+    // Save on tokens and stay there: the bump must re-read the aggregates,
+    // the list and the viewer's review, or the new revision never shows.
     findMyReviewForResource.mockResolvedValue(null);
     listResourceReviews.mockResolvedValue(page([review("r1")]));
     const session = {
@@ -205,34 +205,68 @@ describe("useResourceRatings refresh token", () => {
     );
     await waitFor(() => expect(result.current.reviews).toHaveLength(1));
     await waitFor(() => expect(result.current.loadingRatings).toBe(false));
-    const listCalls = listResourceReviews.mock.calls.length;
-    const mineCalls = findMyReviewForResource.mock.calls.length;
+    expect(result.current.mySelectedReview).toBeNull();
+    expect(result.current.summaries.tokens.count).toBe(1n);
 
-    listResourceReviews.mockResolvedValue(page([review("r2"), review("r1")]));
+    // What the network returns after the save: the viewer's new 5★ review
+    // is in the list, the aggregates and the composer.
+    const saved = { ...review("mine"), rating: 5, reviewText: "saved text" };
+    getRatingSummary.mockImplementation(
+      async ({ resourceId }: { resourceId: string }) =>
+        resourceId === "tokens"
+          ? { resourceId, count: 2n, sum: 9n, average: 4.5 }
+          : summary(resourceId),
+    );
+    getRatingDistribution.mockImplementation(
+      async ({ resourceId }: { resourceId: string }) =>
+        resourceId === "tokens"
+          ? { 1: 0n, 2: 0n, 3: 0n, 4: 1n, 5: 1n }
+          : distribution(),
+    );
+    listResourceReviews.mockResolvedValue(page([saved, review("r1")]));
+    findMyReviewForResource.mockResolvedValue(saved);
     rerender({ ...args, refreshToken: 1 });
 
     await waitFor(() =>
-      expect(result.current.reviews.map((r) => r.id)).toEqual(["r2", "r1"]),
+      expect(result.current.reviews.map((r) => r.id)).toEqual(["mine", "r1"]),
     );
-    expect(listResourceReviews.mock.calls.length).toBe(listCalls + 1);
     await waitFor(() =>
-      expect(findMyReviewForResource.mock.calls.length).toBe(mineCalls + 1),
+      expect(result.current.mySelectedReview?.id).toBe("mine"),
     );
+    expect(result.current.rating).toBe(5);
+    expect(result.current.reviewText).toBe("saved text");
+    await waitFor(() => expect(result.current.summaries.tokens.count).toBe(2n));
+    expect(result.current.summaries.tokens.sum).toBe(9n);
+    expect(result.current.distributions.tokens[5]).toBe(1n);
   });
 
   it("reloads for the CURRENT selection, never the one saved from", async () => {
     // Save on tokens → user switches to dashnote during the wait → the
-    // token bump must load dashnote's review into the composer.
+    // token bump must re-read dashnote, not tokens. Each read returns a
+    // newer version, so the final state proves the bump's reload landed
+    // (the selection change alone would leave version 1).
+    const reads: Record<string, number> = {};
     findMyReviewForResource.mockImplementation(
-      async ({ resourceId }: { resourceId: string }) => ({
-        ...review(`mine-${resourceId}`),
-        resourceId,
-        reviewText: `about ${resourceId}`,
-      }),
+      async ({ resourceId }: { resourceId: string }) => {
+        reads[resourceId] = (reads[resourceId] ?? 0) + 1;
+        return {
+          ...review(`mine-${resourceId}`),
+          resourceId,
+          reviewText: `about ${resourceId} v${reads[resourceId]}`,
+        };
+      },
     );
+    const listReads: Record<string, number> = {};
     listResourceReviews.mockImplementation(
-      async ({ resourceId }: { resourceId: string }) =>
-        page([{ ...review(`r-${resourceId}`), resourceId }]),
+      async ({ resourceId }: { resourceId: string }) => {
+        listReads[resourceId] = (listReads[resourceId] ?? 0) + 1;
+        return page([
+          {
+            ...review(`r-${resourceId}-v${listReads[resourceId]}`),
+            resourceId,
+          },
+        ]);
+      },
     );
     const session = {
       sdk: fakeSdk,
@@ -244,22 +278,29 @@ describe("useResourceRatings refresh token", () => {
       { initialProps: args },
     );
     await waitFor(() =>
-      expect(result.current.mySelectedReview?.id).toBe("mine-tokens"),
+      expect(result.current.reviewText).toBe("about tokens v1"),
     );
 
     rerender({ ...args, selectedResourceId: "dashnote" });
+    await waitFor(() =>
+      expect(result.current.reviewText).toBe("about dashnote v1"),
+    );
+    await waitFor(() => expect(result.current.loadingRatings).toBe(false));
+
     rerender({ ...args, selectedResourceId: "dashnote", refreshToken: 1 });
 
     await waitFor(() =>
-      expect(result.current.mySelectedReview?.id).toBe("mine-dashnote"),
+      expect(result.current.reviewText).toBe("about dashnote v2"),
     );
-    expect(result.current.reviewText).toBe("about dashnote");
-    expect(result.current.reviews.map((r) => r.resourceId)).toEqual([
-      "dashnote",
-    ]);
-    expect(findMyReviewForResource).toHaveBeenLastCalledWith(
-      expect.objectContaining({ resourceId: "dashnote" }),
+    expect(result.current.mySelectedReview?.id).toBe("mine-dashnote");
+    await waitFor(() =>
+      expect(result.current.reviews.map((r) => r.id)).toEqual([
+        "r-dashnote-v2",
+      ]),
     );
+    // The resource saved from was never re-read.
+    expect(reads.tokens).toBe(1);
+    expect(listReads.tokens).toBe(1);
   });
 });
 

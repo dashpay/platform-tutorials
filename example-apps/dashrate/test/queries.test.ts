@@ -201,7 +201,7 @@ describe("DashRate review list paging", () => {
       },
     ] as const;
 
-  it("asks for newest first and keeps the server order", async () => {
+  it("asks for newest first and cursors on the last shown row", async () => {
     // limit 2 → asks for 3; the third only signals that a next page exists.
     const queryMock = vi
       .fn()
@@ -236,6 +236,38 @@ describe("DashRate review list paging", () => {
     expect(page.nextCursor).toBe(
       "24ed92ePXVA9ztDrBwzhnhgXQcGbReBQL9jWGkjW9F7n",
     );
+  });
+
+  it("returns rows in the order the SDK gave them, never re-sorted", async () => {
+    // Deliberately an order no local sort produces: timestamps not
+    // monotonic, IDs not alphabetical, ratings not sorted. Only a
+    // pass-through of the server's index-walk order matches.
+    const queryMock = vi
+      .fn()
+      .mockResolvedValue(
+        new Map([
+          doc("Mid", 4, 200),
+          doc("Zed", 5, 300),
+          doc("Abe", 3, 100),
+          doc("Kay", 1, 300),
+        ]),
+      );
+    const sdk = { documents: { query: queryMock } } as unknown as DashSdk;
+
+    const page = await listResourceReviews({
+      sdk,
+      contractId: "c1",
+      resourceId: "dashnote",
+      limit: 10,
+      log: () => {},
+    });
+
+    expect(page.reviews.map((review) => review.id)).toEqual([
+      "Mid",
+      "Zed",
+      "Abe",
+      "Kay",
+    ]);
   });
 
   it("passes the cursor as startAfter and ends on a short page", async () => {
@@ -393,7 +425,7 @@ describe("DashRate listMyReviews", () => {
     }),
   });
 
-  it("queries by owner newest first and keeps the server order", async () => {
+  it("queries by owner newest first", async () => {
     const queryMock = vi
       .fn()
       .mockResolvedValue([reviewDoc(300), reviewDoc(200), reviewDoc(100)]);
@@ -414,6 +446,22 @@ describe("DashRate listMyReviews", () => {
       orderBy: [["$updatedAt", "desc"]],
       limit: 50,
     });
+  });
+  it("returns reviews in the order the SDK gave them, never re-sorted", async () => {
+    // Timestamps deliberately out of order: a local sort would reorder them.
+    const queryMock = vi
+      .fn()
+      .mockResolvedValue([reviewDoc(200), reviewDoc(300), reviewDoc(100)]);
+    const sdk = { documents: { query: queryMock } } as unknown as DashSdk;
+
+    const reviews = await listMyReviews({
+      sdk,
+      contractId: "c1",
+      ownerId: "owner-1",
+      log: () => {},
+    });
+
+    expect(reviews.map((review) => review.updatedAt)).toEqual([200, 300, 100]);
   });
 });
 
