@@ -1,9 +1,9 @@
-import { requireId } from "./ids";
+import { idFromKeyHex, requireId } from "./ids";
 import type { ReadSdk, WhereClause } from "./types";
 import { toDocumentArray, type DocumentHandle } from "../lib/safeDoc";
+import { chunks, parseEach, queryPage } from "./paging";
 
-// The current registry's rating type; contract.ts declares `appReview` instead.
-export const RATING_DOCUMENT_TYPE = "appRating";
+export const REVIEW_DOCUMENT_TYPE = "appReview";
 export const STAR_VALUES = [1, 2, 3, 4, 5] as const;
 export type Stars = (typeof STAR_VALUES)[number];
 /** Ratings per server page; "Load more" fetches the next one. */
@@ -22,9 +22,12 @@ export interface RatingRecord {
   revision: bigint;
 }
 export type RatingDistribution = Record<Stars, bigint>;
-export interface RatingSummary {
+export interface RatingAverage {
   count: bigint;
+  sum: bigint;
   average: number | null;
+}
+export interface RatingSummary extends RatingAverage {
   distribution: RatingDistribution;
 }
 
@@ -53,21 +56,23 @@ export function emptyDistribution(): RatingDistribution {
   return { 1: 0n, 2: 0n, 3: 0n, 4: 0n, 5: 0n };
 }
 
-/** count = Σ dist[s]; average = Σ (s × dist[s]) / count. No sum query needed. */
-export function summarize(distribution: RatingDistribution): RatingSummary {
-  let count = 0n;
-  let sum = 0n;
-  for (const stars of STAR_VALUES) {
-    const value = distribution[stars] ?? 0n;
-    count += value;
-    sum += BigInt(stars) * value;
-  }
+function toAverage(value: unknown): RatingAverage {
+  const { count, sum } = (value ?? {}) as { count?: unknown; sum?: unknown };
+  if (
+    typeof count !== "bigint" ||
+    typeof sum !== "bigint" ||
+    count < 0n ||
+    sum < 0n
+  )
+    throw new Error("Malformed average response.");
   return {
     count,
+    sum,
     average: count > 0n ? Number(sum) / Number(count) : null,
-    distribution,
   };
 }
+
+const NO_RATINGS: RatingAverage = { count: 0n, sum: 0n, average: null };
 
 function optionalString(value: unknown, field: string): string | undefined {
   if (value == null) return undefined;
@@ -117,39 +122,79 @@ export function ratingRecord(document: DocumentHandle): RatingRecord {
   };
 }
 
-function documentId(document: DocumentHandle) {
-  const object =
-    (
-      document as DocumentHandle & {
-        toObject?: () => Record<string, unknown>;
-      }
-    ).toObject?.() ?? {};
-  return requireId(document.id ?? object.$id);
-}
-
 function parseRatings(documents: DocumentHandle[]) {
-  return documents.flatMap((document) => {
-    try {
-      return [ratingRecord(document)];
-    } catch {
-      return [];
-    }
-  });
+  return parseEach(documents, ratingRecord);
 }
 
 /**
- * Per-star counts from one grouped count over `byContractStars`. The `between`
- * range on `stars` puts the query in range-distinct mode (one entry per present
- * value); absent stars are reported as 0. Total and average derive from this.
+ * Proven count and sum of one contract's ratings, from `contractRating`'s
+ * averageable `stars`. A contract with no ratings returns an empty map.
  */
-export async function ratingSummary(
+export async function ratingAverage(
   sdk: ReadSdk,
   registryId: string,
   contractId: string,
-): Promise<RatingSummary> {
+): Promise<RatingAverage> {
+  const result = await sdk.documents.average(
+    {
+      dataContractId: requireId(registryId),
+      documentTypeName: REVIEW_DOCUMENT_TYPE,
+      where: [["contractId", "==", requireId(contractId)]],
+    },
+    "stars",
+  );
+  if (!(result instanceof Map) || result.size > 1)
+    throw new Error("Malformed average response.");
+  return result.size ? toAverage(result.get("")) : NO_RATINGS;
+}
+
+/**
+ * Averages for a page of contracts, one grouped `average` per 100. Groups
+ * come back keyed by the identifier's raw bytes in hex, and contracts with no
+ * ratings are absent, so every requested ID is filled in.
+ */
+export async function ratingAverages(
+  sdk: ReadSdk,
+  registryId: string,
+  contractIds: string[],
+): Promise<Map<string, RatingAverage>> {
+  const ids = [...new Set(contractIds.map((value) => requireId(value)))];
+  const averages = new Map(ids.map((id) => [id, NO_RATINGS]));
+  for (const chunk of chunks(ids)) {
+    const result = await sdk.documents.average(
+      {
+        dataContractId: requireId(registryId),
+        documentTypeName: REVIEW_DOCUMENT_TYPE,
+        where: [["contractId", "in", chunk]],
+        groupBy: ["contractId"],
+      },
+      "stars",
+    );
+    if (!(result instanceof Map))
+      throw new Error("Malformed average response.");
+    for (const [key, value] of result) {
+      const contractId = idFromKeyHex(key);
+      if (!chunk.includes(contractId))
+        throw new Error("Malformed average response.");
+      averages.set(contractId, toAverage(value));
+    }
+  }
+  return averages;
+}
+
+/**
+ * Per-star counts from one grouped count over `contractStars`. Grouping needs
+ * the `between` range on `stars`, which returns one entry per present value;
+ * absent stars are reported as 0. Never batch this across contracts.
+ */
+export async function ratingDistribution(
+  sdk: ReadSdk,
+  registryId: string,
+  contractId: string,
+): Promise<RatingDistribution> {
   const counts = await sdk.documents.count({
     dataContractId: requireId(registryId),
-    documentTypeName: RATING_DOCUMENT_TYPE,
+    documentTypeName: REVIEW_DOCUMENT_TYPE,
     where: [
       ["contractId", "==", requireId(contractId)],
       ["stars", "between", [1, 5]],
@@ -165,7 +210,19 @@ export async function ratingSummary(
       throw new Error("Malformed count response.");
     distribution[stars] += value;
   }
-  return summarize(distribution);
+  return distribution;
+}
+
+export async function ratingSummary(
+  sdk: ReadSdk,
+  registryId: string,
+  contractId: string,
+): Promise<RatingSummary> {
+  const [average, distribution] = await Promise.all([
+    ratingAverage(sdk, registryId, contractId),
+    ratingDistribution(sdk, registryId, contractId),
+  ]);
+  return { ...average, distribution };
 }
 
 export interface RatingPage {
@@ -174,9 +231,8 @@ export interface RatingPage {
 }
 
 /**
- * One server-ordered page of a contract's ratings; don't re-sort it. Ties
- * within one star value come back in document-ID order, not by time. The
- * extra `limit + 1` row only says whether another page exists.
+ * One server-ordered page of a contract's ratings, newest first within each
+ * star value; don't re-sort it.
  */
 export async function listRatings(
   sdk: ReadSdk,
@@ -190,32 +246,52 @@ export async function listRatings(
   } = {},
 ): Promise<RatingPage> {
   const sort = options.sort ?? "recent";
-  const limit = options.limit ?? RATING_PAGE_SIZE;
   const where: WhereClause[] = [["contractId", "==", requireId(contractId)]];
-  let orderBy: [string, "asc" | "desc"][];
+  let orderBy: [string, "asc" | "desc"][] = [["$updatedAt", "desc"]];
   if (options.stars !== undefined) {
     if (!isStars(options.stars)) throw new Error("Choose 1 to 5 stars.");
     where.push(["stars", "==", options.stars]);
-    orderBy = [["stars", "asc"]];
-  } else if (sort === "recent") orderBy = [["$createdAt", "desc"]];
-  else orderBy = [["stars", sort === "highest" ? "desc" : "asc"]];
-  const startAfter = options.cursor ? requireId(options.cursor) : undefined;
-  const documents = toDocumentArray(
-    await sdk.documents.query({
+  } else if (sort !== "recent")
+    orderBy = [
+      ["stars", sort === "highest" ? "desc" : "asc"],
+      ["$updatedAt", "desc"],
+    ];
+  const page = await queryPage(
+    sdk,
+    {
       dataContractId: requireId(registryId),
-      documentTypeName: RATING_DOCUMENT_TYPE,
+      documentTypeName: REVIEW_DOCUMENT_TYPE,
       where,
       orderBy,
-      limit: limit + 1,
-      ...(startAfter ? { startAfter } : {}),
-    }),
+    },
+    ratingRecord,
+    options.limit ?? RATING_PAGE_SIZE,
+    options.cursor,
   );
-  const shown = documents.slice(0, limit);
-  const cursor =
-    documents.length > limit ? documentId(shown[shown.length - 1]) : undefined;
-  if (cursor && cursor === startAfter)
-    throw new Error("Rating pagination cursor did not advance.");
-  return { ratings: parseRatings(shown), cursor };
+  return { ratings: page.items, cursor: page.cursor };
+}
+
+/** An identity's ratings across every contract, most recently updated first. */
+export async function myRatings(
+  sdk: ReadSdk,
+  registryId: string,
+  ownerId: string,
+  cursor?: string,
+  limit = RATING_PAGE_SIZE,
+): Promise<RatingPage> {
+  const page = await queryPage(
+    sdk,
+    {
+      dataContractId: requireId(registryId),
+      documentTypeName: REVIEW_DOCUMENT_TYPE,
+      where: [["$ownerId", "==", requireId(ownerId)]],
+      orderBy: [["$updatedAt", "desc"]],
+    },
+    ratingRecord,
+    limit,
+    cursor,
+  );
+  return { ratings: page.items, cursor: page.cursor };
 }
 
 export async function ownRating(
@@ -227,7 +303,7 @@ export async function ownRating(
   const documents = toDocumentArray(
     await sdk.documents.query({
       dataContractId: requireId(registryId),
-      documentTypeName: RATING_DOCUMENT_TYPE,
+      documentTypeName: REVIEW_DOCUMENT_TYPE,
       where: [
         ["$ownerId", "==", requireId(ownerId)],
         ["contractId", "==", requireId(contractId)],

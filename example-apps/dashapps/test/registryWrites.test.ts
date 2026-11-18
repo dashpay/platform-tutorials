@@ -49,8 +49,9 @@ function setup(options: { target?: boolean; existing?: FakeDocument } = {}) {
   const ownerId = id(1);
   const targetId = id(2);
   const registryId = id(3);
-  const registry = { schemas: { appMetadata: {} } };
-  const target = options.target === false ? undefined : { schemas: {} };
+  const registry = { ownerId: id(8), schemas: { appMetadata: {} } };
+  const target =
+    options.target === false ? undefined : { ownerId: id(9), schemas: {} };
   const create = vi.fn();
   const replace = vi.fn();
   const remove = vi.fn();

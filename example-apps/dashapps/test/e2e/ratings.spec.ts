@@ -5,8 +5,8 @@ import { DEFAULT_CONTRACT_IDS } from "../../src/dash/contractStore";
 // Live, read-only rating checks against testnet. They only assert invariants
 // that hold for any data:
 //  - "Most recent" is server-ordered newest first.
-//  - The rating total from the grouped `count` histogram equals the number of
-//    reviews listed once every page is loaded.
+//  - The proven rating total equals the number of reviews listed once every
+//    page is loaded.
 // Ratings are deletable, so the test skips when the registry has none.
 
 const LOAD_TIMEOUT = 60_000;
@@ -15,19 +15,15 @@ const REGISTRY_ID = DEFAULT_CONTRACT_IDS.testnet;
 async function mostRatedContract(): Promise<string | undefined> {
   const sdk = EvoSDK.testnetTrusted();
   await sdk.connect();
-  const results = await sdk.documents.query({
+  const { entries } = await sdk.documents.ranked({
     dataContractId: REGISTRY_ID,
-    documentTypeName: "appRating",
-    where: [],
-    limit: 100,
+    documentTypeName: "appReview",
+    groupBy: "contractId",
+    aggregate: { type: "count" },
+    limit: 1,
   });
-  const counts = new Map<string, number>();
-  for (const document of results.values()) {
-    const contractId = document?.toJSON(sdk.version()).contractId;
-    if (typeof contractId === "string")
-      counts.set(contractId, (counts.get(contractId) ?? 0) + 1);
-  }
-  return [...counts].sort((left, right) => right[1] - left[1])[0]?.[0];
+  const contractId = entries[0]?.groupValue;
+  return typeof contractId === "string" ? contractId : undefined;
 }
 
 async function openContract(page: Page, contractId: string) {
@@ -73,12 +69,12 @@ test("an app's reviews are newest first and match its rating total", async ({
       .poll(() => cards.count(), { timeout: LOAD_TIMEOUT })
       .toBeGreaterThan(before);
   }
-  const created = (await cards.evaluateAll((nodes) =>
-    nodes.map((node) => node.getAttribute("data-created-at") ?? ""),
+  const updated = (await cards.evaluateAll((nodes) =>
+    nodes.map((node) => node.getAttribute("data-updated-at") ?? ""),
   )) as string[];
-  expect(created).toHaveLength(expected);
-  for (let index = 1; index < created.length; index++)
-    expect(BigInt(created[index])).toBeLessThanOrEqual(
-      BigInt(created[index - 1]),
+  expect(updated).toHaveLength(expected);
+  for (let index = 1; index < updated.length; index++)
+    expect(BigInt(updated[index])).toBeLessThanOrEqual(
+      BigInt(updated[index - 1]),
     );
 });

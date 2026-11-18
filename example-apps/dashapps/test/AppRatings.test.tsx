@@ -15,7 +15,6 @@ import {
   listRatings,
   ownRating,
   ratingSummary,
-  summarize,
   type RatingPage,
   type RatingRecord,
 } from "../src/dash/ratingReads";
@@ -39,7 +38,13 @@ afterEach(() => {
   vi.resetAllMocks();
 });
 
-const summary = summarize({ 1: 0n, 2: 1n, 3: 3n, 4: 7n, 5: 16n });
+// 1×2 + 3×3 + 7×4 + 16×5 = 119 over 27.
+const summary = {
+  count: 27n,
+  sum: 119n,
+  average: 119 / 27,
+  distribution: { 1: 0n, 2: 1n, 3: 3n, 4: 7n, 5: 16n },
+};
 const now = Date.now();
 function rating(n: number, stars = 5, owner = 7): RatingRecord {
   return {

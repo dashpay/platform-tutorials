@@ -68,9 +68,16 @@ function existingRating(stars = 5) {
   };
 }
 
-function setup(options: { target?: boolean; existing?: FakeDocument } = {}) {
-  const registry = { schemas: { appRating: {} } };
-  const target = options.target === false ? undefined : { schemas: {} };
+const contractOwnerId = id(9);
+
+function setup(
+  options: { target?: boolean; existing?: FakeDocument; signer?: string } = {},
+) {
+  const registry = { ownerId: id(8), schemas: { appReview: {} } };
+  const target =
+    options.target === false
+      ? undefined
+      : { ownerId: contractOwnerId, schemas: {} };
   const create = vi.fn();
   const replace = vi.fn();
   const del = vi.fn();
@@ -89,7 +96,7 @@ function setup(options: { target?: boolean; existing?: FakeDocument } = {}) {
     getWasmSdkConnected: vi.fn(async () => ({ removeCachedContract: remove })),
   };
   const auth = {
-    identity: { id: { toString: () => ownerId } },
+    identity: { id: { toString: () => options.signer ?? ownerId } },
     identityKey: {},
     signer: {},
   };
@@ -174,7 +181,7 @@ it("creates a prepared rating with a base58 identifier when none exists", async 
     title: "Great",
     body: "Works well.",
   });
-  expect(activeDraft?.documentTypeName).toBe("appRating");
+  expect(activeDraft?.documentTypeName).toBe("appReview");
   expect(typeof activeDraft?.createdAt).toBe("bigint");
   expect(activeDraft?.entropy).toBeInstanceOf(Uint8Array);
   expect(context.replace).not.toHaveBeenCalled();
@@ -186,7 +193,7 @@ it("replaces an existing rating, bumping revision and preserving $createdAt", as
     id: id(4),
     ownerId,
     revision: 7n,
-    documentTypeName: "appRating",
+    documentTypeName: "appReview",
   });
   current.createdAt = 100n;
   const context = setup({ existing: current });
@@ -209,7 +216,7 @@ it("replaces an existing rating, bumping revision and preserving $createdAt", as
   expect(result).toBe("updated");
   expect(context.create).not.toHaveBeenCalled();
   expect(context.replace).toHaveBeenCalledOnce();
-  expect(context.get).toHaveBeenCalledWith(registryId, "appRating", id(4));
+  expect(context.get).toHaveBeenCalledWith(registryId, "appReview", id(4));
   expect(activeDraft?.revision).toBe(8n);
   expect(activeDraft?.createdAt).toBe(100n);
   expect(activeDraft?.properties).toMatchObject({ stars: 4, title: "Great" });
@@ -221,7 +228,7 @@ it("resolves a 40105 race by re-reading and replacing the committed rating", asy
     id: id(4),
     ownerId,
     revision: 1n,
-    documentTypeName: "appRating",
+    documentTypeName: "appReview",
   });
   const context = setup({ existing: current });
   context.query.mockResolvedValueOnce([]).mockResolvedValueOnce([
@@ -265,7 +272,7 @@ it("removes only the owner's fetched rating document", async () => {
     properties: { contractId: targetId, stars: 5 },
     id: id(4),
     ownerId,
-    documentTypeName: "appRating",
+    documentTypeName: "appReview",
   });
   const context = setup({ existing: current });
   await removeRating({
@@ -294,4 +301,35 @@ it("removes only the owner's fetched rating document", async () => {
       rating: existingRating(),
     }),
   ).rejects.toThrow("no longer exists");
+});
+
+it("refuses a rating from the contract's owner before broadcasting", async () => {
+  const context = setup({ signer: contractOwnerId });
+  await expect(
+    saveRating({
+      sdk: context.sdk as never,
+      keyManager: context.keyManager as never,
+      registryId,
+      targetId,
+      input,
+    }),
+  ).rejects.toThrow("You can't review a contract you own.");
+  expect(context.create).not.toHaveBeenCalled();
+});
+
+it("rewords the network's owner-requirement refusal", async () => {
+  const context = setup();
+  context.create.mockRejectedValue({
+    code: 40135,
+    message: `referenced contract ${targetId} for path contractId does not meet the reference's requirement owner other`,
+  });
+  await expect(
+    saveRating({
+      sdk: context.sdk as never,
+      keyManager: context.keyManager as never,
+      registryId,
+      targetId,
+      input,
+    }),
+  ).rejects.toThrow("You can't review a contract you own.");
 });

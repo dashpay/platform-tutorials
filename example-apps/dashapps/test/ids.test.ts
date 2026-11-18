@@ -1,6 +1,7 @@
 import { describe, expect, it } from "vitest";
 import {
   bytesToBase58,
+  idFromKeyHex,
   idToBytes,
   IdReadError,
   isBase58Id,
@@ -56,5 +57,19 @@ describe("Platform identifier normalization", () => {
     expect(isBase58Id(id(10))).toBe(true);
     expect(isBase58Id("1".repeat(33))).toBe(false);
     expect(isBase58Id(idToBytes(id(10)))).toBe(false);
+  });
+  it("decodes aggregate result keys from identifier hex", () => {
+    // A literal testnet key: DPNS's contract ID.
+    expect(
+      idFromKeyHex(
+        "e668c659af66aee1e72c186dde7b5b7e0a1d712a09c40d5721f622bf53c53155",
+      ),
+    ).toBe("GWRSAVFMjXx8HpQFaNJMqBV7MBgMK4br5UESsB4S31Ec");
+    for (const key of [
+      "",
+      "05",
+      "GWRSAVFMjXx8HpQFaNJMqBV7MBgMK4br5UESsB4S31Ec",
+    ])
+      expect(() => idFromKeyHex(key)).toThrow(IdReadError);
   });
 });

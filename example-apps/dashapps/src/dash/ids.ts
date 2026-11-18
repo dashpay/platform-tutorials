@@ -18,6 +18,13 @@ export function bytesToBase58(bytes: Uint8Array): string {
   while (zeros < bytes.length && bytes[zeros] === 0) zeros++;
   return "1".repeat(zeros) + encoded;
 }
+/** Aggregate result maps key identifier groups by their raw bytes in hex. */
+export function idFromKeyHex(hex: string): string {
+  if (!/^[0-9a-f]{64}$/i.test(hex)) throw new IdReadError();
+  return bytesToBase58(
+    Uint8Array.from(hex.match(/../g)!, (byte) => parseInt(byte, 16)),
+  );
+}
 export function idToBytes(value: string): Uint8Array {
   if (!/^[1-9A-HJ-NP-Za-km-z]{32,44}$/.test(value)) throw new IdReadError();
   let n = 0n;

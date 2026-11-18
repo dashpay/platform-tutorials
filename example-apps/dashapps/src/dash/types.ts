@@ -36,7 +36,31 @@ export interface ContractHandle {
 }
 export type WhereClause =
   | [string, "==" | "startsWith" | ">=" | "<=", string | number]
-  | [string, "between", [number, number]];
+  | [string, "between", [number, number]]
+  | [string, "in", string[]];
+export type AggregateSelect =
+  { type: "count" } | { type: "avg"; property: string };
+/** One group of a `ranked` / `having` result; `groupValue` is base58 for identifiers. */
+export interface GroupEntry {
+  groupKeyHex: string;
+  groupValue: unknown;
+  value: bigint;
+  valueAsNumber: number;
+  rank?: bigint;
+}
+export interface GroupedResult {
+  entries: GroupEntry[];
+  valueScale: bigint;
+  startingRank?: bigint;
+}
+interface GroupedQuery {
+  dataContractId: string;
+  documentTypeName: string;
+  groupBy: string;
+  aggregate: AggregateSelect;
+  limit: number;
+  direction?: "asc" | "desc";
+}
 export interface ReadSdk {
   version(): number;
   dpns: { username(id: string): Promise<string | undefined> };
@@ -64,6 +88,23 @@ export interface ReadSdk {
       orderBy?: [string, "asc" | "desc"][];
       groupBy?: string[];
     }): Promise<Map<string, bigint>>;
+    /** Proven count and sum per group, keyed like `count`. */
+    average(
+      args: {
+        dataContractId: string;
+        documentTypeName: string;
+        where: WhereClause[];
+        orderBy?: [string, "asc" | "desc"][];
+        groupBy?: string[];
+      },
+      averageProperty: string,
+    ): Promise<Map<string, { count: bigint; sum: bigint }>>;
+    ranked(args: GroupedQuery & { offset?: number }): Promise<GroupedResult>;
+    having(
+      args: GroupedQuery & {
+        having: { operator: ">=" | ">" | "<=" | "<" | "=="; value: number };
+      },
+    ): Promise<GroupedResult>;
   };
 }
 export type Resolution =

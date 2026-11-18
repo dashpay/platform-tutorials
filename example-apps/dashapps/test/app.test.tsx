@@ -346,11 +346,16 @@ it("shows the rating summary in the hero and the ratings section on an app page"
   vi.mocked(client.contracts.getMany).mockResolvedValue(
     new Map([[id(2), contract()]]),
   );
-  vi.mocked(client.documents.count).mockResolvedValue(
-    new Map([
-      ["04", 1n],
-      ["05", 3n],
-    ]),
+  vi.mocked(client.documents.count).mockImplementation(async (args) =>
+    args.documentTypeName === "appReview"
+      ? new Map([
+          ["04", 1n],
+          ["05", 3n],
+        ])
+      : new Map(),
+  );
+  vi.mocked(client.documents.average).mockResolvedValue(
+    new Map([["", { count: 4n, sum: 19n }]]),
   );
   render(<App />);
   await ready();
@@ -366,8 +371,11 @@ it("shows the rating summary in the hero and the ratings section on an app page"
   expect(screen.getAllByText("4 ratings").length).toBeGreaterThan(0);
   expect(
     vi
-      .mocked(client.documents.count)
-      .mock.calls.every(([args]) => args.documentTypeName === "appRating"),
+      .mocked(client.documents.average)
+      .mock.calls.every(
+        ([args, property]) =>
+          args.documentTypeName === "appReview" && property === "stars",
+      ),
   ).toBe(true);
   expect(screen.getByRole("button", { name: "Sign in to rate" })).toBeTruthy();
 });

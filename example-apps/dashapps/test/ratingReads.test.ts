@@ -1,12 +1,13 @@
 import { expect, it, vi } from "vitest";
 import {
   listRatings,
+  myRatings,
   ownRating,
+  ratingAverage,
+  ratingAverages,
   ratingRecord,
   ratingSummary,
   starsFromKeyHex,
-  summarize,
-  emptyDistribution,
 } from "../src/dash/ratingReads";
 import { id, sdk } from "./helpers";
 
@@ -86,16 +87,95 @@ it("decodes grouped-count keys as the plain rating byte", () => {
   }
 });
 
-it("derives total and average from the distribution", () => {
-  // 2×3 + 5×4 + 8×5 = 66 over 15 → 4.4
-  const summary = summarize({ 1: 0n, 2: 0n, 3: 2n, 4: 5n, 5: 8n });
-  expect(summary.count).toBe(15n);
-  expect(summary.average).toBeCloseTo(4.4);
-  expect(summarize(emptyDistribution())).toEqual({
-    count: 0n,
-    average: null,
-    distribution: emptyDistribution(),
+// Testnet contracts and the identifier hex the network keys them by.
+const DPNS = "GWRSAVFMjXx8HpQFaNJMqBV7MBgMK4br5UESsB4S31Ec";
+const DPNS_HEX =
+  "e668c659af66aee1e72c186dde7b5b7e0a1d712a09c40d5721f622bf53c53155";
+const DASHPAY = "Bwr4WHCPz5rFVAD87RqTs3izo4zpzwsEdKPWUT1NS1C7";
+const DASHPAY_HEX =
+  "a2a1b4ac6fef22ea2a1a68e8123644b357875f6b412c18109281c146e7b271bc";
+const DASHRATE = "EJHQrRenbFXEPvhgFXD7v8F2ewkqZ2JEdHGKMshZauxz";
+
+it("reads one contract's proven average, zero when it has no ratings", async () => {
+  const client = sdk();
+  vi.mocked(client.documents.average).mockResolvedValueOnce(
+    new Map([["", { count: 2n, sum: 9n }]]),
+  );
+  expect(await ratingAverage(client, id(9), DPNS)).toEqual({
+    count: 2n,
+    sum: 9n,
+    average: 4.5,
   });
+  expect(client.documents.average).toHaveBeenCalledWith(
+    {
+      dataContractId: id(9),
+      documentTypeName: "appReview",
+      where: [["contractId", "==", DPNS]],
+    },
+    "stars",
+  );
+  // No ratings: an empty map, not a zero entry.
+  vi.mocked(client.documents.average).mockResolvedValueOnce(new Map());
+  expect(await ratingAverage(client, id(9), DPNS)).toEqual({
+    count: 0n,
+    sum: 0n,
+    average: null,
+  });
+  vi.mocked(client.documents.average).mockResolvedValueOnce(
+    new Map([["", { count: -1n, sum: 0n }]]),
+  );
+  await expect(ratingAverage(client, id(9), DPNS)).rejects.toThrow(
+    "Malformed average response.",
+  );
+});
+
+it("batches averages per page, converting hex keys and zero-filling unrated contracts", async () => {
+  const client = sdk();
+  // Network format: hex identifier keys; DashRate has no ratings, so no key.
+  vi.mocked(client.documents.average).mockResolvedValue(
+    new Map([
+      [DPNS_HEX, { count: 2n, sum: 9n }],
+      [DASHPAY_HEX, { count: 1n, sum: 3n }],
+    ]),
+  );
+  const averages = await ratingAverages(client, id(9), [
+    DASHRATE,
+    DPNS,
+    DASHPAY,
+    DPNS,
+  ]);
+  expect([...averages]).toEqual([
+    [DASHRATE, { count: 0n, sum: 0n, average: null }],
+    [DPNS, { count: 2n, sum: 9n, average: 4.5 }],
+    [DASHPAY, { count: 1n, sum: 3n, average: 3 }],
+  ]);
+  expect(client.documents.average).toHaveBeenCalledOnce();
+  expect(client.documents.average).toHaveBeenCalledWith(
+    {
+      dataContractId: id(9),
+      documentTypeName: "appReview",
+      where: [["contractId", "in", [DASHRATE, DPNS, DASHPAY]]],
+      groupBy: ["contractId"],
+    },
+    "stars",
+  );
+});
+
+it("splits batched averages into groups of 100 and rejects unexpected keys", async () => {
+  const client = sdk();
+  const ids = Array.from({ length: 150 }, (_, index) => id(index + 1));
+  await ratingAverages(client, id(9), ids);
+  const calls = vi.mocked(client.documents.average).mock.calls;
+  expect(calls.map(([args]) => (args.where[0][2] as string[]).length)).toEqual([
+    100, 50,
+  ]);
+  // A key for a contract that wasn't asked for, or a base58 key.
+  for (const key of [DASHPAY_HEX, DPNS]) {
+    vi.mocked(client.documents.average).mockResolvedValueOnce(
+      new Map([[key, { count: 1n, sum: 5n }]]),
+    );
+    await expect(ratingAverages(client, id(9), [DPNS])).rejects.toThrow();
+  }
 });
 
 it("reads the grouped count with a between range and defaults absent stars to 0", async () => {
@@ -107,13 +187,17 @@ it("reads the grouped count with a between range and defaults absent stars to 0"
       ["05", 8n],
     ]),
   );
+  vi.mocked(client.documents.average).mockResolvedValue(
+    new Map([["", { count: 10n, sum: 46n }]]),
+  );
   const summary = await ratingSummary(client, id(9), id(2));
   expect(summary.distribution).toEqual({ 1: 0n, 2: 0n, 3: 2n, 4: 0n, 5: 8n });
+  // The total and average come from the proven average, not the histogram.
   expect(summary.count).toBe(10n);
   expect(summary.average).toBeCloseTo(4.6);
   expect(client.documents.count).toHaveBeenCalledWith({
     dataContractId: id(9),
-    documentTypeName: "appRating",
+    documentTypeName: "appReview",
     where: [
       ["contractId", "==", id(2)],
       ["stars", "between", [1, 5]],
@@ -149,7 +233,7 @@ it("asks the serving index for each sort and filter, server-ordered", async () =
   await listRatings(client, id(9), id(2));
   await listRatings(client, id(9), id(2), { sort: "highest" });
   await listRatings(client, id(9), id(2), { sort: "lowest" });
-  // A star filter wins over the sort: `stars ==` on byContractStars.
+  // A star filter wins over the sort: newest first on contractStarsRecent.
   await listRatings(client, id(9), id(2), { sort: "highest", stars: 3 });
   await listRatings(client, id(9), id(2), { cursor: id(40), limit: 10 });
   expect(
@@ -157,40 +241,46 @@ it("asks the serving index for each sort and filter, server-ordered", async () =
   ).toEqual([
     {
       dataContractId: id(9),
-      documentTypeName: "appRating",
+      documentTypeName: "appReview",
       where: [["contractId", "==", id(2)]],
-      orderBy: [["$createdAt", "desc"]],
+      orderBy: [["$updatedAt", "desc"]],
       limit: 26,
     },
     {
       dataContractId: id(9),
-      documentTypeName: "appRating",
+      documentTypeName: "appReview",
       where: [["contractId", "==", id(2)]],
-      orderBy: [["stars", "desc"]],
+      orderBy: [
+        ["stars", "desc"],
+        ["$updatedAt", "desc"],
+      ],
       limit: 26,
     },
     {
       dataContractId: id(9),
-      documentTypeName: "appRating",
+      documentTypeName: "appReview",
       where: [["contractId", "==", id(2)]],
-      orderBy: [["stars", "asc"]],
+      orderBy: [
+        ["stars", "asc"],
+        ["$updatedAt", "desc"],
+      ],
       limit: 26,
     },
     {
       dataContractId: id(9),
-      documentTypeName: "appRating",
+      documentTypeName: "appReview",
       where: [
         ["contractId", "==", id(2)],
         ["stars", "==", 3],
       ],
-      orderBy: [["stars", "asc"]],
+      orderBy: [["$updatedAt", "desc"]],
       limit: 26,
     },
     {
       dataContractId: id(9),
-      documentTypeName: "appRating",
+      documentTypeName: "appReview",
       where: [["contractId", "==", id(2)]],
-      orderBy: [["$createdAt", "desc"]],
+      orderBy: [["$updatedAt", "desc"]],
       limit: 11,
       startAfter: id(40),
     },
@@ -277,7 +367,7 @@ it("looks up the caller's own rating through the unique owner index", async () =
   });
   expect(client.documents.query).toHaveBeenCalledWith({
     dataContractId: id(9),
-    documentTypeName: "appRating",
+    documentTypeName: "appReview",
     where: [
       ["$ownerId", "==", id(1)],
       ["contractId", "==", id(2)],
@@ -290,4 +380,24 @@ it("looks up the caller's own rating through the unique owner index", async () =
   });
   vi.mocked(client.documents.query).mockResolvedValue([]);
   expect(await ownRating(client, id(9), id(1), id(2))).toBeNull();
+});
+
+it("pages the caller's ratings newest first through ownerRecent", async () => {
+  const client = sdk();
+  vi.mocked(client.documents.query).mockResolvedValue([
+    document(8, 2, 1, 5),
+    document(30, 5, 1, 6),
+    document(4, 3, 1, 7),
+  ]);
+  const page = await myRatings(client, id(9), id(1), id(60), 2);
+  expect(page.ratings.map((rating) => rating.id)).toEqual([id(8), id(30)]);
+  expect(page.cursor).toBe(id(30));
+  expect(client.documents.query).toHaveBeenCalledWith({
+    dataContractId: id(9),
+    documentTypeName: "appReview",
+    where: [["$ownerId", "==", id(1)]],
+    orderBy: [["$updatedAt", "desc"]],
+    limit: 3,
+    startAfter: id(60),
+  });
 });

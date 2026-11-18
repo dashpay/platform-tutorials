@@ -3,11 +3,11 @@ import type { DashKeyManager } from "./types";
 import type { SessionSdk } from "../session/types";
 import { requireId } from "./ids";
 import { loadSdkModule } from "./sdkModule";
-import { freshTarget, isDuplicate, prepare } from "./documentWrites";
+import { freshTarget, isDuplicate, prepare, submit } from "./documentWrites";
 import {
   isStars,
   ownRating,
-  RATING_DOCUMENT_TYPE,
+  REVIEW_DOCUMENT_TYPE,
   type RatingRecord,
 } from "./ratingReads";
 
@@ -58,7 +58,7 @@ async function replaceRating(
     throw new Error("Only the rating owner can edit this rating.");
   const current = await args.sdk.documents.get(
     args.registryId,
-    RATING_DOCUMENT_TYPE,
+    REVIEW_DOCUMENT_TYPE,
     existing.id,
   );
   if (!current)
@@ -66,7 +66,7 @@ async function replaceRating(
   const { Document } = await loadSdkModule();
   const draft = new Document({
     properties: ratingProperties(args.targetId, args.input),
-    documentTypeName: RATING_DOCUMENT_TYPE,
+    documentTypeName: REVIEW_DOCUMENT_TYPE,
     dataContractId: args.registryId,
     ownerId: identity.id,
     id: existing.id,
@@ -77,16 +77,19 @@ async function replaceRating(
   const document = await prepare(
     args.sdk,
     args.registryId,
-    RATING_DOCUMENT_TYPE,
+    REVIEW_DOCUMENT_TYPE,
     draft,
   );
-  await args.sdk.documents.replace({ document, identityKey, signer });
+  await submit(() =>
+    args.sdk.documents.replace({ document, identityKey, signer }),
+  );
 }
 
 /**
  * Create the signed-in identity's rating for a contract, or replace the
  * existing one. The unique `ownerContract` index guarantees one rating per
  * identity per contract; a 40105 race is resolved by re-reading and replacing.
+ * The network refuses a rating from the contract's own owner.
  */
 export async function saveRating(args: {
   sdk: SessionSdk;
@@ -96,10 +99,12 @@ export async function saveRating(args: {
   input: RatingInput;
 }): Promise<"created" | "updated"> {
   const properties = ratingProperties(args.targetId, args.input);
-  await freshTarget(args.sdk, args.targetId);
+  const contractOwnerId = await freshTarget(args.sdk, args.targetId);
   const { identity, identityKey, signer } = await args.keyManager.getAuth();
   requireKey(identityKey);
   const ownerId = identity.id.toString();
+  if (ownerId === contractOwnerId)
+    throw new Error("You can't review a contract you own.");
   const existing = await ownRating(
     args.sdk,
     args.registryId,
@@ -113,18 +118,20 @@ export async function saveRating(args: {
   const { Document } = await loadSdkModule();
   const draft = new Document({
     properties,
-    documentTypeName: RATING_DOCUMENT_TYPE,
+    documentTypeName: REVIEW_DOCUMENT_TYPE,
     dataContractId: requireId(args.registryId),
     ownerId: identity.id,
   });
   const document = await prepare(
     args.sdk,
     args.registryId,
-    RATING_DOCUMENT_TYPE,
+    REVIEW_DOCUMENT_TYPE,
     draft,
   );
   try {
-    await args.sdk.documents.create({ document, identityKey, signer });
+    await submit(() =>
+      args.sdk.documents.create({ document, identityKey, signer }),
+    );
     return "created";
   } catch (error) {
     if (!isDuplicate(error)) throw error;
@@ -155,9 +162,11 @@ export async function removeRating(args: {
     throw new Error("Only the rating owner can remove this rating.");
   const current = await args.sdk.documents.get(
     args.registryId,
-    RATING_DOCUMENT_TYPE,
+    REVIEW_DOCUMENT_TYPE,
     args.rating.id,
   );
   if (!current) throw new Error("This rating no longer exists.");
-  await args.sdk.documents.delete({ document: current, identityKey, signer });
+  await submit(() =>
+    args.sdk.documents.delete({ document: current, identityKey, signer }),
+  );
 }

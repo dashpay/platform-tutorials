@@ -25,6 +25,11 @@ export function sdk(): ReadSdk {
     documents: {
       query: vi.fn(async () => []),
       count: vi.fn(async () => new Map<string, bigint>()),
+      average: vi.fn(
+        async () => new Map<string, { count: bigint; sum: bigint }>(),
+      ),
+      ranked: vi.fn(async () => ({ entries: [], valueScale: 1n })),
+      having: vi.fn(async () => ({ entries: [], valueScale: 1n })),
     },
     dpns: { username: vi.fn(async () => undefined) },
   };

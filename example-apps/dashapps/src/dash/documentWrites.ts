@@ -1,11 +1,18 @@
-/** Write-path helpers shared by metadata and rating documents. */
+/** Write-path helpers shared by every registry document type. */
 import type { DataContract, Document } from "@dashevo/evo-sdk";
 import type { SessionSdk } from "../session/types";
 import { requireId } from "./ids";
+import { errorMessage } from "../lib/logger";
 import { loadSdkModule } from "./sdkModule";
 
-/** Evict the target from the SDK cache and require a fresh successful read. */
-export async function freshTarget(sdk: SessionSdk, targetId: string) {
+/**
+ * Evict the target from the SDK cache, require a fresh successful read, and
+ * return the target contract's owner.
+ */
+export async function freshTarget(
+  sdk: SessionSdk,
+  targetId: string,
+): Promise<string> {
   const id = requireId(targetId);
   const { Identifier } = await loadSdkModule();
   if (sdk.getWasmSdkConnected) {
@@ -22,6 +29,7 @@ export async function freshTarget(sdk: SessionSdk, targetId: string) {
   const target = (await sdk.contracts.getMany([id])).get(id);
   if (!target)
     throw new Error("The target contract no longer exists on this network.");
+  return requireId(target.ownerId);
 }
 
 /**
@@ -56,11 +64,58 @@ export async function prepare(
   return prepared;
 }
 
+const CONSENSUS_ERRORS = {
+  duplicate: { code: 40105, text: "duplicate unique properties" },
+  referenceNotFound: { code: 40120, text: "not found for path" },
+  immutable: { code: 40128, text: "is immutable and cannot be changed" },
+  ownerRequirement: { code: 40135, text: "does not meet the reference's" },
+} as const;
+
+function isConsensusError(
+  error: unknown,
+  { code, text }: { code: number; text: string },
+) {
+  return (
+    (error as { code?: unknown })?.code === code ||
+    errorMessage(error).includes(text)
+  );
+}
+
 /** Platform's unique-index violation (code 40105). */
 export function isDuplicate(error: unknown) {
-  const value = error as { code?: unknown; message?: unknown };
-  return (
-    value?.code === 40105 ||
-    String(value?.message ?? error).includes("duplicate unique properties")
-  );
+  return isConsensusError(error, CONSENSUS_ERRORS.duplicate);
+}
+
+/** Reword the reference and immutability refusals for the user. */
+export function explainWriteError(error: unknown): unknown {
+  const message = errorMessage(error);
+  if (isConsensusError(error, CONSENSUS_ERRORS.referenceNotFound))
+    return new Error(
+      message.includes("document")
+        ? "That publisher has no entry for this contract. They need to publish one first."
+        : "The target contract does not exist on this network.",
+      { cause: error },
+    );
+  if (isConsensusError(error, CONSENSUS_ERRORS.ownerRequirement))
+    return new Error(
+      message.includes("owner other")
+        ? "You can't review a contract you own."
+        : "Only the contract's owner can choose its official entry.",
+      { cause: error },
+    );
+  if (isConsensusError(error, CONSENSUS_ERRORS.immutable))
+    return new Error(
+      "A registry document can't be moved to a different contract.",
+      { cause: error },
+    );
+  return error;
+}
+
+/** Broadcast a document transition, translating consensus refusals. */
+export async function submit<T>(transition: () => Promise<T>): Promise<T> {
+  try {
+    return await transition();
+  } catch (error) {
+    throw explainWriteError(error);
+  }
 }

@@ -206,7 +206,7 @@ function RatingCard({
     <li
       className={`rating-card${own ? " own" : ""}`}
       // The "Most recent" ordering key; the visible time is the last edit.
-      data-created-at={rating.createdAt?.toString()}
+      data-updated-at={rating.updatedAt?.toString()}
     >
       <div className="rating-card-head">
         <span className="rating-avatar" aria-hidden="true">
