@@ -543,6 +543,51 @@ it("searches registry names on the network, one row per app", async () => {
   expect(screen.getByRole("button", { name: "Listed app" })).toBeTruthy();
 });
 
+it("pages name matches so an app past the first page is reachable", async () => {
+  const client = connect();
+  const listing = (n: number, contractId: string, name: string) => ({
+    id: id(n + 100),
+    ownerId: id(n + 20),
+    revision: 1n,
+    properties: {
+      contractId,
+      name,
+      tagline: "Listed",
+      category: "games",
+      tags: "",
+    },
+  });
+  vi.mocked(client.documents.query).mockImplementation(async (query) => {
+    if (!JSON.stringify(query.where).includes("startsWith")) return [];
+    // A full first page of listings for one app, then a second app.
+    return query.startAfter
+      ? [listing(40, id(5), "Listed other")]
+      : Array.from({ length: 26 }, (_, n) => listing(n, id(2), "Listed app"));
+  });
+  render(<App />);
+  await ready();
+  openSearch();
+  const keyword = screen.getByLabelText("Discover by keyword");
+  fireEvent.change(keyword, { target: { value: "Li" } });
+  fireEvent.submit(keyword.closest("form")!);
+  expect(
+    await screen.findByRole("button", { name: "Listed app" }),
+  ).toBeTruthy();
+  expect(screen.queryByRole("button", { name: "Listed other" })).toBeNull();
+
+  fireEvent.click(screen.getByRole("button", { name: "Show more" }));
+  expect(
+    await screen.findByRole("button", { name: "Listed other" }),
+  ).toBeTruthy();
+  expect(screen.getByRole("button", { name: "Listed app" })).toBeTruthy();
+  expect(screen.queryByRole("button", { name: "Show more" })).toBeNull();
+  expect(
+    vi
+      .mocked(client.documents.query)
+      .mock.calls.some(([query]) => query.startAfter === id(124)),
+  ).toBe(true);
+});
+
 it("drops the previous registry's Discover listings when the registry changes", async () => {
   const client = connect();
   vi.mocked(client.contracts.getMany).mockImplementation(

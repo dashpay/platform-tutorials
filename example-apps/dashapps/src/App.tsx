@@ -125,6 +125,7 @@ function Browser({
   );
   const [partialFailure, setPartialFailure] = useState("");
   const [cursor, setCursor] = useState<string>();
+  const [nameCursor, setNameCursor] = useState<string>();
   const [resolved, setResolved] = useState(new Map<string, Resolution>());
   const [summaries, setSummaries] = useState(
     new Map<string, ContractSummary>(),
@@ -190,9 +191,12 @@ function Browser({
     const query = more ? term : keyword;
     const length = query.trim().length;
     const registryId = session.registryId;
-    const byKeyword = more || (length >= 3 && length <= 50);
+    // Show more continues whichever search still has another page.
+    const byKeyword = more ? Boolean(cursor) : length >= 3 && length <= 50;
     const byName =
-      !more && registryId && length >= 1 && length <= 63 ? registryId : "";
+      registryId && (more ? nameCursor : length >= 1 && length <= 63)
+        ? registryId
+        : "";
     setError("");
     if (!byKeyword && !byName) {
       setError("Use 3–50 characters for a keyword, or up to 63 for a name.");
@@ -206,6 +210,7 @@ function Browser({
       setSearchOfficial(new Map());
       setPartialFailure("");
       setCursor(undefined);
+      setNameCursor(undefined);
       setTerm(query);
       setSearched(false);
       setResolved(new Map());
@@ -218,17 +223,18 @@ function Browser({
         // Registry names come from the byName index, not the loaded feed.
         byName
           ? (async () => {
-              const { entries } = await searchEntriesByName(
+              const { entries, cursor: next } = await searchEntriesByName(
                 connection.sdk,
                 byName,
                 query,
+                more ? nameCursor : undefined,
               );
               const endorsements = await endorsementsFor(
                 connection.sdk,
                 byName,
                 entries.map((entry) => entry.contractId),
               ).catch(() => new Map<string, Endorsement>());
-              return { entries, endorsements };
+              return { entries, endorsements, next };
             })()
           : undefined,
       ]);
@@ -239,21 +245,24 @@ function Browser({
       // Only a search that ran can fail; show the other's results if it worked.
       if (failures.length === Number(byKeyword) + Number(Boolean(byName)))
         throw failures[0];
-      if (failures.length)
-        setPartialFailure(
-          `Part of the search failed (${message(failures[0])}). Showing the rest.`,
-        );
+      setPartialFailure(
+        failures.length
+          ? `Part of the search failed (${message(failures[0])}). Showing the rest.`
+          : "",
+      );
       if (nameResult.status === "fulfilled" && nameResult.value) {
-        const { entries, endorsements } = nameResult.value;
-        setNamed(entries);
+        const { entries, endorsements, next } = nameResult.value;
+        setNamed((previous) => [...(more ? previous : []), ...entries]);
         setSearchOfficial(
-          new Map(
-            [...endorsements].map(([id, endorsement]) => [
-              id,
-              endorsement.publisherId,
+          (previous) =>
+            new Map([
+              ...(more ? previous : []),
+              ...[...endorsements].map(
+                ([id, endorsement]) => [id, endorsement.publisherId] as const,
+              ),
             ]),
-          ),
         );
+        setNameCursor(next);
       }
       setSearched(true);
       const page =
@@ -1087,7 +1096,7 @@ function Browser({
           {!registryMatches.length && !keywordIds.length && (
             <p>No apps found for this keyword.</p>
           )}
-          {cursor && (
+          {(cursor || nameCursor) && (
             <button
               className="open-pill"
               disabled={busy}
