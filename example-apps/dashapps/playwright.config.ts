@@ -42,7 +42,8 @@ export default defineConfig({
   webServer: {
     command: `npx vite --port ${PORT} --strictPort`,
     url: `http://localhost:${PORT}`,
-    reuseExistingServer: !process.env.CI,
+    // A recovery phrase is only typed into a server this run started.
+    reuseExistingServer: !process.env.CI && !process.env.PLATFORM_MNEMONIC,
     timeout: 120_000,
   },
 });
