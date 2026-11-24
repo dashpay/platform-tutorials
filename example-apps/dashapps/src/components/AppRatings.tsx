@@ -118,7 +118,7 @@ function RatingEditor({
             registryId: session.registryId,
             targetId: contractId,
             input,
-            revision: existing?.revision ?? null,
+            original: existing,
           });
           return result === "created" ? "Rating saved." : "Rating updated.";
         });

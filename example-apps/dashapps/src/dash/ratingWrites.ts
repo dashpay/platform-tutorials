@@ -49,22 +49,23 @@ async function replaceRating(
     registryId: string;
     targetId: string;
     input: RatingInput;
-    revision?: bigint | null;
   },
-  existing: RatingRecord,
+  original: RatingRecord,
 ) {
   const { identity, identityKey, signer } = await args.keyManager.getAuth();
   requireKey(identityKey);
-  if (identity.id.toString() !== existing.ownerId)
+  if (identity.id.toString() !== original.ownerId)
     throw new Error("Only the rating owner can edit this rating.");
   const current = await args.sdk.documents.get(
     args.registryId,
     REVIEW_DOCUMENT_TYPE,
-    existing.id,
+    original.id,
   );
   if (!current)
-    throw new Error("Your rating no longer exists. Refresh and try again.");
-  if (args.revision != null && BigInt(current.revision ?? 1) !== args.revision)
+    throw new Error(
+      "Your review was removed or replaced since you opened the editor. Reload the page.",
+    );
+  if (BigInt(current.revision ?? 1) !== original.revision)
     throw new Error(
       "Your review changed since you opened the editor. Reload the page to edit the latest version.",
     );
@@ -74,7 +75,7 @@ async function replaceRating(
     documentTypeName: REVIEW_DOCUMENT_TYPE,
     dataContractId: args.registryId,
     ownerId: identity.id,
-    id: existing.id,
+    id: original.id,
     revision: BigInt(current.revision ?? 0) + 1n,
   });
   draft.createdAt = current.createdAt;
@@ -90,13 +91,15 @@ async function replaceRating(
   );
 }
 
+const ALREADY_REVIEWED =
+  "You reviewed this app since you opened the editor. Reload the page to edit your review.";
+
 /**
- * Create the signed-in identity's rating for a contract, or replace the
- * existing one. The unique `ownerContract` index guarantees one rating per
- * identity per contract; a 40105 race is resolved by re-reading and replacing.
- * The network refuses a rating from the contract's own owner. `revision` is
- * the review the editor was opened with, or null when it had none; a newer
- * one on the network is refused.
+ * Create the signed-in identity's rating for a contract, or edit the one the
+ * editor was opened with (`original`, null for a first review). The unique
+ * `ownerContract` index allows one rating per identity per contract, so a
+ * review saved elsewhere in the meantime is a conflict, never overwritten.
+ * The network refuses a rating from the contract's own owner.
  */
 export async function saveRating(args: {
   sdk: SessionSdk;
@@ -104,7 +107,7 @@ export async function saveRating(args: {
   registryId: string;
   targetId: string;
   input: RatingInput;
-  revision?: bigint | null;
+  original: RatingRecord | null;
 }): Promise<"created" | "updated"> {
   const properties = ratingProperties(args.targetId, args.input);
   const contractOwnerId = await freshTarget(args.sdk, args.targetId);
@@ -113,20 +116,12 @@ export async function saveRating(args: {
   const ownerId = identity.id.toString();
   if (ownerId === contractOwnerId)
     throw new Error("You can't review a contract you own.");
-  const existing = await ownRating(
-    args.sdk,
-    args.registryId,
-    ownerId,
-    args.targetId,
-  );
-  if (existing) {
-    if (args.revision === null)
-      throw new Error(
-        "You reviewed this app since you opened the editor. Reload the page to edit your review.",
-      );
-    await replaceRating(args, existing);
+  if (args.original) {
+    await replaceRating(args, args.original);
     return "updated";
   }
+  if (await ownRating(args.sdk, args.registryId, ownerId, args.targetId))
+    throw new Error(ALREADY_REVIEWED);
   const { Document } = await loadSdkModule();
   const draft = new Document({
     properties,
@@ -144,22 +139,10 @@ export async function saveRating(args: {
     await submit("review", () =>
       args.sdk.documents.create({ document, identityKey, signer }),
     );
-    return "created";
   } catch (error) {
-    if (!isDuplicate(error)) throw error;
-    const committed = await ownRating(
-      args.sdk,
-      args.registryId,
-      ownerId,
-      args.targetId,
-    );
-    if (!committed)
-      throw new Error(
-        "You already rated this app, but the rating could not be loaded. Refresh and try again.",
-      );
-    await replaceRating({ ...args, revision: undefined }, committed);
-    return "updated";
+    throw isDuplicate(error) ? new Error(ALREADY_REVIEWED) : error;
   }
+  return "created";
 }
 
 export async function removeRating(args: {

@@ -158,6 +158,7 @@ it("blocks writes when the fresh target lookup is absent", async () => {
       registryId,
       targetId,
       input,
+      original: null,
     }),
   ).rejects.toThrow("no longer exists");
   expect(context.remove).toHaveBeenCalledOnce();
@@ -172,6 +173,7 @@ it("creates a prepared rating with a base58 identifier when none exists", async 
     registryId,
     targetId,
     input,
+    original: null,
   });
   expect(result).toBe("created");
   expect(context.create).toHaveBeenCalledOnce();
@@ -187,7 +189,7 @@ it("creates a prepared rating with a base58 identifier when none exists", async 
   expect(context.replace).not.toHaveBeenCalled();
 });
 
-it("replaces an existing rating, bumping revision and preserving $createdAt", async () => {
+it("edits the review the editor opened, bumping revision and preserving $createdAt", async () => {
   const current = new FakeDocument({
     properties: { contractId: targetId, stars: 5 },
     id: id(4),
@@ -197,22 +199,13 @@ it("replaces an existing rating, bumping revision and preserving $createdAt", as
   });
   current.createdAt = 100n;
   const context = setup({ existing: current });
-  context.query.mockResolvedValue([
-    {
-      id: id(4),
-      ownerId,
-      revision: 7n,
-      createdAt: 100n,
-      properties: { contractId: targetId, stars: 5, title: "Old title" },
-    },
-  ]);
   const result = await saveRating({
     sdk: context.sdk as never,
     keyManager: context.keyManager as never,
     registryId,
     targetId,
     input,
-    revision: 7n,
+    original: existingRating(),
   });
   expect(result).toBe("updated");
   expect(context.create).not.toHaveBeenCalled();
@@ -223,7 +216,7 @@ it("replaces an existing rating, bumping revision and preserving $createdAt", as
   expect(activeDraft?.properties).toMatchObject({ stars: 4, title: "Great" });
 });
 
-it("refuses a review edit opened on an older revision without submitting", async () => {
+it("refuses an edit when the review changed since the editor opened", async () => {
   const current = new FakeDocument({
     properties: { contractId: targetId, stars: 2 },
     id: id(4),
@@ -232,14 +225,6 @@ it("refuses a review edit opened on an older revision without submitting", async
     documentTypeName: "appReview",
   });
   const context = setup({ existing: current });
-  context.query.mockResolvedValue([
-    {
-      id: id(4),
-      ownerId,
-      revision: 8n,
-      properties: { contractId: targetId, stars: 2 },
-    },
-  ]);
   await expect(
     saveRating({
       sdk: context.sdk as never,
@@ -247,22 +232,46 @@ it("refuses a review edit opened on an older revision without submitting", async
       registryId,
       targetId,
       input,
-      revision: 7n,
+      original: existingRating(),
     }),
   ).rejects.toThrow("changed since you opened the editor");
   expect(context.replace).not.toHaveBeenCalled();
   expect(context.create).not.toHaveBeenCalled();
 });
 
-it("refuses a new review when one was saved after the editor opened", async () => {
-  const current = new FakeDocument({
-    properties: { contractId: targetId, stars: 2 },
-    id: id(4),
-    ownerId,
-    revision: 1n,
-    documentTypeName: "appReview",
-  });
-  const context = setup({ existing: current });
+it("refuses to edit another identity's review", async () => {
+  const context = setup();
+  await expect(
+    saveRating({
+      sdk: context.sdk as never,
+      keyManager: context.keyManager as never,
+      registryId,
+      targetId,
+      input,
+      original: { ...existingRating(), ownerId: id(8) },
+    }),
+  ).rejects.toThrow("Only the rating owner");
+  expect(context.replace).not.toHaveBeenCalled();
+});
+
+it("refuses an edit of a removed review instead of creating one", async () => {
+  const context = setup();
+  await expect(
+    saveRating({
+      sdk: context.sdk as never,
+      keyManager: context.keyManager as never,
+      registryId,
+      targetId,
+      input,
+      original: existingRating(),
+    }),
+  ).rejects.toThrow("removed or replaced since you opened the editor");
+  expect(context.create).not.toHaveBeenCalled();
+  expect(context.replace).not.toHaveBeenCalled();
+});
+
+it("refuses a first review when one was saved after the editor opened", async () => {
+  const context = setup();
   context.query.mockResolvedValue([
     {
       id: id(4),
@@ -278,23 +287,24 @@ it("refuses a new review when one was saved after the editor opened", async () =
       registryId,
       targetId,
       input,
-      revision: null,
+      original: null,
     }),
   ).rejects.toThrow("since you opened the editor");
   expect(context.replace).not.toHaveBeenCalled();
   expect(context.create).not.toHaveBeenCalled();
 });
 
-it("resolves a 40105 race by re-reading and replacing the committed rating", async () => {
-  const current = new FakeDocument({
+it("reports a duplicate first review as a conflict without overwriting", async () => {
+  const winner = new FakeDocument({
     properties: { contractId: targetId, stars: 2 },
     id: id(4),
     ownerId,
     revision: 1n,
     documentTypeName: "appReview",
   });
-  const context = setup({ existing: current });
-  context.query.mockResolvedValueOnce([]).mockResolvedValueOnce([
+  const context = setup({ existing: winner });
+  // The other tab's review commits between this tab's check and its create.
+  context.query.mockResolvedValueOnce([]).mockResolvedValue([
     {
       id: id(4),
       ownerId,
@@ -303,17 +313,18 @@ it("resolves a 40105 race by re-reading and replacing the committed rating", asy
     },
   ]);
   context.create.mockRejectedValue({ code: 40105 });
-  const result = await saveRating({
-    sdk: context.sdk as never,
-    keyManager: context.keyManager as never,
-    registryId,
-    targetId,
-    input,
-    revision: null,
-  });
-  expect(result).toBe("updated");
-  expect(context.replace).toHaveBeenCalledOnce();
-  expect(activeDraft?.revision).toBe(2n);
+  await expect(
+    saveRating({
+      sdk: context.sdk as never,
+      keyManager: context.keyManager as never,
+      registryId,
+      targetId,
+      input,
+      original: null,
+    }),
+  ).rejects.toThrow("since you opened the editor");
+  expect(context.create).toHaveBeenCalledOnce();
+  expect(context.replace).not.toHaveBeenCalled();
 });
 
 it("rethrows non-duplicate create failures", async () => {
@@ -326,6 +337,7 @@ it("rethrows non-duplicate create failures", async () => {
       registryId,
       targetId,
       input,
+      original: null,
     }),
   ).rejects.toThrow("insufficient balance");
   expect(context.replace).not.toHaveBeenCalled();
@@ -376,6 +388,7 @@ it("refuses a rating from the contract's owner before broadcasting", async () =>
       registryId,
       targetId,
       input,
+      original: null,
     }),
   ).rejects.toThrow("You can't review a contract you own.");
   expect(context.create).not.toHaveBeenCalled();
@@ -394,6 +407,7 @@ it("rewords the network's owner-requirement refusal", async () => {
       registryId,
       targetId,
       input,
+      original: null,
     }),
   ).rejects.toThrow("You can't review a contract you own.");
 });

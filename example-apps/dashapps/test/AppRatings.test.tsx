@@ -264,7 +264,7 @@ it("lets a signed-in user pick stars, write a review and save it", async () => {
       registryId: id(3),
       targetId: id(2),
       input: { stars: 4, title: "Solid", body: "Works well." },
-      revision: null,
+      original: null,
     }),
   );
   expect(screen.queryByRole("dialog")).toBeNull();
@@ -317,9 +317,9 @@ it("locks the editor while ratings reload after a save", async () => {
   vi.mocked(ownRating).mockReturnValueOnce(reloaded.promise);
   fireEvent.click(within(dialog).getByRole("button", { name: "Save changes" }));
   await screen.findByText("Rating updated.");
-  // The save is checked against the revision the editor opened with.
+  // The save edits the review the editor opened with.
   expect(saveRating).toHaveBeenCalledWith(
-    expect.objectContaining({ revision: 1n }),
+    expect.objectContaining({ original: own }),
   );
   // Until the saved rating is re-read, nothing can open the editor.
   const edit = screen.getByRole("button", {
