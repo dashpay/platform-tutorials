@@ -1,0 +1,7 @@
+dist
+node_modules
+coverage
+playwright-report
+test-results
+# Kept byte-identical to the shared auth implementation; parity is CI-checked.
+src/dash/loginWithPrivateKey.ts

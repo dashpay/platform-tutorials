@@ -1,0 +1,139 @@
+// @vitest-environment jsdom
+import { cleanup, fireEvent, render, screen } from "@testing-library/react";
+import { afterEach, expect, it, vi } from "vitest";
+import { ExternalLaunch } from "../src/components/ExternalLaunch";
+
+afterEach(cleanup);
+
+it("warns before opening a community-submitted app URL", () => {
+  render(
+    <ExternalLaunch
+      url="https://community.example/app?from=dashapps"
+      verified={false}
+      className="launch-pill"
+    >
+      Launch
+    </ExternalLaunch>,
+  );
+
+  fireEvent.click(screen.getByRole("button", { name: "Launch" }));
+
+  expect(screen.getByText("Community link")).toBeTruthy();
+  expect(screen.getByRole("dialog").textContent).toContain(
+    "submitted by a community member",
+  );
+  expect(screen.getByText("community.example")).toBeTruthy();
+  expect(
+    screen.getByText("https://community.example/app?from=dashapps"),
+  ).toBeTruthy();
+  expect(
+    screen.getByRole("link", { name: "Continue ↗" }).getAttribute("href"),
+  ).toBe("https://community.example/app?from=dashapps");
+});
+
+it("identifies contract-owner links in the confirmation", () => {
+  render(
+    <ExternalLaunch
+      url="https://official.example"
+      verified
+      className="launch-pill"
+    >
+      Launch
+    </ExternalLaunch>,
+  );
+
+  expect(screen.queryByText("Official link")).toBeNull();
+  fireEvent.click(screen.getByRole("button", { name: "Launch" }));
+  expect(screen.getByText("Official link")).toBeTruthy();
+  expect(screen.queryByText("Community link")).toBeNull();
+});
+
+it("blocks invalid or non-HTTPS destinations", () => {
+  render(
+    <ExternalLaunch
+      url="http://unsafe.example"
+      verified={false}
+      className="launch-pill"
+    >
+      Launch
+    </ExternalLaunch>,
+  );
+
+  fireEvent.click(screen.getByRole("button", { name: "Launch" }));
+
+  expect(screen.getByRole("alert").textContent).toContain("blocked");
+  expect(screen.queryByRole("link", { name: "Continue ↗" })).toBeNull();
+});
+
+it("closes the confirmation with Escape", () => {
+  render(
+    <ExternalLaunch
+      url="https://official.example"
+      verified
+      className="launch-pill"
+    >
+      Launch
+    </ExternalLaunch>,
+  );
+
+  fireEvent.click(screen.getByRole("button", { name: "Launch" }));
+  expect(screen.getByRole("dialog")).toBeTruthy();
+
+  fireEvent.keyDown(document, { key: "Escape" });
+
+  expect(screen.queryByRole("dialog")).toBeNull();
+});
+
+it("portals the dialog outside its card and contains modal click events", () => {
+  const openDetail = vi.fn();
+  render(
+    <article onClick={openDetail}>
+      <ExternalLaunch
+        url="https://official.example"
+        verified
+        className="launch-pill"
+      >
+        Launch
+      </ExternalLaunch>
+    </article>,
+  );
+
+  fireEvent.click(screen.getByRole("button", { name: "Launch" }));
+  const dialog = screen.getByRole("dialog");
+  expect(dialog.closest("article")).toBeNull();
+  expect(dialog.parentElement?.parentElement).toBe(document.body);
+  expect(openDetail).not.toHaveBeenCalled();
+
+  fireEvent.click(dialog);
+  fireEvent.click(screen.getByRole("button", { name: "Cancel" }));
+  expect(openDetail).not.toHaveBeenCalled();
+});
+
+it("keeps dialog key presses from reaching its card", () => {
+  const openDetail = vi.fn();
+  render(
+    <article onKeyDown={openDetail}>
+      <ExternalLaunch
+        url="https://official.example"
+        verified
+        className="launch-pill"
+      >
+        Launch
+      </ExternalLaunch>
+    </article>,
+  );
+
+  fireEvent.click(screen.getByRole("button", { name: "Launch" }));
+  fireEvent.keyDown(screen.getByRole("button", { name: "Cancel" }), {
+    key: "Enter",
+  });
+  fireEvent.keyDown(screen.getByRole("link", { name: "Continue ↗" }), {
+    key: " ",
+  });
+  expect(openDetail).not.toHaveBeenCalled();
+
+  fireEvent.keyDown(screen.getByRole("button", { name: "Cancel" }), {
+    key: "Escape",
+  });
+  expect(screen.queryByRole("dialog")).toBeNull();
+});
