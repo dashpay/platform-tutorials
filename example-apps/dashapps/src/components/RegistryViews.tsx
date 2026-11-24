@@ -84,6 +84,7 @@ function Entry({
   const session = useSession();
   const official = entry.ownerId === officialPublisherId;
   const own = entry.ownerId === session.identityId;
+  const appUrl = launchUrl(entry.appUrl);
   return (
     <article
       className={`registry-entry${open ? " interactive-entry" : ""}`}
@@ -177,10 +178,10 @@ function Entry({
         )}
       </div>
       <div className="entry-links">
-        {launchUrl(entry.appUrl) && (
+        {appUrl && (
           <ExternalLaunch
             className="launch-pill"
-            url={entry.appUrl!}
+            url={appUrl}
             verified={official}
           >
             Launch ↗
@@ -505,7 +506,7 @@ export function ContractRegistry({
             ? officialResult.value
             : undefined,
         );
-        if (ownEntry.status === "fulfilled") setOwn(ownEntry.value);
+        setOwn(ownEntry.status === "fulfilled" ? ownEntry.value : undefined);
         setTotal(count.status === "fulfilled" ? count.value : undefined);
         const preferred =
           officialResult.status === "fulfilled" && officialResult.value?.entry

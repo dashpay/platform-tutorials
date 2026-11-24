@@ -264,6 +264,7 @@ it("lets a signed-in user pick stars, write a review and save it", async () => {
       registryId: id(3),
       targetId: id(2),
       input: { stars: 4, title: "Solid", body: "Works well." },
+      revision: null,
     }),
   );
   expect(screen.queryByRole("dialog")).toBeNull();

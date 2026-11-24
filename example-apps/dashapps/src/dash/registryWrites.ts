@@ -171,7 +171,7 @@ export async function editMetadata(args: {
     throw new Error(
       "This metadata entry no longer exists. Refresh and try again.",
     );
-  if (BigInt(current.revision ?? 0) !== args.entry.revision)
+  if (BigInt(current.revision ?? 1) !== args.entry.revision)
     throw new Error(
       "This entry changed since you opened the editor. Reload the page to edit the latest version.",
     );

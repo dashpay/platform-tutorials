@@ -254,6 +254,37 @@ it("refuses a review edit opened on an older revision without submitting", async
   expect(context.create).not.toHaveBeenCalled();
 });
 
+it("refuses a new review when one was saved after the editor opened", async () => {
+  const current = new FakeDocument({
+    properties: { contractId: targetId, stars: 2 },
+    id: id(4),
+    ownerId,
+    revision: 1n,
+    documentTypeName: "appReview",
+  });
+  const context = setup({ existing: current });
+  context.query.mockResolvedValue([
+    {
+      id: id(4),
+      ownerId,
+      revision: 1n,
+      properties: { contractId: targetId, stars: 2 },
+    },
+  ]);
+  await expect(
+    saveRating({
+      sdk: context.sdk as never,
+      keyManager: context.keyManager as never,
+      registryId,
+      targetId,
+      input,
+      revision: null,
+    }),
+  ).rejects.toThrow("since you opened the editor");
+  expect(context.replace).not.toHaveBeenCalled();
+  expect(context.create).not.toHaveBeenCalled();
+});
+
 it("resolves a 40105 race by re-reading and replacing the committed rating", async () => {
   const current = new FakeDocument({
     properties: { contractId: targetId, stars: 2 },
@@ -278,6 +309,7 @@ it("resolves a 40105 race by re-reading and replacing the committed rating", asy
     registryId,
     targetId,
     input,
+    revision: null,
   });
   expect(result).toBe("updated");
   expect(context.replace).toHaveBeenCalledOnce();

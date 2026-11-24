@@ -463,7 +463,8 @@ function Browser({
                 Official listing, chosen by the contract owner
               </span>
             ) : (
-              preferredEntry && (
+              preferredEntry &&
+              officialPublisher !== undefined && (
                 <span className="community-label">
                   Community-provided listing
                 </span>
@@ -679,6 +680,7 @@ function Browser({
     dashPay ??
     discoverEntries.find((entry) => launchUrl(entry.appUrl)) ??
     discoverEntries[0];
+  const featuredUrl = launchUrl(featured?.appUrl);
   const alsoFeatured = discoverEntries
     .filter((entry) => entry.id !== featured?.id)
     .slice(0, 3);
@@ -781,10 +783,10 @@ function Browser({
               >
                 {featured?.name.slice(0, 1).toUpperCase() ?? "D"}
               </span>
-              {featured && launchUrl(featured.appUrl) && (
+              {featured && featuredUrl && (
                 <ExternalLaunch
                   className="feature-launch"
-                  url={featured.appUrl!}
+                  url={featuredUrl}
                   verified={
                     featured.ownerId ===
                     discoverOfficial.get(featured.contractId)

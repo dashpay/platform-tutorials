@@ -49,7 +49,7 @@ async function replaceRating(
     registryId: string;
     targetId: string;
     input: RatingInput;
-    revision?: bigint;
+    revision?: bigint | null;
   },
   existing: RatingRecord,
 ) {
@@ -64,10 +64,7 @@ async function replaceRating(
   );
   if (!current)
     throw new Error("Your rating no longer exists. Refresh and try again.");
-  if (
-    args.revision !== undefined &&
-    BigInt(current.revision ?? 0) !== args.revision
-  )
+  if (args.revision != null && BigInt(current.revision ?? 1) !== args.revision)
     throw new Error(
       "Your review changed since you opened the editor. Reload the page to edit the latest version.",
     );
@@ -98,7 +95,8 @@ async function replaceRating(
  * existing one. The unique `ownerContract` index guarantees one rating per
  * identity per contract; a 40105 race is resolved by re-reading and replacing.
  * The network refuses a rating from the contract's own owner. `revision` is
- * the review the editor was opened with; a newer one on the network is refused.
+ * the review the editor was opened with, or null when it had none; a newer
+ * one on the network is refused.
  */
 export async function saveRating(args: {
   sdk: SessionSdk;
@@ -106,7 +104,7 @@ export async function saveRating(args: {
   registryId: string;
   targetId: string;
   input: RatingInput;
-  revision?: bigint;
+  revision?: bigint | null;
 }): Promise<"created" | "updated"> {
   const properties = ratingProperties(args.targetId, args.input);
   const contractOwnerId = await freshTarget(args.sdk, args.targetId);
@@ -122,6 +120,10 @@ export async function saveRating(args: {
     args.targetId,
   );
   if (existing) {
+    if (args.revision === null)
+      throw new Error(
+        "You reviewed this app since you opened the editor. Reload the page to edit your review.",
+      );
     await replaceRating(args, existing);
     return "updated";
   }
@@ -155,7 +157,7 @@ export async function saveRating(args: {
       throw new Error(
         "You already rated this app, but the rating could not be loaded. Refresh and try again.",
       );
-    await replaceRating(args, committed);
+    await replaceRating({ ...args, revision: undefined }, committed);
     return "updated";
   }
 }
