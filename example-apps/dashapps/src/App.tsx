@@ -46,10 +46,10 @@ import type { ContractSummary } from "./dash/contractSummaryStore";
 import { contractFacts } from "./dash/contractFacts";
 import { searchKeywords, shortDescription } from "./dash/keywordSearch";
 import { requireId } from "./dash/ids";
-import type { Network } from "./dash/types";
 import { DEFAULT_CONTRACT_IDS } from "./dash/contractStore";
 
 import { errorMessage as message } from "./lib/logger";
+import { launchUrl } from "./lib/urls";
 import {
   resourceLabel,
   summarizeSchemas,
@@ -57,6 +57,7 @@ import {
 } from "./lib/appDetails";
 type Detail = ReturnType<typeof contractFacts>;
 type View = "discover" | "search" | "mine" | "settings" | "add" | "category";
+const NO_ENTRIES: RegistryEntry[] = [];
 function safeHref(value?: string) {
   if (!value) return undefined;
   try {
@@ -372,7 +373,7 @@ function Browser({
     const official =
       Boolean(officialPublisher) &&
       preferredEntry?.ownerId === officialPublisher;
-    const appUrl = safeHref(preferredEntry?.appUrl);
+    const appUrl = launchUrl(preferredEntry?.appUrl);
     const website = safeHref(preferredEntry?.website);
     return (
       <section className="detail-page">
@@ -671,17 +672,18 @@ function Browser({
     );
   }
   const dashPay = discoverEntries.find(
-    (entry) => entry.name.toLowerCase() === "dashpay" && entry.appUrl,
+    (entry) =>
+      entry.name.toLowerCase() === "dashpay" && launchUrl(entry.appUrl),
   );
   const featured =
     dashPay ??
-    discoverEntries.find((entry) => entry.appUrl) ??
+    discoverEntries.find((entry) => launchUrl(entry.appUrl)) ??
     discoverEntries[0];
   const alsoFeatured = discoverEntries
     .filter((entry) => entry.id !== featured?.id)
     .slice(0, 3);
   const launchable = discoverEntries
-    .filter((entry) => Boolean(entry.appUrl))
+    .filter((entry) => Boolean(launchUrl(entry.appUrl)))
     .slice(0, 4);
   const popularTags = [
     ...new Set(discoverEntries.flatMap((entry) => entry.tags)),
@@ -779,10 +781,10 @@ function Browser({
               >
                 {featured?.name.slice(0, 1).toUpperCase() ?? "D"}
               </span>
-              {featured?.appUrl && (
+              {featured && launchUrl(featured.appUrl) && (
                 <ExternalLaunch
                   className="feature-launch"
-                  url={featured.appUrl}
+                  url={featured.appUrl!}
                   verified={
                     featured.ownerId ===
                     discoverOfficial.get(featured.contractId)
@@ -1275,16 +1277,18 @@ function SessionViews() {
   const [browserGeneration, setBrowserGeneration] = useState(0);
   const [category, setCategory] = useState<AppCategory>();
   const [browserKeyword, setBrowserKeyword] = useState("");
+  // Discover's entries belong to the registry they were read from.
+  const registryKey = `${session.network}:${session.registryId}`;
   const [registryEntries, setRegistryEntries] = useState<
-    Record<Network, RegistryEntry[]>
-  >({ testnet: [], mainnet: [] });
+    Record<string, RegistryEntry[]>
+  >({});
   const cacheRegistryEntries = useCallback(
     (entries: RegistryEntry[]) =>
       setRegistryEntries((cached) => ({
         ...cached,
-        [session.network]: entries,
+        [registryKey]: entries,
       })),
-    [session.network],
+    [registryKey],
   );
   const registryCheck = useRegistryCheck(
     session.connection?.sdk,
@@ -1354,7 +1358,7 @@ function SessionViews() {
           category={category}
           chooseCategory={chooseCategory}
           initialKeyword={browserKeyword}
-          cachedRegistryEntries={registryEntries[session.network]}
+          cachedRegistryEntries={registryEntries[registryKey] ?? NO_ENTRIES}
           cacheRegistryEntries={cacheRegistryEntries}
           key={`browser:${session.network}:${session.connectionGeneration}:${session.registryGeneration}:${browserGeneration}:${category ?? ""}`}
         />

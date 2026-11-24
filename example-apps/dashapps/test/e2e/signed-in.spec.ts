@@ -1,4 +1,3 @@
-import { fileURLToPath } from "node:url";
 import type { Page } from "@playwright/test";
 import {
   detailLoaded,
@@ -14,15 +13,8 @@ import {
 
 // Signed in through the app's own form, read-only: dialogs are opened,
 // filled and cancelled, and no write button is ever pressed. Needs
-// PLATFORM_MNEMONIC, from the environment or the repository's .env.
+// PLATFORM_MNEMONIC, from the environment or a .env file.
 
-try {
-  process.loadEnvFile(
-    fileURLToPath(new URL("../../../../.env", import.meta.url)),
-  );
-} catch {
-  // No .env; the environment may still provide the mnemonic.
-}
 const MNEMONIC = process.env.PLATFORM_MNEMONIC;
 // The DashRate example's contract, owned by the tutorials' identity.
 const OWNED_CONTRACT = "EJHQrRenbFXEPvhgFXD7v8F2ewkqZ2JEdHGKMshZauxz";
@@ -163,6 +155,9 @@ test("the listing and review dialogs validate and cancel without saving", async 
     });
     const name = dialog.getByLabel("Name", { exact: true });
     const url = dialog.getByLabel("App URL (optional)");
+    await expect(
+      dialog.getByText(/launchable app\. It must use HTTPS\./),
+    ).toBeVisible();
     // The write button is never pressed; the form's own validity is checked.
     const form = dialog.locator("form");
     await name.fill("");

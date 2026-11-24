@@ -53,6 +53,8 @@ export function ExternalLaunch({
           <div
             className="external-launch-backdrop"
             onClick={(event) => event.stopPropagation()}
+            // Portal events still bubble to the card, which opens details on Enter.
+            onKeyDown={(event) => event.stopPropagation()}
             onMouseDown={(event) => {
               event.stopPropagation();
               if (event.currentTarget === event.target) setOpen(false);

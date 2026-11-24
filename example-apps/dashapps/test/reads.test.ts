@@ -5,7 +5,7 @@ import {
   shortDescription,
   KEYWORD_CONTRACT_ID,
 } from "../src/dash/keywordSearch";
-import { normalizeUrl, UrlValidationError } from "../src/lib/urls";
+import { launchUrl, normalizeUrl, UrlValidationError } from "../src/lib/urls";
 import { idToBytes } from "../src/dash/ids";
 import { contract, id, sdk } from "./helpers";
 it("reads contract facts without unsafe token JSON serialization", () => {
@@ -71,4 +71,9 @@ it("normalizes optional URLs and blocks unsafe protocols and oversize values", (
     "https://example.com/" + "a".repeat(256),
   ])
     expect(() => normalizeUrl(input)).toThrow(UrlValidationError);
+});
+it("offers a launch only for HTTPS app URLs", () => {
+  expect(launchUrl("https://app.example")).toBe("https://app.example/");
+  for (const input of [undefined, "", "http://app.example", "not a url"])
+    expect(launchUrl(input)).toBeUndefined();
 });

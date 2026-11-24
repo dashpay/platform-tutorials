@@ -244,6 +244,48 @@ it("defaults to the endorsed listing and lets the user select a community listin
   expect(screen.getByText(/Showing the/).textContent).toContain("community");
 });
 
+it("treats a failed endorsement read as no official publisher", async () => {
+  const entry = {
+    id: id(4),
+    ownerId: id(1),
+    contractId: id(2),
+    name: "Fresh listing",
+    tagline: "Reloaded metadata",
+    category: "other" as const,
+    tags: [],
+    revision: 2n,
+  };
+  mockContract([entry], null, null);
+  vi.mocked(officialListing).mockRejectedValue(
+    new Error("endorsement read failed"),
+  );
+  vi.mocked(useSession).mockReturnValue({
+    connection: {
+      sdk: {},
+      names: { resolve: vi.fn(async () => null) },
+    },
+    registryId: id(3),
+    identityId: null,
+    keyManager: null,
+  } as never);
+  const onPreferredEntry = vi.fn();
+  const onOfficialPublisher = vi.fn();
+
+  render(
+    <ContractRegistry
+      contractId={id(2)}
+      onMutation={vi.fn()}
+      onPreferredEntry={onPreferredEntry}
+      onOfficialPublisher={onOfficialPublisher}
+    />,
+  );
+
+  await screen.findByText(/endorsement read failed/);
+  expect(onPreferredEntry).toHaveBeenCalledWith(entry);
+  expect(onOfficialPublisher).toHaveBeenCalledTimes(1);
+  expect(onOfficialPublisher).toHaveBeenCalledWith(undefined);
+});
+
 it("edits the signed-in user's proposal from an official Discover card", async () => {
   const official = {
     id: id(4),
@@ -454,6 +496,23 @@ it("badges each listing official or community and shows its rating", async () =>
   await within(endorsed).findByText("★ 4.3 · 3 reviews");
   expect(within(proposed).getByText("No reviews yet")).toBeTruthy();
   expect(ratingAverages).toHaveBeenCalledWith({}, id(3), [id(20), id(21)]);
+});
+
+it("offers Launch only for listings with an HTTPS app URL", async () => {
+  signedInAs(null);
+  vi.mocked(recentEntries).mockResolvedValue({
+    entries: [
+      { ...listing(10, 20, 1, "Secure"), appUrl: "https://secure.example" },
+      { ...listing(11, 21, 2, "Plain"), appUrl: "http://plain.example" },
+    ],
+    cursor: undefined,
+  });
+  vi.mocked(endorsementsFor).mockResolvedValue(new Map());
+  render(<RegistryExplorer open={vi.fn()} showNavigation={false} />);
+  const secure = (await screen.findByText("Secure")).closest("article")!;
+  const plain = screen.getByText("Plain").closest("article")!;
+  expect(within(secure).getByRole("button", { name: "Launch ↗" })).toBeTruthy();
+  expect(within(plain).queryByRole("button", { name: "Launch ↗" })).toBeNull();
 });
 
 it("switches the feed to official listings and filters to 4★+", async () => {

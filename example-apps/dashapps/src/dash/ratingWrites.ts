@@ -49,6 +49,7 @@ async function replaceRating(
     registryId: string;
     targetId: string;
     input: RatingInput;
+    revision?: bigint;
   },
   existing: RatingRecord,
 ) {
@@ -63,6 +64,13 @@ async function replaceRating(
   );
   if (!current)
     throw new Error("Your rating no longer exists. Refresh and try again.");
+  if (
+    args.revision !== undefined &&
+    BigInt(current.revision ?? 0) !== args.revision
+  )
+    throw new Error(
+      "Your review changed since you opened the editor. Reload the page to edit the latest version.",
+    );
   const { Document } = await loadSdkModule();
   const draft = new Document({
     properties: ratingProperties(args.targetId, args.input),
@@ -89,7 +97,8 @@ async function replaceRating(
  * Create the signed-in identity's rating for a contract, or replace the
  * existing one. The unique `ownerContract` index guarantees one rating per
  * identity per contract; a 40105 race is resolved by re-reading and replacing.
- * The network refuses a rating from the contract's own owner.
+ * The network refuses a rating from the contract's own owner. `revision` is
+ * the review the editor was opened with; a newer one on the network is refused.
  */
 export async function saveRating(args: {
   sdk: SessionSdk;
@@ -97,6 +106,7 @@ export async function saveRating(args: {
   registryId: string;
   targetId: string;
   input: RatingInput;
+  revision?: bigint;
 }): Promise<"created" | "updated"> {
   const properties = ratingProperties(args.targetId, args.input);
   const contractOwnerId = await freshTarget(args.sdk, args.targetId);

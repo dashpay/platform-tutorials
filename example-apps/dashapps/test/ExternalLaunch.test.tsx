@@ -108,3 +108,32 @@ it("portals the dialog outside its card and contains modal click events", () => 
   fireEvent.click(screen.getByRole("button", { name: "Cancel" }));
   expect(openDetail).not.toHaveBeenCalled();
 });
+
+it("keeps dialog key presses from reaching its card", () => {
+  const openDetail = vi.fn();
+  render(
+    <article onKeyDown={openDetail}>
+      <ExternalLaunch
+        url="https://official.example"
+        verified
+        className="launch-pill"
+      >
+        Launch
+      </ExternalLaunch>
+    </article>,
+  );
+
+  fireEvent.click(screen.getByRole("button", { name: "Launch" }));
+  fireEvent.keyDown(screen.getByRole("button", { name: "Cancel" }), {
+    key: "Enter",
+  });
+  fireEvent.keyDown(screen.getByRole("link", { name: "Continue ↗" }), {
+    key: " ",
+  });
+  expect(openDetail).not.toHaveBeenCalled();
+
+  fireEvent.keyDown(screen.getByRole("button", { name: "Cancel" }), {
+    key: "Escape",
+  });
+  expect(screen.queryByRole("dialog")).toBeNull();
+});

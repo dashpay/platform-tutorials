@@ -212,6 +212,7 @@ it("replaces an existing rating, bumping revision and preserving $createdAt", as
     registryId,
     targetId,
     input,
+    revision: 7n,
   });
   expect(result).toBe("updated");
   expect(context.create).not.toHaveBeenCalled();
@@ -220,6 +221,37 @@ it("replaces an existing rating, bumping revision and preserving $createdAt", as
   expect(activeDraft?.revision).toBe(8n);
   expect(activeDraft?.createdAt).toBe(100n);
   expect(activeDraft?.properties).toMatchObject({ stars: 4, title: "Great" });
+});
+
+it("refuses a review edit opened on an older revision without submitting", async () => {
+  const current = new FakeDocument({
+    properties: { contractId: targetId, stars: 2 },
+    id: id(4),
+    ownerId,
+    revision: 8n,
+    documentTypeName: "appReview",
+  });
+  const context = setup({ existing: current });
+  context.query.mockResolvedValue([
+    {
+      id: id(4),
+      ownerId,
+      revision: 8n,
+      properties: { contractId: targetId, stars: 2 },
+    },
+  ]);
+  await expect(
+    saveRating({
+      sdk: context.sdk as never,
+      keyManager: context.keyManager as never,
+      registryId,
+      targetId,
+      input,
+      revision: 7n,
+    }),
+  ).rejects.toThrow("changed since you opened the editor");
+  expect(context.replace).not.toHaveBeenCalled();
+  expect(context.create).not.toHaveBeenCalled();
 });
 
 it("resolves a 40105 race by re-reading and replacing the committed rating", async () => {

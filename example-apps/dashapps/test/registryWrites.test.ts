@@ -162,6 +162,20 @@ it("prepares identifier metadata and classifies a uniqueness race", async () => 
   });
 });
 
+it("refuses an app URL that is not HTTPS before writing", async () => {
+  const context = setup();
+  await expect(
+    createMetadata({
+      sdk: context.sdk as never,
+      keyManager: context.keyManager as never,
+      registryId: context.registryId,
+      targetId: context.targetId,
+      input: { ...input, appUrl: "http://app.example.com" },
+    }),
+  ).rejects.toThrow("App URL must use HTTPS.");
+  expect(context.create).not.toHaveBeenCalled();
+});
+
 it("returns the target's owner so the caller can offer an endorsement", async () => {
   const context = setup();
   expect(
@@ -268,6 +282,37 @@ it("increments the network revision for edits and deletes the fetched document",
   expect(context.del).toHaveBeenCalledWith(
     expect.objectContaining({ document: current }),
   );
+});
+
+it("refuses an edit opened on an older revision without submitting", async () => {
+  const current = new FakeDocument({
+    properties: { contractId: id(2), name: "Newer" },
+    id: id(4),
+    ownerId: id(1),
+    revision: 8n,
+    documentTypeName: "appMetadata",
+  });
+  const context = setup({ existing: current });
+  await expect(
+    editMetadata({
+      sdk: context.sdk as never,
+      keyManager: context.keyManager as never,
+      registryId: context.registryId,
+      targetId: context.targetId,
+      entry: {
+        id: id(4),
+        ownerId: context.ownerId,
+        contractId: context.targetId,
+        name: "Old",
+        tagline: "Old app",
+        category: "other" as const,
+        tags: [],
+        revision: 7n,
+      },
+      input,
+    }),
+  ).rejects.toThrow("changed since you opened the editor");
+  expect(context.replace).not.toHaveBeenCalled();
 });
 
 it("continues seeding system contracts when one curated entry fails", async () => {

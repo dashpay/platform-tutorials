@@ -542,3 +542,93 @@ it("searches registry names on the network, one row per app", async () => {
   expect(await screen.findByText(/Part of the search failed/)).toBeTruthy();
   expect(screen.getByRole("button", { name: "Listed app" })).toBeTruthy();
 });
+
+it("drops the previous registry's Discover listings when the registry changes", async () => {
+  const client = connect();
+  vi.mocked(client.contracts.getMany).mockImplementation(
+    async ([contractId]) =>
+      contractId === id(7)
+        ? new Map([
+            [
+              id(7),
+              {
+                ...contract(),
+                schemas: { appMetadata: {}, appEndorsement: {}, appReview: {} },
+              },
+            ],
+          ])
+        : new Map(),
+  );
+  vi.mocked(client.documents.query).mockImplementation(async (query) =>
+    query.dataContractId === DEFAULT_CONTRACT_IDS.testnet &&
+    query.documentTypeName === "appMetadata"
+      ? [
+          {
+            id: id(11),
+            ownerId: id(1),
+            revision: 1n,
+            properties: {
+              contractId: id(2),
+              name: "Default registry app",
+              tagline: "Listed in the default registry",
+              category: "games",
+              tags: "",
+            },
+          },
+        ]
+      : [],
+  );
+  render(<App />);
+  await ready();
+  expect(
+    (await screen.findAllByText("Default registry app")).length,
+  ).toBeGreaterThan(0);
+  fireEvent.click(screen.getByRole("button", { name: "Settings" }));
+  fireEvent.click(screen.getByRole("button", { name: "Change" }));
+  fireEvent.change(screen.getByLabelText("Registry contract ID"), {
+    target: { value: id(7) },
+  });
+  fireEvent.click(screen.getByRole("button", { name: "Save registry" }));
+  await screen.findByText("Registry selection saved.");
+  openSearch();
+  const keyword = await screen.findByLabelText("Discover by keyword");
+  fireEvent.change(keyword, { target: { value: "Default" } });
+  fireEvent.submit(keyword.closest("form")!);
+  await screen.findByText("No apps found for this keyword.");
+  expect(screen.queryByText("Default registry app")).toBeNull();
+});
+
+it("features and shelves only apps whose URL can be launched", async () => {
+  const client = connect();
+  const listing = (n: number, name: string, appUrl: string) => ({
+    id: id(n + 10),
+    ownerId: id(n),
+    revision: 1n,
+    properties: {
+      contractId: id(n + 20),
+      name,
+      tagline: `${name} tagline`,
+      category: "games",
+      tags: "",
+      appUrl,
+    },
+  });
+  vi.mocked(client.documents.query).mockImplementation(async (query) =>
+    query.documentTypeName === "appMetadata"
+      ? [
+          listing(1, "Plain app", "http://plain.example"),
+          listing(2, "Secure app", "https://secure.example"),
+        ]
+      : [],
+  );
+  render(<App />);
+  await ready();
+  const shelf = (
+    await screen.findByRole("heading", { name: "Launchable now" })
+  ).closest("section")!;
+  await within(shelf).findByText("Secure app");
+  expect(within(shelf).queryByText("Plain app")).toBeNull();
+  expect(
+    document.querySelector(".feature-primary")?.getAttribute("aria-label"),
+  ).toBe("View details for Secure app");
+});

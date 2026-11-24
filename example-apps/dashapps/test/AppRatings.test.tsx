@@ -316,6 +316,10 @@ it("locks the editor while ratings reload after a save", async () => {
   vi.mocked(ownRating).mockReturnValueOnce(reloaded.promise);
   fireEvent.click(within(dialog).getByRole("button", { name: "Save changes" }));
   await screen.findByText("Rating updated.");
+  // The save is checked against the revision the editor opened with.
+  expect(saveRating).toHaveBeenCalledWith(
+    expect.objectContaining({ revision: 1n }),
+  );
   // Until the saved rating is re-read, nothing can open the editor.
   const edit = screen.getByRole("button", {
     name: "Write a review",
@@ -338,6 +342,52 @@ it("locks the editor while ratings reload after a save", async () => {
     (within(reopened).getByLabelText("Title (optional)") as HTMLInputElement)
       .value,
   ).toBe("Saved");
+});
+
+it("reports a failed lookup of the user's rating and retries it", async () => {
+  session({ identityId: id(1), keyManager: {} });
+  vi.mocked(ownRating).mockRejectedValueOnce(new Error("node timeout"));
+  vi.mocked(ratingSummary).mockResolvedValue(summary);
+  vi.mocked(listRatings).mockResolvedValue(page([]));
+  render(<AppRatings contractId={id(2)} />);
+  expect((await screen.findByRole("alert")).textContent).toContain(
+    "Couldn't check for your rating: node timeout",
+  );
+  expect(screen.queryByText("Checking for your rating…")).toBeNull();
+  expect(
+    (
+      screen.getByRole("button", {
+        name: "Write a review",
+      }) as HTMLButtonElement
+    ).disabled,
+  ).toBe(true);
+  expect(screen.queryByRole("radiogroup", { name: "Your rating" })).toBeNull();
+
+  const retried = deferred<RatingRecord | null>();
+  vi.mocked(ownRating).mockReturnValueOnce(retried.promise);
+  fireEvent.click(screen.getByRole("button", { name: "Try again" }));
+  await screen.findByText("Checking for your rating…");
+  expect(
+    (
+      screen.getByRole("button", {
+        name: "Write a review",
+      }) as HTMLButtonElement
+    ).disabled,
+  ).toBe(true);
+  await act(async () => {
+    retried.resolve(null);
+  });
+  await waitFor(() =>
+    expect(
+      (
+        screen.getByRole("button", {
+          name: "Write a review",
+        }) as HTMLButtonElement
+      ).disabled,
+    ).toBe(false),
+  );
+  expect(screen.queryByRole("button", { name: "Try again" })).toBeNull();
+  expect(ownRating).toHaveBeenCalledTimes(2);
 });
 
 it("surfaces write failures inside the editor", async () => {

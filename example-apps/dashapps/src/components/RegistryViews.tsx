@@ -40,6 +40,7 @@ import { SignInForm } from "./SignInForm";
 import { useInlineSignIn } from "../hooks/useInlineSignIn";
 import { ProvenanceIcon } from "./ProvenanceIcon";
 import { ExternalLaunch } from "./ExternalLaunch";
+import { launchUrl } from "../lib/urls";
 import { ModalDialog } from "./ModalDialog";
 
 function EntryRating({ rating }: { rating: RatingAverage }) {
@@ -176,10 +177,10 @@ function Entry({
         )}
       </div>
       <div className="entry-links">
-        {entry.appUrl && (
+        {launchUrl(entry.appUrl) && (
           <ExternalLaunch
             className="launch-pill"
-            url={entry.appUrl}
+            url={entry.appUrl!}
             verified={official}
           >
             Launch ↗
@@ -449,7 +450,7 @@ export function ContractRegistry({
   contractOwnerId?: string;
   onMutation(): void;
   onPreferredEntry?(entry: RegistryEntry | null): void;
-  onOfficialPublisher?(publisherId: string | null): void;
+  onOfficialPublisher?(publisherId: string | null | undefined): void;
   managementHost?: HTMLElement | null;
 }) {
   const session = useSession();
@@ -514,10 +515,12 @@ export function ContractRegistry({
               : null;
         setSelectedId(preferred?.id);
         onPreferredEntry?.(preferred);
-        if (officialResult.status === "fulfilled")
-          onOfficialPublisher?.(
-            officialResult.value?.endorsement.publisherId ?? null,
-          );
+        // A failed endorsement read is unknown, so nothing is badged official.
+        onOfficialPublisher?.(
+          officialResult.status === "fulfilled"
+            ? (officialResult.value?.endorsement.publisherId ?? null)
+            : undefined,
+        );
         const failures = [listings, officialResult, ownEntry, count]
           .filter(
             (result): result is PromiseRejectedResult =>
@@ -1013,7 +1016,10 @@ function MetadataEditor({
           maxLength={256}
           onChange={(event) => change("appUrl", event.target.value)}
         />
-        <small>Only provide this when the contract has a launchable app.</small>
+        <small>
+          Only provide this when the contract has a launchable app. It must use
+          HTTPS.
+        </small>
       </label>
       <label>
         Icon URL (optional)
@@ -1578,7 +1584,7 @@ export function CategoryBrowser({
     (entry) =>
       filter === "all" ||
       (filter === "launchable"
-        ? Boolean(entry.appUrl)
+        ? Boolean(launchUrl(entry.appUrl))
         : entry.ownerId === officialPublishers.get(entry.contractId)),
   );
   return (

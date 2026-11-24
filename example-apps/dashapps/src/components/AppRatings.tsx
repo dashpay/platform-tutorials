@@ -118,6 +118,7 @@ function RatingEditor({
             registryId: session.registryId,
             targetId: contractId,
             input,
+            revision: existing?.revision,
           });
           return result === "created" ? "Rating saved." : "Rating updated.";
         });
@@ -263,21 +264,24 @@ export function AppRatings({
   const [signingIn, setSigningIn] = useState(false);
   const [notice, setNotice] = useState("");
   const [refresh, setRefresh] = useState(0);
+  const [ownRetry, setOwnRetry] = useState(0);
 
   // Results carry the scope they were loaded for; a scope mismatch means the
   // data is stale (or still loading) and is not shown. No synchronous resets.
-  const summaryScope = `${registryId}:${contractId}:${identityId ?? ""}:${refresh}`;
+  const summaryScope = `${registryId}:${contractId}:${identityId ?? ""}:${refresh}:${ownRetry}`;
   const [summaryState, setSummaryState] = useState<{
     scope: string;
     summary?: RatingSummary;
     error: string;
     own?: RatingRecord | null;
+    ownError?: string;
   }>({ scope: "", error: "" });
   const summaryCurrent =
     summaryState.scope === summaryScope ? summaryState : undefined;
   const summary = summaryCurrent?.summary;
   const summaryError = summaryCurrent?.error ?? "";
   const own = summaryCurrent?.own;
+  const ownError = summaryCurrent?.ownError ?? "";
 
   const listScope = `${registryId}:${contractId}:${sort}:${starsFilter ?? ""}:${refresh}`;
   const [listState, setListState] = useState<{
@@ -325,6 +329,8 @@ export function AppRatings({
             ? errorMessage(summaryResult.reason)
             : "",
         own: ownResult.status === "fulfilled" ? ownResult.value : undefined,
+        ownError:
+          ownResult.status === "rejected" ? errorMessage(ownResult.reason) : "",
       });
       onSummary?.(loaded ?? null);
     })();
@@ -492,15 +498,29 @@ export function AppRatings({
         <div className="rating-cta">
           <div>
             <strong>{own ? "Your rating" : "Used this app?"}</strong>
-            <small>
-              {own
-                ? `Saved ${timeAgo(own.updatedAt ?? own.createdAt)}. You can change it any time.`
-                : own === null
-                  ? "One rating per identity. You can change yours any time."
-                  : "Checking for your rating…"}
-            </small>
+            {ownError ? (
+              <small role="alert">
+                Couldn&apos;t check for your rating: {ownError}
+              </small>
+            ) : (
+              <small>
+                {own
+                  ? `Saved ${timeAgo(own.updatedAt ?? own.createdAt)}. You can change it any time.`
+                  : own === null
+                    ? "One rating per identity. You can change yours any time."
+                    : "Checking for your rating…"}
+              </small>
+            )}
           </div>
-          {own ? (
+          {ownError ? (
+            <button
+              type="button"
+              className="primary-pill"
+              onClick={() => setOwnRetry((value) => value + 1)}
+            >
+              Try again
+            </button>
+          ) : own ? (
             <StarMeter value={own.stars} />
           ) : (
             <StarPicker

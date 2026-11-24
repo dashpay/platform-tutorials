@@ -154,6 +154,50 @@ test("featured and launchable apps open by click, keyboard and Launch", async ({
   }
 });
 
+test("Enter in the launch dialog stays out of the card behind it", async ({
+  page,
+  context,
+}) => {
+  await loadedListings(page);
+  const cards = page
+    .locator(".feature-primary, .shelf-card, .registry-panel article")
+    .filter({ has: page.getByRole("button", { name: "Launch ↗" }) });
+  let card = cards.first();
+  for (const candidate of await cards.all())
+    if (await candidate.getByRole("button", { name: "Launch ↗" }).isVisible()) {
+      card = candidate;
+      break;
+    }
+  const launch = card.getByRole("button", { name: "Launch ↗" });
+  test.skip(!(await launch.isVisible()), "No launchable app is shown.");
+  const dialog = page.getByRole("dialog", {
+    name: "Continue to another site?",
+  });
+  const detail = page.locator(".detail-page");
+
+  await launch.click();
+  await dialog.getByRole("button", { name: "Cancel" }).focus();
+  await page.keyboard.press("Enter");
+  await expect(dialog).toHaveCount(0);
+  await expect(detail).toHaveCount(0);
+
+  await launch.click();
+  const continueLink = dialog.getByRole("link", { name: "Continue ↗" });
+  const destination = new URL((await continueLink.getAttribute("href"))!);
+  // Never load the external site itself.
+  await context.route(
+    (url) => url.origin === destination.origin,
+    (route) => route.abort(),
+  );
+  await continueLink.focus();
+  const popup = context.waitForEvent("page");
+  await page.keyboard.press("Enter");
+  await (await popup).close();
+  await expect(dialog).toHaveCount(0);
+  await expect(detail).toHaveCount(0);
+  await expect(card).toBeVisible();
+});
+
 test("Latest listings rows open by title, Details, row, keyboard and category", async ({
   page,
 }) => {

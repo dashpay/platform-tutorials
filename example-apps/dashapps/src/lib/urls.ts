@@ -17,3 +17,13 @@ export function normalizeUrl(input: string): string | undefined {
     );
   }
 }
+/** The URL a Launch button may open: HTTPS only, as the launch dialog requires. */
+export function launchUrl(value?: string): string | undefined {
+  if (!value) return undefined;
+  try {
+    const url = new URL(value);
+    return url.protocol === "https:" ? url.href : undefined;
+  } catch {
+    return undefined;
+  }
+}

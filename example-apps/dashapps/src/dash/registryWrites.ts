@@ -54,6 +54,8 @@ export function metadataProperties(targetId: string, input: MetadataInput) {
   )
     throw new Error("Use up to 5 comma-separated lowercase tags.");
   const appUrl = normalizeUrl(input.appUrl);
+  if (appUrl && !appUrl.startsWith("https://"))
+    throw new Error("App URL must use HTTPS.");
   const iconUrl = normalizeUrl(input.iconUrl);
   if (iconUrl && !iconUrl.startsWith("https://"))
     throw new Error("Icon URL must use HTTPS.");
@@ -168,6 +170,10 @@ export async function editMetadata(args: {
   if (!current)
     throw new Error(
       "This metadata entry no longer exists. Refresh and try again.",
+    );
+  if (BigInt(current.revision ?? 0) !== args.entry.revision)
+    throw new Error(
+      "This entry changed since you opened the editor. Reload the page to edit the latest version.",
     );
   const { Document } = await loadSdkModule();
   const draft = new Document({
