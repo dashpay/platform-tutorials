@@ -123,7 +123,11 @@ function Browser({
   const [searchOfficial, setSearchOfficial] = useState(
     new Map<string, string>(),
   );
-  const [partialFailure, setPartialFailure] = useState("");
+  // A source's failure stays noted until it loads again or a new search starts.
+  const [failedSources, setFailedSources] = useState<{
+    keyword?: string;
+    name?: string;
+  }>({});
   const [cursor, setCursor] = useState<string>();
   const [nameCursor, setNameCursor] = useState<string>();
   const [resolved, setResolved] = useState(new Map<string, Resolution>());
@@ -208,7 +212,7 @@ function Browser({
       setIds([]);
       setNamed([]);
       setSearchOfficial(new Map());
-      setPartialFailure("");
+      setFailedSources({});
       setCursor(undefined);
       setNameCursor(undefined);
       setTerm(query);
@@ -245,11 +249,12 @@ function Browser({
       // Only a search that ran can fail; show the other's results if it worked.
       if (failures.length === Number(byKeyword) + Number(Boolean(byName)))
         throw failures[0];
-      setPartialFailure(
-        failures.length
-          ? `Part of the search failed (${message(failures[0])}). Showing the rest.`
-          : "",
-      );
+      const failure = (result: PromiseSettledResult<unknown>) =>
+        result.status === "rejected" ? message(result.reason) : undefined;
+      setFailedSources((previous) => ({
+        keyword: byKeyword ? failure(keywordResult) : previous.keyword,
+        name: byName ? failure(nameResult) : previous.name,
+      }));
       if (nameResult.status === "fulfilled" && nameResult.value) {
         const { entries, endorsements, next } = nameResult.value;
         setNamed((previous) => [...(more ? previous : []), ...entries]);
@@ -717,6 +722,7 @@ function Browser({
     : compactCategories.length
       ? compactCategories
       : APP_CATEGORIES.slice(0, 7);
+  const partialFailure = failedSources.keyword ?? failedSources.name;
   const registryMatches = (() => {
     if (!searched) return [];
     const query = term.trim().toLowerCase();
@@ -1037,7 +1043,11 @@ function Browser({
             {" · keyword “"}
             {term}”
           </p>
-          {partialFailure && <p className="search-note">{partialFailure}</p>}
+          {partialFailure && (
+            <p className="search-note">
+              Part of the search failed ({partialFailure}). Showing the rest.
+            </p>
+          )}
           {registryMatches.map((entry) => (
             <article className="registry-entry" key={`registry:${entry.id}`}>
               <span className="app-mark" data-category={entry.category}>

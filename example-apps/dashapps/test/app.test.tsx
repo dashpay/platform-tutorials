@@ -588,6 +588,42 @@ it("pages name matches so an app past the first page is reachable", async () => 
   ).toBe(true);
 });
 
+it("keeps the partial-results note while Show more pages only name matches", async () => {
+  const client = connect();
+  const listing = (n: number, contractId: string, name: string) => ({
+    id: id(n + 100),
+    ownerId: id(n + 20),
+    revision: 1n,
+    properties: {
+      contractId,
+      name,
+      tagline: "Listed",
+      category: "games",
+      tags: "",
+    },
+  });
+  vi.mocked(client.documents.query).mockImplementation(async (query) => {
+    if (query.documentTypeName === "contractKeywords")
+      throw new Error("keyword node down");
+    if (!JSON.stringify(query.where).includes("startsWith")) return [];
+    return query.startAfter
+      ? [listing(40, id(5), "Listed other")]
+      : Array.from({ length: 26 }, (_, n) => listing(n, id(2), "Listed app"));
+  });
+  render(<App />);
+  await ready();
+  openSearch();
+  const keyword = screen.getByLabelText("Discover by keyword");
+  fireEvent.change(keyword, { target: { value: "Listed" } });
+  fireEvent.submit(keyword.closest("form")!);
+  expect(await screen.findByText(/Part of the search failed/)).toBeTruthy();
+
+  fireEvent.click(screen.getByRole("button", { name: "Show more" }));
+  await screen.findByRole("button", { name: "Listed other" });
+  // The keyword lookup never ran again, so its matches are still missing.
+  expect(screen.getByText(/Part of the search failed/)).toBeTruthy();
+});
+
 it("drops the previous registry's Discover listings when the registry changes", async () => {
   const client = connect();
   vi.mocked(client.contracts.getMany).mockImplementation(
